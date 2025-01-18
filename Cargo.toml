@@ -1,0 +1,23 @@
+[workspace]
+members = [
+    "software/deimos",
+    "software/deimos_shared"
+]
+exclude = [ "firmware", "hardware" ]
+resolver = "2"
+
+
+[workspace.package]
+authors = ["Deimos Controls <jlogan@deimoscontrols.com>"]
+license = "0BSD OR Apache-2.0"
+repository = "https://github.com/deimoscontrols/deimos"
+homepage = "https://github.com/deimoscontrols/deimos"
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+lto = true
+overflow-checks = true
+
+[profile.dev]
+opt-level = 3

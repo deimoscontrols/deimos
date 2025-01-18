@@ -1,0 +1,109 @@
+use std::net::SocketAddr;
+
+use deimos_shared::{
+    peripherals::{Peripheral, PeripheralId},
+    states::OperatingMetrics,
+};
+
+/// Peripheral control metrics
+#[derive(Default, Clone, Copy, Debug)]
+pub struct PeripheralMetrics {
+    /// Last set of peripheral-side comm metrics
+    pub operating_metrics: OperatingMetrics,
+
+    /// Time at which the last in-order packet from this peripheral
+    /// was received by the controller
+    pub last_received_time_ns: i64,
+
+    /// Latest packet arrival timing delta from target time
+    pub raw_timing_delta_ns: f64,
+
+    /// Filtered packet arrival timing delta from target time
+    pub filtered_timing_delta_ns: f64,
+
+    /// Requested change in peripheral's sampling period
+    pub requested_period_delta_ns: f64,
+
+    /// Requested change in peripheral's sampling phase
+    pub requested_phase_delta_ns: f64,
+
+    /// How many cycles has it been since we heard from this peripheral?
+    pub loss_of_contact_counter: f64,
+
+    /// How many packets behind is the peripheral?
+    pub cycle_lag_count: f64,
+}
+
+/// Peripheral-specific metrics, readings, channel names, etc
+#[derive(Clone, Debug)]
+pub struct PeripheralState {
+    /// Ethernet address
+    pub addr: SocketAddr,
+
+    /// Device unique ID
+    pub id: PeripheralId,
+
+    /// Device name
+    pub name: String,
+
+    //
+    // Values updated live during operation
+    //
+    /// Has this peripheral received and acknowledged its pre-operation
+    /// configuration frame yet?
+    pub acknowledged_configuration: bool,
+
+    /// Timing and comm metrics
+    pub metrics: PeripheralMetrics,
+
+    //
+    // Baked values not intended to change after init
+    //
+    /// Output channel names including peripheral name
+    pub metric_full_names: Vec<String>,
+}
+
+impl PeripheralState {
+    pub fn new(name: &String, addr: SocketAddr, p: &Box<dyn Peripheral>) -> Self {
+        // Metric names are pretty manual
+        let mut mnames = Vec::new();
+        for orig in [
+            "cycle_time_ns",
+            "cycle_time_margin_ns",
+            "raw_timing_delta_ns",
+            "filtered_timing_delta_ns",
+            "requested_period_delta_ns",
+            "requested_phase_delta_ns",
+            "loss_of_contact_counter",
+            "cycle_lag_count",
+        ]
+        .iter()
+        {
+            mnames.push(format!("{name}.metrics.{orig}"))
+        }
+
+        let metrics = PeripheralMetrics::default();
+        let acknowledged_configuration = false;
+        let id = p.id();
+
+        Self {
+            addr,
+            id,
+            name: name.to_owned(),
+            acknowledged_configuration,
+            metrics,
+            metric_full_names: mnames,
+        }
+    }
+
+    pub fn write_metric_values(&self, out: &mut [f64]) {
+        out[0] = self.metrics.operating_metrics.cycle_time_ns as f64;
+        out[1] = self.metrics.operating_metrics.cycle_time_margin_ns as f64;
+        out[2] = self.metrics.raw_timing_delta_ns;
+        out[3] = self.metrics.filtered_timing_delta_ns;
+        out[4] = self.metrics.requested_period_delta_ns;
+        out[5] = self.metrics.requested_phase_delta_ns;
+        out[6] = self.metrics.loss_of_contact_counter;
+        out[7] = self.metrics.cycle_lag_count;
+    }
+}

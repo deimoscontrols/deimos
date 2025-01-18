@@ -1,0 +1,42 @@
+[package]
+name = "deimos"
+version = "0.1.0"
+edition = "2021"
+description = "Control-loop and data pipeline for Deimos data acquisition system"
+readme = "README.md"
+
+[lib]
+crate-type = ["lib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[profile.release]
+codegen-units = 1
+debug = false
+lto = true
+overflow-checks = true
+opt-level = 3
+
+[dependencies]
+deimos_shared = { path = "../deimos_shared" }
+flaw = "0.2.3"
+
+# Control loop prep
+chrono = "0.4.39"
+local-ip-address = "0.6.3"
+core_affinity = "0.8.1"
+thread-priority = "1.2.0"
+
+# Serialization
+# Loose versioning enables plugins without multiple crate versions per build
+serde_json = "^1"
+serde = { version = "^1", features = ["derive"] }
+typetag = { version = "^0.2" }
+
+# Timescale DB interface
+postgres = { version = "0.19.9", optional = true }
+postgres-types = { version = "0.2.8", optional = true }
+
+[features]
+default = ["tsdb"]
+tsdb = ["postgres", "postgres-types"]

@@ -1,0 +1,111 @@
+{
+  "subpcb": {
+    "analog/analog_frontend_panel.kicad_pcb": {
+      "anchor": "J9"
+    },
+    "base/stm32h7_base.kicad_pcb": {
+      "anchor": "J7"
+    },
+    "analog_i.kicad_pcb": {
+      "anchor": "IC6001"
+    }
+  },
+  "sheet": {
+    "": {
+      "checked": false
+    },
+    "/b545dc42-87cf-45f6-8889-98202e5f492a": {
+      "checked": true
+    },
+    "/b545dc42-87cf-45f6-8889-98202e5f492a/0a1e0bd0-0a38-48a2-850f-3bdf02fef3ae": {
+      "checked": false
+    },
+    "/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb": {
+      "checked": false
+    },
+    "/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb/bffed79e-b0f8-42ef-b35b-0bc5151b6608": {
+      "checked": false
+    },
+    "/b545dc42-87cf-45f6-8889-98202e5f492a/55a285de-48df-43d5-b6cb-85740c1dbaf3": {
+      "checked": false
+    },
+    "/b545dc42-87cf-45f6-8889-98202e5f492a/a65c6055-0639-4361-905b-5a6b6f014124": {
+      "checked": false
+    },
+    "/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53": {
+      "checked": false
+    },
+    "/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a": {
+      "checked": false
+    },
+    "/b545dc42-87cf-45f6-8889-98202e5f492a/e1c9a48d-0faf-4502-abd1-fd8b351cacb5": {
+      "checked": false
+    },
+    "/b545dc42-87cf-45f6-8889-98202e5f492a/f8ee85d2-545a-41b5-afed-b6a262439b08": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f": {
+      "checked": true
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/15b6c474-02be-417e-bc87-8489b7b45186": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/19141585-7846-417a-91df-f61215fe3233": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/19141585-7846-417a-91df-f61215fe3233/76bdcc3c-aeb3-45bb-bfec-f68418164bd8": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/1fbd3e63-3701-4f31-b722-16e65c25cea8": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/1fbd3e63-3701-4f31-b722-16e65c25cea8/76bdcc3c-aeb3-45bb-bfec-f68418164bd8": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/34829f1f-4234-4dae-933e-0c65496409f7": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/3688ccee-a1b0-41d3-bce5-95bc73998b83": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/4491b10b-2044-45ea-b186-c518a135ceee": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/4491b10b-2044-45ea-b186-c518a135ceee/76bdcc3c-aeb3-45bb-bfec-f68418164bd8": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/6dd858ad-2af2-4b47-aa79-fa644af79f05": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/a9caaa1d-d23d-426e-af7e-b0ee1cb64b05": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/b7e73f80-a01f-409c-a1ae-634c4b865833": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/c99c1b0b-6659-4cec-a152-edd7ebc08576": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/d6a52a0f-faf0-48a3-a8ea-d9db6b343f24": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/d6a52a0f-faf0-48a3-a8ea-d9db6b343f24/76bdcc3c-aeb3-45bb-bfec-f68418164bd8": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/e56dbb8f-9c9c-4d91-b98e-651f9aa49405": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/ed7a0d70-4012-4e50-88a7-aea647708582": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/fb5bb440-61c9-4bd3-9ab6-a463ad90c8bb": {
+      "checked": false
+    },
+    "/c2baf18d-2b19-4edb-98b3-535275ee271f/fb5bb440-61c9-4bd3-9ab6-a463ad90c8bb/76bdcc3c-aeb3-45bb-bfec-f68418164bd8": {
+      "checked": false
+    }
+  }
+}
