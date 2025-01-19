@@ -93,4 +93,4 @@ docs/_build/
 *autosave*
 *auto_saved*
 *.lck
-*backups/
+*-backups
