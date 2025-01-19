@@ -2,6 +2,45 @@
 
 Realtime data acquisition and controls ecosystem, including hardware, firmware, and software.
 
+# Contact
+
+| Email | Purpose |
+|-------|---------|
+| support@deimoscontrols.com | Questions about the hardware or software |
+| quote@deimoscontrols.com | Request a quote on a DAQ design or implementation of software features |
+
+Note that all designs and software improvements produced on-contract will become part of the open-source lineup,
+but system setup services and integrations with proprietary data targets are expected to be private.
+
+# Hardware Peripherals
+
+| Model | Revision | I/O Medium | Samplerate | Input Capabilities | Output Capabilities |
+|------|----------|------------|------------|--------------------|---------------------|
+| Analog I | 4.0.x | UDP over IPV4<br> on ethernet with LAN-only (non-routable) MAC address | 5Hz-5kHz roundtrip<br>5Hz-10kHz stream<br>Performance depends on network and host machine | 5x 4-20mA<br>5x Pt100 RTD<br>4x K-Type Thermocouple<br>3x 0-2.5V<br>1x Quadrature Encoder<br>1x Counter<br>1x Frequency<br>1x Frequency + Duty Cycle | 4x PWM (1Hz-1MHz) |
+
+# Data Integrations
+
+Data integration implementations perform I/O and database transactions on a separate core to avoid blocking the main control loop, unless no separate core is available.
+
+| Target | I/O Medium | Notes |
+|--------|--------|-------|
+| CSV    | Disk | Fixed-width row format.<br>Wrap, split, or terminate at end of pre-sized file. |
+| TimescaleDB (postgres) | TCP or unix socket | Create table & schema or reuse existing.<br>Insert individual rows or write buffered batches for increased total ingestion rate. |
+
+# Calculation Functions
+
+| Name | Description | Notes |
+|------|-------------|-------|
+| TcKtype | K-type thermocouple tables with cold-junction correction | Based on ITS-90 tables |
+| RtdPt100 | 100-ohm platinum RTD temperature-resistance tables | Based on DIN-43-760 and ITS-90 |
+| Pid | Simple proportion-integral-derivative controller with primitive saturation anti-windup protection | |
+| InverseAffine | Function for inverting amplifier gain and offset to recover estimate of input voltage | |
+| Constant | A constant value that takes no inputs | |
+| Sin | Sine-in-time function for generating test outputs | |
+| Affine | Slope-and-offset function | |
+
+# Goals and Anti-Goals
+
 The goals of this ecosystem are:
 
 * Tightly-integrated sensor frontends
@@ -44,33 +83,6 @@ Notable anti-goals:
     * Where complexity is found, it should be emergent complexity grown as a system from simple parts that can be understood easily on their own in order to understand the whole.
 * Skimping on bits
     * A single unexpected integer overflow event can be more costly than a lifetime of savings from using a smaller type
-
-# Hardware Peripherals
-
-| Model | Revision | I/O Medium | Samplerate | Input Capabilities | Output Capabilities |
-|------|----------|------------|------------|--------------------|---------------------|
-| Analog I | 4.0.x | UDP over IPV4<br> on ethernet with LAN-only (non-routable) MAC address | 5Hz-5kHz roundtrip<br>5Hz-10kHz stream<br>Performance depends on network and host machine | 5x 4-20mA<br>5x Pt100 RTD<br>4x K-Type Thermocouple<br>3x 0-2.5V<br>1x Quadrature Encoder<br>1x Counter<br>1x Frequency<br>1x Frequency + Duty Cycle | 4x PWM (1Hz-1MHz) |
-
-# Data Integrations
-
-Data integration implementations perform I/O and database transactions on a separate core to avoid blocking the main control loop, unless no separate core is available.
-
-| Target | I/O Medium | Notes |
-|--------|--------|-------|
-| CSV    | Disk | Fixed-width row format.<br>Wrap, split, or terminate at end of pre-sized file. |
-| TimescaleDB (postgres) | TCP or unix socket | Create table & schema or reuse existing.<br>Insert individual rows or write buffered batches for increased total ingestion rate. |
-
-# Calculation Functions
-
-| Name | Description | Notes |
-|------|-------------|-------|
-| TcKtype | K-type thermocouple tables with cold-junction correction | Based on ITS-90 tables |
-| RtdPt100 | 100-ohm platinum RTD temperature-resistance tables | Based on DIN-43-760 and ITS-90 |
-| Pid | Simple proportion-integral-derivative controller with primitive saturation anti-windup protection | |
-| InverseAffine | Function for inverting amplifier gain and offset to recover estimate of input voltage | |
-| Constant | A constant value that takes no inputs | |
-| Sin | Sine-in-time function for generating test outputs | |
-| Affine | Slope-and-offset function | |
 
 # Versioning
 
