@@ -1267,7 +1267,7 @@
 			(uuid "68ac69aa-a836-4a6c-b32f-291e524115e1")
 		)
 		(instances
-			(project "simplicity_analog_1"
+			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87"
 					(page "2")
 				)
@@ -1574,7 +1574,7 @@
 			(uuid "ee2932a8-f497-47a1-8bf0-c0ad56a13407")
 		)
 		(instances
-			(project "simplicity_analog_1"
+			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87"
 					(page "3")
 				)

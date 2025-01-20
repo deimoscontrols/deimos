@@ -487,7 +487,7 @@
 			(uuid "c12eb5bd-61de-4abc-bc78-e0c439d7ed12")
 		)
 		(instances
-			(project "simplicity_analog_1"
+			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/fb5bb440-61c9-4bd3-9ab6-a463ad90c8bb"
 					(page "23")
 				)

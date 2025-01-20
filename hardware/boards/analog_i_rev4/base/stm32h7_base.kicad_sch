@@ -4647,7 +4647,7 @@
 			(uuid "edd18af6-775a-4e3d-a1e3-e4b7b489fc08")
 		)
 		(instances
-			(project "simplicity_analog_1"
+			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a"
 					(page "8")
 				)
@@ -5012,7 +5012,7 @@
 			)
 		)
 		(instances
-			(project "simplicity_analog_1"
+			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a"
 					(page "6")
 				)
@@ -5050,7 +5050,7 @@
 			)
 		)
 		(instances
-			(project "simplicity_analog_1"
+			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a"
 					(page "5")
 				)
@@ -5088,7 +5088,7 @@
 			)
 		)
 		(instances
-			(project "simplicity_analog_1"
+			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a"
 					(page "36")
 				)
@@ -5126,7 +5126,7 @@
 			)
 		)
 		(instances
-			(project "simplicity_analog_1"
+			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a"
 					(page "37")
 				)
@@ -5164,7 +5164,7 @@
 			)
 		)
 		(instances
-			(project "simplicity_analog_1"
+			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a"
 					(page "35")
 				)
@@ -5202,7 +5202,7 @@
 			)
 		)
 		(instances
-			(project "simplicity_analog_1"
+			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a"
 					(page "7")
 				)

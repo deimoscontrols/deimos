@@ -8794,7 +8794,7 @@
 			(uuid "d95dc6de-be0b-4a71-9632-03f7b2072e8b")
 		)
 		(instances
-			(project "simplicity_analog_1"
+			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f"
 					(page "4")
 				)
