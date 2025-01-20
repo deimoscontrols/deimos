@@ -400,6 +400,19 @@
 				)
 			)
 		)
+		(property "LCSC" "C9900157061"
+			(at 0 0 180)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "4cc454af-c34e-4c95-b3af-05053f464d2b")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/e56dbb8f-9c9c-4d91-b98e-651f9aa49405/00000000-0000-0000-0000-00005f113797")
 		(sheetname "K-Type TC Amp2")
@@ -37627,6 +37640,19 @@
 				)
 			)
 		)
+		(property "LCSC" "C9900157061"
+			(at 0 0 180)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "46cad0b1-b4b0-4333-8f3b-6a150a2e1056")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/3688ccee-a1b0-41d3-bce5-95bc73998b83/00000000-0000-0000-0000-00005f113797")
 		(sheetname "K-Type TC Amp1")
@@ -38651,6 +38677,19 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "LCSC" "C9900157061"
+			(at 0 0 180)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "6c43e7a3-4f32-47f8-8be1-42a52d428dfe")
+			(effects
+				(font
+					(size 1 1)
 					(thickness 0.15)
 				)
 			)
@@ -42345,6 +42384,19 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "LCSC" "C9900157061"
+			(at 0 0 180)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "05eecd56-6697-41d7-98d2-460604ace444")
+			(effects
+				(font
+					(size 1 1)
 					(thickness 0.15)
 				)
 			)
