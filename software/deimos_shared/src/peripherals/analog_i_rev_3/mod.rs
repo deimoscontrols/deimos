@@ -218,7 +218,7 @@ impl Peripheral for AnalogIRev3 {
                 let voltage_calc = InverseAffine::new(input_name, slope, offset, true);
                 let temperature_calc = TcKtype::new(
                     format!("{voltage_calc_name}.y"),
-                    format!("{name}_rtd_5.temperature_K"),  // TODO: this is swapped because the board temp hardware is bad
+                    format!("{name}_rtd_5.temperature_K"), // TODO: this is swapped because the board temp hardware is bad
                     true,
                 );
                 calcs.insert(voltage_calc_name, Box::new(voltage_calc));

@@ -15,16 +15,16 @@ mod constant;
 mod inverse_affine;
 mod pid;
 mod rtd_pt100;
-mod tc_ktype;
 mod sin;
+mod tc_ktype;
 
 pub use affine::Affine;
 pub use constant::Constant;
 pub use inverse_affine::InverseAffine;
 pub use pid::Pid;
 pub use rtd_pt100::RtdPt100;
-pub use tc_ktype::TcKtype;
 pub use sin::Sin;
+pub use tc_ktype::TcKtype;
 
 // Type aliases for clarification purposes, since
 // there will be a lot of strings and usize ints

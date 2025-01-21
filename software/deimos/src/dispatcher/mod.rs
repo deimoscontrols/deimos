@@ -1,8 +1,8 @@
 //! Dispatchers send data to an outside consumer, usually a database or display
 
 use chrono::{DateTime, Utc};
-use std::time::SystemTime;
 use core_affinity::CoreId;
+use std::time::SystemTime;
 
 mod tsdb;
 pub use tsdb::TimescaleDbDispatcher;

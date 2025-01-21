@@ -112,6 +112,7 @@ impl ControllerState {
 
         // Controller metrics
         let nmetrics = ControllerOperatingMetrics::num_to_write();
-        self.controller_metrics.write_metric_values(&mut dst[i..i + nmetrics]);
+        self.controller_metrics
+            .write_metric_values(&mut dst[i..i + nmetrics]);
     }
 }

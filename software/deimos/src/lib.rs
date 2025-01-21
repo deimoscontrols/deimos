@@ -5,4 +5,4 @@ pub mod dispatcher;
 pub mod orchestrator;
 
 pub use controller::Controller;
-pub use dispatcher::{Dispatcher, TimescaleDbDispatcher, CsvDispatcher};
+pub use dispatcher::{CsvDispatcher, Dispatcher, TimescaleDbDispatcher};
