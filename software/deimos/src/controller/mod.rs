@@ -140,7 +140,7 @@ impl Controller {
         let mut available_peripherals = BTreeMap::new();
 
         // Buffer for UDP packets
-        let mut udp_buf = &mut [0_u8; 1522][..];
+        let udp_buf = &mut [0_u8; 1522][..];
 
         // Get local IP address so that we can scan for modules to bind
         let local_addr: std::net::IpAddr = local_ip_address::local_ip().unwrap();
@@ -177,7 +177,7 @@ impl Controller {
         //    Collect binding responses
         let start_of_binding = Instant::now();
         while start_of_binding.elapsed().as_millis() <= (binding_timeout_ms + 1) as u128 {
-            if let Ok((amt, src_socket_addr)) = self.get_socket().recv_from(&mut udp_buf) {
+            if let Ok((amt, src_socket_addr)) = self.get_socket().recv_from(udp_buf) {
                 // If this is from the right port and it's not capturing our own
                 // broadcast binding request, bind the module
                 let recvd = &udp_buf[..BindingOutput::BYTE_LEN];
@@ -233,7 +233,7 @@ impl Controller {
         // Consume the first core for the control loop
         // While the last core is less likely to be overutilized, the first core is more
         // likely to be a high-performance core on a heterogeneous computing device
-        if let Some(core) = core_ids.iter().nth(0) {
+        if let Some(core) = core_ids.first() {
             core_affinity::set_for_current(*core);
         }
 
@@ -250,7 +250,7 @@ impl Controller {
         // let _ = thread_priority::set_current_thread_priority(thread_priority::ThreadPriority::Max);
 
         // Buffer for UDP packets
-        let mut udp_buf = &mut [0_u8; 1522][..];
+        let udp_buf = &mut [0_u8; 1522][..];
 
         // Initialize calc graph
         println!("Initializing calc orchestrator");
@@ -266,8 +266,7 @@ impl Controller {
         let mut controller_state = ControllerState::new(&self.peripherals, &available_peripherals);
         let addresses = controller_state
             .peripheral_state
-            .keys()
-            .map(|x| x.clone())
+            .keys().copied()
             .collect::<Vec<SocketAddr>>();
 
         // Set up dispatcher(s)
@@ -304,7 +303,7 @@ impl Controller {
             }
 
             // Clear buffer
-            while self.get_socket().recv_from(&mut udp_buf).is_ok() {}
+            while self.get_socket().recv_from(udp_buf).is_ok() {}
 
             // Bind
             let dt_ms = (self.dt_ns / 1_000_000) as u16;
@@ -314,7 +313,7 @@ impl Controller {
             let start_of_configuring = Instant::now();
 
             // Clear buffer
-            while self.get_socket().recv_from(&mut udp_buf).is_ok() {}
+            while self.get_socket().recv_from(udp_buf).is_ok() {}
 
             // Configure peripherals
             //    Send configuration to each peripheral
@@ -335,7 +334,7 @@ impl Controller {
 
             println!("Waiting for peripherals to acknowledge configuration");
             while start_of_configuring.elapsed() < operating_timeout {
-                if let Ok((amt, src_socket_addr)) = self.get_socket().recv_from(&mut udp_buf) {
+                if let Ok((amt, src_socket_addr)) = self.get_socket().recv_from(udp_buf) {
                     if src_socket_addr.port() == PERIPHERAL_RX_PORT
                         && addresses.contains(&src_socket_addr)
                         && amt == ConfiguringOutput::BYTE_LEN
@@ -398,7 +397,7 @@ impl Controller {
 
             let timing_filter = MedianFilter::<i64, 7>::new(0);
 
-            peripheral_timing.insert(addr.clone(), (timing_controller, timing_filter));
+            peripheral_timing.insert(*addr, (timing_controller, timing_filter));
         }
 
         //    Set up peripheral I/O buffers
@@ -459,7 +458,7 @@ impl Controller {
                 // Otherwise, process incoming packets
                 t = start_of_operating.elapsed();
 
-                if let Ok((amt, src_socket_addr)) = self.get_socket().recv_from(&mut udp_buf) {
+                if let Ok((amt, src_socket_addr)) = self.get_socket().recv_from(udp_buf) {
                     if !(src_socket_addr.port() == PERIPHERAL_RX_PORT
                         && addresses.contains(&src_socket_addr))
                     // TODO: faster method using treemap to handle large numbers of peripherals
@@ -553,7 +552,7 @@ impl Controller {
             //    Send to dispatcher
             for dispatcher in self.dispatchers.iter_mut() {
                 dispatcher
-                    .consume(time.clone(), timestamp.clone(), channel_values.clone())
+                    .consume(time, timestamp, channel_values.clone())
                     .unwrap();
             }
 

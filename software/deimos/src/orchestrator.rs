@@ -93,7 +93,7 @@ impl Orchestrator {
         name: &String,
         f: &mut dyn FnMut(&mut [f64]) -> OperatingMetrics,
     ) -> OperatingMetrics {
-        let range = (&self.state.peripheral_output_slices[name]).clone();
+        let range = self.state.peripheral_output_slices[name].clone();
         f(&mut self.state.calc_tape[range])
     }
 
@@ -103,7 +103,7 @@ impl Orchestrator {
         name: &String,
         mut f: impl FnMut(&mut dyn Iterator<Item = f64>),
     ) {
-        let range = (&self.state.peripheral_input_slices[name]).clone();
+        let range = self.state.peripheral_input_slices[name].clone();
         let mut vals = range.map(|i| self.state.calc_tape[i]);
 
         f(&mut vals);
@@ -159,7 +159,7 @@ impl Orchestrator {
     /// Set up calc tape and (re-)initialize individual calcs
     pub fn init(&mut self, dt_ns: u32, peripherals: &BTreeMap<String, Box<dyn Peripheral>>) {
         // These will be stored
-        let calc_tape: Vec<f64>;
+        
         let mut peripheral_output_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
         let mut peripheral_input_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
         let mut peripheral_input_source_indices: Vec<(usize, usize)> = Vec::new();
@@ -318,7 +318,7 @@ impl Orchestrator {
                 let src_field = &input_map[input_name];
                 let src_index = *field_index_map
                     .get(src_field)
-                    .expect(&format!("Did not find field index for {src_field}"));
+                    .unwrap_or_else(|| panic!("Did not find field index for {src_field}"));
                 input_indices.push(src_index);
             }
 
@@ -356,7 +356,7 @@ impl Orchestrator {
         }
 
         // Initialize the calc tape
-        calc_tape = vec![0.0_f64; fields_order.len()];
+        let calc_tape: Vec<f64> = vec![0.0_f64; fields_order.len()];
 
         // Take new internal state
         self.state = OrchestratorState {

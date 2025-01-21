@@ -87,10 +87,8 @@ impl Dispatcher for TimescaleDbDispatcher {
         self.worker = None;
 
         // Get token / pw from environment
-        let pw = std::env::var(&self.token_name).expect(&format!(
-            "Did not find token name env var {}",
-            &self.token_name
-        ));
+        let pw = std::env::var(&self.token_name).unwrap_or_else(|_| panic!("Did not find token name env var {}",
+            &self.token_name));
 
         // Connect to database backend
         let mut client = init_timescaledb_client(&self.dbname, &self.host, &self.user, &pw);
@@ -263,13 +261,13 @@ impl WorkerHandle {
 /// Connect to the database.
 fn init_timescaledb_client(dbname: &str, host: &str, user: &str, pw: &str) -> Client {
     // Connect to database backend
-    let client = Client::connect(
+    
+
+    Client::connect(
         &format!("dbname={dbname} host={host} user={user} password={pw}"),
         NoTls,
     )
-    .unwrap();
-
-    return client;
+    .unwrap()
 }
 
 /// Check if a table for this op already exists;
@@ -287,7 +285,7 @@ fn init_timescaledb_table(
     // Check if the table exists
     let table_exists = !client
         .simple_query(&format!("SELECT 1 FROM public.{op_name};"))
-        .unwrap_or(vec![])
+        .unwrap_or_default()
         .is_empty();
 
     // If it exists but has the wrong schema, this will produce an error on the first write
@@ -343,7 +341,7 @@ fn prepare_timescaledb_query(
         .map(|i| format!("${i}"))
         .collect::<Vec<String>>()
         .join(", ");
-    let prepared_query = client.prepare_typed(&format!("INSERT INTO \"{table_name}\" (timestamp, time, {channel_query}) VALUES ({channel_template})"), &channel_types).unwrap();
+    
 
-    return prepared_query;
+    client.prepare_typed(&format!("INSERT INTO \"{table_name}\" (timestamp, time, {channel_query}) VALUES ({channel_template})"), &channel_types).unwrap()
 }

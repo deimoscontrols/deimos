@@ -214,12 +214,12 @@ impl WorkerHandle {
 
 /// Get current cursor location in file
 fn get_file_loc<T: Seek>(f: &mut T) -> u64 {
-    f.seek(SeekFrom::Current(0)).unwrap()
+    f.stream_position().unwrap()
 }
 
 /// Create a new file with a fixed length, and return a buffered writer
 fn new_file(path: &PathBuf, header: &str, total_size: usize) -> BufWriter<File> {
-    let file = File::create(&path).unwrap();
+    let file = File::create(path).unwrap();
     file.set_len(total_size as u64).unwrap();
     let mut writer: BufWriter<File> = BufWriter::new(file);
     writer.write_all(header.as_bytes()).unwrap();

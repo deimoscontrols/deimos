@@ -124,7 +124,7 @@ impl Peripheral for AnalogIRev3 {
         outputs[22] = out.frequency_meas[0] as f64;
         outputs[23] = out.frequency_meas[1] as f64;
 
-        return out.metrics;
+        out.metrics
     }
 
     /// Get a standard set of calcs that convert the raw outputs
