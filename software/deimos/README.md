@@ -8,10 +8,10 @@ the goals and state of the project.
 The control program follows the hardware peripheral state machine,
 which is linear except that an error in any peripheral state results
 in returning to `Connecting`:
-1. Connecting (no communication with the control machine)
-2. Binding (waiting to associate with a control machine)
-3. Configuring (waiting for operation-specific configuration from control machine)
-4. Operating (roundtrip control)
+1. `Connecting` (no communication with the control machine)
+2. `Binding` (waiting to associate with a control machine)
+3. `Configuring` (waiting for operation-specific configuration from control machine)
+4. `Operating` (roundtrip control)
 
 The initialization schedule is:
 
