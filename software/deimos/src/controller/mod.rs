@@ -115,16 +115,19 @@ impl Controller {
     /// giving `binding_timeout_ms` for peripherals to respond
     /// and requesting a window of `configuring_timeout_ms` after binding
     /// to provide configuration.
-    /// ```sh
-    ///        binding
-    ///        timeout         
-    ///         window         transition to
-    ///         |----|         operating
-    ///         |--------------|
-    ///     sent   configuring
-    ///  binding   timeout
-    ///            window
-    ///```
+    /// ```text
+    ///             binding timeout window
+    ///                 /
+    ///                 /           
+    ///             |----|         timeout to operating
+    ///             |--------------|
+    ///             |      \
+    /// sent binding|       \
+    ///             |    configuring window
+    /// peripherals
+    ///     transition
+    /// to configuring            
+    /// ```
     /// To broadcast scan for available peripherals, provide no addresses
     /// and set configuring_timeout_ms to 0.
     pub fn bind(

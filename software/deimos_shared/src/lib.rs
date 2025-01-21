@@ -1,5 +1,4 @@
-//! Packet formation and parsing, calc functions, and application-level
-//! peripheral definitions for the Deimos Controls DAQ ecosystem.
+#![doc = include_str!("../README.md")]
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

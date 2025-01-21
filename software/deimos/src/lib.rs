@@ -1,4 +1,4 @@
-//! Control program and data integrations for the Deimos Controls DAQ ecosystem.
+#![doc = include_str!("../README.md")]
 
 pub mod controller;
 pub mod dispatcher;
