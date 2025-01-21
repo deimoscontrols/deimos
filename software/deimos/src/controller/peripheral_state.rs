@@ -35,12 +35,12 @@ pub struct PeripheralMetrics {
 }
 
 /// Peripheral-specific metrics, readings, channel names, etc
-#[derive(Clone, Debug)]
 pub struct PeripheralState {
     /// Ethernet address
     pub addr: SocketAddr,
 
     /// Device unique ID
+    #[allow(dead_code)]
     pub id: PeripheralId,
 
     /// Device name
