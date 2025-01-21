@@ -7,6 +7,7 @@ license = "0BSD OR Apache-2.0"
 repository = "https://github.com/deimoscontrols/deimos"
 homepage = "https://github.com/deimoscontrols/deimos"
 description = "Shared packet formats and related resources for Deimos DAQ ecosystem"
+readme = "./README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

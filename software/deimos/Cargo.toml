@@ -3,7 +3,7 @@ name = "deimos"
 version = "0.1.0"
 edition = "2021"
 description = "Control-loop and data pipeline for Deimos data acquisition system"
-readme = "../../README.md"
+readme = "./README.md"
 
 [lib]
 crate-type = ["lib"]
