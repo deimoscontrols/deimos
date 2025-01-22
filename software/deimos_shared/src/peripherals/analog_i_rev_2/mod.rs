@@ -116,7 +116,7 @@ impl Peripheral for AnalogIRev2 {
             outputs[i] = out.adc_voltages[i] as f64;
         }
 
-        return out.metrics;
+        out.metrics
     }
 
     /// Get a standard set of calcs that convert the raw outputs

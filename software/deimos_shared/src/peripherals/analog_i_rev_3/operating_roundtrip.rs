@@ -47,7 +47,7 @@ impl Default for OperatingRoundtripInput {
             period_delta_ns: 0,
             phase_delta_ns: 0,
             pwm_duty_frac: [0.0_f32; 4],
-            pwm_freq_hz: [1_000_000_u32; 4]
+            pwm_freq_hz: [1_000_000_u32; 4],
         }
     }
 }

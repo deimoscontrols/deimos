@@ -1,7 +1,7 @@
 //! A slope and offset, y = ax + b
 
-use crate::{calc_config, calc_input_names, calc_output_names};
 use super::*;
+use crate::{calc_config, calc_input_names, calc_output_names};
 
 /// A slope and offset, y = ax + b
 #[derive(Serialize, Deserialize, Default)]
@@ -68,7 +68,7 @@ impl Calc for Affine {
         if field == "x" {
             self.input_name = source.to_owned();
         } else {
-            return Err(format!("Unrecognized field {field}"))
+            return Err(format!("Unrecognized field {field}"));
         }
 
         Ok(())

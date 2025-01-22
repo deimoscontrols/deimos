@@ -26,7 +26,7 @@ pub struct Sin {
     angle_rad: f64,
 
     #[serde(skip)]
-    scale: f64
+    scale: f64,
 }
 
 impl Sin {
@@ -49,7 +49,7 @@ impl Sin {
             output_index,
             rad_per_cycle,
             angle_rad,
-            scale
+            scale,
         }
     }
 }
@@ -78,7 +78,6 @@ impl Calc for Sin {
 
     /// Change a value in the input map
     fn update_input_map(&mut self, _field: &str, _source: &str) -> Result<(), String> {
-
         Ok(())
     }
 

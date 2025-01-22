@@ -35,6 +35,6 @@ impl TimingPID {
         let out_phase = self.kp * v + self.kd * d;
         let out_period = self.ki * self.integral;
 
-        return (out_period, out_phase);
+        (out_period, out_phase)
     }
 }

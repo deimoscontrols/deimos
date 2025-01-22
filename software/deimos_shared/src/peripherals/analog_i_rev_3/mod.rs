@@ -124,7 +124,7 @@ impl Peripheral for AnalogIRev3 {
         outputs[22] = out.frequency_meas[0] as f64;
         outputs[23] = out.frequency_meas[1] as f64;
 
-        return out.metrics;
+        out.metrics
     }
 
     /// Get a standard set of calcs that convert the raw outputs
@@ -218,7 +218,7 @@ impl Peripheral for AnalogIRev3 {
                 let voltage_calc = InverseAffine::new(input_name, slope, offset, true);
                 let temperature_calc = TcKtype::new(
                     format!("{voltage_calc_name}.y"),
-                    format!("{name}_rtd_5.temperature_K"),  // TODO: this is swapped because the board temp hardware is bad
+                    format!("{name}_rtd_5.temperature_K"), // TODO: this is swapped because the board temp hardware is bad
                     true,
                 );
                 calcs.insert(voltage_calc_name, Box::new(voltage_calc));

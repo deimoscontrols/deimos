@@ -13,7 +13,7 @@ pub struct ControllerOperatingMetrics {
 
 impl ControllerOperatingMetrics {
     pub fn names_to_write(&self) -> Vec<String> {
-        const OUT: [&'static str; 1] = ["ctrl.cycle_time_margin_ns"];
+        const OUT: [&str; 1] = ["ctrl.cycle_time_margin_ns"];
         const {
             assert!(OUT.len() == Self::num_to_write());
         }
@@ -56,7 +56,7 @@ impl ControllerState {
             );
 
             let (addr, p) = &bind_result[&id];
-            let ps = PeripheralState::new(name, *addr, &p);
+            let ps = PeripheralState::new(name, *addr, p);
             state.peripheral_state.insert(*addr, ps);
         }
 
@@ -112,6 +112,7 @@ impl ControllerState {
 
         // Controller metrics
         let nmetrics = ControllerOperatingMetrics::num_to_write();
-        self.controller_metrics.write_metric_values(&mut dst[i..i + nmetrics]);
+        self.controller_metrics
+            .write_metric_values(&mut dst[i..i + nmetrics]);
     }
 }

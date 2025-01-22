@@ -1,7 +1,7 @@
 //! A calc that produces a constant value
 
-use crate::{calc_config, calc_input_names, calc_output_names};
 use super::*;
+use crate::{calc_config, calc_input_names, calc_output_names};
 
 /// Simplest calc that does anything at all
 #[derive(Serialize, Deserialize, Default)]

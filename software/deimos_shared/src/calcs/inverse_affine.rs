@@ -1,7 +1,7 @@
 //! Derive input voltage from linear amplifier reading
 
-use crate::{calc_config, calc_input_names, calc_output_names};
 use super::*;
+use crate::{calc_config, calc_input_names, calc_output_names};
 
 /// Derive input voltage from linear amplifier reading
 ///
@@ -70,7 +70,7 @@ impl Calc for InverseAffine {
         if field == "x" {
             self.input_name = source.to_owned();
         } else {
-            return Err(format!("Unrecognized field {field}"))
+            return Err(format!("Unrecognized field {field}"));
         }
 
         Ok(())

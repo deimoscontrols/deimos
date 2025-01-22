@@ -1,7 +1,13 @@
 [package]
 name = "deimos_shared"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
+authors = ["Deimos Controls <jlogan@deimoscontrols.com>"]
+license = "0BSD OR Apache-2.0"
+repository = "https://github.com/deimoscontrols/deimos"
+homepage = "https://github.com/deimoscontrols/deimos"
+description = "Shared packet formats and related resources for Deimos DAQ ecosystem"
+readme = "./README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

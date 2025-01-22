@@ -16,7 +16,7 @@ but system setup services and integrations with proprietary data targets are exp
 
 | Model | Revision | I/O Medium | Samplerate | Input Capabilities | Output Capabilities |
 |------|----------|------------|------------|--------------------|---------------------|
-| Analog I | 4.0.x | UDP over IPV4<br> on ethernet with LAN-only (non-routable) MAC address | 5Hz-5kHz roundtrip<br>5Hz-10kHz stream<br>Performance depends on network and host machine | 5x 4-20mA<br>5x Pt100 RTD<br>4x K-Type Thermocouple<br>3x 0-2.5V<br>1x Quadrature Encoder<br>1x Counter<br>1x Frequency<br>1x Frequency + Duty Cycle | 4x PWM (1Hz-1MHz) |
+| Analog I | 4.0.x | UDP over IPV4<br> on ethernet with LAN-only (non-routable) MAC address | 5Hz-5kHz roundtrip<br><br>Performance depends on network and host machine | External:<br>5x 4-20mA<br>5x Pt100 RTD<br>4x K-Type TC<br>3x 0-2.5V<br>1x Encoder<br>1x Counter<br>1x Freq<br>1x Freq+Duty<br><br>Internal:<br>Cold-junction RTD, bus current, and bus voltage | 4x PWM (1Hz-1MHz) |
 
 # Data Integrations
 

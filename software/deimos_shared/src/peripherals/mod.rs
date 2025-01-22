@@ -11,9 +11,9 @@ use super::states::*;
 #[cfg(feature = "std")]
 use super::calcs::*;
 
-pub mod model_numbers;
 pub mod analog_i_rev_2;
 pub mod analog_i_rev_3;
+pub mod model_numbers;
 
 // Type aliases for device identification
 
@@ -105,17 +105,13 @@ pub fn parse_binding(
 
     // If we didn't find a plugin for this model, try the existing ones
     match m {
-        model_numbers::ANALOG_I_REV_2_MODEL_NUMBER => {
-            Ok(Box::new(analog_i_rev_2::AnalogIRev2 {
-                serial_number: msg.peripheral_id.serial_number,
-            }))
-        }
+        model_numbers::ANALOG_I_REV_2_MODEL_NUMBER => Ok(Box::new(analog_i_rev_2::AnalogIRev2 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
 
-        model_numbers::ANALOG_I_REV_3_MODEL_NUMBER => {
-            Ok(Box::new(analog_i_rev_3::AnalogIRev3 {
-                serial_number: msg.peripheral_id.serial_number,
-            }))
-        }
+        model_numbers::ANALOG_I_REV_3_MODEL_NUMBER => Ok(Box::new(analog_i_rev_3::AnalogIRev3 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
 
         _ => Err(format!("Unrecognized model number {m}").to_owned()),
     }

@@ -31,10 +31,8 @@ fn main() {
     println!("Scan found: {scanned_peripherals:?}\n");
 
     // Associate peripherals
-    let p1 = Box::new(AnalogIRev3 { serial_number: 1 });
-    let p2 = Box::new(AnalogIRev3 { serial_number: 2 });
-    controller.add_peripheral("p1", p1);
-    controller.add_peripheral("p2", p2);
+    controller.add_peripheral("p1", Box::new(AnalogIRev3 { serial_number: 1 }));
+    controller.add_peripheral("p2", Box::new(AnalogIRev3 { serial_number: 2 }));
 
     // Set up database dispatchers
     let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(
@@ -64,7 +62,7 @@ fn main() {
     controller.set_peripheral_input_source("p1.pwm3_duty", "duty.y");
     controller.set_peripheral_input_source("p1.pwm3_freq", "freq.y");
 
-    // Print controller repr for reference
+    // Serialize and deserialize the controller (for demonstration purposes)
     let serialized_controller = serde_json::to_string_pretty(&controller).unwrap();
     let _: Controller = serde_json::from_str(&serialized_controller).unwrap();
 

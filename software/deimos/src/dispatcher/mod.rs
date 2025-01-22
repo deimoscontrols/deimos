@@ -1,8 +1,8 @@
 //! Dispatchers send data to an outside consumer, usually a database or display
 
 use chrono::{DateTime, Utc};
-use std::time::SystemTime;
 use core_affinity::CoreId;
+use std::time::SystemTime;
 
 mod tsdb;
 pub use tsdb::TimescaleDbDispatcher;
@@ -45,9 +45,9 @@ pub fn csv_header(channel_names: &Vec<String>) -> String {
     for i in 0..n {
         header_string.push_str(&cols[i]);
         if i < n - 1 {
-            header_string.push_str(",");
+            header_string.push(',');
         } else {
-            header_string.push_str("\n");
+            header_string.push('\n');
         }
     }
     header_string
@@ -64,10 +64,10 @@ pub fn csv_row_fixed_width(stringbuf: &mut String, vals: (SystemTime, i64, Vec<f
     let timestamp_fixed_width = fmt_i64(timestamp);
     stringbuf.extend(format!("{timestamp_fixed_width},{t_iso8601}").chars());
     for c in channel_values {
-        stringbuf.push_str(",");
-        stringbuf.extend(fmt_f64(c).chars());
+        stringbuf.push(',');
+        stringbuf.push_str(&fmt_f64(c));
     }
-    stringbuf.extend("\n".chars());
+    stringbuf.push('\n');
 }
 
 /// Smaller-size and faster-eval CSV row that does not guarantee fixed width
@@ -82,7 +82,7 @@ pub fn csv_row(stringbuf: &mut String, vals: (SystemTime, i64, Vec<f64>)) {
     for c in channel_values {
         stringbuf.push_str(&format!(",{c}"));
     }
-    stringbuf.extend("\n".chars());
+    stringbuf.push('\n');
 }
 
 /// Fixed-width formatting of float values
