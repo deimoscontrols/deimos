@@ -16,18 +16,28 @@ in returning to `Connecting`:
 The initialization schedule is:
 
 ```text
-              binding timeout window
-                 /
-                /           
-             |----|         timeout to operating
-             |--------------|
-             |      \
- sent binding|       \
-             |    configuring window
-   peripherals
-    transition
-to configuring            
+                  --------------------binding timeout windows
+                 /                          /
+                /    Controller init       /           
+             |====|=====================|====|         timeout to operating
+     scan for|                          |==============|
+  peripherals|                          |      \
+   (broadcast|              sent binding|       \
+     binding)|                          |    configuring window
+                             peripherals|
+                              transition|
+                          to configuring|            
 ```
+
+In words,
+
+1. Scan network for peripherals available to bind
+    * Broadcast binding request, but do not send configuration; allow Configuring to time out back to Connecting
+2. Initialize controller (set up data integrations, initialize internal state, etc)
+3. Send binding request
+4. Wait for binding responses
+5. Send configuration
+6. Wait for start of Operating
 
 Peripherals acknowledge binding and transition to configuring on their next internal cycle (usually 1ms) after receiving a request to bind. They will then wait for configuration input until the timeout
 to operating, and either proceed to `Operating` if configuration was

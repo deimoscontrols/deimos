@@ -17,7 +17,7 @@ pub trait Dispatcher: Send + Sync {
     fn initialize(
         &mut self,
         dt_ns: u32,
-        channel_names: &Vec<String>,
+        channel_names: &[String],
         op_name: &str,
         core_assignment: CoreId,
     ) -> Result<(), String>;
@@ -31,14 +31,14 @@ pub trait Dispatcher: Send + Sync {
 }
 
 /// Generate header strings including the time indices given some channel names
-pub fn header_columns(channel_names: &Vec<String>) -> Vec<String> {
+pub fn header_columns(channel_names: &[String]) -> Vec<String> {
     let mut out = vec!["timestamp".to_owned(), "time".to_owned()];
     out.extend(channel_names.iter().cloned());
     out
 }
 
 /// Generate CSV header row given some channel names
-pub fn csv_header(channel_names: &Vec<String>) -> String {
+pub fn csv_header(channel_names: &[String]) -> String {
     let cols = header_columns(channel_names);
     let mut header_string = String::new();
     let n = cols.len();
