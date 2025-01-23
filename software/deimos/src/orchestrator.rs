@@ -90,7 +90,7 @@ impl Orchestrator {
     /// directly into the target range without copying.
     pub fn consume_peripheral_outputs(
         &mut self,
-        name: &String,
+        name: &str,
         f: &mut dyn FnMut(&mut [f64]) -> OperatingMetrics,
     ) -> OperatingMetrics {
         let range = self.state.peripheral_output_slices[name].clone();
@@ -100,7 +100,7 @@ impl Orchestrator {
     /// Provide latest inputs (outputs of calcs) for a given peripheral
     pub fn provide_peripheral_inputs(
         &self,
-        name: &String,
+        name: &str,
         mut f: impl FnMut(&mut dyn Iterator<Item = f64>),
     ) {
         let range = self.state.peripheral_input_slices[name].clone();
@@ -159,7 +159,7 @@ impl Orchestrator {
     /// Set up calc tape and (re-)initialize individual calcs
     pub fn init(&mut self, dt_ns: u32, peripherals: &BTreeMap<String, Box<dyn Peripheral>>) {
         // These will be stored
-        
+
         let mut peripheral_output_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
         let mut peripheral_input_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
         let mut peripheral_input_source_indices: Vec<(usize, usize)> = Vec::new();
@@ -170,7 +170,7 @@ impl Orchestrator {
 
         // The node name is always the first element of the name,
         // and any other `.` is not for our usage
-        fn get_node_name(field_name: &String) -> String {
+        fn get_node_name(field_name: &str) -> String {
             field_name.split(".").collect::<Vec<&str>>()[0].to_owned()
         }
 
