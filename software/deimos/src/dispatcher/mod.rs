@@ -4,7 +4,9 @@ use chrono::{DateTime, Utc};
 use core_affinity::CoreId;
 use std::time::SystemTime;
 
+#[cfg(feature="tsdb")]
 mod tsdb;
+#[cfg(feature="tsdb")]
 pub use tsdb::TimescaleDbDispatcher;
 
 mod csv;
@@ -86,6 +88,7 @@ pub fn csv_row(stringbuf: &mut String, vals: (SystemTime, i64, Vec<f64>)) {
 }
 
 /// Fixed-width formatting of float values
+#[allow(clippy::manual_strip)]
 pub fn fmt_f64(num: f64) -> String {
     let width = 0;
     let precision = 17;

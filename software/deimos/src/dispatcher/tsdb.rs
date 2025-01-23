@@ -53,6 +53,7 @@ pub struct TimescaleDbDispatcher {
 
 impl TimescaleDbDispatcher {
     /// Store configuration, but do not connect to database yet
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         dbname: &str,
         host: &str,
@@ -145,6 +146,7 @@ struct WorkerHandle {
 }
 
 impl WorkerHandle {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         dbname: String,
         host: String,
