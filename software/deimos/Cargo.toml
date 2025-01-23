@@ -22,7 +22,7 @@ overflow-checks = true
 opt-level = 3
 
 [dependencies]
-deimos_shared = "0.1.1"
+deimos_shared = { path = "../deimos_shared", version = "0.1.2" }
 flaw = "0.2.3"
 
 # Control loop prep
