@@ -64,6 +64,8 @@ pub struct PeripheralState {
 }
 
 impl PeripheralState {
+
+    #[allow(clippy::borrowed_box)]  // Fixing this with trait objects requires using Any
     pub fn new(name: &String, addr: SocketAddr, p: &Box<dyn Peripheral>) -> Self {
         // Metric names are pretty manual
         let mut mnames = Vec::new();

@@ -93,8 +93,8 @@ impl Peripheral for AnalogIRev2 {
         let mut pwm_freq_hz = [0_u32; 8];
 
         for i in 0..8 {
-            pwm_duty_frac[i] = (inputs[i] as f32).min(1.0).max(0.0);
-            pwm_freq_hz[i] = inputs[i + 8].min(u32::MAX as f64).max(1.0) as u32;
+            pwm_duty_frac[i] = (inputs[i] as f32).clamp(0.0, 1.0);
+            pwm_freq_hz[i] = inputs[i + 8].clamp(1.0, u32::MAX as f64) as u32;
         }
 
         OperatingRoundtripInput {

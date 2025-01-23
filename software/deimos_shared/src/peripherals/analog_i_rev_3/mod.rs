@@ -6,10 +6,11 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
 use super::Peripheral;
-use super::PeripheralId;
 
 #[cfg(feature = "std")]
 use crate::calcs::{Affine, Calc, InverseAffine, RtdPt100, TcKtype};
+
+use super::PeripheralId;
 
 pub use byte_struct::{ByteStruct, ByteStructLen};
 
@@ -98,8 +99,8 @@ impl Peripheral for AnalogIRev3 {
         let mut pwm_freq_hz = [0_u32; 4];
 
         for i in 0..4 {
-            pwm_duty_frac[i] = (inputs[i] as f32).min(1.0).max(0.0);
-            pwm_freq_hz[i] = inputs[i + 4].min(u32::MAX as f64).max(1.0) as u32;
+            pwm_duty_frac[i] = (inputs[i] as f32).clamp(0.0, 1.0);
+            pwm_freq_hz[i] = inputs[i + 4].clamp(1.0, u32::MAX as f64) as u32;
         }
 
         OperatingRoundtripInput {

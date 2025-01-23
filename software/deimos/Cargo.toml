@@ -1,15 +1,13 @@
 [package]
 name = "deimos"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-authors = ["Deimos Controls <jlogan@deimoscontrols.com>"]
+authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "0BSD OR Apache-2.0"
 repository = "https://github.com/deimoscontrols/deimos"
 homepage = "https://github.com/deimoscontrols/deimos"
 description = "Control-loop and data pipeline for Deimos data acquisition system"
 readme = "./README.md"
-
-
 
 [lib]
 crate-type = ["lib"]
@@ -24,7 +22,7 @@ overflow-checks = true
 opt-level = 3
 
 [dependencies]
-deimos_shared = "0.1.1"
+deimos_shared = { path = "../deimos_shared", version = "0.1.2" }
 flaw = "0.2.3"
 
 # Control loop prep

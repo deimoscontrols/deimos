@@ -37,6 +37,7 @@ pub enum Overflow {
 /// * Wrap (and start overwriting the existing data from the beginning),
 /// * Start a new file, or
 /// * Panic
+/// 
 /// depending on the appropriate response for the task at hand.
 ///
 /// Each line in this CSV format is fixed-width, meaning the line length will not change
@@ -74,7 +75,7 @@ impl Dispatcher for CsvDispatcher {
     fn initialize(
         &mut self,
         _dt_ns: u32,
-        channel_names: &Vec<String>,
+        channel_names: &[String],
         op_name: &str,
         core_assignment: CoreId,
     ) -> Result<(), String> {

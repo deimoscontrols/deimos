@@ -318,10 +318,12 @@ impl Controller {
             // Configure peripherals
             //    Send configuration to each peripheral
             println!("Configuring peripherals");
-            let mut config_input = ConfiguringInput::default();
-            config_input.dt_ns = self.dt_ns;
-            config_input.timeout_to_operating_ns = self.timeout_to_operating_ns;
-            config_input.loss_of_contact_limit = self.loss_of_contact_limit;
+            let config_input = ConfiguringInput {
+                dt_ns: self.dt_ns,
+                timeout_to_operating_ns: self.timeout_to_operating_ns,
+                loss_of_contact_limit: self.loss_of_contact_limit,
+                ..Default::default()
+            };
             config_input.write_bytes(&mut udp_buf[..ConfiguringInput::BYTE_LEN]);
             for addr in addresses.iter() {
                 self.get_socket()

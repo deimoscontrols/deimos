@@ -53,6 +53,7 @@ pub struct TimescaleDbDispatcher {
 
 impl TimescaleDbDispatcher {
     /// Store configuration, but do not connect to database yet
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         dbname: &str,
         host: &str,
@@ -79,7 +80,7 @@ impl Dispatcher for TimescaleDbDispatcher {
     fn initialize(
         &mut self,
         dt_ns: u32,
-        channel_names: &Vec<String>,
+        channel_names: &[String],
         op_name: &str,
         core_assignment: CoreId,
     ) -> Result<(), String> {
@@ -87,8 +88,8 @@ impl Dispatcher for TimescaleDbDispatcher {
         self.worker = None;
 
         // Get token / pw from environment
-        let pw = std::env::var(&self.token_name).unwrap_or_else(|_| panic!("Did not find token name env var {}",
-            &self.token_name));
+        let pw = std::env::var(&self.token_name)
+            .unwrap_or_else(|_| panic!("Did not find token name env var {}", &self.token_name));
 
         // Connect to database backend
         let mut client = init_timescaledb_client(&self.dbname, &self.host, &self.user, &pw);
@@ -108,7 +109,6 @@ impl Dispatcher for TimescaleDbDispatcher {
         let dbname = self.dbname.clone();
         let host = self.host.clone();
         let user = self.user.clone();
-        let channel_names = channel_names.clone();
         self.worker = Some(WorkerHandle::new(
             dbname,
             host,
@@ -146,17 +146,19 @@ struct WorkerHandle {
 }
 
 impl WorkerHandle {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         dbname: String,
         host: String,
         user: String,
         pw: String,
-        channel_names: Vec<String>,
+        channel_names: &[String],
         table_name: String,
         n_buffer: usize,
         core_assignment: CoreId,
     ) -> Self {
         let (tx, rx) = channel::<(SystemTime, i64, Vec<f64>)>();
+        let channel_names: Vec<String> = channel_names.to_vec();
 
         // Run database I/O on a separate thread to avoid blocking controller
         let _thread = spawn(move || {
@@ -261,7 +263,6 @@ impl WorkerHandle {
 /// Connect to the database.
 fn init_timescaledb_client(dbname: &str, host: &str, user: &str, pw: &str) -> Client {
     // Connect to database backend
-    
 
     Client::connect(
         &format!("dbname={dbname} host={host} user={user} password={pw}"),
@@ -278,7 +279,7 @@ fn init_timescaledb_client(dbname: &str, host: &str, user: &str, pw: &str) -> Cl
 /// * If the table exists but has an incomatible schema
 fn init_timescaledb_table(
     client: &mut Client,
-    channel_names: &Vec<String>,
+    channel_names: &[String],
     op_name: &str,
     retention_time_hours: u64,
 ) -> Result<(), String> {
@@ -326,7 +327,7 @@ fn init_timescaledb_table(
 fn prepare_timescaledb_query(
     client: &mut Client,
     table_name: &str,
-    channel_names: &Vec<String>,
+    channel_names: &[String],
 ) -> Statement {
     // Pre-bake query for storing data
     let channel_query = channel_names
@@ -341,7 +342,6 @@ fn prepare_timescaledb_query(
         .map(|i| format!("${i}"))
         .collect::<Vec<String>>()
         .join(", ");
-    
 
     client.prepare_typed(&format!("INSERT INTO \"{table_name}\" (timestamp, time, {channel_query}) VALUES ({channel_template})"), &channel_types).unwrap()
 }

@@ -6,12 +6,11 @@ members = [
 exclude = [ "firmware", "hardware" ]
 resolver = "2"
 
-
 [workspace.package]
-authors = ["Deimos Controls <jlogan@deimoscontrols.com>"]
+authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "0BSD OR Apache-2.0"
-repository = "https://github.com/deimoscontrols/deimos"
 homepage = "https://github.com/deimoscontrols/deimos"
+
 
 [profile.release]
 opt-level = 3
