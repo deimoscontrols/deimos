@@ -42,8 +42,8 @@ pub fn csv_header(channel_names: &[String]) -> String {
     let cols = header_columns(channel_names);
     let mut header_string = String::new();
     let n = cols.len();
-    for i in 0..n {
-        header_string.push_str(&cols[i]);
+    for (i, c) in cols.iter().enumerate() {
+        header_string.push_str(c);
         if i < n - 1 {
             header_string.push(',');
         } else {

@@ -156,7 +156,7 @@ impl WorkerHandle {
         core_assignment: CoreId,
     ) -> Self {
         let (tx, rx) = channel::<(SystemTime, i64, Vec<f64>)>();
-        let channel_names: Vec<String> = channel_names.iter().cloned().collect();
+        let channel_names: Vec<String> = channel_names.to_vec();
 
         // Run database I/O on a separate thread to avoid blocking controller
         let _thread = spawn(move || {

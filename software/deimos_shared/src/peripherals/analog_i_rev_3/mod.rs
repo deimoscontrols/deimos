@@ -6,10 +6,11 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
 use super::Peripheral;
-use super::PeripheralId;
 
 #[cfg(feature = "std")]
 use crate::calcs::{Affine, Calc, InverseAffine, RtdPt100, TcKtype};
+
+use super::PeripheralId;
 
 pub use byte_struct::{ByteStruct, ByteStructLen};
 
