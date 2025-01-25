@@ -9,17 +9,7 @@ homepage = "https://github.com/deimoscontrols/deimos"
 description = "Control-loop and data pipeline for Deimos data acquisition system"
 readme = "./README.md"
 
-[lib]
-crate-type = ["lib"]
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[profile.release]
-codegen-units = 1
-debug = false
-lto = true
-overflow-checks = true
-opt-level = 3
 
 [dependencies]
 deimos_shared = { path = "../deimos_shared", version = "0.1.2" }
