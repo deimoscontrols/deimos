@@ -4,6 +4,7 @@ mod controller_state;
 mod peripheral_state;
 mod timing;
 
+use core::num;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::net::{SocketAddr, UdpSocket};
@@ -26,6 +27,8 @@ use deimos_shared::{
 
 use crate::dispatcher::Dispatcher;
 use crate::orchestrator::Orchestrator;
+use crate::socket::udp::UdpSuperSocket;
+use crate::socket::{SuperSocket, SuperSocketAddr};
 use controller_state::ControllerState;
 use timing::TimingPID;
 
@@ -41,7 +44,8 @@ pub struct Controller {
 
     // Appendages
     #[serde(skip)]
-    socket: RefCell<Option<UdpSocket>>,
+    // socket: RefCell<Option<UdpSocket>>,
+    sockets: Vec<Box<dyn SuperSocket>>,
     dispatchers: Vec<Box<dyn Dispatcher>>,
     peripherals: BTreeMap<String, Box<dyn Peripheral>>,
     orchestrator: Orchestrator,
@@ -49,18 +53,21 @@ pub struct Controller {
 
 impl Controller {
     /// Initialize a fresh controller with no dispatchers, peripherals, or calcs.
+    /// A UDP socket is included by default, but can be removed.
     pub fn new(dt_ns: u32, timeout_to_operating_ns: u32, loss_of_contact_limit: u16) -> Self {
         let dispatchers = Vec::new();
         let peripherals = BTreeMap::new();
         let orchestrator = Orchestrator::default();
-        let socket = RefCell::new(None);
+        // let socket = RefCell::new(None);
+        let sockets: Vec<Box<dyn SuperSocket>> = vec![Box::new(UdpSuperSocket::new())];
 
         Self {
             dt_ns,
             timeout_to_operating_ns,
             loss_of_contact_limit,
 
-            socket,
+            sockets,
+
             dispatchers,
             peripherals,
             orchestrator,
@@ -68,19 +75,19 @@ impl Controller {
     }
 
     /// Get the UDP socket for receiving comms from hardware peripherals
-    fn get_socket(&mut self) -> &mut UdpSocket {
-        let socket_maybe = self.socket.get_mut();
+    // fn get_socket(&mut self) -> &mut UdpSocket {
+    //     let socket_maybe = self.socket.get_mut();
 
-        if socket_maybe.is_none() {
-            // Bind the socket
-            let socket = UdpSocket::bind(format!("0.0.0.0:{CONTROLLER_RX_PORT}")).unwrap();
-            socket.set_nonblocking(true).unwrap();
-            // Store the socket so that we don't have to initialize it again
-            *socket_maybe = Some(socket);
-        };
+    //     if socket_maybe.is_none() {
+    //         // Bind the socket
+    //         let socket = UdpSocket::bind(format!("0.0.0.0:{CONTROLLER_RX_PORT}")).unwrap();
+    //         socket.set_nonblocking(true).unwrap();
+    //         // Store the socket so that we don't have to initialize it again
+    //         *socket_maybe = Some(socket);
+    //     };
 
-        socket_maybe.as_mut().unwrap()
-    }
+    //     socket_maybe.as_mut().unwrap()
+    // }
 
     /// Register a hardware module
     pub fn add_peripheral(&mut self, name: &str, p: Box<dyn Peripheral>) {
@@ -116,15 +123,15 @@ impl Controller {
     /// and requesting a window of `configuring_timeout_ms` after binding
     /// to provide configuration.
     /// ```text
-    ///             binding timeout window
-    ///                 /
+    ///              binding timeout window
+    ///                  /
     ///                 /           
     ///             |----|         timeout to operating
     ///             |--------------|
     ///             |      \
     /// sent binding|       \
     ///             |    configuring window
-    /// peripherals
+    ///    peripherals
     ///     transition
     /// to configuring            
     /// ```
@@ -132,46 +139,46 @@ impl Controller {
     /// and set configuring_timeout_ms to 0.
     pub fn bind(
         &mut self,
-        addresses: Option<&Vec<SocketAddr>>,
+        addresses: Option<&Vec<SuperSocketAddr>>,
         binding_timeout_ms: u16,
         configuring_timeout_ms: u16,
         plugins: Option<PluginMap>,
-    ) -> BTreeMap<PeripheralId, (SocketAddr, Box<dyn Peripheral>)> {
+    ) -> BTreeMap<SuperSocketAddr, Box<dyn Peripheral>> {
         let mut available_peripherals = BTreeMap::new();
 
         // Buffer for UDP packets
         let udp_buf = &mut [0_u8; 1522][..];
 
         // Get local IP address so that we can scan for modules to bind
-        let local_addr: std::net::IpAddr = local_ip_address::local_ip().unwrap();
-        if !local_addr.is_ipv4() {
-            panic!("IPV6 not handled yet");
-        }
+        // let local_addr: std::net::IpAddr = local_ip_address::local_ip().unwrap();
+        // if !local_addr.is_ipv4() {
+        //     panic!("IPV6 not handled yet");
+        // }
 
         let binding_msg = BindingInput {
             configuring_timeout_ms,
         };
+        let num_to_write = BindingInput::BYTE_LEN;
+        binding_msg.write_bytes(&mut udp_buf[..num_to_write]);
+        let buf = &udp_buf[..num_to_write];
 
         if let Some(addresses) = addresses {
             // Bind specific modules with a (hopefully) nonzero timeout
-            binding_msg.write_bytes(&mut udp_buf[..BindingInput::BYTE_LEN]);
             //    Send unicast request to bind
-            for addr in addresses.iter() {
-                self.get_socket()
-                    .send_to(&udp_buf[..BindingInput::BYTE_LEN], addr)
-                    .unwrap();
+            for (socket_id, peripheral_id) in addresses.iter() {
+                self.sockets[*socket_id].send(*peripheral_id, &|b: &mut [u8]| {
+                    b[..num_to_write].copy_from_slice(buf);
+                    Ok(num_to_write)
+                });
             }
         } else {
             // Bind any modules on the local network
-            binding_msg.write_bytes(&mut udp_buf[..BindingInput::BYTE_LEN]);
-            self.get_socket().set_broadcast(true).unwrap();
-            self.get_socket()
-                .send_to(
-                    &udp_buf[..BindingInput::BYTE_LEN],
-                    format!("255.255.255.255:{PERIPHERAL_RX_PORT}"),
-                )
-                .unwrap();
-            self.get_socket().set_broadcast(false).unwrap();
+            for socket in self.sockets.iter() {
+                socket.broadcast(&|b: &mut [u8]| {
+                    b[..num_to_write].copy_from_slice(buf);
+                    Ok(num_to_write)
+                });
+            }
         }
 
         //    Collect binding responses

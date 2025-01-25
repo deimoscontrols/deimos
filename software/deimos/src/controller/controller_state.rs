@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
-use std::net::SocketAddr;
 
 use deimos_shared::peripherals::{Peripheral, PeripheralId};
+
+use crate::socket::SuperSocketAddr;
 
 use super::peripheral_state::*;
 
@@ -32,7 +33,7 @@ impl ControllerOperatingMetrics {
 /// Controller run-time internal state that is not serialized
 #[derive(Default)]
 pub struct ControllerState {
-    pub peripheral_state: BTreeMap<SocketAddr, PeripheralState>,
+    pub peripheral_state: BTreeMap<SuperSocketAddr, PeripheralState>,
     names_to_write: Vec<String>,
     vals_to_write: Vec<f64>,
     num_to_write: usize,
@@ -43,7 +44,7 @@ impl ControllerState {
     /// Initialize new operating state
     pub fn new(
         peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
-        bind_result: &BTreeMap<PeripheralId, (SocketAddr, Box<dyn Peripheral>)>,
+        bind_result: &BTreeMap<PeripheralId, (SuperSocketAddr, Box<dyn Peripheral>)>,
     ) -> Self {
         let mut state = Self::default();
 

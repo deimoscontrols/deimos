@@ -9,8 +9,11 @@ use std::time::Instant;
 /// Closure that write bytes to the packet buffer.
 pub type PacketWriter = dyn Fn(&mut [u8]) -> Result<usize, String>;
 
+/// Socket index
+pub type SuperSocketId = usize;
+
 /// Address of a peripheral that is communicating on a socket
-pub type SuperSocketAddr<'a> = (&'a Box<dyn SuperSocket>, PeripheralId);
+pub type SuperSocketAddr = (usize, PeripheralId);
 
 /// Packetized socket interface for message-passing
 /// to/from peripherals on different I/O media.

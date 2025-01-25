@@ -58,8 +58,6 @@ impl SuperSocket for UdpSuperSocket {
     fn close(&mut self) {
         // Drop inner socket, releasing port
         self.socket = None;
-        self.txbuf.fill(0);
-        self.rxbuf.fill(0);
         self.addrs.clear();
         self.pids.clear();
         self.last_received_addr = None;
