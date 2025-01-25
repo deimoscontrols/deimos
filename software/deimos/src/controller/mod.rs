@@ -266,7 +266,8 @@ impl Controller {
         let mut controller_state = ControllerState::new(&self.peripherals, &available_peripherals);
         let addresses = controller_state
             .peripheral_state
-            .keys().copied()
+            .keys()
+            .copied()
             .collect::<Vec<SocketAddr>>();
 
         // Set up dispatcher(s)

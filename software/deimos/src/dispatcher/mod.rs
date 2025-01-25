@@ -4,9 +4,9 @@ use chrono::{DateTime, Utc};
 use core_affinity::CoreId;
 use std::time::SystemTime;
 
-#[cfg(feature="tsdb")]
+#[cfg(feature = "tsdb")]
 mod tsdb;
-#[cfg(feature="tsdb")]
+#[cfg(feature = "tsdb")]
 pub use tsdb::TimescaleDbDispatcher;
 
 mod csv;
