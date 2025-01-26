@@ -15,8 +15,8 @@ The control program and the firmware-software shared library share a
 | Feature Category | Features |
 |------------------|----------|
 | Control Loop     | ✅ Fixed-dt roundtrip control loop<br>✅ Network scanning for available hardware<br>💡 Reconnect policy<br>💡 Planned loop termination |
-| Control Calcs | ✅ User-defined custom calcs<br>✅ Explicit (acyclic) calc expression<br>💡 Cyclic expressions with explicit time-delay |
-| Data Integrations| ✅ User-defined custom targets<br>✅ CSV<br>✅ TimescaleDB<br>💡 InfluxDB<br>💡 Generic sqlite, postgres, etc.<br>💡 |
+| Control Calcs | ✅ User-defined custom calcs<br>✅ Explicit (acyclic) calc expression<br>💡 Cyclic expressions with explicit time-delay<br>💡 Prototype calc w/ rhai script-defined inner function |
+| Data Integrations| ✅ User-defined custom targets<br>✅ CSV<br>✅ TimescaleDB<br>💡 InfluxDB<br>💡 Generic sqlite, postgres, etc.<br>💡 Example in-memory peripheral|
 | Hardware Peripherals| ✅ Deimos DAQs<br>✅ User-defined custom hardware<br>💡 User-defined custom in-memory|
 | Socket Interfaces<br>(peripheral I/O)| ✅ User-defined custom interfaces<br>✅ UDP/IPV4<br>💡 Thread channel<br>💡 Unix socket<br>💡 TCP<br>💡 UDP/IPV6 |
 
