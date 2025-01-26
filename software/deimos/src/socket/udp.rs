@@ -1,4 +1,4 @@
-//! Implementation of Socket trait for stdlib UDP socket
+//! Implementation of SuperSocket trait for stdlib UDP socket on IPV4
 
 use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
@@ -10,6 +10,7 @@ use super::*;
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::{CONTROLLER_RX_PORT, PERIPHERAL_RX_PORT};
 
+/// Implementation of SuperSocket trait for stdlib UDP socket on IPV4
 #[derive(Serialize, Deserialize, Default)]
 pub struct UdpSuperSocket {
     #[serde(skip)]

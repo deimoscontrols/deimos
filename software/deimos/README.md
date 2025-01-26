@@ -5,6 +5,23 @@ Control program and data integrations for the Deimos data acquisition ecosystem.
 See the [project readme](https://github.com/deimoscontrols/deimos/blob/main/README.md) for contact details as well as commentary about
 the goals and state of the project.
 
+The control program and the firmware-software shared library share a
+[changelog](https://github.com/deimoscontrols/deimos/blob/main/CHANGELOG.md) at the workspace level.
+
+## Features & Roadmap
+
+✅ Implemented | 💡 Planned
+
+| Feature Category | Features |
+|------------------|----------|
+| Control Loop     | ✅ Fixed-dt roundtrip control loop<br>✅ Network scanning for available hardware<br>💡 Reconnect policy<br>💡 Planned loop termination |
+| Control Calcs | ✅ User-defined custom calcs<br>✅ Explicit (acyclic) calc expression<br>💡 Cyclic expressions with explicit time-delay |
+| Data Integrations| ✅ User-defined custom targets<br>✅ CSV<br>✅ TimescaleDB<br>💡 InfluxDB<br>💡 Generic sqlite, postgres, etc.<br>💡 |
+| Hardware Peripherals| ✅ Deimos DAQs<br>✅ User-defined custom hardware<br>💡 User-defined custom in-memory|
+| Socket Interfaces<br>(peripheral I/O)| ✅ User-defined custom interfaces<br>✅ UDP/IPV4<br>💡 Thread channel<br>💡 Unix socket<br>💡 TCP<br>💡 UDP/IPV6 |
+
+## Concept of Operation
+
 The control program follows the hardware peripheral state machine,
 which is linear except that an error in any peripheral state results
 in returning to `Connecting`:
@@ -55,7 +72,8 @@ Control loop timing uses the control machine's best available monotonic clock. B
 are stored in order to support post-processing adjustments to
 account for the slow drift of the monotonic clock relative to system time.
 
-# Example: 200Hz Control Program w/ 2 DAQs
+## Example: 200Hz Control Program w/ 2 DAQs
+
 ```rust
 use std::time::Duration;
 

@@ -12,7 +12,7 @@ readme = "./README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-deimos_shared = { path = "../deimos_shared", version = "0.1.2" }
+deimos_shared = { path = "../deimos_shared", version = "0.1.3" }
 flaw = "0.2.3"
 
 # Control loop prep

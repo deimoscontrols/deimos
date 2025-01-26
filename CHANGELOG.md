@@ -12,3 +12,9 @@
 #### Changed
 
 * Update controller to use new socket interface
+
+### deimos 0.1.3
+
+### Changed
+
+* Update module docstrings

@@ -20,7 +20,7 @@
 //!
 //! * [1] “ITS-90 Thermocouple Database, How to Use the Database.”
 //!   Accessed: May 19, 2024. [Online]. Available:
-//!   https://srdata.nist.gov/its90/useofdatabase/use_of_database.html#Coefficients%20Tables
+//!   <https://srdata.nist.gov/its90/useofdatabase/use_of_database.html#Coefficients%20Tables>
 use once_cell::sync::Lazy;
 
 use interpn::MulticubicRegular;
@@ -44,7 +44,7 @@ pub static INTERPOLATOR: Lazy<MulticubicRegular<'static, f64, 2>> = Lazy::new(||
     .unwrap()
 });
 
-/// Calculate a K-type thermocouple's temperature reading in [K] from voltage,
+/// Calculate a K-type thermocouple's temperature reading in (K) from voltage,
 /// using the ITS-90 method for cold-junction correction.
 #[derive(Serialize, Deserialize, Default)]
 pub struct TcKtype {
