@@ -179,7 +179,7 @@ impl Controller {
         let start_of_binding = Instant::now();
         while start_of_binding.elapsed().as_millis() <= (binding_timeout_ms + 1) as u128 {
             for (sid, socket) in self.sockets.iter_mut().enumerate() {
-                if let Some((_rxtime, recvd)) = socket.recv() {
+                if let Some((_pid, _rxtime, recvd)) = socket.recv() {
                     // If this is from the right port and it's not capturing our own
                     // broadcast binding request, bind the module
                     // let recvd = &udp_buf[..BindingOutput::BYTE_LEN];
@@ -344,29 +344,36 @@ impl Controller {
 
             println!("Waiting for peripherals to acknowledge configuration");
             while start_of_configuring.elapsed() < operating_timeout {
-                if let Ok((amt, src_socket_addr)) = self.get_socket().recv_from(udp_buf) {
-                    if src_socket_addr.port() == PERIPHERAL_RX_PORT
-                        && addresses.contains(&src_socket_addr)
-                        && amt == ConfiguringOutput::BYTE_LEN
-                    {
-                        let ack =
-                            ConfiguringOutput::read_bytes(&udp_buf[..ConfiguringOutput::BYTE_LEN]);
-                        match ack.acknowledge {
-                            AcknowledgeConfiguration::Ack => {
-                                controller_state
-                                    .peripheral_state
-                                    .get_mut(&src_socket_addr)
-                                    .unwrap()
-                                    .acknowledged_configuration = true;
+                for (sid, socket) in self.sockets.iter().enumerate() {
+                    if let Some((pid, rxtime, buf)) = socket.recv() {
+                        let amt = buf.len();
+                        // Make sure the packet is the right size and the peripheral ID is recognized
+                        match (pid, amt) {
+                            (Some(pid), ConfiguringOutput::BYTE_LEN) => {
+                                // Parse the (potential) peripheral's response
+                                let ack = ConfiguringOutput::read_bytes(buf);
+                                let addr = (sid, pid);
+
+                                match ack.acknowledge {
+                                    AcknowledgeConfiguration::Ack => {
+                                        controller_state
+                                            .peripheral_state
+                                            .get_mut(&addr)
+                                            .unwrap()
+                                            .acknowledged_configuration = true;
+                                    }
+                                    _ => panic!("Peripheral at {addr:?} rejected configuration"),
+                                }
                             }
-                            _ => panic!("Peripheral at {src_socket_addr} rejected configuration"),
+                            _ => {
+                                println!(
+                                    "Received malformed configuration response from socket {sid}"
+                                )
+                            }
                         }
-                    } else {
-                        println!(
-                            "Received malformed configuration response from {src_socket_addr:?}"
-                        )
                     }
                 }
+
                 all_peripherals_acknowledged = controller_state
                     .peripheral_state
                     .values()
@@ -390,7 +397,7 @@ impl Controller {
         let start_of_operating = Instant::now();
         let cycle_duration = Duration::from_nanos(self.dt_ns as u64);
         let mut target_time = cycle_duration;
-        let mut peripheral_timing: BTreeMap<SocketAddr, (TimingPID, MedianFilter<i64, 7>)> =
+        let mut peripheral_timing: BTreeMap<SuperSocketAddr, (TimingPID, MedianFilter<i64, 7>)> =
             BTreeMap::new();
         for addr in controller_state.peripheral_state.keys() {
             let max_clock_rate_err = 5e-2; // at least 5% tolerance for dev units using onboard clocks
@@ -448,15 +455,18 @@ impl Controller {
                             })
                     });
 
-                p.emit_operating_roundtrip(
-                    i,
-                    period_delta_ns,
-                    phase_delta_ns,
-                    &peripheral_input_buffer[..n],
-                    &mut udp_buf[..n],
-                );
                 // TODO: log transmit errors
-                let _ = self.get_socket().send_to(&udp_buf[..n], addr);
+                let (sid, pid) = addr;
+                self.sockets[*sid].send(*pid, &|b: &mut [u8]| {
+                    p.emit_operating_roundtrip(
+                        i,
+                        period_delta_ns,
+                        phase_delta_ns,
+                        &peripheral_input_buffer[..n],
+                        &mut b[..n],
+                    );
+                    Ok(n)
+                });
             }
 
             // Receive packets until the start of the next cycle
@@ -471,7 +481,6 @@ impl Controller {
                 if let Ok((amt, src_socket_addr)) = self.get_socket().recv_from(udp_buf) {
                     if !(src_socket_addr.port() == PERIPHERAL_RX_PORT
                         && addresses.contains(&src_socket_addr))
-                    // TODO: faster method using treemap to handle large numbers of peripherals
                     {
                         continue;
                     }

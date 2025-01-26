@@ -93,7 +93,7 @@ impl SuperSocket for UdpSuperSocket {
         Ok(())
     }
 
-    fn recv(&mut self) -> Option<(Instant, &[u8])> {
+    fn recv(&mut self) -> Option<(Option<PeripheralId>, Instant, &[u8])> {
         // Make sure the socket is open
         self.open();
 
@@ -118,7 +118,10 @@ impl SuperSocket for UdpSuperSocket {
 
         self.last_received_addr = Some(addr);
 
-        Some((time, &self.rxbuf[..size]))
+    // Check if we already know which peripheral this is
+    let pid = self.pids.get(&addr).copied();
+
+        Some((pid, time, &self.rxbuf[..size]))
     }
 
     fn broadcast(&mut self, w: &PacketWriter) -> Result<(), String> {
@@ -151,6 +154,7 @@ impl SuperSocket for UdpSuperSocket {
     fn update_map(&mut self, id: PeripheralId) {
         if let Some(addr) = self.last_received_addr {
             self.addrs.insert(id, addr);
+            self.pids.insert(addr, id);
         }
     }
 }

@@ -30,7 +30,7 @@ pub trait SuperSocket: Send + Sync {
 
     /// Receive a packet, if available, along with the associated
     /// a timestamp indicating when the packet was received.
-    fn recv(&mut self) -> Option<(Instant, &[u8])>;
+    fn recv(&mut self) -> Option<(Option<PeripheralId>, Instant, &[u8])>;
 
     /// Send a packet to every reachable peripheral
     fn broadcast(&mut self, w: &PacketWriter) -> Result<(), String>;
