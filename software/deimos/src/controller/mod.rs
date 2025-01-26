@@ -146,9 +146,6 @@ impl Controller {
     ) -> BTreeMap<SuperSocketAddr, Box<dyn Peripheral>> {
         let mut available_peripherals = BTreeMap::new();
 
-        // Buffer for UDP packets
-        let udp_buf = &mut [0_u8; 1522][..];
-
         // Get local IP address so that we can scan for modules to bind
         // let local_addr: std::net::IpAddr = local_ip_address::local_ip().unwrap();
         // if !local_addr.is_ipv4() {
@@ -159,49 +156,50 @@ impl Controller {
             configuring_timeout_ms,
         };
         let num_to_write = BindingInput::BYTE_LEN;
-        binding_msg.write_bytes(&mut udp_buf[..num_to_write]);
-        let buf = &udp_buf[..num_to_write];
+
+        let w = move |b: &mut [u8]| {
+            binding_msg.write_bytes(&mut b[..num_to_write]);
+            Ok(num_to_write)
+        };
 
         if let Some(addresses) = addresses {
             // Bind specific modules with a (hopefully) nonzero timeout
             //    Send unicast request to bind
             for (socket_id, peripheral_id) in addresses.iter() {
-                self.sockets[*socket_id].send(*peripheral_id, &|b: &mut [u8]| {
-                    b[..num_to_write].copy_from_slice(buf);
-                    Ok(num_to_write)
-                });
+                self.sockets[*socket_id].send(*peripheral_id, &w);
             }
         } else {
             // Bind any modules on the local network
-            for socket in self.sockets.iter() {
-                socket.broadcast(&|b: &mut [u8]| {
-                    b[..num_to_write].copy_from_slice(buf);
-                    Ok(num_to_write)
-                });
+            for socket in self.sockets.iter_mut() {
+                socket.broadcast(&w);
             }
         }
 
         //    Collect binding responses
         let start_of_binding = Instant::now();
         while start_of_binding.elapsed().as_millis() <= (binding_timeout_ms + 1) as u128 {
-            if let Ok((amt, src_socket_addr)) = self.get_socket().recv_from(udp_buf) {
-                // If this is from the right port and it's not capturing our own
-                // broadcast binding request, bind the module
-                let recvd = &udp_buf[..BindingOutput::BYTE_LEN];
-                if src_socket_addr.port() == PERIPHERAL_RX_PORT
-                    && src_socket_addr.ip() != local_addr
-                    && amt == BindingOutput::BYTE_LEN
-                {
-                    let binding_response = BindingOutput::read_bytes(recvd);
-                    match parse_binding(&binding_response, &plugins) {
-                        Ok(parsed) => {
-                            let id = parsed.id();
-                            available_peripherals.insert(id, (src_socket_addr, parsed));
+            for (sid, socket) in self.sockets.iter_mut().enumerate() {
+                if let Some((_rxtime, recvd)) = socket.recv() {
+                    // If this is from the right port and it's not capturing our own
+                    // broadcast binding request, bind the module
+                    // let recvd = &udp_buf[..BindingOutput::BYTE_LEN];
+                    let amt = recvd.len();
+                    if amt == BindingOutput::BYTE_LEN {
+                        let binding_response = BindingOutput::read_bytes(recvd);
+                        match parse_binding(&binding_response, &plugins) {
+                            Ok(parsed) => {
+                                let pid = parsed.id();
+                                let addr = (sid, pid);
+                                // Update the socket's address map
+                                socket.update_map(pid);
+                                // Update the controller's address map
+                                available_peripherals.insert(addr, parsed);
+                            }
+                            Err(e) => println!("{e}"),
                         }
-                        Err(e) => println!("{e}"),
+                    } else {
+                        println!("Received malformed response on socket {sid}")
                     }
-                } else {
-                    println!("Received malformed response from {src_socket_addr:?}")
                 }
             }
         }
@@ -215,7 +213,7 @@ impl Controller {
         &mut self,
         binding_timeout_ms: u16,
         plugins: Option<PluginMap>,
-    ) -> BTreeMap<PeripheralId, (SocketAddr, Box<dyn Peripheral>)> {
+    ) -> BTreeMap<SuperSocketAddr, Box<dyn Peripheral>> {
         // Ping with the longer desired timeout
         self.bind(None, binding_timeout_ms, 0, plugins.clone())
     }
@@ -275,7 +273,7 @@ impl Controller {
             .peripheral_state
             .keys()
             .copied()
-            .collect::<Vec<SocketAddr>>();
+            .collect::<Vec<SuperSocketAddr>>();
 
         // Set up dispatcher(s)
         // TODO: send metrics to calcs so that they can be used as calc inputs
@@ -310,8 +308,8 @@ impl Controller {
                 ));
             }
 
-            // Clear buffer
-            while self.get_socket().recv_from(udp_buf).is_ok() {}
+            // Clear buffers
+            while self.sockets.iter_mut().any(|sock| sock.recv().is_some()) {}
 
             // Bind
             let dt_ms = (self.dt_ns / 1_000_000) as u16;
@@ -321,7 +319,7 @@ impl Controller {
             let start_of_configuring = Instant::now();
 
             // Clear buffer
-            while self.get_socket().recv_from(udp_buf).is_ok() {}
+            while self.sockets.iter_mut().any(|sock| sock.recv().is_some()) {}
 
             // Configure peripherals
             //    Send configuration to each peripheral

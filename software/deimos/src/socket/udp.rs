@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::*;
 use deimos_shared::peripherals::PeripheralId;
-use deimos_shared::CONTROLLER_RX_PORT;
+use deimos_shared::{CONTROLLER_RX_PORT, PERIPHERAL_RX_PORT};
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct UdpSuperSocket {
@@ -42,15 +42,18 @@ impl UdpSuperSocket {
 #[typetag::serde]
 impl SuperSocket for UdpSuperSocket {
     fn open(&mut self) -> Result<(), String> {
-        // Clear previous state, if there was one
-        self.close();
-
-        // Socket populated on access
-        let socket = UdpSocket::bind(format!("0.0.0.0:{CONTROLLER_RX_PORT}"))
-            .map_err(|e| format!("Unable to bind UDP socket: {e}"))?;
-        socket
-            .set_nonblocking(true)
-            .map_err(|e| format!("Unable to set UDP socket to nonblocking mode: {e}"))?;
+        if self.socket.is_none() {
+            // Socket populated on access
+            let socket = UdpSocket::bind(format!("0.0.0.0:{CONTROLLER_RX_PORT}"))
+                .map_err(|e| format!("Unable to bind UDP socket: {e}"))?;
+            socket
+                .set_nonblocking(true)
+                .map_err(|e| format!("Unable to set UDP socket to nonblocking mode: {e}"))?;
+            self.socket = Some(socket);
+        }
+        else {
+            // If the socket is already open, do nothing
+        }
 
         Ok(())
     }
@@ -64,6 +67,9 @@ impl SuperSocket for UdpSuperSocket {
     }
 
     fn send(&mut self, id: PeripheralId, w: &PacketWriter) -> Result<(), String> {
+        // Make sure the socket is open
+        self.open();
+
         // Get the IP address
         let addr = *self
             .addrs
@@ -88,9 +94,23 @@ impl SuperSocket for UdpSuperSocket {
     }
 
     fn recv(&mut self) -> Option<(Instant, &[u8])> {
+        // Make sure the socket is open
+        self.open();
+
+        // Check if there is anything to receive,
+        // and filter out packets from unexpected source port
         let (size, addr, time) = match self.socket.as_mut() {
+            
             Some(sock) => match sock.recv_from(&mut self.rxbuf).ok() {
-                Some((size, addr)) => (size, addr, Instant::now()),
+                Some((size, addr)) => {
+                    // Mark the time ASAP
+                    let now = Instant::now();
+                    // Make sure the source port is consistent with a peripheral
+                    if addr.port() != PERIPHERAL_RX_PORT {
+                        return None;
+                    }
+                    (size, addr, now)
+                }
                 None => return None,
             },
             None => return None,
@@ -102,6 +122,9 @@ impl SuperSocket for UdpSuperSocket {
     }
 
     fn broadcast(&mut self, w: &PacketWriter) -> Result<(), String> {
+        // Make sure the socket is open
+        self.open();
+
         // Get socket
         let sock = self
             .socket

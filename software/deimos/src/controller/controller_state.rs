@@ -44,19 +44,27 @@ impl ControllerState {
     /// Initialize new operating state
     pub fn new(
         peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
-        bind_result: &BTreeMap<PeripheralId, (SuperSocketAddr, Box<dyn Peripheral>)>,
+        bind_result: &BTreeMap<SuperSocketAddr, Box<dyn Peripheral>>,
     ) -> Self {
         let mut state = Self::default();
+        let bound_pids = bind_result
+            .keys()
+            .map(|(_sid, pid)| *pid)
+            .collect::<Vec<PeripheralId>>();
+        let pid_name_map = BTreeMap::from_iter(peripherals.iter().map(|(name, p)| (p.id(), name)));
 
-        // Fresh peripheral state
-        for (name, p) in peripherals.iter() {
+        // Make sure all expected peripherals were bound
+        for p in peripherals.values() {
             let id = p.id();
             assert!(
-                bind_result.contains_key(&id),
-                "Peripheral not found in bind result"
+                bound_pids.contains(&id),
+                "Peripheral {p:?} not found in bind result"
             );
+        }
 
-            let (addr, p) = &bind_result[&id];
+        for (addr, p) in bind_result.iter() {
+            let (_sid, pid) = addr;
+            let name = pid_name_map[pid];
             let ps = PeripheralState::new(name, *addr, p);
             state.peripheral_state.insert(*addr, ps);
         }
