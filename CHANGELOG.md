@@ -13,7 +13,7 @@
 
 * Update controller to use new socket interface
 
-### deimos 0.1.3
+### deimos_shared 0.1.3
 
 ### Changed
 
