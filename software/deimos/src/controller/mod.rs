@@ -330,11 +330,13 @@ impl Controller {
                 loss_of_contact_limit: self.loss_of_contact_limit,
                 ..Default::default()
             };
-            config_input.write_bytes(&mut udp_buf[..ConfiguringInput::BYTE_LEN]);
-            for addr in addresses.iter() {
-                self.get_socket()
-                    .send_to(&udp_buf[..ConfiguringInput::BYTE_LEN], addr)
-                    .unwrap();
+            let num_to_write = ConfiguringInput::BYTE_LEN;
+            let w = move |b: &mut [u8]| {
+                config_input.write_bytes(&mut b[..num_to_write]);
+                Ok(num_to_write)
+            };
+            for (sid, pid) in addresses.iter() {
+                self.sockets[*sid].send(*pid, &w);
             }
 
             //    Wait for peripherals to acknowledge their configuration
