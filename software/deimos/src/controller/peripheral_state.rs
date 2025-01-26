@@ -1,9 +1,9 @@
-use std::net::SocketAddr;
-
 use deimos_shared::{
     peripherals::{Peripheral, PeripheralId},
     states::OperatingMetrics,
 };
+
+use crate::socket::SuperSocketAddr;
 
 /// Peripheral control metrics
 #[derive(Default, Clone, Copy, Debug)]
@@ -37,7 +37,7 @@ pub struct PeripheralMetrics {
 /// Peripheral-specific metrics, readings, channel names, etc
 pub struct PeripheralState {
     /// Ethernet address
-    pub addr: SocketAddr,
+    pub addr: SuperSocketAddr,
 
     /// Device unique ID
     #[allow(dead_code)]
@@ -65,7 +65,7 @@ pub struct PeripheralState {
 
 impl PeripheralState {
     #[allow(clippy::borrowed_box)] // Fixing this with trait objects requires using Any
-    pub fn new(name: &String, addr: SocketAddr, p: &Box<dyn Peripheral>) -> Self {
+    pub fn new(name: &String, addr: SuperSocketAddr, p: &Box<dyn Peripheral>) -> Self {
         // Metric names are pretty manual
         let mut mnames = Vec::new();
         for orig in [

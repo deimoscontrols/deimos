@@ -4,7 +4,7 @@
 //!
 //! * [1] “ITS-90 Thermocouple Database, How to Use the Database.”
 //!   Accessed: May 19, 2024. [Online]. Available:
-//!   https://srdata.nist.gov/its90/useofdatabase/use_of_database.html#Coefficients%20Tables
+//!   <https://srdata.nist.gov/its90/useofdatabase/use_of_database.html#Coefficients%20Tables>
 use once_cell::sync::Lazy;
 
 use interpn::MulticubicRegular;

@@ -95,3 +95,7 @@ docs/_build/
 *.lck
 *-backups
 *backups
+
+# deimos
+*op_name.tmp
+*.csv

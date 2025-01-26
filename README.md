@@ -1,5 +1,8 @@
 # Deimos
 
+| [Control Program](https://github.com/deimoscontrols/deimos/tree/main/software/deimos) |\|| [Calcs & Packet Formats](https://github.com/deimoscontrols/deimos/tree/main/software/deimos_shared) |\|| [Firmware](https://github.com/deimoscontrols/deimos/tree/main/firmware) |\|| [Hardware Designs](https://github.com/deimoscontrols/deimos/tree/main/hardware) |
+|-----------------|-|--------------|-|----------|-|----------|
+
 Realtime data acquisition and controls ecosystem, including hardware, firmware, and software.
 
 # Contact
@@ -14,9 +17,9 @@ but system setup services and integrations with proprietary data targets are exp
 
 # Hardware Peripherals
 
-| Model | Revision | I/O Medium | Samplerate | Input Capabilities | Output Capabilities |
-|------|----------|------------|------------|--------------------|---------------------|
-| Analog I | 4.0.x | UDP over IPV4<br> on ethernet with LAN-only (non-routable) MAC address | 5Hz-5kHz roundtrip<br><br>Performance depends on network and host machine | External:<br>5x 4-20mA<br>5x Pt100 RTD<br>4x K-Type TC<br>3x 0-2.5V<br>1x Encoder<br>1x Counter<br>1x Freq<br>1x Freq+Duty<br><br>Internal:<br>Cold-junction RTD, bus current, and bus voltage | 4x PWM (1Hz-1MHz) |
+| Model | I/O Medium | Sample/Control Rate | Input Capabilities | Output Capabilities |
+|------|------------|------------|--------------------|---------------------|
+| [Analog I 4.0.x](https://github.com/deimoscontrols/deimos/tree/main/hardware/boards/analog_i_rev4) | UDP over IPV4<br> on ethernet with LAN-only (non-routeable) MAC address | 5Hz-5kHz roundtrip<br><br>Performance depends on network and host machine | External:<br>5x 4-20mA (24V)<br>5x Pt100 RTD<br>4x K-Type TC<br>3x 0-2.5V<br>1x Encoder<br>1x Counter<br>1x Freq<br>1x Freq+Duty<br><br>Internal:<br>- Cold-junction RTD<br>- Bus current<br>- Bus voltage | 4x PWM (1Hz-1MHz, 3.3V) |
 
 # Data Integrations
 
@@ -34,10 +37,8 @@ Data integration implementations perform I/O and database transactions on a sepa
 | TcKtype | K-type thermocouple tables with cold-junction correction | Based on ITS-90 tables |
 | RtdPt100 | 100-ohm platinum RTD temperature-resistance tables | Based on DIN-43-760 and ITS-90 |
 | Pid | Simple proportion-integral-derivative controller with primitive saturation anti-windup protection | |
-| InverseAffine | Function for inverting amplifier gain and offset to recover estimate of input voltage | |
-| Constant | A constant value that takes no inputs | |
-| Sin | Sine-in-time function for generating test outputs | |
-| Affine | Slope-and-offset function | |
+
+... in addition to a variety of unremarkable math functions.
 
 # Goals and Anti-Goals
 
