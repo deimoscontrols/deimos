@@ -15,8 +15,6 @@ pub struct UdpSuperSocket {
     #[serde(skip)]
     socket: Option<UdpSocket>,
     #[serde(skip)]
-    txbuf: Vec<u8>,
-    #[serde(skip)]
     rxbuf: Vec<u8>,
     #[serde(skip)]
     addrs: BTreeMap<PeripheralId, SocketAddr>,
@@ -29,7 +27,6 @@ pub struct UdpSuperSocket {
 impl UdpSuperSocket {
     pub fn new() -> Self {
         Self {
-            txbuf: vec![0; 1522],
             rxbuf: vec![0; 1522],
             socket: None,
             addrs: BTreeMap::new(),
@@ -50,8 +47,7 @@ impl SuperSocket for UdpSuperSocket {
                 .set_nonblocking(true)
                 .map_err(|e| format!("Unable to set UDP socket to nonblocking mode: {e}"))?;
             self.socket = Some(socket);
-        }
-        else {
+        } else {
             // If the socket is already open, do nothing
         }
 
@@ -66,9 +62,9 @@ impl SuperSocket for UdpSuperSocket {
         self.last_received_addr = None;
     }
 
-    fn send(&mut self, id: PeripheralId, w: &PacketWriter) -> Result<(), String> {
+    fn send(&mut self, id: PeripheralId, msg: &[u8]) -> Result<(), String> {
         // Make sure the socket is open
-        self.open();
+        self.open()?;
 
         // Get the IP address
         let addr = *self
@@ -80,14 +76,10 @@ impl SuperSocket for UdpSuperSocket {
         let sock = self
             .socket
             .as_mut()
-            .ok_or(format!("Unable to send before socket is bound"))?;
-
-        // Write bytes to buffer
-        let num_to_send = w(&mut self.txbuf)?;
-        let txbuf = &mut self.txbuf[..num_to_send];
+            .ok_or("Unable to send before socket is bound".to_string())?;
 
         // Send unicast
-        sock.send_to(txbuf, addr)
+        sock.send_to(msg, addr)
             .map_err(|e| format!("Failed to send UDP packet: {e}"))?;
 
         Ok(())
@@ -95,12 +87,14 @@ impl SuperSocket for UdpSuperSocket {
 
     fn recv(&mut self) -> Option<(Option<PeripheralId>, Instant, &[u8])> {
         // Make sure the socket is open
-        self.open();
+        match self.open() {
+            Ok(_) => {}
+            Err(_) => return None,
+        };
 
         // Check if there is anything to receive,
         // and filter out packets from unexpected source port
         let (size, addr, time) = match self.socket.as_mut() {
-            
             Some(sock) => match sock.recv_from(&mut self.rxbuf).ok() {
                 Some((size, addr)) => {
                     // Mark the time ASAP
@@ -118,30 +112,26 @@ impl SuperSocket for UdpSuperSocket {
 
         self.last_received_addr = Some(addr);
 
-    // Check if we already know which peripheral this is
-    let pid = self.pids.get(&addr).copied();
+        // Check if we already know which peripheral this is
+        let pid = self.pids.get(&addr).copied();
 
         Some((pid, time, &self.rxbuf[..size]))
     }
 
-    fn broadcast(&mut self, w: &PacketWriter) -> Result<(), String> {
+    fn broadcast(&mut self, msg: &[u8]) -> Result<(), String> {
         // Make sure the socket is open
-        self.open();
+        self.open()?;
 
         // Get socket
         let sock = self
             .socket
             .as_mut()
-            .ok_or(format!("Unable to send before socket is bound"))?;
-
-        // Write bytes to buffer
-        let num_to_send = w(&mut self.txbuf)?;
-        let txbuf = &mut self.txbuf[..num_to_send];
+            .ok_or("Unable to send before socket is bound".to_string())?;
 
         // Send broadcast
         sock.set_broadcast(true)
             .map_err(|e| format!("Unable to set UDP socket to broadcast mode: {e}"))?;
-        sock.send(txbuf)
+        sock.send(msg)
             .map_err(|e| format!("Failed to send UDP packet: {e}"))?;
 
         // Set back to unicast mode

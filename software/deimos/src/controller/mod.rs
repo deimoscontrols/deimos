@@ -4,14 +4,10 @@ mod controller_state;
 mod peripheral_state;
 mod timing;
 
-use core::num;
-use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::net::{SocketAddr, UdpSocket};
 use std::time::{Duration, Instant, SystemTime};
 
 use core_affinity;
-use local_ip_address;
 use thread_priority::DeadlineFlags;
 
 use serde::{Deserialize, Serialize};
@@ -20,9 +16,8 @@ use flaw::MedianFilter;
 
 use deimos_shared::{
     calcs::Calc,
-    peripherals::{parse_binding, Peripheral, PeripheralId, PluginMap},
+    peripherals::{parse_binding, Peripheral, PluginMap},
     states::*,
-    CONTROLLER_RX_PORT, PERIPHERAL_RX_PORT,
 };
 
 use crate::dispatcher::Dispatcher;
@@ -73,21 +68,6 @@ impl Controller {
             orchestrator,
         }
     }
-
-    /// Get the UDP socket for receiving comms from hardware peripherals
-    // fn get_socket(&mut self) -> &mut UdpSocket {
-    //     let socket_maybe = self.socket.get_mut();
-
-    //     if socket_maybe.is_none() {
-    //         // Bind the socket
-    //         let socket = UdpSocket::bind(format!("0.0.0.0:{CONTROLLER_RX_PORT}")).unwrap();
-    //         socket.set_nonblocking(true).unwrap();
-    //         // Store the socket so that we don't have to initialize it again
-    //         *socket_maybe = Some(socket);
-    //     };
-
-    //     socket_maybe.as_mut().unwrap()
-    // }
 
     /// Register a hardware module
     pub fn add_peripheral(&mut self, name: &str, p: Box<dyn Peripheral>) {
@@ -144,6 +124,7 @@ impl Controller {
         configuring_timeout_ms: u16,
         plugins: Option<PluginMap>,
     ) -> BTreeMap<SuperSocketAddr, Box<dyn Peripheral>> {
+        let mut buf = vec![0_u8; 1522];
         let mut available_peripherals = BTreeMap::new();
 
         // Get local IP address so that we can scan for modules to bind
@@ -155,23 +136,20 @@ impl Controller {
         let binding_msg = BindingInput {
             configuring_timeout_ms,
         };
-        let num_to_write = BindingInput::BYTE_LEN;
-
-        let w = move |b: &mut [u8]| {
-            binding_msg.write_bytes(&mut b[..num_to_write]);
-            Ok(num_to_write)
-        };
+        binding_msg.write_bytes(&mut buf[..BindingInput::BYTE_LEN]);
 
         if let Some(addresses) = addresses {
             // Bind specific modules with a (hopefully) nonzero timeout
             //    Send unicast request to bind
             for (socket_id, peripheral_id) in addresses.iter() {
-                self.sockets[*socket_id].send(*peripheral_id, &w);
+                self.sockets[*socket_id]
+                    .send(*peripheral_id, &buf[..BindingInput::BYTE_LEN])
+                    .unwrap();
             }
         } else {
             // Bind any modules on the local network
             for socket in self.sockets.iter_mut() {
-                socket.broadcast(&w);
+                socket.broadcast(&buf[..BindingInput::BYTE_LEN]).unwrap();
             }
         }
 
@@ -254,8 +232,8 @@ impl Controller {
         );
         // let _ = thread_priority::set_current_thread_priority(thread_priority::ThreadPriority::Max);
 
-        // Buffer for UDP packets
-        let udp_buf = &mut [0_u8; 1522][..];
+        // Buffer for writing bytes to send on sockets
+        let txbuf = &mut [0_u8; 1522][..];
 
         // Initialize calc graph
         println!("Initializing calc orchestrator");
@@ -331,12 +309,12 @@ impl Controller {
                 ..Default::default()
             };
             let num_to_write = ConfiguringInput::BYTE_LEN;
-            let w = move |b: &mut [u8]| {
-                config_input.write_bytes(&mut b[..num_to_write]);
-                Ok(num_to_write)
-            };
+            config_input.write_bytes(&mut txbuf[..num_to_write]);
+
             for (sid, pid) in addresses.iter() {
-                self.sockets[*sid].send(*pid, &w);
+                self.sockets[*sid]
+                    .send(*pid, &txbuf[..num_to_write])
+                    .unwrap();
             }
 
             //    Wait for peripherals to acknowledge their configuration
@@ -344,8 +322,8 @@ impl Controller {
 
             println!("Waiting for peripherals to acknowledge configuration");
             while start_of_configuring.elapsed() < operating_timeout {
-                for (sid, socket) in self.sockets.iter().enumerate() {
-                    if let Some((pid, rxtime, buf)) = socket.recv() {
+                for (sid, socket) in self.sockets.iter_mut().enumerate() {
+                    if let Some((pid, _rxtime, buf)) = socket.recv() {
                         let amt = buf.len();
                         // Make sure the packet is the right size and the peripheral ID is recognized
                         match (pid, amt) {
@@ -457,16 +435,15 @@ impl Controller {
 
                 // TODO: log transmit errors
                 let (sid, pid) = addr;
-                self.sockets[*sid].send(*pid, &|b: &mut [u8]| {
-                    p.emit_operating_roundtrip(
-                        i,
-                        period_delta_ns,
-                        phase_delta_ns,
-                        &peripheral_input_buffer[..n],
-                        &mut b[..n],
-                    );
-                    Ok(n)
-                });
+                p.emit_operating_roundtrip(
+                    i,
+                    period_delta_ns,
+                    phase_delta_ns,
+                    &peripheral_input_buffer[..n],
+                    &mut txbuf[..n],
+                );
+
+                self.sockets[*sid].send(*pid, &txbuf[..n]).unwrap();
             }
 
             // Receive packets until the start of the next cycle
@@ -476,55 +453,60 @@ impl Controller {
             }
             while t < target_time {
                 // Otherwise, process incoming packets
-                t = start_of_operating.elapsed();
 
-                if let Ok((amt, src_socket_addr)) = self.get_socket().recv_from(udp_buf) {
-                    if !(src_socket_addr.port() == PERIPHERAL_RX_PORT
-                        && addresses.contains(&src_socket_addr))
-                    {
-                        continue;
-                    }
+                for (sid, sock) in self.sockets.iter_mut().enumerate() {
+                    if let Some((pid, rxtime, buf)) = sock.recv() {
+                        let amt = buf.len();
+                        let pid = match pid {
+                            Some(x) => x,
+                            None => continue,
+                        };
 
-                    // Get the info for the peripheral at this address
-                    let ps = controller_state
-                        .peripheral_state
-                        .get_mut(&src_socket_addr)
-                        .unwrap();
-                    let p = &self.peripherals[&ps.name];
-                    let n = p.operating_roundtrip_output_size();
+                        let addr = (sid, pid);
+                        if !addresses.contains(&addr) {
+                            continue;
+                        }
 
-                    // Check packet size
-                    // TODO: log malformed packets
-                    if amt != n {
-                        continue;
-                    }
+                        // Get the info for the peripheral at this address
+                        let ps = controller_state.peripheral_state.get_mut(&addr).unwrap();
+                        let p = &self.peripherals[&ps.name];
+                        let n = p.operating_roundtrip_output_size();
 
-                    // Parse packet,
-                    // running the parsing inside the calc consumer to avoid copying
-                    let last_packet_id = ps.metrics.operating_metrics.id;
-                    let metrics = self.orchestrator.consume_peripheral_outputs(
-                        &ps.name,
-                        &mut |outputs: &mut [f64]| {
-                            p.parse_operating_roundtrip(&udp_buf[..n], outputs)
-                        },
-                    );
+                        // Check packet size
+                        // TODO: log malformed packets
+                        if amt != n {
+                            continue;
+                        }
 
-                    // If this packet is in-order, take it
-                    // TODO: handle upserting out of order data? maybe send to different db
-                    if metrics.id > last_packet_id {
-                        // ps.outputs.copy_from_slice(&outputs);
-                        ps.metrics.operating_metrics = metrics;
-                        ps.metrics.last_received_time_ns = t.as_nanos() as i64;
+                        // Parse packet,
+                        // running the parsing inside the calc consumer to avoid copying
+                        let last_packet_id = ps.metrics.operating_metrics.id;
+                        let metrics = self.orchestrator.consume_peripheral_outputs(
+                            &ps.name,
+                            &mut |outputs: &mut [f64]| {
+                                p.parse_operating_roundtrip(&buf[..n], outputs)
+                            },
+                        );
 
-                        // Reset cycles since last contact
-                        ps.metrics.loss_of_contact_counter = 0.0;
+                        // If this packet is in-order, take it
+                        if metrics.id > last_packet_id {
+                            // ps.outputs.copy_from_slice(&outputs);
+                            ps.metrics.operating_metrics = metrics;
+                            ps.metrics.last_received_time_ns =
+                                (rxtime - start_of_operating).as_nanos() as i64;
 
-                        // Check if this peripheral is sync'd to the controller
-                        let cycle_lag_count =
-                            (metrics.last_input_id as i64) - (i.saturating_sub(1) as i64);
-                        ps.metrics.cycle_lag_count = cycle_lag_count as f64;
+                            // Reset cycles since last contact
+                            ps.metrics.loss_of_contact_counter = 0.0;
+
+                            // Check if this peripheral is sync'd to the controller
+                            let cycle_lag_count =
+                                (metrics.last_input_id as i64) - (i.saturating_sub(1) as i64);
+                            ps.metrics.cycle_lag_count = cycle_lag_count as f64;
+                        }
                     }
                 }
+
+                t = start_of_operating.elapsed();
             }
 
             // Calculate timing deltas
