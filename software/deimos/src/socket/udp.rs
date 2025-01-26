@@ -1,7 +1,7 @@
 //! Implementation of Socket trait for stdlib UDP socket
 
 use std::collections::BTreeMap;
-use std::net::{SocketAddr, UdpSocket};
+use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
@@ -131,7 +131,7 @@ impl SuperSocket for UdpSuperSocket {
         // Send broadcast
         sock.set_broadcast(true)
             .map_err(|e| format!("Unable to set UDP socket to broadcast mode: {e}"))?;
-        sock.send(msg)
+        sock.send_to(msg, (Ipv4Addr::BROADCAST, PERIPHERAL_RX_PORT))
             .map_err(|e| format!("Failed to send UDP packet: {e}"))?;
 
         // Set back to unicast mode
