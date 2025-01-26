@@ -24,13 +24,16 @@ The control program and the firmware-software shared library share a
 
 The control program follows the hardware peripheral state machine,
 which is linear except that an error in any peripheral state results
-in returning to `Connecting`:
+in returning to `Connecting`.
+
+Peripheral states:
+
 1. `Connecting` (no communication with the control machine)
 2. `Binding` (waiting to associate with a control machine)
 3. `Configuring` (waiting for operation-specific configuration from control machine)
 4. `Operating` (roundtrip control)
 
-The initialization schedule is:
+The controller initialization schedule is:
 
 ```text
                   --------------------binding timeout windows
