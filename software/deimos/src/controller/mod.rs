@@ -10,7 +10,6 @@ use std::time::{Duration, Instant, SystemTime};
 
 use context::ControllerCtx;
 use core_affinity;
-use thread_priority::DeadlineFlags;
 
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +20,7 @@ use deimos_shared::{
     peripherals::{parse_binding, Peripheral, PluginMap},
     states::*,
 };
+use thread_priority::DeadlineFlags;
 
 use crate::dispatcher::Dispatcher;
 use crate::orchestrator::Orchestrator;
@@ -246,16 +246,24 @@ impl Controller {
         }
 
         // Set filled deadline scheduling to indicate that the control loop thread
-        // should stay fully occupied
-        let _ = thread_priority::set_current_thread_priority(
+        // should stay fully occupied. This is not available on Windows, in which
+        // case, use max priority as a next-best option.
+        // If both options fail, continue as-is.
+        let _ = match thread_priority::set_current_thread_priority(
             thread_priority::ThreadPriority::Deadline {
                 runtime: Duration::from_nanos(1),
                 deadline: Duration::from_nanos(1),
                 period: Duration::from_nanos(1),
                 flags: DeadlineFlags::RESET_ON_FORK, // Children do not inherit deadline scheduling
             },
-        );
-        // let _ = thread_priority::set_current_thread_priority(thread_priority::ThreadPriority::Max);
+        ) {
+            Ok(_) => (),
+            Err(_) => {
+                let _ = thread_priority::set_current_thread_priority(
+                    thread_priority::ThreadPriority::Max,
+                );
+            }
+        };
 
         // Buffer for writing bytes to send on sockets
         let txbuf = &mut [0_u8; 1522][..];
