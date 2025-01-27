@@ -144,6 +144,12 @@ impl Orchestrator {
         }
     }
 
+    /// Remove all calcs and peripheral input sources
+    pub fn clear_calcs(&mut self) {
+        self.calcs.clear();
+        self.peripheral_input_sources.clear();
+    }
+
     /// Add a calc, replacing an entry if it already exists
     pub fn replace_calc(&mut self, name: &str, calc: Box<dyn Calc>) {
         let name = name.to_owned();

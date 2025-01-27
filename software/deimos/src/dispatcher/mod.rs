@@ -12,15 +12,17 @@ pub use tsdb::TimescaleDbDispatcher;
 mod csv;
 pub use csv::{CsvDispatcher, Overflow};
 
+use crate::controller::context::ControllerCtx;
+
 /// A data pipeline plugin that receives data from the control loop
 /// one row at a time.
 #[typetag::serde(tag = "type")]
 pub trait Dispatcher: Send + Sync {
     fn initialize(
         &mut self,
+        ctx: &ControllerCtx,
         dt_ns: u32,
         channel_names: &[String],
-        op_name: &str,
         core_assignment: CoreId,
     ) -> Result<(), String>;
 
@@ -55,13 +57,18 @@ pub fn csv_header(channel_names: &[String]) -> String {
     header_string
 }
 
+/// Fixed-width ISO-8601 UTC timestamp with zero-padded sub-second nanoseconds and Z-suffix
+pub fn fmt_time(time: SystemTime) -> String {
+    DateTime::<Utc>::from(time).to_rfc3339_opts(chrono::SecondsFormat::Nanos, true)
+}
+
 /// Format a CSV row that guarantees fixed width for a given number of columns
 pub fn csv_row_fixed_width(stringbuf: &mut String, vals: (SystemTime, i64, Vec<f64>)) {
     stringbuf.clear();
     let (time, timestamp, channel_values) = vals;
 
     // This format guarantees fixed-width date format by zero-padding sub-second decimal
-    let t_iso8601 = DateTime::<Utc>::from(time).to_rfc3339_opts(chrono::SecondsFormat::Nanos, true);
+    let t_iso8601 = fmt_time(time);
     // Timestamp and floats need some effort to maintain fixed width
     let timestamp_fixed_width = fmt_i64(timestamp);
     stringbuf.extend(format!("{timestamp_fixed_width},{t_iso8601}").chars());
@@ -78,7 +85,7 @@ pub fn csv_row(stringbuf: &mut String, vals: (SystemTime, i64, Vec<f64>)) {
     let (time, timestamp, channel_values) = vals;
 
     // This format guarantees fixed-width date format by zero-padding sub-second decimal
-    let t_iso8601 = DateTime::<Utc>::from(time).to_rfc3339_opts(chrono::SecondsFormat::Nanos, true);
+    let t_iso8601 = fmt_time(time);
     // Timestamp and floats need some effort to maintain fixed width
     stringbuf.extend(format!("{timestamp},{t_iso8601}").chars());
     for c in channel_values {

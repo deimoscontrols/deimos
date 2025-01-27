@@ -13,6 +13,8 @@ use core_affinity::CoreId;
 
 use serde::{Deserialize, Serialize};
 
+use crate::controller::context::ControllerCtx;
+
 use super::{csv_header, csv_row_fixed_width, Dispatcher};
 
 /// Choice of behavior when the current file is full
@@ -74,9 +76,9 @@ impl CsvDispatcher {
 impl Dispatcher for CsvDispatcher {
     fn initialize(
         &mut self,
+        ctx: &ControllerCtx,
         _dt_ns: u32,
         channel_names: &[String],
-        op_name: &str,
         core_assignment: CoreId,
     ) -> Result<(), String> {
         // Shut down any existing workers by dropping their tx handle
@@ -87,7 +89,7 @@ impl Dispatcher for CsvDispatcher {
 
         // Preallocate output file
         let total_len = 1024 * 1_000 * self.chunk_size_megabytes;
-        let filepath = PathBuf::from(format!("./{op_name}.csv"));
+        let filepath = ctx.op_dir.join(format!("{}.csv", ctx.op_name));
 
         // Spawn worker
         self.worker = Some(WorkerHandle::new(

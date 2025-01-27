@@ -1,5 +1,6 @@
 //! Control loop and integration with data pipeline and calc orchestrator
 
+pub mod context;
 mod controller_state;
 mod peripheral_state;
 mod timing;
@@ -7,6 +8,7 @@ mod timing;
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant, SystemTime};
 
+use context::ControllerCtx;
 use core_affinity;
 use thread_priority::DeadlineFlags;
 
@@ -30,43 +32,47 @@ use timing::TimingPID;
 /// The controller implements the control loop,
 /// synchronizes sample reporting time between the peripherals,
 /// and dispatches measured data, calculations, and metrics to the data pipeline.
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize)]
 pub struct Controller {
-    // Input config
-    dt_ns: u32,
-    timeout_to_operating_ns: u32,
-    loss_of_contact_limit: u16,
+    // Input config, which is passed to appendages during their init
+    ctx: ControllerCtx,
 
     // Appendages
-    #[serde(skip)]
-    // socket: RefCell<Option<UdpSocket>>,
     sockets: Vec<Box<dyn SuperSocket>>,
     dispatchers: Vec<Box<dyn Dispatcher>>,
     peripherals: BTreeMap<String, Box<dyn Peripheral>>,
     orchestrator: Orchestrator,
 }
 
-impl Controller {
-    /// Initialize a fresh controller with no dispatchers, peripherals, or calcs.
-    /// A UDP socket is included by default, but can be removed.
-    pub fn new(dt_ns: u32, timeout_to_operating_ns: u32, loss_of_contact_limit: u16) -> Self {
+impl Default for Controller {
+    fn default() -> Self {
+        // Include a UDP socket by default, but otherwise blank
+        let sockets: Vec<Box<dyn SuperSocket>> = vec![Box::new(UdpSuperSocket::new())];
+
         let dispatchers = Vec::new();
         let peripherals = BTreeMap::new();
         let orchestrator = Orchestrator::default();
-        // let socket = RefCell::new(None);
-        let sockets: Vec<Box<dyn SuperSocket>> = vec![Box::new(UdpSuperSocket::new())];
+        let ctx = ControllerCtx::default();
 
         Self {
-            dt_ns,
-            timeout_to_operating_ns,
-            loss_of_contact_limit,
-
+            ctx,
             sockets,
-
             dispatchers,
             peripherals,
             orchestrator,
         }
+    }
+}
+
+impl Controller {
+    /// Initialize a fresh controller with no dispatchers, peripherals, or calcs.
+    /// A UDP socket is included by default, but can be removed.
+    pub fn new(dt_ns: u32) -> Self {
+        let mut c = Self::default();
+        c.ctx.dt_ns = dt_ns;
+        c.ctx.timeout_to_operating_ns = (dt_ns * 2).max(1_000_000);
+
+        c
     }
 
     /// Register a hardware module
@@ -90,6 +96,31 @@ impl Controller {
     /// Register a calc function
     pub fn add_calc(&mut self, name: &str, calc: Box<dyn Calc>) {
         self.orchestrator.add_calc(name, calc);
+    }
+
+    /// Register a socket
+    pub fn add_socket(&mut self, socket: Box<dyn SuperSocket>) {
+        self.sockets.push(socket);
+    }
+
+    /// Remove all peripherals
+    pub fn clear_peripherals(&mut self) {
+        self.peripherals.clear();
+    }
+
+    /// Remove all dispatchers
+    pub fn clear_dispatchers(&mut self) {
+        self.dispatchers.clear();
+    }
+
+    /// Remove all sockets
+    pub fn clear_sockets(&mut self) {
+        self.sockets.clear();
+    }
+
+    /// Remove all calcs and peripheral input sources
+    pub fn clear_calcs(&mut self) {
+        self.orchestrator.clear_calcs();
     }
 
     /// Connect an entry in the calc graph to a command to be sent to the peripheral
@@ -126,12 +157,6 @@ impl Controller {
     ) -> BTreeMap<SuperSocketAddr, Box<dyn Peripheral>> {
         let mut buf = vec![0_u8; 1522];
         let mut available_peripherals = BTreeMap::new();
-
-        // Get local IP address so that we can scan for modules to bind
-        // let local_addr: std::net::IpAddr = local_ip_address::local_ip().unwrap();
-        // if !local_addr.is_ipv4() {
-        //     panic!("IPV6 not handled yet");
-        // }
 
         let binding_msg = BindingInput {
             configuring_timeout_ms,
@@ -189,14 +214,14 @@ impl Controller {
     /// giving `binding_timeout_ms` for peripherals to respond
     pub fn scan(
         &mut self,
-        binding_timeout_ms: u16,
+        timeout_ms: u16,
         plugins: Option<PluginMap>,
     ) -> BTreeMap<SuperSocketAddr, Box<dyn Peripheral>> {
         // Ping with the longer desired timeout
-        self.bind(None, binding_timeout_ms, 0, plugins.clone())
+        self.bind(None, timeout_ms, 0, plugins.clone())
     }
 
-    pub fn run(&mut self, op_name: &str) {
+    pub fn run(&mut self) {
         // Set core affinity, if possible
         // This may not be available on every platform, so it should not break if not available
         let core_ids = core_affinity::get_core_ids().unwrap_or_default();
@@ -235,11 +260,6 @@ impl Controller {
         // Buffer for writing bytes to send on sockets
         let txbuf = &mut [0_u8; 1522][..];
 
-        // Initialize calc graph
-        println!("Initializing calc orchestrator");
-        self.orchestrator.init(self.dt_ns, &self.peripherals);
-        self.orchestrator.eval(); // Populate constants, etc
-
         // Scan to get peripheral addresses
         println!("Scanning for available units");
         let available_peripherals = self.scan(100, None);
@@ -252,6 +272,11 @@ impl Controller {
             .keys()
             .copied()
             .collect::<Vec<SuperSocketAddr>>();
+
+        // Initialize calc graph
+        println!("Initializing calc orchestrator");
+        self.orchestrator.init(self.ctx.dt_ns, &self.peripherals);
+        self.orchestrator.eval(); // Populate constants, etc
 
         // Set up dispatcher(s)
         // TODO: send metrics to calcs so that they can be used as calc inputs
@@ -268,7 +293,7 @@ impl Controller {
         for dispatcher in self.dispatchers.iter_mut() {
             let core_assignment = aux_core_cycle.next().unwrap();
             dispatcher
-                .initialize(self.dt_ns, &channel_names, op_name, *core_assignment)
+                .initialize(&self.ctx, self.ctx.dt_ns, &channel_names, *core_assignment)
                 .unwrap();
         }
         println!("Dispatching data for {n_channels} channels.");
@@ -282,7 +307,7 @@ impl Controller {
             // Wait for peripherals to time out back to binding
             if i > 0 {
                 std::thread::sleep(Duration::from_nanos(
-                    self.loss_of_contact_limit as u64 * self.dt_ns as u64,
+                    self.ctx.peripheral_loss_of_contact_limit as u64 * self.ctx.dt_ns as u64,
                 ));
             }
 
@@ -290,7 +315,7 @@ impl Controller {
             while self.sockets.iter_mut().any(|sock| sock.recv().is_some()) {}
 
             // Bind
-            let dt_ms = (self.dt_ns / 1_000_000) as u16;
+            let dt_ms = (self.ctx.dt_ns / 1_000_000) as u16;
             let _bound_peripherals = self.bind(Some(&addresses), 10, 20.max(dt_ms), None);
 
             // Configuring starts as soon as peripherals receive binding input
@@ -303,9 +328,9 @@ impl Controller {
             //    Send configuration to each peripheral
             println!("Configuring peripherals");
             let config_input = ConfiguringInput {
-                dt_ns: self.dt_ns,
-                timeout_to_operating_ns: self.timeout_to_operating_ns,
-                loss_of_contact_limit: self.loss_of_contact_limit,
+                dt_ns: self.ctx.dt_ns,
+                timeout_to_operating_ns: self.ctx.timeout_to_operating_ns,
+                loss_of_contact_limit: self.ctx.peripheral_loss_of_contact_limit,
                 ..Default::default()
             };
             let num_to_write = ConfiguringInput::BYTE_LEN;
@@ -318,7 +343,7 @@ impl Controller {
             }
 
             //    Wait for peripherals to acknowledge their configuration
-            let operating_timeout = Duration::from_nanos(self.timeout_to_operating_ns as u64);
+            let operating_timeout = Duration::from_nanos(self.ctx.timeout_to_operating_ns as u64);
 
             println!("Waiting for peripherals to acknowledge configuration");
             while start_of_configuring.elapsed() < operating_timeout {
@@ -373,21 +398,21 @@ impl Controller {
         //    Init timing
         println!("Initializing timing controllers");
         let start_of_operating = Instant::now();
-        let cycle_duration = Duration::from_nanos(self.dt_ns as u64);
+        let cycle_duration = Duration::from_nanos(self.ctx.dt_ns as u64);
         let mut target_time = cycle_duration;
         let mut peripheral_timing: BTreeMap<SuperSocketAddr, (TimingPID, MedianFilter<i64, 7>)> =
             BTreeMap::new();
         for addr in controller_state.peripheral_state.keys() {
             let max_clock_rate_err = 5e-2; // at least 5% tolerance for dev units using onboard clocks
-            let ki = 0.00001 * (self.dt_ns as f64 / 10_000_000_f64);
+            let ki = 0.00001 * (self.ctx.dt_ns as f64 / 10_000_000_f64);
             let timing_controller = TimingPID {
-                kp: 0.005 * (self.dt_ns as f64 / 10_000_000_f64), // Tuned at 100Hz
+                kp: 0.005 * (self.ctx.dt_ns as f64 / 10_000_000_f64), // Tuned at 100Hz
                 ki,
-                kd: 0.001 / (self.dt_ns as f64 / 10_000_000_f64),
+                kd: 0.001 / (self.ctx.dt_ns as f64 / 10_000_000_f64),
 
                 v: 0.0,
                 integral: 0.0,
-                max_integral: max_clock_rate_err * (self.dt_ns as f64) / ki,
+                max_integral: max_clock_rate_err * (self.ctx.dt_ns as f64) / ki,
             };
 
             let timing_filter = MedianFilter::<i64, 7>::new(0);
@@ -402,7 +427,7 @@ impl Controller {
         //    Run
         println!("Entering control loop");
         let mut i: u64 = 0;
-        controller_state.controller_metrics.cycle_time_margin_ns = self.dt_ns as f64;
+        controller_state.controller_metrics.cycle_time_margin_ns = self.ctx.dt_ns as f64;
         loop {
             i += 1;
             let mut t = start_of_operating.elapsed();

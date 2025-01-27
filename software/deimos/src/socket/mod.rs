@@ -2,6 +2,7 @@
 //! to/from peripherals on different I/O media.
 
 pub mod udp;
+pub mod unix;
 
 use deimos_shared::peripherals::PeripheralId;
 use std::time::Instant;
