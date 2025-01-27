@@ -23,6 +23,8 @@ pub struct UdpSuperSocket {
     pids: BTreeMap<SocketAddr, PeripheralId>,
     #[serde(skip)]
     last_received_addr: Option<SocketAddr>,
+    #[serde(skip)]
+    ctx: ControllerCtx,
 }
 
 impl UdpSuperSocket {
@@ -33,13 +35,18 @@ impl UdpSuperSocket {
             addrs: BTreeMap::new(),
             pids: BTreeMap::new(),
             last_received_addr: None,
+            ctx: ControllerCtx::default()
         }
     }
 }
 
 #[typetag::serde]
 impl SuperSocket for UdpSuperSocket {
-    fn open(&mut self) -> Result<(), String> {
+    fn is_open(&self) -> bool {
+        self.socket.is_some()
+    }
+
+    fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String> {
         if self.socket.is_none() {
             // Socket populated on access
             let socket = UdpSocket::bind(format!("0.0.0.0:{CONTROLLER_RX_PORT}"))
@@ -64,9 +71,6 @@ impl SuperSocket for UdpSuperSocket {
     }
 
     fn send(&mut self, id: PeripheralId, msg: &[u8]) -> Result<(), String> {
-        // Make sure the socket is open
-        self.open()?;
-
         // Get the IP address
         let addr = *self
             .addrs
@@ -87,12 +91,6 @@ impl SuperSocket for UdpSuperSocket {
     }
 
     fn recv(&mut self) -> Option<(Option<PeripheralId>, Instant, &[u8])> {
-        // Make sure the socket is open
-        match self.open() {
-            Ok(_) => {}
-            Err(_) => return None,
-        };
-
         // Check if there is anything to receive,
         // and filter out packets from unexpected source port
         let (size, addr, time) = match self.socket.as_mut() {

@@ -129,6 +129,18 @@ impl Controller {
             .set_peripheral_input_source(input_field, source_field);
     }
 
+    /// Open sockets, bind ports, etc.
+    /// No-op if called multiple times without closing sockets.
+    pub fn open_sockets(&mut self) -> Result<(), String> {
+        for sock in self.sockets.iter_mut() {
+            if !sock.is_open() {
+                sock.open(&self.ctx)?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Request specific peripherals to bind or scan the network,
     /// giving `binding_timeout_ms` for peripherals to respond
     /// and requesting a window of `configuring_timeout_ms` after binding
@@ -155,6 +167,9 @@ impl Controller {
         configuring_timeout_ms: u16,
         plugins: Option<PluginMap>,
     ) -> BTreeMap<SuperSocketAddr, Box<dyn Peripheral>> {
+        // Make sure sockets are configured and ports are bound
+        self.open_sockets().unwrap();
+
         let mut buf = vec![0_u8; 1522];
         let mut available_peripherals = BTreeMap::new();
 
@@ -267,6 +282,9 @@ impl Controller {
 
         // Buffer for writing bytes to send on sockets
         let txbuf = &mut [0_u8; 1522][..];
+
+        // Make sure sockets are configured and ports are bound
+        self.open_sockets();
 
         // Scan to get peripheral addresses
         println!("Scanning for available units");
