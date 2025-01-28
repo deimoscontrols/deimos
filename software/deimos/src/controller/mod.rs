@@ -8,7 +8,6 @@ mod timing;
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant, SystemTime};
 
-use context::ControllerCtx;
 use core_affinity;
 
 use serde::{Deserialize, Serialize};
@@ -26,39 +25,9 @@ use crate::dispatcher::Dispatcher;
 use crate::orchestrator::Orchestrator;
 use crate::socket::udp::UdpSuperSocket;
 use crate::socket::{SuperSocket, SuperSocketAddr};
+use context::{ControllerCtx, LossOfContactPolicy, Termination};
 use controller_state::ControllerState;
 use timing::TimingPID;
-
-/// Criteria for exiting the control program
-#[derive(Serialize, Deserialize)]
-#[non_exhaustive]
-pub enum Termination {
-    /// A duration after which the control program should terminate.
-    /// The controller will use the monotonic clock, not system realtime clock,
-    /// to determine when this threshold occurs; as a result, if used for
-    /// scheduling relative to a "realtime" date or time, it will accumulate
-    /// some error as the monotonic clock drifts.
-    Timeout(Duration),
-
-    /// Schedule termination at a specific "realtime" date or time.
-    Scheduled(SystemTime),
-
-    /// Terminate on any nonzero output of this calc output.
-    Calc(String)
-}
-
-/// Response to losing contact with a peripheral
-#[derive(Serialize, Deserialize)]
-#[non_exhaustive]
-pub enum LossOfContactPolicy {
-    /// Terminate the control program
-    Terminate,
-    /// Attempt to reconnect indefinitely
-    Reconnect,
-    /// Attempt to reconnect until some time has elapsed,
-    /// then terminate if unsuccessful
-    ReconnectWithTimeout(Duration)
-}
 
 /// The controller implements the control loop,
 /// synchronizes sample reporting time between the peripherals,
@@ -267,7 +236,35 @@ impl Controller {
         self.bind(None, timeout_ms, 0, plugins.clone())
     }
 
-    pub fn run(&mut self) {
+    // Set termination procedure
+    fn terminate(
+        &mut self,
+        state: &ControllerState,
+        peripheral_input_buffer: &mut [f64],
+        txbuf: &mut [u8],
+        packet_index: u64,
+    ) {
+        // Send peripherals default state
+        let i = packet_index;
+        peripheral_input_buffer.fill(0.0);
+        for (addr, ps) in state.peripheral_state.iter() {
+            let p = &self.peripherals[&ps.name];
+            let n = p.operating_roundtrip_input_size();
+            // TODO: log transmit errors
+            let (sid, pid) = addr;
+
+            for j in i..=i + 1 {
+                // Send multiple times to each peripheral to reduce probability of
+                // packet loss; in the event that the shutdown message is missed,
+                // the peripheral will still return to its default state on reaching
+                // its loss-of-contact limit.
+                p.emit_operating_roundtrip(j, 0, 0, &peripheral_input_buffer[..n], &mut txbuf[..n]);
+                let _ = self.sockets[*sid].send(*pid, &txbuf[..n]);
+            }
+        }
+    }
+
+    pub fn run(&mut self) -> Result<String, String> {
         // Set core affinity, if possible
         // This may not be available on every platform, so it should not break if not available
         let core_ids = core_affinity::get_core_ids().unwrap_or_default();
@@ -315,7 +312,7 @@ impl Controller {
         let txbuf = &mut [0_u8; 1522][..];
 
         // Make sure sockets are configured and ports are bound
-        self.open_sockets();
+        self.open_sockets().unwrap();
 
         // Scan to get peripheral addresses
         println!("Scanning for available units");
@@ -479,9 +476,9 @@ impl Controller {
 
         //    Set up peripheral I/O buffers
         //    with maximum size of a standard packet
-        let mut peripheral_input_buffer = [0.0_f64; 1522];
+        let mut peripheral_input_buffer = [0.0_f64; 1522 / 8 + 8];
 
-        //    Run
+        //    Run timed loop
         println!("Entering control loop");
         let mut i: u64 = 0;
         controller_state.controller_metrics.cycle_time_margin_ns = self.ctx.dt_ns as f64;
@@ -495,6 +492,62 @@ impl Controller {
             // Record timing margin
             controller_state.controller_metrics.cycle_time_margin_ns =
                 (target_time.as_secs_f64() - t.as_secs_f64()) * 1e9;
+
+            // Check for loss of contact
+            match self.ctx.loss_of_contact_policy {
+                LossOfContactPolicy::Terminate => {
+                    for p in controller_state.peripheral_state.values() {
+                        if p.metrics.loss_of_contact_counter
+                            >= self.ctx.controller_loss_of_contact_limit as f64
+                        {
+                            self.terminate(
+                                &controller_state,
+                                &mut peripheral_input_buffer,
+                                &mut txbuf[..],
+                                i,
+                            );
+                            let reason = format!(
+                                "Lost contact with peripheral `{}` after {} missed cycles",
+                                &p.name, self.ctx.controller_loss_of_contact_limit
+                            );
+                            return Err(reason);
+                        }
+                    }
+                }
+            }
+
+            // Check termination criteria
+            for criterion in &self.ctx.termination_criteria {
+                let terminating = match criterion {
+                    Termination::Timeout(d) => {
+                        if &t >= d {
+                            Some(Ok(format!("Reached full duration {:?} at {:?}", &d, &t)))
+                        } else {
+                            None
+                        }
+                    }
+                    Termination::Scheduled(t_sched) => {
+                        if t_sched >= &time {
+                            Some(Ok(format!(
+                                "Reached scheduled termination time {t_sched:?} at {time:?}"
+                            )))
+                        } else {
+                            None
+                        }
+                    } // _ => Some(Err(format!("Unimplemented termination criterion"))),
+                };
+
+                if let Some(reason) = terminating {
+                    self.terminate(
+                        &controller_state,
+                        &mut peripheral_input_buffer,
+                        &mut txbuf[..],
+                        i,
+                    );
+
+                    return reason;
+                }
+            }
 
             // Send next input
             for (addr, ps) in controller_state.peripheral_state.iter_mut() {

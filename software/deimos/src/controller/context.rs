@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Criteria for exiting the control program
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub enum Termination {
     /// A duration after which the control program should terminate.
@@ -23,18 +23,20 @@ pub enum Termination {
     /// Schedule termination at a specific "realtime" date or time.
     Scheduled(SystemTime),
 
-    /// Terminate on any nonzero output of this calc output.
-    Calc(String)
+    // TODO: add machinery to Orchestrator to support extracting values during run
+    // /// Terminate on any nonzero output of this calc output.
+    // Calc(String)
 }
 
 /// Response to losing contact with a peripheral
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub enum LossOfContactPolicy {
     /// Terminate the control program
     Terminate,
 
     // TODO: implement reconnection
+
     // /// Attempt to reconnect indefinitely
     // Reconnect,
 
@@ -43,7 +45,7 @@ pub enum LossOfContactPolicy {
     // ReconnectWithTimeout(Duration)
 }
 
-/// Operation context for
+/// Operation context, provided to appendages during init
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub struct ControllerCtx {
