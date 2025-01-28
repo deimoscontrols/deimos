@@ -16,7 +16,7 @@ pub struct UnixSuperSocket {
     /// The name of the socket will be combined with the op directory
     /// to make a socket address like {op_dir}/sock/{name} .
     /// Peripheral sockets are expected in {op_dir}/sock/per/* .
-    /// 
+    ///
     /// Because unix sockets have a maximum path length of 94-108 characters
     /// depending on platform, the name of the socket should be as short
     /// as possible, like `ctrl`, to prevent errors when attempting to run
@@ -57,17 +57,14 @@ impl UnixSuperSocket {
 
     /// The path to the socket, at {op_dir}/sock/{name}.sock
     pub fn path(&self) -> PathBuf {
-        self.ctx
-            .op_dir
-            .join("sock")
-            .join(&self.name)
+        self.ctx.op_dir.join("sock").join(&self.name)
     }
 
     /// A unix socket address made from the socket's name and the op directory.
-    /// 
+    ///
     /// # Errors
-    /// 
-    /// * If socket path length exceeds platform maximum characters 
+    ///
+    /// * If socket path length exceeds platform maximum characters
     ///   for a unix socket (about 94-108 depending on platform)
     pub fn addr(&self) -> Result<SocketAddr, String> {
         SocketAddr::from_pathname(self.path())
@@ -75,10 +72,7 @@ impl UnixSuperSocket {
     }
 
     pub fn peripheral_socket_dir(&self) -> PathBuf {
-        self.ctx
-        .op_dir
-        .join("sock")
-        .join("peripherals")
+        self.ctx.op_dir.join("sock").join("peripherals")
     }
 }
 
@@ -153,9 +147,8 @@ impl SuperSocket for UnixSuperSocket {
                         }
                         (size, src_path, now)
                     } else {
-                        return None
+                        return None;
                     }
-
                 }
                 None => return None,
             },
@@ -171,6 +164,9 @@ impl SuperSocket for UnixSuperSocket {
     }
 
     fn broadcast(&mut self, msg: &[u8]) -> Result<(), String> {
+        // Figure out where to find peripheral sockets
+        let dir = self.peripheral_socket_dir();
+
         // Get socket
         let sock = self
             .socket
@@ -178,20 +174,29 @@ impl SuperSocket for UnixSuperSocket {
             .ok_or("Unable to send before socket is bound".to_string())?;
 
         // Collect sockets in {op_dir}/sock/per/*
-
-        // Send to each peripheral socket
-
-        unimplemented!();
-
-        // Send broadcast
-        // sock.set_broadcast(true)
-        //     .map_err(|e| format!("Unable to set UDP socket to broadcast mode: {e}"))?;
-        // sock.send_to(msg, (Ipv4Addr::BROADCAST, PERIPHERAL_RX_PORT))
-        //     .map_err(|e| format!("Failed to send UDP packet: {e}"))?;
-
-        // // Set back to unicast mode
-        // sock.set_broadcast(false)
-        //     .map_err(|e| format!("Unable to set UDP socket to unicast mode: {e}"))?;
+        if dir.exists() {
+            // Paths that may be a dir or file
+            let paths = std::fs::read_dir(dir)
+                .map_err(|e| format!("Unable to read peripheral socket dir: {e}"))?;
+            // Files that may or may not be unix sockets
+            let files = paths.filter_map(|entry| {
+                if let Ok(entry) = entry {
+                    let p = entry.path();
+                    match p.is_file() {
+                        true => Some(p),
+                        false => None,
+                    }
+                } else {
+                    None
+                }
+            });
+            // Try to send to each file, since we don't have a rigorous way to check
+            // which ones are unix sockets and which ones are not
+            for f in files {
+                // TODO log errors
+                let _ = sock.send_to(msg, f);
+            }
+        }
 
         Ok(())
     }
