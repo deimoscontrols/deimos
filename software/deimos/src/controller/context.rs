@@ -44,7 +44,7 @@ pub enum LossOfContactPolicy {
 }
 
 /// Operation context for
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub struct ControllerCtx {
     /// A name for this controller op,

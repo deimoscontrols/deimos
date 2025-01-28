@@ -6,6 +6,8 @@ use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 
+use crate::controller::context::ControllerCtx;
+
 use super::*;
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::{CONTROLLER_RX_PORT, PERIPHERAL_RX_PORT};
@@ -39,7 +41,11 @@ impl UdpSuperSocket {
 
 #[typetag::serde]
 impl SuperSocket for UdpSuperSocket {
-    fn open(&mut self) -> Result<(), String> {
+    fn is_open(&self) -> bool {
+        self.socket.is_some()
+    }
+    
+    fn open(&mut self, _ctx: &ControllerCtx) -> Result<(), String> {
         if self.socket.is_none() {
             // Socket populated on access
             let socket = UdpSocket::bind(format!("0.0.0.0:{CONTROLLER_RX_PORT}"))
@@ -64,9 +70,6 @@ impl SuperSocket for UdpSuperSocket {
     }
 
     fn send(&mut self, id: PeripheralId, msg: &[u8]) -> Result<(), String> {
-        // Make sure the socket is open
-        self.open()?;
-
         // Get the IP address
         let addr = *self
             .addrs
@@ -87,12 +90,6 @@ impl SuperSocket for UdpSuperSocket {
     }
 
     fn recv(&mut self) -> Option<(Option<PeripheralId>, Instant, &[u8])> {
-        // Make sure the socket is open
-        match self.open() {
-            Ok(_) => {}
-            Err(_) => return None,
-        };
-
         // Check if there is anything to receive,
         // and filter out packets from unexpected source port
         let (size, addr, time) = match self.socket.as_mut() {
@@ -120,9 +117,6 @@ impl SuperSocket for UdpSuperSocket {
     }
 
     fn broadcast(&mut self, msg: &[u8]) -> Result<(), String> {
-        // Make sure the socket is open
-        self.open()?;
-
         // Get socket
         let sock = self
             .socket
