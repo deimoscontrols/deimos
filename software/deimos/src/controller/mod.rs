@@ -29,6 +29,37 @@ use crate::socket::{SuperSocket, SuperSocketAddr};
 use controller_state::ControllerState;
 use timing::TimingPID;
 
+/// Criteria for exiting the control program
+#[derive(Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum Termination {
+    /// A duration after which the control program should terminate.
+    /// The controller will use the monotonic clock, not system realtime clock,
+    /// to determine when this threshold occurs; as a result, if used for
+    /// scheduling relative to a "realtime" date or time, it will accumulate
+    /// some error as the monotonic clock drifts.
+    Timeout(Duration),
+
+    /// Schedule termination at a specific "realtime" date or time.
+    Scheduled(SystemTime),
+
+    /// Terminate on any nonzero output of this calc output.
+    Calc(String)
+}
+
+/// Response to losing contact with a peripheral
+#[derive(Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum LossOfContactPolicy {
+    /// Terminate the control program
+    Terminate,
+    /// Attempt to reconnect indefinitely
+    Reconnect,
+    /// Attempt to reconnect until some time has elapsed,
+    /// then terminate if unsuccessful
+    ReconnectWithTimeout(Duration)
+}
+
 /// The controller implements the control loop,
 /// synchronizes sample reporting time between the peripherals,
 /// and dispatches measured data, calculations, and metrics to the data pipeline.
@@ -211,7 +242,7 @@ impl Controller {
     }
 
     /// Scan the local network for peripherals that are available to bind,
-    /// giving `binding_timeout_ms` for peripherals to respond
+    /// giving `timeout_ms` for peripherals to respond
     pub fn scan(
         &mut self,
         timeout_ms: u16,
