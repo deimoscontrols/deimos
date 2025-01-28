@@ -14,8 +14,8 @@ use deimos_shared::peripherals::PeripheralId;
 #[derive(Serialize, Deserialize, Default)]
 pub struct UnixSuperSocket {
     /// The name of the socket will be combined with the op directory
-    /// to make a socket address like {op_dir}/{op_name}/sock/{name} .
-    /// Peripheral sockets are expected in {op_dir}/{op_name}/sock/per/* .
+    /// to make a socket address like {op_dir}/sock/{name} .
+    /// Peripheral sockets are expected in {op_dir}/sock/per/* .
     /// 
     /// Because unix sockets have a maximum path length of 94-108 characters
     /// depending on platform, the name of the socket should be as short
@@ -55,11 +55,10 @@ impl UnixSuperSocket {
         &self.name
     }
 
-    /// The path to the socket, at {op_dir}/{op_name}/sock/{name}.sock
+    /// The path to the socket, at {op_dir}/sock/{name}.sock
     pub fn path(&self) -> PathBuf {
         self.ctx
             .op_dir
-            .join(&self.ctx.op_name)
             .join("sock")
             .join(&self.name)
     }
@@ -78,7 +77,6 @@ impl UnixSuperSocket {
     pub fn peripheral_socket_dir(&self) -> PathBuf {
         self.ctx
         .op_dir
-        .join(&self.ctx.op_name)
         .join("sock")
         .join("peripherals")
     }
@@ -144,9 +142,11 @@ impl SuperSocket for UnixSuperSocket {
                     // Mark the time ASAP
                     let now = Instant::now();
                     if let Some(src_path) = addr.as_pathname() {
+                        // TODO: eliminate allocation here by copying into a reusable buffer
                         let src_path = src_path.to_owned();
                         // Make sure the source port is consistent with a peripheral
                         if let Some(dir) = src_path.parent() {
+                            // TODO: eliminate allocation here by caching peripheral socket dir with socket
                             if dir != self.peripheral_socket_dir() {
                                 return None;
                             }
@@ -176,6 +176,10 @@ impl SuperSocket for UnixSuperSocket {
             .socket
             .as_mut()
             .ok_or("Unable to send before socket is bound".to_string())?;
+
+        // Collect sockets in {op_dir}/sock/per/*
+
+        // Send to each peripheral socket
 
         unimplemented!();
 
