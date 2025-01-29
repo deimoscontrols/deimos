@@ -1,4 +1,4 @@
-//! Implementation of SuperSocket trait for stdlib UDP socket on IPV4
+//! Implementation of SuperSocket trait for stdlib unix datagram socket.
 
 use std::collections::BTreeMap;
 use std::os::unix::net::{SocketAddr, UnixDatagram};
@@ -55,7 +55,7 @@ impl UnixSuperSocket {
         &self.name
     }
 
-    /// The path to the socket, at {op_dir}/sock/{name}.sock
+    /// The path to the socket, at {op_dir}/sock/{name}
     pub fn path(&self) -> PathBuf {
         self.ctx.op_dir.join("sock").join(&self.name)
     }
@@ -85,6 +85,13 @@ impl SuperSocket for UnixSuperSocket {
     fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String> {
         if self.socket.is_none() {
             self.ctx = ctx.clone();
+            // Create the socket folders if they don't already exist
+            std::fs::create_dir_all(self.ctx.op_dir.join("sock"))
+                .map_err(|e| format!("Unable to create socket folders: {e}"))?;
+            std::fs::create_dir_all(self.peripheral_socket_dir())
+                .map_err(|e| format!("Unable to create socket folders: {e}"))?;
+
+            // Bind the socket
             let socket = UnixDatagram::bind(self.path())
                 .map_err(|e| format!("Unable to bind unix socket: {e}"))?;
             socket
@@ -100,11 +107,15 @@ impl SuperSocket for UnixSuperSocket {
 
     fn close(&mut self) {
         // Drop inner socket, releasing port
+        let path = self.path();
         self.socket = None;
         self.addrs.clear();
         self.pids.clear();
         self.last_received_addr = None;
         self.ctx = ControllerCtx::default();
+        // Attempt to delete socket file so that it is not left dangling.
+        // This may fail on permissions.
+        let _ = std::fs::remove_file(path);
     }
 
     fn send(&mut self, id: PeripheralId, msg: &[u8]) -> Result<(), String> {

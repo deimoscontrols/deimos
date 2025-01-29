@@ -67,11 +67,9 @@ impl Default for Controller {
 impl Controller {
     /// Initialize a fresh controller with no dispatchers, peripherals, or calcs.
     /// A UDP socket is included by default, but can be removed.
-    pub fn new(dt_ns: u32) -> Self {
+    pub fn new(ctx: ControllerCtx) -> Self {
         let mut c = Self::default();
-        c.ctx.dt_ns = dt_ns;
-        c.ctx.timeout_to_operating_ns = (dt_ns * 2).max(1_000_000);
-
+        c.ctx = ctx;
         c
     }
 
@@ -236,7 +234,7 @@ impl Controller {
         self.bind(None, timeout_ms, 0, plugins.clone())
     }
 
-    // Set termination procedure
+    // Safe the peripherals and shut down the controller
     fn terminate(
         &mut self,
         state: &ControllerState,
@@ -245,19 +243,18 @@ impl Controller {
         packet_index: u64,
     ) {
         // Send peripherals default state
+        // Send multiple times to each peripheral to reduce probability of
+        // packet loss; in the event that the shutdown message is missed,
+        // the peripheral will still return to its default state on reaching
+        // its loss-of-contact limit.
         let i = packet_index;
         peripheral_input_buffer.fill(0.0);
-        for (addr, ps) in state.peripheral_state.iter() {
-            let p = &self.peripherals[&ps.name];
-            let n = p.operating_roundtrip_input_size();
-            // TODO: log transmit errors
-            let (sid, pid) = addr;
-
-            for j in i..=i + 1 {
-                // Send multiple times to each peripheral to reduce probability of
-                // packet loss; in the event that the shutdown message is missed,
-                // the peripheral will still return to its default state on reaching
-                // its loss-of-contact limit.
+        for j in i..i + 3 {
+            for (addr, ps) in state.peripheral_state.iter() {
+                let p = &self.peripherals[&ps.name];
+                let n = p.operating_roundtrip_input_size();
+                // TODO: log transmit errors
+                let (sid, pid) = addr;
                 p.emit_operating_roundtrip(j, 0, 0, &peripheral_input_buffer[..n], &mut txbuf[..n]);
                 let _ = self.sockets[*sid].send(*pid, &txbuf[..n]);
             }

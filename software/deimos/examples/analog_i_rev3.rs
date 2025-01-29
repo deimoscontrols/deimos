@@ -6,8 +6,11 @@ use deimos_shared::calcs::{Constant, Sin};
 use deimos_shared::peripherals::analog_i_rev_3::AnalogIRev3;
 
 fn main() {
+    // Blank controller config
+    let mut ctx = ControllerCtx::default();
+
     // None -> Let the controller set the name of the op automatically
-    let op_name: String = std::fs::read_to_string("./op_name.tmp").unwrap_or_else(|_| {
+    ctx.op_name = std::fs::read_to_string("./op_name.tmp").unwrap_or_else(|_| {
         format!(
             "{:?}",
             std::time::SystemTime::now()
@@ -16,20 +19,17 @@ fn main() {
                 .as_nanos() as u64
         )
     });
-
-    std::fs::write("./op_name.tmp", &op_name).unwrap();
-
-    let mut ctx = ControllerCtx::default();
-    ctx.op_name = op_name;
-    ctx.op_dir = "./".into();
+    std::fs::write("./op_name.tmp", &ctx.op_name).unwrap();
 
     // Collect initalizers for custom peripherals, if needed
     let peripheral_plugins = None;
 
-    // Initialize idle controller
+    // Set control rate
     let rate_hz = 200.0;
-    let dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
-    let mut controller = Controller::new(dt_ns);
+    ctx.dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
+
+    // Define idle controller
+    let mut controller = Controller::new(ctx);
 
     // Scan for peripherals on LAN
     let scanned_peripherals = controller.scan(10, peripheral_plugins);
@@ -73,6 +73,5 @@ fn main() {
 
     // Run the control program
     println!("Starting controller");
-    let controller_thread = std::thread::spawn(move || controller.run());
-    controller_thread.join().unwrap();
+    controller.run().unwrap();
 }
