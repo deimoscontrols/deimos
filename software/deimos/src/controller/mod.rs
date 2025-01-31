@@ -365,15 +365,21 @@ impl Controller {
             // Clear buffers
             while self.sockets.iter_mut().any(|sock| sock.recv().is_some()) {}
 
-            // Bind
-            let dt_ms = (self.ctx.dt_ns / 1_000_000) as u16;
-            let _bound_peripherals = self.bind(Some(&addresses), 10, 20.max(dt_ms), plugins);
-
-            // Configuring starts as soon as peripherals receive binding input
+            // Configuring starts as soon as peripherals receive binding input,
+            // so start the clock now to avoid absorbing binding timeout
             let start_of_configuring = Instant::now();
 
-            // Clear buffer
-            while self.sockets.iter_mut().any(|sock| sock.recv().is_some()) {}
+            // Bind
+            let dt_ms = (self.ctx.dt_ns / 1_000_000) as u16;
+            let _bound_peripherals = self.bind(
+                Some(&addresses),
+                self.ctx.binding_timeout_ms,
+                self.ctx
+                    .configuring_timeout_ms
+                    .max(dt_ms)
+                    .max(2 * self.ctx.binding_timeout_ms),
+                plugins,
+            );
 
             // Configure peripherals
             //    Send configuration to each peripheral
@@ -561,7 +567,7 @@ impl Controller {
                             .iter_mut()
                             .zip(vals)
                             .for_each(|(old, new)| {
-                                let _ = core::mem::replace(old, new);
+                                *old = new;
                             })
                     });
 
@@ -575,7 +581,9 @@ impl Controller {
                     &mut txbuf[..n],
                 );
 
-                self.sockets[*sid].send(*pid, &txbuf[..n]).unwrap();
+                self.sockets[*sid]
+                    .send(*pid, &txbuf[..n])
+                    .map_err(|e| format!("Unable to send on socket {sid}: {e}"))?;
             }
 
             // Receive packets until the start of the next cycle

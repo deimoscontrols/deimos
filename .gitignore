@@ -99,3 +99,4 @@ docs/_build/
 # deimos
 *op_name.tmp
 *.csv
+*sock

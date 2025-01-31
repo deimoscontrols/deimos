@@ -9,7 +9,7 @@ use std::{
     collections::BTreeMap,
     os::unix::net::{SocketAddr, UnixDatagram},
     thread::{self, JoinHandle},
-    time::{Duration, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 use controller::context::{ControllerCtx, Termination};
@@ -40,6 +40,11 @@ fn main() {
     // Set termination criteria to end the control loop after 1s
     ctx.termination_criteria = vec![Termination::Timeout(Duration::from_millis(1000))];
 
+    // We need a little extra time to bind on a unix socket
+    ctx.binding_timeout_ms = 100;
+    ctx.configuring_timeout_ms = 250;
+    ctx.timeout_to_operating_ns = 250_000_000;
+
     // Define idle controller
     let mut controller = Controller::new(ctx);
 
@@ -62,24 +67,31 @@ fn main() {
     controller.add_peripheral("mockup", Box::new(p));
 
     // Scan to trigger the controller to build the socket folder structure
-    controller.scan(1, &plugins);
+    controller.scan(100, &plugins);
 
     // Open a socket for the peripheral mockup
     let sock = UnixDatagram::bind("./sock/per/mockup").unwrap();
+    sock.set_nonblocking(true).unwrap();
 
     // Start the in-memory peripheral on a another thread,
     // setting a timer for it to terminate after 5 seconds
     let mockup = PState::Binding {
-        end: SystemTime::now() + Duration::from_secs(5),
+        end: SystemTime::now() + Duration::from_secs(2),
         sock,
     };
     let mockup_thread = mockup.run();
 
+    // Scan for peripherals to find the mockup
+    let scan_result = controller.scan(100, &plugins);
+    println!("Scan found:\n{:?}", scan_result.values());
+
     // Start the controller
-    controller.run(&plugins).unwrap();
+    let exit_status = controller.run(&plugins);
+    println!("Controller exit status: {exit_status:?}");
 
     // Wait for the mockup to finish running
     mockup_thread.join().unwrap();
+
 }
 
 /// The controller's representation of the in-memory peripheral mockup
@@ -193,6 +205,7 @@ enum PState {
     },
     Configuring {
         controller: SocketAddr,
+        timeout: Duration,
         end: SystemTime,
         sock: UnixDatagram,
     },
@@ -210,7 +223,10 @@ impl PState {
         let mut state = self;
         thread::spawn(|| loop {
             state = match state.transition() {
-                Self::Terminated => return,
+                Self::Terminated => {
+                    println!("Peripheral -> Terminated");
+                    return;
+                }
                 x => x,
             }
         })
@@ -220,9 +236,10 @@ impl PState {
     fn transition(self) -> Self {
         match self {
             Self::Binding { end, sock } => {
+                println!("Peripheral -> Binding");
                 let buf = &mut vec![0_u8; 1522][..];
                 loop {
-                    // Check for timeout
+                    // Check for planned termination
                     if SystemTime::now() > end {
                         return Self::Terminated;
                     }
@@ -234,6 +251,10 @@ impl PState {
                             continue;
                         }
 
+                        // Parse input
+                        let msg = BindingInput::read_bytes(&buf[..size]);
+
+                        // Build output
                         let resp = BindingOutput {
                             peripheral_id: PeripheralId {
                                 model_number: EXPERIMENTAL_MODEL_NUMBER,
@@ -242,10 +263,14 @@ impl PState {
                         };
 
                         resp.write_bytes(&mut buf[..BindingOutput::BYTE_LEN]);
-                        let _ = sock.send_to_addr(&buf[..BindingOutput::BYTE_LEN], &src_addr);
+                        sock.send_to_addr(&buf[..BindingOutput::BYTE_LEN], &src_addr)
+                            .unwrap();
+
+                        let timeout = Duration::from_millis(msg.configuring_timeout_ms as u64);
 
                         return Self::Configuring {
                             controller: src_addr,
+                            timeout,
                             end,
                             sock,
                         };
@@ -254,21 +279,27 @@ impl PState {
             }
             Self::Configuring {
                 controller,
+                timeout,
                 end,
                 sock,
             } => {
+                println!("Peripheral -> Configuring");
                 let buf = &mut vec![0_u8; 1522][..];
+                let start_of_configuring = Instant::now();
                 loop {
-                    // Check for timeout
+                    // Check for planned termination
                     if SystemTime::now() > end {
                         return Self::Terminated;
                     }
 
+                    // Check for timeout
+                    if start_of_configuring.elapsed() > timeout {
+                        return Self::Binding { sock, end };
+                    }
+
                     // Receive packet
-                    if let Ok((size, src_addr)) = sock.recv_from(buf) {
-                        if size != ConfiguringInput::BYTE_LEN
-                            || src_addr.as_pathname().unwrap() != controller.as_pathname().unwrap()
-                        {
+                    if let Ok((size, _src_addr)) = sock.recv_from(buf) {
+                        if size != ConfiguringInput::BYTE_LEN {
                             continue;
                         }
 
@@ -277,7 +308,8 @@ impl PState {
                         };
 
                         resp.write_bytes(&mut buf[..ConfiguringOutput::BYTE_LEN]);
-                        let _ = sock.send_to_addr(&buf[..ConfiguringOutput::BYTE_LEN], &controller);
+                        sock.send_to_addr(&buf[..ConfiguringOutput::BYTE_LEN], &controller)
+                            .unwrap();
 
                         return Self::Operating {
                             controller,
@@ -294,17 +326,16 @@ impl PState {
             } => {
                 let buf = &mut vec![0_u8; 1522][..];
                 let mut i = 0;
+                println!("Peripheral -> Operating");
                 loop {
-                    // Check for timeout
+                    // Check for planned termination
                     if SystemTime::now() > end {
                         return Self::Terminated;
                     }
 
                     // Receive packet
-                    if let Ok((size, src_addr)) = sock.recv_from(buf) {
-                        if size != OperatingRoundtripInput::BYTE_LEN
-                            || src_addr.as_pathname().unwrap() != controller.as_pathname().unwrap()
-                        {
+                    if let Ok((size, _src_addr)) = sock.recv_from(buf) {
+                        if size != OperatingRoundtripInput::BYTE_LEN {
                             continue;
                         }
 
@@ -315,14 +346,18 @@ impl PState {
                         resp.metrics.last_input_id = last_received_id;
                         resp.metrics.id = i;
 
-                        resp.write_bytes(&mut buf[..ConfiguringOutput::BYTE_LEN]);
-                        let _ = sock.send_to_addr(&buf[..ConfiguringOutput::BYTE_LEN], &controller);
+                        resp.write_bytes(&mut buf[..OperatingRoundtripOutput::BYTE_LEN]);
+                        let _ = sock
+                            .send_to_addr(&buf[..OperatingRoundtripOutput::BYTE_LEN], &controller);
 
                         i += 1;
                     }
                 }
             }
-            Self::Terminated => return Self::Terminated,
+            Self::Terminated => {
+                println!("Peripheral -> Terminated");
+                return Self::Terminated;
+            }
         }
     }
 }

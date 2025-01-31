@@ -60,8 +60,16 @@ pub struct ControllerCtx {
     /// Control cycle period in nanoseconds
     pub dt_ns: u32,
 
-    /// Configuration time window, after which the peripherals time out to the Operating state
+    /// Delay from end of configuration window after which
+    /// the peripherals time out to the Operating state
     pub timeout_to_operating_ns: u32,
+
+    /// Duration to wait for responses to binding
+    pub binding_timeout_ms: u16,
+
+    /// Duration for peripherals to wait to receive configuration
+    /// after being bound
+    pub configuring_timeout_ms: u16,
 
     /// Number of consecutive missed control inputs after which the peripheral
     /// should assume contact has been lost, de-energize their outputs, and wait
@@ -95,6 +103,8 @@ impl Default for ControllerCtx {
             op_dir: std::fs::canonicalize("./").unwrap_or_default(),
             dt_ns: 0,
             timeout_to_operating_ns: 0,
+            binding_timeout_ms: 10,
+            configuring_timeout_ms: 20,
             peripheral_loss_of_contact_limit: 10,
             controller_loss_of_contact_limit: 10,
             termination_criteria: Vec::new(),

@@ -134,7 +134,7 @@ impl SuperSocket for UnixSuperSocket {
 
         // Send unicast
         sock.send_to(msg, addr)
-            .map_err(|e| format!("Failed to send UDP packet: {e}"))?;
+            .map_err(|e| format!("Failed to send packet: {e}"))?;
 
         Ok(())
     }
@@ -147,16 +147,10 @@ impl SuperSocket for UnixSuperSocket {
                 Some((size, addr)) => {
                     // Mark the time ASAP
                     let now = Instant::now();
+                    
                     if let Some(src_path) = addr.as_pathname() {
                         // TODO: eliminate allocation here by copying into a reusable buffer
                         let src_path = src_path.to_owned();
-                        // Make sure the source port is consistent with a peripheral
-                        if let Some(dir) = src_path.parent() {
-                            // TODO: eliminate allocation here by caching peripheral socket dir with socket
-                            if dir != self.peripheral_socket_dir() {
-                                return None;
-                            }
-                        }
                         (size, src_path, now)
                     } else {
                         return None;
@@ -194,19 +188,21 @@ impl SuperSocket for UnixSuperSocket {
             let files = paths.filter_map(|entry| {
                 if let Ok(entry) = entry {
                     let p = entry.path();
-                    match p.is_file() {
-                        true => Some(p),
-                        false => None,
+                    // Sockets are neither a file nor a directory
+                    match p.is_dir() || p.is_file() {
+                        true => None,
+                        false => Some(p),
                     }
                 } else {
                     None
                 }
             });
+
             // Try to send to each file, since we don't have a rigorous way to check
             // which ones are unix sockets and which ones are not
             for f in files {
                 // TODO log errors
-                let _ = sock.send_to(msg, f);
+                let _ = sock.send_to(msg, &f);
             }
         }
 
