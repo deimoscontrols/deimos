@@ -163,7 +163,7 @@ impl Controller {
         addresses: Option<&Vec<SuperSocketAddr>>,
         binding_timeout_ms: u16,
         configuring_timeout_ms: u16,
-        plugins: Option<PluginMap>,
+        plugins: &Option<PluginMap>,
     ) -> BTreeMap<SuperSocketAddr, Box<dyn Peripheral>> {
         // Make sure sockets are configured and ports are bound
         self.open_sockets().unwrap();
@@ -228,10 +228,10 @@ impl Controller {
     pub fn scan(
         &mut self,
         timeout_ms: u16,
-        plugins: Option<PluginMap>,
+        plugins: &Option<PluginMap>,
     ) -> BTreeMap<SuperSocketAddr, Box<dyn Peripheral>> {
         // Ping with the longer desired timeout
-        self.bind(None, timeout_ms, 0, plugins.clone())
+        self.bind(None, timeout_ms, 0, plugins)
     }
 
     // Safe the peripherals and shut down the controller
@@ -261,7 +261,7 @@ impl Controller {
         }
     }
 
-    pub fn run(&mut self) -> Result<String, String> {
+    pub fn run(&mut self, plugins: &Option<PluginMap>) -> Result<String, String> {
         // Set core affinity, if possible
         // This may not be available on every platform, so it should not break if not available
         let core_ids = core_affinity::get_core_ids().unwrap_or_default();
@@ -313,7 +313,7 @@ impl Controller {
 
         // Scan to get peripheral addresses
         println!("Scanning for available units");
-        let available_peripherals = self.scan(100, None);
+        let available_peripherals = self.scan(100, plugins);
 
         // Initialize state using scanned addresses
         println!("Initializing state");
@@ -367,7 +367,7 @@ impl Controller {
 
             // Bind
             let dt_ms = (self.ctx.dt_ns / 1_000_000) as u16;
-            let _bound_peripherals = self.bind(Some(&addresses), 10, 20.max(dt_ms), None);
+            let _bound_peripherals = self.bind(Some(&addresses), 10, 20.max(dt_ms), plugins);
 
             // Configuring starts as soon as peripherals receive binding input
             let start_of_configuring = Instant::now();

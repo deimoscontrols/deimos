@@ -32,7 +32,7 @@ fn main() {
     let mut controller = Controller::new(ctx);
 
     // Scan for peripherals on LAN
-    let scanned_peripherals = controller.scan(10, peripheral_plugins);
+    let scanned_peripherals = controller.scan(10, &peripheral_plugins);
     println!("Scan found: {scanned_peripherals:?}\n");
 
     // Associate peripherals
@@ -73,5 +73,5 @@ fn main() {
 
     // Run the control program
     println!("Starting controller");
-    controller.run().unwrap();
+    controller.run(&peripheral_plugins).unwrap();
 }

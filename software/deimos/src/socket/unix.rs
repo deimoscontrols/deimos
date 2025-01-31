@@ -71,8 +71,9 @@ impl UnixSuperSocket {
             .map_err(|e| format!("Unable to form socket address for `{}`: {}", self.name, e))
     }
 
+    /// Directory where peripheral sockets are expected
     pub fn peripheral_socket_dir(&self) -> PathBuf {
-        self.ctx.op_dir.join("sock").join("peripherals")
+        self.ctx.op_dir.join("sock").join("per")
     }
 }
 
