@@ -1,4 +1,6 @@
-//! Implementation of SuperSocket trait for stdlib unix datagram socket.
+//! Implementation of SuperSocket trait for stdlib unix datagram socket,
+//! which provides inter-process communication for peripherals that are
+//! defined in software, or a bridge to an arbitrary data source.
 
 use std::collections::BTreeMap;
 use std::os::unix::net::{SocketAddr, UnixDatagram};

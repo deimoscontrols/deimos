@@ -4,6 +4,12 @@
 //! In this example, the software peripheral is running in the same process,
 //! but in general, the unix socket interface allows connecting to software
 //! peripherals running in different processes.
+//! 
+//! Demonstrated here:
+//!   * Using unix socket for communication with a peripheral
+//!   * Defining a mockup of a peripheral state machine in software
+//!   * Defining the controller's representation of that peripheral state machine
+//!   * Running a control program with no hardware in the loop
 
 use std::{
     collections::BTreeMap,
@@ -12,8 +18,8 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
-use controller::context::{ControllerCtx, Termination};
-use deimos::*;
+// For defining the peripheral mockup
+use serde::{Deserialize, Serialize};
 use deimos_shared::{
     calcs::Calc,
     peripherals::{
@@ -26,7 +32,10 @@ use deimos_shared::{
     },
     OperatingMetrics,
 };
-use serde::{Deserialize, Serialize};
+
+// 
+use deimos::controller::context::{ControllerCtx, Termination};
+use deimos::*;
 use socket::unix::UnixSuperSocket;
 
 fn main() {
@@ -74,7 +83,7 @@ fn main() {
     sock.set_nonblocking(true).unwrap();
 
     // Start the in-memory peripheral on a another thread,
-    // setting a timer for it to terminate after 5 seconds
+    // setting a timer for it to terminate after N seconds
     let mockup = PState::Binding {
         end: SystemTime::now() + Duration::from_secs(2),
         sock,
@@ -94,7 +103,8 @@ fn main() {
 
 }
 
-/// The controller's representation of the in-memory peripheral mockup
+/// The controller's representation of the in-memory peripheral mockup,
+/// reusing the AnalogIRev3's packet formats for convenience.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct IpcMockup {
     pub serial_number: u64,
@@ -193,7 +203,8 @@ impl Peripheral for IpcMockup {
     }
 }
 
-/// The actual in-memory peripheral mockup.
+/// The actual in-memory peripheral mockup,
+/// reusing the AnalogIRev3's packet formats for convenience.
 ///
 /// Bare-bones peripheral state machine with a fixed end time.
 /// This simple implementation does not respect the target dt_ns,
