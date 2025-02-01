@@ -1,13 +1,11 @@
-use deimos_shared::{
-    peripherals::{Peripheral, PeripheralId},
-    states::OperatingMetrics,
-};
+use crate::peripherals::Peripheral;
+use deimos_shared::{peripherals::PeripheralId, states::OperatingMetrics};
 
 use crate::socket::SuperSocketAddr;
 
 /// Peripheral control metrics
 #[derive(Default, Clone, Copy, Debug)]
-pub struct PeripheralMetrics {
+pub(crate) struct PeripheralMetrics {
     /// Last set of peripheral-side comm metrics
     pub operating_metrics: OperatingMetrics,
 
@@ -35,7 +33,7 @@ pub struct PeripheralMetrics {
 }
 
 /// Peripheral-specific metrics, readings, channel names, etc
-pub struct PeripheralState {
+pub(crate) struct PeripheralState {
     /// Ethernet address
     pub addr: SuperSocketAddr,
 

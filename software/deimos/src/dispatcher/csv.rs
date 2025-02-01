@@ -77,7 +77,6 @@ impl Dispatcher for CsvDispatcher {
     fn initialize(
         &mut self,
         ctx: &ControllerCtx,
-        _dt_ns: u32,
         channel_names: &[String],
         core_assignment: CoreId,
     ) -> Result<(), String> {

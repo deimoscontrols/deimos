@@ -3,8 +3,10 @@
 
 pub mod controller;
 pub mod dispatcher;
+pub mod calcs;
 pub mod orchestrator;
 pub mod socket;
+pub mod peripherals;
 
 pub use controller::{
     context::{ControllerCtx, LossOfContactPolicy, Termination},

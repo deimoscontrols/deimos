@@ -20,11 +20,10 @@ use std::{
 
 // For defining the peripheral mockup
 use deimos_shared::{
-    calcs::Calc,
     peripherals::{
         analog_i_rev_3::operating_roundtrip::{OperatingRoundtripInput, OperatingRoundtripOutput},
         model_numbers::EXPERIMENTAL_MODEL_NUMBER,
-        Peripheral, PeripheralId, PluginMap,
+        PeripheralId,
     },
     states::{
         BindingInput, BindingOutput, ByteStruct, ByteStructLen, ConfiguringInput, ConfiguringOutput,
@@ -33,8 +32,8 @@ use deimos_shared::{
 };
 use serde::{Deserialize, Serialize};
 
-//
-use deimos::*;
+// For using the controller
+use deimos::{calcs::Calc, peripherals::{Peripheral, PluginMap}, *};
 use deimos::{
     controller::context::{ControllerCtx, Termination},
     dispatcher::fmt_time,
@@ -54,12 +53,7 @@ fn main() {
     ctx.dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
 
     // Set termination criteria to end the control loop after 1s
-    ctx.termination_criteria = vec![Termination::Timeout(Duration::from_millis(1000))];
-
-    // We need a little extra time to bind on a unix socket
-    ctx.binding_timeout_ms = 100;
-    ctx.configuring_timeout_ms = 250;
-    ctx.timeout_to_operating_ns = 250_000_000;
+    ctx.termination_criteria = vec![Termination::Timeout(Duration::from_millis(500))];
 
     // Define idle controller
     let mut controller = Controller::new(ctx);
@@ -92,7 +86,7 @@ fn main() {
     // Start the in-memory peripheral on a another thread,
     // setting a timer for it to terminate after N seconds
     let mockup = PState::Binding {
-        end: SystemTime::now() + Duration::from_secs(2),
+        end: SystemTime::now() + Duration::from_millis(1000),
         sock,
     };
     let mockup_thread = mockup.run();
@@ -121,27 +115,11 @@ pub struct IpcMockup {
 
 #[typetag::serde]
 impl Peripheral for IpcMockup {
-    fn model_number(&self) -> u64 {
-        EXPERIMENTAL_MODEL_NUMBER
-    }
-
-    fn serial_number(&self) -> u64 {
-        self.serial_number
-    }
-
     fn id(&self) -> PeripheralId {
         PeripheralId {
             model_number: EXPERIMENTAL_MODEL_NUMBER,
             serial_number: self.serial_number,
         }
-    }
-
-    fn n_inputs(&self) -> usize {
-        8
-    }
-
-    fn n_outputs(&self) -> usize {
-        24
     }
 
     fn input_names(&self) -> Vec<String> {
@@ -196,8 +174,7 @@ impl Peripheral for IpcMockup {
         msg.write_bytes(bytes);
     }
 
-    fn parse_operating_roundtrip(&self, bytes: &[u8], outputs: &mut [f64]) -> OperatingMetrics {
-        assert_eq!(outputs.len(), self.n_outputs());
+    fn parse_operating_roundtrip(&self, bytes: &[u8], _outputs: &mut [f64]) -> OperatingMetrics {
         let n = self.operating_roundtrip_output_size();
         let out = OperatingRoundtripOutput::read_bytes(&bytes[..n]);
         // If this were a real peripheral with measurements, we'd write them to `outputs` here

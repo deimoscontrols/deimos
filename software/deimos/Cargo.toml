@@ -12,13 +12,17 @@ readme = "./README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-deimos_shared = { path = "../deimos_shared", version = "0.1.3" }
+deimos_shared = { path = "../deimos_shared", version = "0.2.0" }
 flaw = "0.2.3"
 
 # Control loop prep
 chrono = "0.4.39"
 core_affinity = "0.8.1"
 thread-priority = "1.2.0"
+
+# Calcs
+interpn = "0.4.3"
+once_cell = "1.20.2"
 
 # Serialization
 # Loose versioning enables plugins without multiple crate versions per build

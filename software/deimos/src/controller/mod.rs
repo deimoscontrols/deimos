@@ -14,11 +14,11 @@ use serde::{Deserialize, Serialize};
 
 use flaw::MedianFilter;
 
-use deimos_shared::{
+use crate::{
     calcs::Calc,
     peripherals::{parse_binding, Peripheral, PluginMap},
-    states::*,
 };
+use deimos_shared::states::*;
 use thread_priority::DeadlineFlags;
 
 use crate::dispatcher::Dispatcher;
@@ -345,7 +345,7 @@ impl Controller {
         for dispatcher in self.dispatchers.iter_mut() {
             let core_assignment = aux_core_cycle.next().unwrap();
             dispatcher
-                .initialize(&self.ctx, self.ctx.dt_ns, &channel_names, *core_assignment)
+                .initialize(&self.ctx, &channel_names, *core_assignment)
                 .unwrap();
         }
         println!("Dispatching data for {n_channels} channels.");
@@ -715,7 +715,7 @@ mod test {
     #[test]
     fn test_ser_roundtrip() {
         let mut controller = Controller::default();
-        let per = deimos_shared::peripherals::analog_i_rev_2::AnalogIRev2 { serial_number: 0 };
+        let per = crate::peripherals::analog_i_rev_2::AnalogIRev2 { serial_number: 0 };
         controller
             .peripherals
             .insert("test".to_owned(), Box::new(per));

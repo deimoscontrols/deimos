@@ -82,7 +82,6 @@ impl Dispatcher for TimescaleDbDispatcher {
     fn initialize(
         &mut self,
         ctx: &ControllerCtx,
-        dt_ns: u32,
         channel_names: &[String],
         core_assignment: CoreId,
     ) -> Result<(), String> {
@@ -105,7 +104,7 @@ impl Dispatcher for TimescaleDbDispatcher {
         )?;
 
         // Figure out how many samples to write per batch
-        let n_buffer = (self.buffer_time.as_nanos() / (dt_ns as u128)).max(1) as usize;
+        let n_buffer = (self.buffer_time.as_nanos() / (ctx.dt_ns as u128)).max(1) as usize;
 
         // Spawn workers
         let dbname = self.dbname.clone();

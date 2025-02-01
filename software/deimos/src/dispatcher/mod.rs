@@ -21,7 +21,6 @@ pub trait Dispatcher: Send + Sync {
     fn initialize(
         &mut self,
         ctx: &ControllerCtx,
-        dt_ns: u32,
         channel_names: &[String],
         core_assignment: CoreId,
     ) -> Result<(), String>;

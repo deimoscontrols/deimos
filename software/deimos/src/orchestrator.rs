@@ -6,7 +6,8 @@ use std::{collections::BTreeMap, ops::Range};
 
 use serde::{Deserialize, Serialize};
 
-use deimos_shared::{calcs::*, peripherals::Peripheral, states::OperatingMetrics};
+use crate::{calcs::*, peripherals::Peripheral};
+use deimos_shared::states::OperatingMetrics;
 
 /// Internal state of calc orchestrator
 #[derive(Default)]
@@ -269,7 +270,7 @@ impl Orchestrator {
         for (name, peripheral) in peripherals.iter() {
             // Record the contiguous slice where this data will be placed
             let start = fields_order.len();
-            let end = start + peripheral.n_inputs();
+            let end = start + peripheral.input_names().len();
             peripheral_input_slices.insert(name.clone(), start..end);
 
             // Populate the field order
@@ -290,7 +291,7 @@ impl Orchestrator {
         for (name, peripheral) in peripherals.iter() {
             // Record the contiguous slice where this data will be placed
             let start = fields_order.len();
-            let end = start + peripheral.n_outputs();
+            let end = start + peripheral.output_names().len();
             peripheral_output_slices.insert(name.clone(), start..end);
 
             // Populate the field order

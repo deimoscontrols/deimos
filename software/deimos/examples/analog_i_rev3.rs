@@ -1,9 +1,17 @@
+//! Example demonstrating a 200Hz control program with two DAQ modules connected via UDP and time-synchronized.
+//! 
+//! Demonstrated here:
+//! * Setting up a simple control program and connecting to hardware
+//! * Storing data
+//! * Performing calculations in the loop
+//! * Serialization and deserialization of the control program
+
 use std::time::Duration;
 
+use crate::calcs::{Constant, Sin};
+use crate::peripherals::analog_i_rev_3::AnalogIRev3;
 use controller::context::ControllerCtx;
 use deimos::*;
-use deimos_shared::calcs::{Constant, Sin};
-use deimos_shared::peripherals::analog_i_rev_3::AnalogIRev3;
 
 fn main() {
     // Blank controller config

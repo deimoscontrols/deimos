@@ -1,6 +1,6 @@
 //! Calculations that are run at each cycle during operation.
 //!
-//! `Calc` objects are registered with the `CalcOrchestrator` and serialized with the controller.
+//! `Calc` objects are registered with the `Orchestrator` and serialized with the controller.
 //! Each calc is a function consuming any number of inputs and producing any number of outputs.
 use std::iter::Iterator;
 use std::{collections::BTreeMap, ops::Range};
@@ -40,7 +40,7 @@ pub type CalcConfigName = String;
 pub type SrcIndex = usize;
 pub type DstIndex = usize;
 
-/// Calcs that can be prototyped, allowing use in a
+/// Calcs that can be prototyped
 pub trait CalcProto {
     fn prototype() -> (String, Box<dyn Calc>);
 }
@@ -73,6 +73,7 @@ pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Calc>>> = Lazy::new(|| {
         Sin::prototype(),
     ])
 });
+
 
 /// A calculation that takes some inputs and produces some outputs
 /// at each timestep, and may have some persistent internal state.
