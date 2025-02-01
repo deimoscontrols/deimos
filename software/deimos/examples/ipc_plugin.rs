@@ -33,7 +33,11 @@ use deimos_shared::{
 use serde::{Deserialize, Serialize};
 
 // For using the controller
-use deimos::{calcs::Calc, peripherals::{Peripheral, PluginMap}, *};
+use deimos::{
+    calcs::Calc,
+    peripherals::{Peripheral, PluginMap},
+    *,
+};
 use deimos::{
     controller::context::{ControllerCtx, Termination},
     dispatcher::fmt_time,

@@ -1,12 +1,14 @@
-
 use std::collections::BTreeMap;
 
 use typetag;
 
 use core::fmt::Debug;
 
-use deimos_shared::{states::*, peripherals::{ModelNumber, model_numbers}};
 use super::calcs::*;
+use deimos_shared::{
+    peripherals::{model_numbers, ModelNumber},
+    states::*,
+};
 
 pub mod analog_i_rev_2;
 pub mod analog_i_rev_3;

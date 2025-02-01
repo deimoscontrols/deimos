@@ -74,7 +74,6 @@ pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Calc>>> = Lazy::new(|| {
     ])
 });
 
-
 /// A calculation that takes some inputs and produces some outputs
 /// at each timestep, and may have some persistent internal state.
 #[typetag::serde(tag = "type")]

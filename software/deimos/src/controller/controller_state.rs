@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use deimos_shared::peripherals::PeripheralId;
 use crate::peripherals::Peripheral;
+use deimos_shared::peripherals::PeripheralId;
 
 use crate::socket::SuperSocketAddr;
 
