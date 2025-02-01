@@ -68,9 +68,10 @@ impl Controller {
     /// Initialize a fresh controller with no dispatchers, peripherals, or calcs.
     /// A UDP socket is included by default, but can be removed.
     pub fn new(ctx: ControllerCtx) -> Self {
-        let mut c = Self::default();
-        c.ctx = ctx;
-        c
+        Self {
+            ctx,
+            ..Default::default()
+        }
     }
 
     /// Register a hardware module
@@ -422,7 +423,11 @@ impl Controller {
                                             .unwrap()
                                             .acknowledged_configuration = true;
                                     }
-                                    _ => return Err(format!("Peripheral at {addr:?} rejected configuration")),
+                                    _ => {
+                                        return Err(format!(
+                                            "Peripheral at {addr:?} rejected configuration"
+                                        ))
+                                    }
                                 }
                             }
                             _ => {
