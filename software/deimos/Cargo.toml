@@ -1,6 +1,6 @@
 [package]
 name = "deimos"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "0BSD OR Apache-2.0"
@@ -17,7 +17,6 @@ flaw = "0.2.3"
 
 # Control loop prep
 chrono = "0.4.39"
-local-ip-address = "0.6.3"
 core_affinity = "0.8.1"
 thread-priority = "1.2.0"
 

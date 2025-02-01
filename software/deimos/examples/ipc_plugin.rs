@@ -4,7 +4,7 @@
 //! In this example, the software peripheral is running in the same process,
 //! but in general, the unix socket interface allows connecting to software
 //! peripherals running in different processes.
-//! 
+//!
 //! Demonstrated here:
 //!   * Using unix socket for communication with a peripheral
 //!   * Defining a mockup of a peripheral state machine in software
@@ -19,7 +19,6 @@ use std::{
 };
 
 // For defining the peripheral mockup
-use serde::{Deserialize, Serialize};
 use deimos_shared::{
     calcs::Calc,
     peripherals::{
@@ -32,13 +31,21 @@ use deimos_shared::{
     },
     OperatingMetrics,
 };
+use serde::{Deserialize, Serialize};
 
-// 
-use deimos::controller::context::{ControllerCtx, Termination};
+//
 use deimos::*;
+use deimos::{
+    controller::context::{ControllerCtx, Termination},
+    dispatcher::fmt_time,
+};
 use socket::unix::UnixSuperSocket;
 
 fn main() {
+    // Clear sockets
+    let _ = std::fs::remove_dir_all("./sock");
+
+    // Start building up controller settings
     let mut ctx = ControllerCtx::default();
     ctx.op_name = "ipc_example".to_string();
 
@@ -101,6 +108,8 @@ fn main() {
     // Wait for the mockup to finish running
     mockup_thread.join().unwrap();
 
+    // Clear sockets
+    let _ = std::fs::remove_dir_all("./sock");
 }
 
 /// The controller's representation of the in-memory peripheral mockup,
@@ -233,7 +242,7 @@ impl PState {
     fn run(self) -> JoinHandle<()> {
         let mut state = self;
         thread::spawn(|| loop {
-            state = match state.transition() {
+            state = match state.step() {
                 Self::Terminated => {
                     println!("Peripheral -> Terminated");
                     return;
@@ -244,7 +253,7 @@ impl PState {
     }
 
     /// Proceed to next state transition
-    fn transition(self) -> Self {
+    fn step(self) -> Self {
         match self {
             Self::Binding { end, sock } => {
                 println!("Peripheral -> Binding");
@@ -252,6 +261,7 @@ impl PState {
                 loop {
                     // Check for planned termination
                     if SystemTime::now() > end {
+                        println!("Peripheral reached full duration at {}", fmt_time(end));
                         return Self::Terminated;
                     }
 
@@ -300,6 +310,7 @@ impl PState {
                 loop {
                     // Check for planned termination
                     if SystemTime::now() > end {
+                        println!("Peripheral reached full duration at {}", fmt_time(end));
                         return Self::Terminated;
                     }
 
@@ -341,6 +352,7 @@ impl PState {
                 loop {
                     // Check for planned termination
                     if SystemTime::now() > end {
+                        println!("Peripheral reached full duration at {}", fmt_time(end));
                         return Self::Terminated;
                     }
 
