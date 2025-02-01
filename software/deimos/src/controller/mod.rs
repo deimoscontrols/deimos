@@ -712,6 +712,10 @@ impl Controller {
 mod test {
     use super::*;
 
+    /// Make sure that we can serialize _and_ deserialize a full controller.
+    /// It is possible to produce a system where a serialized output is not able to be
+    /// deserialized without error due to type ambiguity in `dyn Trait` collections,
+    /// which is resolved via type tagging here.
     #[test]
     fn test_ser_roundtrip() {
         let mut controller = Controller::default();
