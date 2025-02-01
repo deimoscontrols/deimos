@@ -22,4 +22,6 @@ jobs:
     - name: Lint
       run: cargo clippy
     - name: Run tests
-      run: cargo test --verbose
+      run: |
+        cargo test --verbose
+        cargo run --example ipc_plugin
