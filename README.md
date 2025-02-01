@@ -1,6 +1,6 @@
 # Deimos
 
-| [Control Program](https://github.com/deimoscontrols/deimos/tree/main/software/deimos) |\|| [Calcs & Packet Formats](https://github.com/deimoscontrols/deimos/tree/main/software/deimos_shared) |\|| [Firmware](https://github.com/deimoscontrols/deimos/tree/main/firmware) |\|| [Hardware Designs](https://github.com/deimoscontrols/deimos/tree/main/hardware) |
+| [Control Program](https://github.com/deimoscontrols/deimos/tree/main/software/deimos) |\|| [Packet Formats](https://github.com/deimoscontrols/deimos/tree/main/software/deimos_shared) |\|| [Firmware](https://github.com/deimoscontrols/deimos/tree/main/firmware) |\|| [Hardware Designs](https://github.com/deimoscontrols/deimos/tree/main/hardware) |
 |-----------------|-|--------------|-|----------|-|----------|
 
 Realtime data acquisition and controls ecosystem, including hardware, firmware, and software.
