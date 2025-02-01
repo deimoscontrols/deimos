@@ -6,6 +6,11 @@ pub mod dispatcher;
 pub mod orchestrator;
 pub mod socket;
 
-pub use controller::{Controller, context::{ControllerCtx, LossOfContactPolicy, Termination}};
+pub use controller::{
+    context::{ControllerCtx, LossOfContactPolicy, Termination},
+    Controller,
+};
 pub use dispatcher::{CsvDispatcher, Dispatcher, TimescaleDbDispatcher};
-pub use socket::{SuperSocket, SuperSocketAddr, SuperSocketId, udp::UdpSuperSocket, unix::UnixSuperSocket};
+pub use socket::{
+    udp::UdpSuperSocket, unix::UnixSuperSocket, SuperSocket, SuperSocketAddr, SuperSocketId,
+};

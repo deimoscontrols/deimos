@@ -1,9 +1,9 @@
 //! Information about the current operation
 //! that may be used by the controller's appendages.
 
-use std::{collections::BTreeMap, default::Default};
 use std::path::PathBuf;
-use std::time::{SystemTime, Duration};
+use std::time::{Duration, SystemTime};
+use std::{collections::BTreeMap, default::Default};
 
 use chrono::{DateTime, Utc};
 
@@ -22,7 +22,6 @@ pub enum Termination {
 
     /// Schedule termination at a specific "realtime" date or time.
     Scheduled(SystemTime),
-
     // TODO: add machinery to Orchestrator to support extracting values during run
     // /// Terminate on any nonzero output of this calc output.
     // Calc(String)
@@ -34,7 +33,6 @@ pub enum Termination {
 pub enum LossOfContactPolicy {
     /// Terminate the control program
     Terminate,
-
     // TODO: implement reconnection
 
     // /// Attempt to reconnect indefinitely

@@ -21,7 +21,7 @@ pub type SuperSocketAddr = (usize, PeripheralId);
 pub trait SuperSocket: Send + Sync {
     /// Check whether the socket is already open
     fn is_open(&self) -> bool;
-    
+
     /// Do any required stateful one-time setup
     fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String>;
 

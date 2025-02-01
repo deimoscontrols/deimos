@@ -44,7 +44,7 @@ impl SuperSocket for UdpSuperSocket {
     fn is_open(&self) -> bool {
         self.socket.is_some()
     }
-    
+
     fn open(&mut self, _ctx: &ControllerCtx) -> Result<(), String> {
         if self.socket.is_none() {
             // Socket populated on access

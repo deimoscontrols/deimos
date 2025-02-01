@@ -149,7 +149,7 @@ impl SuperSocket for UnixSuperSocket {
                 Some((size, addr)) => {
                     // Mark the time ASAP
                     let now = Instant::now();
-                    
+
                     if let Some(src_path) = addr.as_pathname() {
                         // TODO: eliminate allocation here by copying into a reusable buffer
                         let src_path = src_path.to_owned();
