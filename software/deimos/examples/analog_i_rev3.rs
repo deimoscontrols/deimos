@@ -1,12 +1,22 @@
+//! Example demonstrating a 200Hz control program with two DAQ modules connected via UDP and time-synchronized.
+//!
+//! Demonstrated here:
+//! * Setting up a simple control program and connecting to hardware
+//! * Storing data
+//! * Performing calculations in the loop
+//! * Serialization and deserialization of the control program
+
 use std::time::Duration;
 
+use crate::calcs::{Constant, Sin};
+use crate::peripherals::analog_i_rev_3::AnalogIRev3;
+use controller::context::ControllerCtx;
 use deimos::*;
-use deimos_shared::calcs::{Constant, Sin};
-use deimos_shared::peripherals::analog_i_rev_3::AnalogIRev3;
 
 fn main() {
+    // Set op name
     // None -> Let the controller set the name of the op automatically
-    let op_name: String = std::fs::read_to_string("./op_name.tmp").unwrap_or_else(|_| {
+    let op_name = std::fs::read_to_string("./op_name.tmp").unwrap_or_else(|_| {
         format!(
             "{:?}",
             std::time::SystemTime::now()
@@ -15,19 +25,23 @@ fn main() {
                 .as_nanos() as u64
         )
     });
-
     std::fs::write("./op_name.tmp", &op_name).unwrap();
 
     // Collect initalizers for custom peripherals, if needed
     let peripheral_plugins = None;
 
-    // Initialize idle controller
+    // Set control rate
     let rate_hz = 200.0;
     let dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
-    let mut controller = Controller::new(dt_ns, (dt_ns * 2).max(1_000_000), 100);
+
+    // Define idle controller
+    let mut ctx = ControllerCtx::default();
+    ctx.op_name = op_name;
+    ctx.dt_ns = dt_ns;
+    let mut controller = Controller::new(ctx);
 
     // Scan for peripherals on LAN
-    let scanned_peripherals = controller.scan(10, peripheral_plugins);
+    let scanned_peripherals = controller.scan(10, &peripheral_plugins);
     println!("Scan found: {scanned_peripherals:?}\n");
 
     // Associate peripherals
@@ -68,6 +82,5 @@ fn main() {
 
     // Run the control program
     println!("Starting controller");
-    let controller_thread = std::thread::spawn(move || controller.run(&op_name));
-    controller_thread.join().unwrap();
+    controller.run(&peripheral_plugins).unwrap();
 }

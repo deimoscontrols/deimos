@@ -1,5 +1,6 @@
 //! Control loop and integration with data pipeline and calc orchestrator
 
+pub mod context;
 mod controller_state;
 mod peripheral_state;
 mod timing;
@@ -8,64 +9,68 @@ use std::collections::BTreeMap;
 use std::time::{Duration, Instant, SystemTime};
 
 use core_affinity;
-use thread_priority::DeadlineFlags;
 
 use serde::{Deserialize, Serialize};
 
 use flaw::MedianFilter;
 
-use deimos_shared::{
+use crate::{
     calcs::Calc,
     peripherals::{parse_binding, Peripheral, PluginMap},
-    states::*,
 };
+use deimos_shared::states::*;
+use thread_priority::DeadlineFlags;
 
 use crate::dispatcher::Dispatcher;
 use crate::orchestrator::Orchestrator;
 use crate::socket::udp::UdpSuperSocket;
 use crate::socket::{SuperSocket, SuperSocketAddr};
+use context::{ControllerCtx, LossOfContactPolicy, Termination};
 use controller_state::ControllerState;
 use timing::TimingPID;
 
 /// The controller implements the control loop,
 /// synchronizes sample reporting time between the peripherals,
 /// and dispatches measured data, calculations, and metrics to the data pipeline.
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize)]
 pub struct Controller {
-    // Input config
-    dt_ns: u32,
-    timeout_to_operating_ns: u32,
-    loss_of_contact_limit: u16,
+    // Input config, which is passed to appendages during their init
+    ctx: ControllerCtx,
 
     // Appendages
-    #[serde(skip)]
-    // socket: RefCell<Option<UdpSocket>>,
     sockets: Vec<Box<dyn SuperSocket>>,
     dispatchers: Vec<Box<dyn Dispatcher>>,
     peripherals: BTreeMap<String, Box<dyn Peripheral>>,
     orchestrator: Orchestrator,
 }
 
-impl Controller {
-    /// Initialize a fresh controller with no dispatchers, peripherals, or calcs.
-    /// A UDP socket is included by default, but can be removed.
-    pub fn new(dt_ns: u32, timeout_to_operating_ns: u32, loss_of_contact_limit: u16) -> Self {
+impl Default for Controller {
+    fn default() -> Self {
+        // Include a UDP socket by default, but otherwise blank
+        let sockets: Vec<Box<dyn SuperSocket>> = vec![Box::new(UdpSuperSocket::new())];
+
         let dispatchers = Vec::new();
         let peripherals = BTreeMap::new();
         let orchestrator = Orchestrator::default();
-        // let socket = RefCell::new(None);
-        let sockets: Vec<Box<dyn SuperSocket>> = vec![Box::new(UdpSuperSocket::new())];
+        let ctx = ControllerCtx::default();
 
         Self {
-            dt_ns,
-            timeout_to_operating_ns,
-            loss_of_contact_limit,
-
+            ctx,
             sockets,
-
             dispatchers,
             peripherals,
             orchestrator,
+        }
+    }
+}
+
+impl Controller {
+    /// Initialize a fresh controller with no dispatchers, peripherals, or calcs.
+    /// A UDP socket is included by default, but can be removed.
+    pub fn new(ctx: ControllerCtx) -> Self {
+        Self {
+            ctx,
+            ..Default::default()
         }
     }
 
@@ -92,10 +97,47 @@ impl Controller {
         self.orchestrator.add_calc(name, calc);
     }
 
+    /// Register a socket
+    pub fn add_socket(&mut self, socket: Box<dyn SuperSocket>) {
+        self.sockets.push(socket);
+    }
+
+    /// Remove all peripherals
+    pub fn clear_peripherals(&mut self) {
+        self.peripherals.clear();
+    }
+
+    /// Remove all dispatchers
+    pub fn clear_dispatchers(&mut self) {
+        self.dispatchers.clear();
+    }
+
+    /// Remove all sockets
+    pub fn clear_sockets(&mut self) {
+        self.sockets.clear();
+    }
+
+    /// Remove all calcs and peripheral input sources
+    pub fn clear_calcs(&mut self) {
+        self.orchestrator.clear_calcs();
+    }
+
     /// Connect an entry in the calc graph to a command to be sent to the peripheral
     pub fn set_peripheral_input_source(&mut self, input_field: &str, source_field: &str) {
         self.orchestrator
             .set_peripheral_input_source(input_field, source_field);
+    }
+
+    /// Open sockets, bind ports, etc.
+    /// No-op if called multiple times without closing sockets.
+    pub fn open_sockets(&mut self) -> Result<(), String> {
+        for sock in self.sockets.iter_mut() {
+            if !sock.is_open() {
+                sock.open(&self.ctx)?;
+            }
+        }
+
+        Ok(())
     }
 
     /// Request specific peripherals to bind or scan the network,
@@ -122,16 +164,13 @@ impl Controller {
         addresses: Option<&Vec<SuperSocketAddr>>,
         binding_timeout_ms: u16,
         configuring_timeout_ms: u16,
-        plugins: Option<PluginMap>,
+        plugins: &Option<PluginMap>,
     ) -> BTreeMap<SuperSocketAddr, Box<dyn Peripheral>> {
+        // Make sure sockets are configured and ports are bound
+        self.open_sockets().unwrap();
+
         let mut buf = vec![0_u8; 1522];
         let mut available_peripherals = BTreeMap::new();
-
-        // Get local IP address so that we can scan for modules to bind
-        // let local_addr: std::net::IpAddr = local_ip_address::local_ip().unwrap();
-        // if !local_addr.is_ipv4() {
-        //     panic!("IPV6 not handled yet");
-        // }
 
         let binding_msg = BindingInput {
             configuring_timeout_ms,
@@ -164,7 +203,7 @@ impl Controller {
                     let amt = recvd.len();
                     if amt == BindingOutput::BYTE_LEN {
                         let binding_response = BindingOutput::read_bytes(recvd);
-                        match parse_binding(&binding_response, &plugins) {
+                        match parse_binding(&binding_response, plugins) {
                             Ok(parsed) => {
                                 let pid = parsed.id();
                                 let addr = (sid, pid);
@@ -186,17 +225,44 @@ impl Controller {
     }
 
     /// Scan the local network for peripherals that are available to bind,
-    /// giving `binding_timeout_ms` for peripherals to respond
+    /// giving `timeout_ms` for peripherals to respond
     pub fn scan(
         &mut self,
-        binding_timeout_ms: u16,
-        plugins: Option<PluginMap>,
+        timeout_ms: u16,
+        plugins: &Option<PluginMap>,
     ) -> BTreeMap<SuperSocketAddr, Box<dyn Peripheral>> {
         // Ping with the longer desired timeout
-        self.bind(None, binding_timeout_ms, 0, plugins.clone())
+        self.bind(None, timeout_ms, 0, plugins)
     }
 
-    pub fn run(&mut self, op_name: &str) {
+    // Safe the peripherals and shut down the controller
+    fn terminate(
+        &mut self,
+        state: &ControllerState,
+        peripheral_input_buffer: &mut [f64],
+        txbuf: &mut [u8],
+        packet_index: u64,
+    ) {
+        // Send peripherals default state
+        // Send multiple times to each peripheral to reduce probability of
+        // packet loss; in the event that the shutdown message is missed,
+        // the peripheral will still return to its default state on reaching
+        // its loss-of-contact limit.
+        let i = packet_index;
+        peripheral_input_buffer.fill(0.0);
+        for j in i..i + 3 {
+            for (addr, ps) in state.peripheral_state.iter() {
+                let p = &self.peripherals[&ps.name];
+                let n = p.operating_roundtrip_input_size();
+                // TODO: log transmit errors
+                let (sid, pid) = addr;
+                p.emit_operating_roundtrip(j, 0, 0, &peripheral_input_buffer[..n], &mut txbuf[..n]);
+                let _ = self.sockets[*sid].send(*pid, &txbuf[..n]);
+            }
+        }
+    }
+
+    pub fn run(&mut self, plugins: &Option<PluginMap>) -> Result<String, String> {
         // Set core affinity, if possible
         // This may not be available on every platform, so it should not break if not available
         let core_ids = core_affinity::get_core_ids().unwrap_or_default();
@@ -221,28 +287,34 @@ impl Controller {
         }
 
         // Set filled deadline scheduling to indicate that the control loop thread
-        // should stay fully occupied
-        let _ = thread_priority::set_current_thread_priority(
+        // should stay fully occupied. This is not available on Windows, in which
+        // case, use max priority as a next-best option.
+        // If both options fail, continue as-is.
+        match thread_priority::set_current_thread_priority(
             thread_priority::ThreadPriority::Deadline {
                 runtime: Duration::from_nanos(1),
                 deadline: Duration::from_nanos(1),
                 period: Duration::from_nanos(1),
                 flags: DeadlineFlags::RESET_ON_FORK, // Children do not inherit deadline scheduling
             },
-        );
-        // let _ = thread_priority::set_current_thread_priority(thread_priority::ThreadPriority::Max);
+        ) {
+            Ok(_) => (),
+            Err(_) => {
+                let _ = thread_priority::set_current_thread_priority(
+                    thread_priority::ThreadPriority::Max,
+                );
+            }
+        };
 
         // Buffer for writing bytes to send on sockets
         let txbuf = &mut [0_u8; 1522][..];
 
-        // Initialize calc graph
-        println!("Initializing calc orchestrator");
-        self.orchestrator.init(self.dt_ns, &self.peripherals);
-        self.orchestrator.eval(); // Populate constants, etc
+        // Make sure sockets are configured and ports are bound
+        self.open_sockets().unwrap();
 
         // Scan to get peripheral addresses
         println!("Scanning for available units");
-        let available_peripherals = self.scan(100, None);
+        let available_peripherals = self.scan(100, plugins);
 
         // Initialize state using scanned addresses
         println!("Initializing state");
@@ -252,6 +324,11 @@ impl Controller {
             .keys()
             .copied()
             .collect::<Vec<SuperSocketAddr>>();
+
+        // Initialize calc graph
+        println!("Initializing calc orchestrator");
+        self.orchestrator.init(self.ctx.clone(), &self.peripherals);
+        self.orchestrator.eval(); // Populate constants, etc
 
         // Set up dispatcher(s)
         // TODO: send metrics to calcs so that they can be used as calc inputs
@@ -268,7 +345,7 @@ impl Controller {
         for dispatcher in self.dispatchers.iter_mut() {
             let core_assignment = aux_core_cycle.next().unwrap();
             dispatcher
-                .initialize(self.dt_ns, &channel_names, op_name, *core_assignment)
+                .initialize(&self.ctx, &channel_names, *core_assignment)
                 .unwrap();
         }
         println!("Dispatching data for {n_channels} channels.");
@@ -282,30 +359,36 @@ impl Controller {
             // Wait for peripherals to time out back to binding
             if i > 0 {
                 std::thread::sleep(Duration::from_nanos(
-                    self.loss_of_contact_limit as u64 * self.dt_ns as u64,
+                    self.ctx.peripheral_loss_of_contact_limit as u64 * self.ctx.dt_ns as u64,
                 ));
             }
 
             // Clear buffers
             while self.sockets.iter_mut().any(|sock| sock.recv().is_some()) {}
 
-            // Bind
-            let dt_ms = (self.dt_ns / 1_000_000) as u16;
-            let _bound_peripherals = self.bind(Some(&addresses), 10, 20.max(dt_ms), None);
-
-            // Configuring starts as soon as peripherals receive binding input
+            // Configuring starts as soon as peripherals receive binding input,
+            // so start the clock now to avoid absorbing binding timeout
             let start_of_configuring = Instant::now();
 
-            // Clear buffer
-            while self.sockets.iter_mut().any(|sock| sock.recv().is_some()) {}
+            // Bind
+            let dt_ms = (self.ctx.dt_ns / 1_000_000) as u16;
+            let _bound_peripherals = self.bind(
+                Some(&addresses),
+                self.ctx.binding_timeout_ms,
+                self.ctx
+                    .configuring_timeout_ms
+                    .max(dt_ms)
+                    .max(2 * self.ctx.binding_timeout_ms),
+                plugins,
+            );
 
             // Configure peripherals
             //    Send configuration to each peripheral
             println!("Configuring peripherals");
             let config_input = ConfiguringInput {
-                dt_ns: self.dt_ns,
-                timeout_to_operating_ns: self.timeout_to_operating_ns,
-                loss_of_contact_limit: self.loss_of_contact_limit,
+                dt_ns: self.ctx.dt_ns,
+                timeout_to_operating_ns: self.ctx.timeout_to_operating_ns,
+                loss_of_contact_limit: self.ctx.peripheral_loss_of_contact_limit,
                 ..Default::default()
             };
             let num_to_write = ConfiguringInput::BYTE_LEN;
@@ -318,7 +401,7 @@ impl Controller {
             }
 
             //    Wait for peripherals to acknowledge their configuration
-            let operating_timeout = Duration::from_nanos(self.timeout_to_operating_ns as u64);
+            let operating_timeout = Duration::from_nanos(self.ctx.timeout_to_operating_ns as u64);
 
             println!("Waiting for peripherals to acknowledge configuration");
             while start_of_configuring.elapsed() < operating_timeout {
@@ -340,7 +423,11 @@ impl Controller {
                                             .unwrap()
                                             .acknowledged_configuration = true;
                                     }
-                                    _ => panic!("Peripheral at {addr:?} rejected configuration"),
+                                    _ => {
+                                        return Err(format!(
+                                            "Peripheral at {addr:?} rejected configuration"
+                                        ))
+                                    }
                                 }
                             }
                             _ => {
@@ -373,21 +460,21 @@ impl Controller {
         //    Init timing
         println!("Initializing timing controllers");
         let start_of_operating = Instant::now();
-        let cycle_duration = Duration::from_nanos(self.dt_ns as u64);
+        let cycle_duration = Duration::from_nanos(self.ctx.dt_ns as u64);
         let mut target_time = cycle_duration;
         let mut peripheral_timing: BTreeMap<SuperSocketAddr, (TimingPID, MedianFilter<i64, 7>)> =
             BTreeMap::new();
         for addr in controller_state.peripheral_state.keys() {
             let max_clock_rate_err = 5e-2; // at least 5% tolerance for dev units using onboard clocks
-            let ki = 0.00001 * (self.dt_ns as f64 / 10_000_000_f64);
+            let ki = 0.00001 * (self.ctx.dt_ns as f64 / 10_000_000_f64);
             let timing_controller = TimingPID {
-                kp: 0.005 * (self.dt_ns as f64 / 10_000_000_f64), // Tuned at 100Hz
+                kp: 0.005 * (self.ctx.dt_ns as f64 / 10_000_000_f64), // Tuned at 100Hz
                 ki,
-                kd: 0.001 / (self.dt_ns as f64 / 10_000_000_f64),
+                kd: 0.001 / (self.ctx.dt_ns as f64 / 10_000_000_f64),
 
                 v: 0.0,
                 integral: 0.0,
-                max_integral: max_clock_rate_err * (self.dt_ns as f64) / ki,
+                max_integral: max_clock_rate_err * (self.ctx.dt_ns as f64) / ki,
             };
 
             let timing_filter = MedianFilter::<i64, 7>::new(0);
@@ -397,12 +484,12 @@ impl Controller {
 
         //    Set up peripheral I/O buffers
         //    with maximum size of a standard packet
-        let mut peripheral_input_buffer = [0.0_f64; 1522];
+        let mut peripheral_input_buffer = [0.0_f64; 1522 / 8 + 8];
 
-        //    Run
+        //    Run timed loop
         println!("Entering control loop");
         let mut i: u64 = 0;
-        controller_state.controller_metrics.cycle_time_margin_ns = self.dt_ns as f64;
+        controller_state.controller_metrics.cycle_time_margin_ns = self.ctx.dt_ns as f64;
         loop {
             i += 1;
             let mut t = start_of_operating.elapsed();
@@ -413,6 +500,62 @@ impl Controller {
             // Record timing margin
             controller_state.controller_metrics.cycle_time_margin_ns =
                 (target_time.as_secs_f64() - t.as_secs_f64()) * 1e9;
+
+            // Check for loss of contact
+            match self.ctx.loss_of_contact_policy {
+                LossOfContactPolicy::Terminate => {
+                    for p in controller_state.peripheral_state.values() {
+                        if p.metrics.loss_of_contact_counter
+                            >= self.ctx.controller_loss_of_contact_limit as f64
+                        {
+                            self.terminate(
+                                &controller_state,
+                                &mut peripheral_input_buffer,
+                                &mut txbuf[..],
+                                i,
+                            );
+                            let reason = format!(
+                                "Lost contact with peripheral `{}` after {} missed cycles",
+                                &p.name, self.ctx.controller_loss_of_contact_limit
+                            );
+                            return Err(reason);
+                        }
+                    }
+                }
+            }
+
+            // Check termination criteria
+            for criterion in &self.ctx.termination_criteria {
+                let terminating = match criterion {
+                    Termination::Timeout(d) => {
+                        if &t >= d {
+                            Some(Ok(format!("Reached full duration {:?} at {:?}", &d, &t)))
+                        } else {
+                            None
+                        }
+                    }
+                    Termination::Scheduled(t_sched) => {
+                        if t_sched >= &time {
+                            Some(Ok(format!(
+                                "Reached scheduled termination time {t_sched:?} at {time:?}"
+                            )))
+                        } else {
+                            None
+                        }
+                    } // _ => Some(Err(format!("Unimplemented termination criterion"))),
+                };
+
+                if let Some(reason) = terminating {
+                    self.terminate(
+                        &controller_state,
+                        &mut peripheral_input_buffer,
+                        &mut txbuf[..],
+                        i,
+                    );
+
+                    return reason;
+                }
+            }
 
             // Send next input
             for (addr, ps) in controller_state.peripheral_state.iter_mut() {
@@ -429,7 +572,7 @@ impl Controller {
                             .iter_mut()
                             .zip(vals)
                             .for_each(|(old, new)| {
-                                let _ = core::mem::replace(old, new);
+                                *old = new;
                             })
                     });
 
@@ -443,7 +586,9 @@ impl Controller {
                     &mut txbuf[..n],
                 );
 
-                self.sockets[*sid].send(*pid, &txbuf[..n]).unwrap();
+                self.sockets[*sid]
+                    .send(*pid, &txbuf[..n])
+                    .map_err(|e| format!("Unable to send on socket {sid}: {e}"))?;
             }
 
             // Receive packets until the start of the next cycle
@@ -567,10 +712,14 @@ impl Controller {
 mod test {
     use super::*;
 
+    /// Make sure that we can serialize _and_ deserialize a full controller.
+    /// It is possible to produce a system where a serialized output is not able to be
+    /// deserialized without error due to type ambiguity in `dyn Trait` collections,
+    /// which is resolved via type tagging here.
     #[test]
     fn test_ser_roundtrip() {
         let mut controller = Controller::default();
-        let per = deimos_shared::peripherals::analog_i_rev_2::AnalogIRev2 { serial_number: 0 };
+        let per = crate::peripherals::analog_i_rev_2::AnalogIRev2 { serial_number: 0 };
         controller
             .peripherals
             .insert("test".to_owned(), Box::new(per));

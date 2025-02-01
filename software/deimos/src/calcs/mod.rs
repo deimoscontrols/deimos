@@ -1,6 +1,6 @@
 //! Calculations that are run at each cycle during operation.
 //!
-//! `Calc` objects are registered with the `CalcOrchestrator` and serialized with the controller.
+//! `Calc` objects are registered with the `Orchestrator` and serialized with the controller.
 //! Each calc is a function consuming any number of inputs and producing any number of outputs.
 use std::iter::Iterator;
 use std::{collections::BTreeMap, ops::Range};
@@ -26,6 +26,8 @@ pub use rtd_pt100::RtdPt100;
 pub use sin::Sin;
 pub use tc_ktype::TcKtype;
 
+use crate::ControllerCtx;
+
 // Type aliases for clarification purposes, since
 // there will be a lot of strings and usize ints
 pub type PeripheralName = String;
@@ -40,7 +42,7 @@ pub type CalcConfigName = String;
 pub type SrcIndex = usize;
 pub type DstIndex = usize;
 
-/// Calcs that can be prototyped, allowing use in a
+/// Calcs that can be prototyped
 pub trait CalcProto {
     fn prototype() -> (String, Box<dyn Calc>);
 }
@@ -79,7 +81,7 @@ pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Calc>>> = Lazy::new(|| {
 #[typetag::serde(tag = "type")]
 pub trait Calc: Send + Sync {
     /// Reset internal state and register calc tape indices
-    fn init(&mut self, dt_ns: u32, input_indices: Vec<usize>, output_range: Range<usize>);
+    fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>);
 
     /// Run calcs for a cycle
     fn eval(&mut self, tape: &mut [f64]);

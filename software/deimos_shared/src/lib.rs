@@ -1,16 +1,9 @@
 #![doc = include_str!("../README.md")]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 #![allow(clippy::needless_range_loop)]
 
 pub mod peripherals;
 pub mod states;
-
-// Calc functions are run on the control machine, and are stored here
-// because they are tightly integrated into the application-side
-// definitions of the hardware peripherals and their default set of calcs.
-#[cfg(feature = "std")]
-pub mod calcs;
-
 pub use states::OperatingMetrics;
 
 /// The UDP port on which the hardware peripherals expect to receive packets from the control machine

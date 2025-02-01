@@ -13,6 +13,8 @@ use postgres_types::{ToSql, Type};
 
 use serde::{Deserialize, Serialize};
 
+use crate::controller::context::ControllerCtx;
+
 use super::{csv_row, Dispatcher};
 
 /// Either reuse or create a new table in a TimescaleDB postgres
@@ -79,9 +81,8 @@ impl Dispatcher for TimescaleDbDispatcher {
     /// Connect to the database and either reuse an existing table, or make a new one
     fn initialize(
         &mut self,
-        dt_ns: u32,
+        ctx: &ControllerCtx,
         channel_names: &[String],
-        op_name: &str,
         core_assignment: CoreId,
     ) -> Result<(), String> {
         // Shut down any existing workers by dropping their tx handle
@@ -98,12 +99,12 @@ impl Dispatcher for TimescaleDbDispatcher {
         init_timescaledb_table(
             &mut client,
             channel_names,
-            op_name,
+            &ctx.op_name,
             self.retention_time_hours,
         )?;
 
         // Figure out how many samples to write per batch
-        let n_buffer = (self.buffer_time.as_nanos() / (dt_ns as u128)).max(1) as usize;
+        let n_buffer = (self.buffer_time.as_nanos() / (ctx.dt_ns as u128)).max(1) as usize;
 
         // Spawn workers
         let dbname = self.dbname.clone();
@@ -115,7 +116,7 @@ impl Dispatcher for TimescaleDbDispatcher {
             user,
             pw,
             channel_names,
-            op_name.to_owned(),
+            ctx.op_name.to_owned(),
             n_buffer,
             core_assignment,
         ));

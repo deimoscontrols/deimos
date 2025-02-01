@@ -1,6 +1,6 @@
 [package]
 name = "deimos_shared"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2021"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "0BSD OR Apache-2.0"
@@ -13,13 +13,3 @@ readme = "./README.md"
 
 [dependencies]
 byte_struct = "0.9.0"
-
-serde = { version = "^1", features = ["derive"], optional = true }
-typetag = { version = "^0.2", optional = true }
-
-interpn = { version = "0.4.3", optional = true }
-once_cell = { version = "1.20.2", optional = true }
-
-[features]
-default = ["std"]
-std = ["serde", "typetag", "interpn", "once_cell"]

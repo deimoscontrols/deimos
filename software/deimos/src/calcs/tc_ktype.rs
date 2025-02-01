@@ -86,7 +86,7 @@ impl TcKtype {
 #[typetag::serde]
 impl Calc for TcKtype {
     /// Reset internal state and register calc tape indices
-    fn init(&mut self, _: u32, input_indices: Vec<usize>, output_range: Range<usize>) {
+    fn init(&mut self, _: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
         self.input_indices = input_indices;
         self.output_index = output_range.clone().next().unwrap();
 

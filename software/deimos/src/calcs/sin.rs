@@ -57,9 +57,9 @@ impl Sin {
 #[typetag::serde]
 impl Calc for Sin {
     /// Reset internal state and register calc tape indices
-    fn init(&mut self, dt_ns: u32, _input_indices: Vec<usize>, output_range: Range<usize>) {
+    fn init(&mut self, ctx: ControllerCtx, _input_indices: Vec<usize>, output_range: Range<usize>) {
         self.output_index = output_range.clone().next().unwrap();
-        self.rad_per_cycle = (dt_ns as f64 / 1e9) * 2.0 * f64::consts::PI / self.period_s;
+        self.rad_per_cycle = (ctx.dt_ns as f64 / 1e9) * 2.0 * f64::consts::PI / self.period_s;
     }
 
     /// Run calcs for a cycle

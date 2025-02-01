@@ -14,11 +14,11 @@ The control program and the firmware-software shared library share a
 
 | Feature Category | Features |
 |------------------|----------|
-| Control Loop     | ✅ Fixed-dt roundtrip control loop<br>✅ Network scanning for available hardware<br>💡 Reconnect policy<br>💡 Planned loop termination |
+| Control Loop     | ✅ Fixed-dt roundtrip control loop<br>✅ Network scanning for available hardware<br>💡 Reconnect policy<br>✅ Planned loop termination |
 | Control Calcs | ✅ User-defined custom calcs<br>✅ Explicit (acyclic) calc expression<br>💡 Cyclic expressions with explicit time-delay<br>💡 Prototype calc w/ rhai script-defined inner function |
-| Data Integrations| ✅ User-defined custom targets<br>✅ CSV<br>✅ TimescaleDB<br>💡 InfluxDB<br>💡 Generic sqlite, postgres, etc.<br>💡 Example in-memory peripheral|
-| Hardware Peripherals| ✅ Deimos DAQs<br>✅ User-defined custom hardware<br>💡 User-defined custom in-memory|
-| Socket Interfaces<br>(peripheral I/O)| ✅ User-defined custom interfaces<br>✅ UDP/IPV4<br>💡 Thread channel<br>💡 Unix socket<br>💡 TCP<br>💡 UDP/IPV6 |
+| Data Integrations| ✅ User-defined custom targets<br>✅ CSV<br>✅ TimescaleDB<br>💡 InfluxDB<br>💡 Generic sqlite, postgres, etc.<br>💡 In-memory dataframe|
+| Hardware Peripherals| ✅ Deimos DAQs<br>✅ User-defined custom hardware<br>✅ User-defined custom in-memory / IPC mockup|
+| Socket Interfaces<br>(peripheral I/O)| ✅ User-defined custom interfaces<br>✅ UDP/IPV4<br>💡 Thread channel<br>✅ Unix socket<br>💡 TCP<br>💡 UDP/IPV6 |
 
 ## Concept of Operation
 
@@ -80,13 +80,14 @@ account for the slow drift of the monotonic clock relative to system time.
 ```rust
 use std::time::Duration;
 
+use deimos::calcs::{Constant, Sin};
+use deimos::peripherals::{PluginMap, analog_i_rev_3::AnalogIRev3};
+use controller::context::ControllerCtx;
 use deimos::*;
-use deimos_shared::calcs::{Constant, Sin};
-use deimos_shared::peripherals::{PluginMap, analog_i_rev_3::AnalogIRev3};
 
 // The name of the operation will be used as the table name for databases,
 // or as the file name for local storage.
-let op_name = "test_op";
+let op_name = "test_op".to_owned();
 
 // An optional dictionary mapping user-defined custom hardware
 // peripheral model numbers to initializer functions.
@@ -97,15 +98,12 @@ let peripheral_plugins: Option<PluginMap> = None;
 //    so that any rounding and loss of precision is visible to the user
 let rate_hz = 200.0;
 let dt_ns = (1e9_f64 / rate_hz).ceil() as u32;  // Control cycle period
-//    The delay between peripherals receiving their configuration and
-//    entering the control loop operation state.
-//    At least 1ms is recommended to allow time for peripherals
-//    to process the received configuration.
-let timeout_to_operating_ns = (dt_ns * 2).max(1_000_000);
-//    After some number of missed control packets, the peripherals
-//    must assume contact has been lost, and return to their default
-//    state to wait for new instructions.
-let loss_of_contact_limit = 10;
+
+// Define idle controller
+let mut ctx = ControllerCtx::default();
+ctx.op_name = op_name;
+ctx.dt_ns = dt_ns;
+let mut controller = Controller::new(ctx);
 
 // Set up any number of data integrations,
 // all of which will receive the same data at each cycle of the control loop
@@ -123,10 +121,6 @@ let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::
 //    A 50MB CSV file that will be wrapped an overwritten when full
 let csv_dispatcher: Box<dyn Dispatcher> =
     Box::new(CsvDispatcher::new(50, dispatcher::Overflow::Wrap));
-
-// Initialize the controller
-// with no peripherals associated yet
-let mut controller = Controller::new(dt_ns, timeout_to_operating_ns, loss_of_contact_limit);
 
 // Associate hardware peripherals that we expect to find on the network
 // The controller can also run with no peripherals at all, and simply do
@@ -159,6 +153,6 @@ let _deserialized_controller: Controller = serde_json::from_str(&serialized_cont
 
 // Run the control program
 // (skipped here because there are no peripherals
-// on the network in the test environment).
-// controller.run(op_name);
+// or databases on the network in the test environment).
+// controller.run(&peripheral_plugins);
 ```

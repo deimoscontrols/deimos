@@ -7,7 +7,7 @@
 /// after the initial discrepancy is resolved, the windup saturation
 /// limit can be chosen to be compatible with the peripheral clock error
 /// without driving excessive overshoot.
-pub struct TimingPID {
+pub(crate) struct TimingPID {
     pub kp: f64,
     pub ki: f64,
     pub kd: f64,

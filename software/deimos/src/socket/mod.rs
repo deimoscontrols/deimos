@@ -2,9 +2,12 @@
 //! to/from peripherals on different I/O media.
 
 pub mod udp;
+pub mod unix;
 
-use deimos_shared::peripherals::PeripheralId;
 use std::time::Instant;
+
+use crate::controller::context::ControllerCtx;
+use deimos_shared::peripherals::PeripheralId;
 
 /// Socket index
 pub type SuperSocketId = usize;
@@ -16,8 +19,11 @@ pub type SuperSocketAddr = (usize, PeripheralId);
 /// to/from peripherals on different I/O media.
 #[typetag::serde(tag = "type")]
 pub trait SuperSocket: Send + Sync {
+    /// Check whether the socket is already open
+    fn is_open(&self) -> bool;
+
     /// Do any required stateful one-time setup
-    fn open(&mut self) -> Result<(), String>;
+    fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String>;
 
     /// Clear state and release locks
     fn close(&mut self);

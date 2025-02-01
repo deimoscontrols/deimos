@@ -70,13 +70,14 @@ impl Pid {
 #[typetag::serde]
 impl Calc for Pid {
     /// Reset internal state and register calc tape indices
-    fn init(&mut self, dt_ns: u32, input_indices: Vec<usize>, output_range: Range<usize>) {
+    fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
         assert!(
-            dt_ns > 0,
-            "dt_ns value of {dt_ns} provided. dt_ns must be > 0"
+            ctx.dt_ns > 0,
+            "dt_ns value of {} provided. dt_ns must be > 0",
+            ctx.dt_ns
         );
 
-        self.dt_s = (dt_ns as f64) / 1e9;
+        self.dt_s = (ctx.dt_ns as f64) / 1e9;
         self.input_indices = input_indices;
         self.output_index = output_range.clone().next().unwrap();
     }
