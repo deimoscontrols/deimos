@@ -202,7 +202,7 @@ impl Controller {
                     let amt = recvd.len();
                     if amt == BindingOutput::BYTE_LEN {
                         let binding_response = BindingOutput::read_bytes(recvd);
-                        match parse_binding(&binding_response, &plugins) {
+                        match parse_binding(&binding_response, plugins) {
                             Ok(parsed) => {
                                 let pid = parsed.id();
                                 let addr = (sid, pid);
@@ -289,7 +289,7 @@ impl Controller {
         // should stay fully occupied. This is not available on Windows, in which
         // case, use max priority as a next-best option.
         // If both options fail, continue as-is.
-        let _ = match thread_priority::set_current_thread_priority(
+        match thread_priority::set_current_thread_priority(
             thread_priority::ThreadPriority::Deadline {
                 runtime: Duration::from_nanos(1),
                 deadline: Duration::from_nanos(1),

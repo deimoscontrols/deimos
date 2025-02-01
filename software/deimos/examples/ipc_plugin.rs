@@ -367,7 +367,7 @@ impl PState {
             }
             Self::Terminated => {
                 println!("Peripheral -> Terminated");
-                return Self::Terminated;
+                Self::Terminated
             }
         }
     }
