@@ -40,12 +40,13 @@ if __name__ == "__main__":
     for probe, cfg in d.items():
         sn = cfg["sn"]
         mac = cfg["mac"]
+        model = cfg["model"]
         print(f"Flashing SN {sn} with MAC {mac} on probe {probe}")
         # Write mac address and sn
         writemac(macfp, cfg["mac"])
         writesn(snfp, cfg["sn"])
 
         # Compile and flash to each probe
-        cmd = ["sh", scriptfp, probe]
+        cmd = ["sh", scriptfp, model, probe]
         print("Running", cmd)
         check_call(cmd)

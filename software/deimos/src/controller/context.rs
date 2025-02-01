@@ -102,7 +102,7 @@ impl Default for ControllerCtx {
             op_name,
             op_dir: std::fs::canonicalize("./").unwrap_or_default(),
             dt_ns: 0,
-            timeout_to_operating_ns: 0,
+            timeout_to_operating_ns: 100_000_000,
             binding_timeout_ms: 10,
             configuring_timeout_ms: 20,
             peripheral_loss_of_contact_limit: 10,

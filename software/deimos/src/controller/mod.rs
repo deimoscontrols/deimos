@@ -422,7 +422,7 @@ impl Controller {
                                             .unwrap()
                                             .acknowledged_configuration = true;
                                     }
-                                    _ => panic!("Peripheral at {addr:?} rejected configuration"),
+                                    _ => return Err(format!("Peripheral at {addr:?} rejected configuration")),
                                 }
                             }
                             _ => {
