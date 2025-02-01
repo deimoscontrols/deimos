@@ -1,5 +1,15 @@
 # Changelog
 
+## 2025-02-01 deimos 0.4.1, deimos_shared 0.2.1
+
+### Added - deimos
+
+* AnalogIRev4 peripheral implementation
+
+### Added - deimos_shared
+
+* AnalogIRev4 packet format
+
 ## 2025-02-01 deimos 0.4.0, deimos_shared 0.2.0
 
 ### Added - deimos

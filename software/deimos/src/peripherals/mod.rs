@@ -12,6 +12,7 @@ use deimos_shared::{
 
 pub mod analog_i_rev_2;
 pub mod analog_i_rev_3;
+pub mod analog_i_rev_4;
 
 pub use deimos_shared::peripherals::PeripheralId;
 
