@@ -31,7 +31,7 @@ impl Constant {
 #[typetag::serde]
 impl Calc for Constant {
     /// Reset internal state and register calc tape indices
-    fn init(&mut self, _: u32, _: Vec<usize>, output_range: Range<usize>) {
+    fn init(&mut self, _: ControllerCtx, _: Vec<usize>, output_range: Range<usize>) {
         self.output_index = output_range.clone().next().unwrap();
     }
 

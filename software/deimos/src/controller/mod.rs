@@ -327,7 +327,7 @@ impl Controller {
 
         // Initialize calc graph
         println!("Initializing calc orchestrator");
-        self.orchestrator.init(self.ctx.dt_ns, &self.peripherals);
+        self.orchestrator.init(self.ctx.clone(), &self.peripherals);
         self.orchestrator.eval(); // Populate constants, etc
 
         // Set up dispatcher(s)

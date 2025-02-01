@@ -11,6 +11,8 @@
 * Add `ipc_plugin` example demonstrating use of peripheral plugins, a software-defined peripheral state machine, and use of unix socket for communication with a software-defined peripheral
 * Add `dispatcher::fmt_time` method to reduce repeated code for fixed-width UTC formatting
 * Add `calcs` and `peripherals` modules relocated from `deimos_shared`
+* Add `scripts` folder relocated from `deimos_shared`
+* Add github actions workflow that runs IPC example for end-to-end smoketest
 
 ### Changed - deimos
 
@@ -19,6 +21,7 @@
 * Update control loop to accept and use plugins
 * Update SuperSocket init to take context
 * Update Dispatcher init to take context
+* Update Orchestrator and Calc init to take context
 * Make runtime internal state (`ControllerState`, `PeripheralState`, `TimingPid`) pub(crate) as they are not usable outside the specifics of the controller internals
 * Update docs
 
@@ -28,6 +31,7 @@
 * Remove `std` feature and related deps
 * Move stdlib portion of library (`Calc` and `Peripheral` traits and impls, as well as `PluginFn` and `PluginMap`) to `deimos`
     * deimos_shared is now purely the `no-std` shared library
+* Move `scripts` folder to `deimos`
 * Update docs
 
 ### Changed - firmware

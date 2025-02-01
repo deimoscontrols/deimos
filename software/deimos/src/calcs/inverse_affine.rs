@@ -44,7 +44,7 @@ impl InverseAffine {
 #[typetag::serde]
 impl Calc for InverseAffine {
     /// Reset internal state and register calc tape indices
-    fn init(&mut self, _: u32, input_indices: Vec<usize>, output_range: Range<usize>) {
+    fn init(&mut self, _: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
         self.input_index = input_indices[0];
         self.output_index = output_range.clone().next().unwrap();
     }
