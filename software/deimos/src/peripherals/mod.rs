@@ -11,8 +11,13 @@ use deimos_shared::{
 };
 
 pub mod analog_i_rev_2;
+pub use analog_i_rev_2::AnalogIRev2;
+
 pub mod analog_i_rev_3;
+pub use analog_i_rev_3::AnalogIRev3;
+
 pub mod analog_i_rev_4;
+pub use analog_i_rev_4::AnalogIRev4;
 
 pub use deimos_shared::peripherals::PeripheralId;
 
@@ -78,11 +83,15 @@ pub fn parse_binding(
 
     // If we didn't find a plugin for this model, try the existing ones
     match m {
-        model_numbers::ANALOG_I_REV_2_MODEL_NUMBER => Ok(Box::new(analog_i_rev_2::AnalogIRev2 {
+        model_numbers::ANALOG_I_REV_2_MODEL_NUMBER => Ok(Box::new(AnalogIRev2 {
             serial_number: msg.peripheral_id.serial_number,
         })),
 
-        model_numbers::ANALOG_I_REV_3_MODEL_NUMBER => Ok(Box::new(analog_i_rev_3::AnalogIRev3 {
+        model_numbers::ANALOG_I_REV_3_MODEL_NUMBER => Ok(Box::new(AnalogIRev3 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
+        model_numbers::ANALOG_I_REV_4_MODEL_NUMBER => Ok(Box::new(AnalogIRev4 {
             serial_number: msg.peripheral_id.serial_number,
         })),
 

@@ -139,7 +139,7 @@ impl Peripheral for AnalogIRev4 {
         // 4-20mA channels use a 75 ohm reference resistor and G=1 amp
         {
             for i in milliamp_4_20_range {
-                let n = i - 3;
+                let n = i - 2;
                 let input_name = format!("{name}.ain{i}");
                 let calc_name = format!("{name}_4_20_mA_{n}_A");
                 let slope = 75.0; // [V/A] due to 75 ohm resistor
@@ -153,7 +153,7 @@ impl Peripheral for AnalogIRev4 {
         // RTDs use a 250uA reference current and gain of 25.7
         {
             for i in rtd_range {
-                let n = i - 8;
+                let n = i - 7;
                 let input_name = format!("{name}.ain{i}");
                 let resistance_calc_name = format!("{name}_rtd_{n}_resistance_ohm");
                 let temperature_calc_name = format!("{name}_rtd_{n}");
@@ -171,7 +171,7 @@ impl Peripheral for AnalogIRev4 {
         // to allow measuring temperatures below 0C
         {
             for i in tc_range {
-                let n = i - 13;
+                let n = i - 12;
                 let slope = 25.7;
                 let offset = 1.024;
 
@@ -182,7 +182,7 @@ impl Peripheral for AnalogIRev4 {
                 let voltage_calc = InverseAffine::new(input_name, slope, offset, true);
                 let temperature_calc = TcKtype::new(
                     format!("{voltage_calc_name}.y"),
-                    format!("{name}_rtd_5.temperature_K"), // TODO: this is swapped because the board temp hardware is bad
+                    format!("{name}_board_temp.temperature_K"),
                     true,
                 );
                 calcs.insert(voltage_calc_name, Box::new(voltage_calc));

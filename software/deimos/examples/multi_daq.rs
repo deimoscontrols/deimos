@@ -9,7 +9,7 @@
 use std::time::Duration;
 
 use crate::calcs::{Constant, Sin};
-use crate::peripherals::analog_i_rev_3::AnalogIRev3;
+use crate::peripherals::{AnalogIRev3, AnalogIRev4};
 use controller::context::ControllerCtx;
 use deimos::*;
 
@@ -47,6 +47,7 @@ fn main() {
     // Associate peripherals
     controller.add_peripheral("p1", Box::new(AnalogIRev3 { serial_number: 1 }));
     controller.add_peripheral("p2", Box::new(AnalogIRev3 { serial_number: 2 }));
+    controller.add_peripheral("p3", Box::new(AnalogIRev4 { serial_number: 1 }));
 
     // Set up database dispatchers
     let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(

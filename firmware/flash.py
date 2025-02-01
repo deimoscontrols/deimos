@@ -34,13 +34,15 @@ if __name__ == "__main__":
 
     # Write the serial number and mac address for each board,
     # then flash it
-    scriptfp = here / "flash.sh"
-    macfp = here / "peripheral/static/macaddr.in" 
-    snfp = here / "peripheral/static/serialnumber.in"
     for probe, cfg in d.items():
         sn = cfg["sn"]
         mac = cfg["mac"]
         model = cfg["model"]
+
+        scriptfp = here / "flash.sh"
+        macfp = here / f"{model}/static/macaddr.in" 
+        snfp = here / f"{model}/static/serialnumber.in"
+
         print(f"Flashing SN {sn} with MAC {mac} on probe {probe}")
         # Write mac address and sn
         writemac(macfp, cfg["mac"])
