@@ -14,11 +14,9 @@ use controller::context::ControllerCtx;
 use deimos::*;
 
 fn main() {
-    // Blank controller config
-    let mut ctx = ControllerCtx::default();
-
+    // Set op name
     // None -> Let the controller set the name of the op automatically
-    ctx.op_name = std::fs::read_to_string("./op_name.tmp").unwrap_or_else(|_| {
+    let op_name = std::fs::read_to_string("./op_name.tmp").unwrap_or_else(|_| {
         format!(
             "{:?}",
             std::time::SystemTime::now()
@@ -27,16 +25,19 @@ fn main() {
                 .as_nanos() as u64
         )
     });
-    std::fs::write("./op_name.tmp", &ctx.op_name).unwrap();
+    std::fs::write("./op_name.tmp", &op_name).unwrap();
 
     // Collect initalizers for custom peripherals, if needed
     let peripheral_plugins = None;
 
     // Set control rate
     let rate_hz = 200.0;
-    ctx.dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
+    let dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
 
     // Define idle controller
+    let mut ctx = ControllerCtx::default();
+    ctx.op_name = op_name;
+    ctx.dt_ns = dt_ns;
     let mut controller = Controller::new(ctx);
 
     // Scan for peripherals on LAN
