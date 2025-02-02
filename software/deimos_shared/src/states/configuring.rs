@@ -62,6 +62,7 @@ impl ByteStruct for AcknowledgeConfiguration {
 
 enum_with_unknown!(
     #[derive(Default)]
+    #[non_exhaustive]
     pub enum Mode(u8) {
         #[default]
         Roundtrip = 0,

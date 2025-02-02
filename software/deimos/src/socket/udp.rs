@@ -136,10 +136,19 @@ impl SuperSocket for UdpSuperSocket {
         Ok(())
     }
 
-    fn update_map(&mut self, id: PeripheralId) {
+    fn update_map(&mut self, id: PeripheralId) -> Result<(), String> {
         if let Some(addr) = self.last_received_addr {
             self.addrs.insert(id, addr);
             self.pids.insert(addr, id);
+
+            // Check for duplicate addresses, which can happen in a mac address collision.
+            // If there are duplicate addresses _or_ duplicate IDs, the number of entries
+            // in the maps won't match.
+            if self.addrs.len() != self.pids.len() {
+                return Err(format!("Duplicate addresses or peripheral IDs detected.\nAddress map: {:?}\nPeripheral ID map: {:?}", &self.addrs, &self.pids));
+            }
         }
+
+        Ok(())
     }
 }

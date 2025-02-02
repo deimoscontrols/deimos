@@ -1,6 +1,6 @@
 # Changelog
 
-## 2025-02-01 deimos 0.4.1, deimos_shared 0.2.1, firmware analog_i_rev4 0.1.0
+## 2025-02-01 deimos 0.5.0, deimos_shared 0.3.0, firmware analog_i_rev4 0.1.0
 
 ### Added - deimos
 
@@ -9,10 +9,19 @@
 ### Changed - deimos
 
 * Rename `analog_i_rev3` example to `multi_daq` and add an AnalogIRev4
+* Specify mode explicitly in config packet
+* Start clock for binding just before transmission & remove 1ms pad
+* Update function signature for SuperSocket::update_map to be fallible
+    * This provides a means to handle errors for duplicate addresses
+* Update UDP and unix socket implementations to check for duplicate addresses when building address table
 
 ### Added - deimos_shared
 
 * Add AnalogIRev4 packet format
+
+### Changed - deimos_shared
+
+* Mark `Mode` enum non-exhaustive
 
 ### Added - firmware
 
