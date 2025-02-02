@@ -9625,7 +9625,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
 			(at 0 2.54 0)
 			(effects
 				(font
@@ -9643,7 +9643,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Single General-Purpose Low-Voltage Comparator, SOT-23-5/SC-70-5"
+		(property "Description" "Single Push-Pull Low-Voltage Comparator, SOT-23-5/SC-70-5"
 			(at 35.814 -15.748 0)
 			(effects
 				(font
