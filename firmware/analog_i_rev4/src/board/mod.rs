@@ -20,7 +20,7 @@ use smoltcp::{
 
 use atomic_float::AtomicF32;
 
-use deimos_shared::peripherals::analog_i_rev_3::operating_roundtrip::OperatingRoundtripInput;
+use deimos_shared::peripherals::analog_i_rev_4::operating_roundtrip::OperatingRoundtripInput;
 
 // State machine
 mod binding;
@@ -63,12 +63,16 @@ pub static ADC_SAMPLES: [AtomicF32; 20] = array_macro::array![_ => AtomicF32::ne
 /// These are only integer-unwrapped, not filtered
 pub static COUNTER_SAMPLES: [AtomicI32; 2] = array_macro::array![_ => AtomicI32::new(0); 2];
 
-/// Storage for number of times (and direction) that the I32 counter
+/// Storage for number of times (and direction) that the I32 counter has wrapped
 pub static COUNTER_WRAPS: [AtomicI32; 2] = array_macro::array![_ => AtomicI32::new(0); 2];
 
 /// Storage for the latest frequency samples
 /// These see the same filter as ADC samples
 pub static FREQ_SAMPLES: [AtomicF32; 2] = array_macro::array![_ => AtomicF32::new(0.0); 2];
+
+/// Only the first PWM input has a corresponding pulse width measurement
+/// because none of the other timers' second input pin is available
+pub static DUTY_CYCLE_SAMPLE: AtomicF32 = AtomicF32::new(0.0);
 
 /// ADC filter cutoff ratio
 /// Ideally, this would be an AtomicF64, but the STM32H7 doesn't have 64-bit atomics

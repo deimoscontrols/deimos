@@ -6,7 +6,7 @@ use core::time::Duration;
 use irq::{handler, scope};
 use smoltcp::socket::udp;
 
-use deimos_shared::peripherals::analog_i_rev_3::*;
+use deimos_shared::peripherals::analog_i_rev_4::*;
 use deimos_shared::states::{ByteStruct, ByteStructLen};
 
 /// When an i32 wraps, what is the size of the jump in value?
@@ -100,6 +100,8 @@ impl<'a> Board<'a> {
 
                 udp_output.frequency_meas[0] = FREQ_SAMPLES[0].load(Ordering::Relaxed);
                 udp_output.frequency_meas[1] = FREQ_SAMPLES[1].load(Ordering::Relaxed);
+
+                udp_output.duty_cycle_meas = DUTY_CYCLE_SAMPLE.load(Ordering::Relaxed);
 
                 // UDP send
                 if let Some(meta) = self.controller {

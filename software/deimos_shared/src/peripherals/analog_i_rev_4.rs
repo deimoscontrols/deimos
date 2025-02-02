@@ -63,5 +63,6 @@ pub mod operating_roundtrip {
         pub encoder: i64,
         pub pulse_counter: i64,
         pub frequency_meas: [f32; 2],
+        pub duty_cycle_meas: f32,
     }
 }

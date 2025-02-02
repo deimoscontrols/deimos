@@ -8,7 +8,7 @@ use smoltcp::wire::IpListenEndpoint;
 use irq::{handler, scope};
 
 use deimos_shared::{
-    peripherals::analog_i_rev_3::operating_roundtrip::OperatingRoundtripInput, PERIPHERAL_RX_PORT,
+    peripherals::analog_i_rev_4::operating_roundtrip::OperatingRoundtripInput, PERIPHERAL_RX_PORT,
 };
 
 impl<'a> Board<'a> {

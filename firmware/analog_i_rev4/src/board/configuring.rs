@@ -4,7 +4,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use irq::{handler, scope};
 use smoltcp::socket::udp;
 
-use deimos_shared::{peripherals::analog_i_rev_3::OperatingRoundtripInput, states::configuring::*};
+use deimos_shared::{peripherals::analog_i_rev_4::OperatingRoundtripInput, states::configuring::*};
 
 impl<'a> Board<'a> {
     pub fn configure(&mut self) -> BoardState {

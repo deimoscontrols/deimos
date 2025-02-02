@@ -45,7 +45,7 @@ impl<'a> Board<'a> {
         // Instruction caching
         cp.SCB.enable_icache();
 
-        // Watchdog
+        // Watchdog reboots the board if the board freezes for any reason
         let mut watchdog = IndependentWatchdog::new(dp.IWDG);
 
         // ADCs are initialized before we start parting out the peripherals
@@ -75,6 +75,7 @@ impl<'a> Board<'a> {
 
             // Set oversampling and left-shifting for all ADCs
             // Shift left to make room for more averaging resolution and oversample
+            // This is disabled because it increases ADC channel crosstalk and shows minimal benefit
             // dp.ADC1.cfgr2.write(|w| w.lshift().bits(4).osvr().bits(8));
             // dp.ADC2.cfgr2.write(|w| w.lshift().bits(4).osvr().bits(8));
             // dp.ADC3.cfgr2.write(|w| w.lshift().bits(4).osvr().bits(8));
@@ -111,7 +112,9 @@ impl<'a> Board<'a> {
             let adc2 = adc2.enable();
             let adc3 = adc3.enable();
 
-            (adc1, adc2, adc3, delay.free())
+            let systick = delay.free();
+
+            (adc1, adc2, adc3, systick)
         };
 
         // Initialize GPIO
@@ -189,12 +192,16 @@ impl<'a> Board<'a> {
         // Read ccr1 for latest period
         // Using second CCR with the same channel input does not work; needs its own input channel
         let _pwmi1_pin: Pin<'B', 6, stm32h7xx_hal::gpio::Alternate<2>> = gpiob.pb6.into_alternate();
+        let _pwmi1_pin2: Pin<'B', 7, stm32h7xx_hal::gpio::Alternate<2>> = gpiob.pb7.into_alternate();
         TIM4::get_clk(&ccdr.clocks).unwrap();
         ccdr.peripheral.TIM4.enable().reset();
         dp.TIM4.psc.write(|w| w.psc().bits(7)); // 8x prescale -> about 400Hz min freq, 80ns res
-        dp.TIM4.ccmr1_input().write(|w| w.cc1s().ti1()); // Compare/capture channel input
+        dp.TIM4.ccmr1_input().write(|w| w.cc1s().ti1()); // Compare/capture channel input for period
+        dp.TIM4.ccmr1_input().write(|w| w.cc2s().ti2()); // Compare/capture channel input for pulse width
         dp.TIM4.smcr.write(|w| w.ts().ti1fp1().sms().reset_mode()); // Trigger input CH2, reset mode
-        dp.TIM4.ccer.write(|w| w.cc1e().set_bit()); // Enable capture output
+        dp.TIM4.smcr.write(|w| w.ts().ti2fp2().sms().reset_mode()); // Trigger input CH2, reset mode
+        dp.TIM4.ccer.write(|w| w.cc2p().set_bit().cc2np().clear_bit());  // Second channel capture on falling edge
+        dp.TIM4.ccer.write(|w| w.cc1e().set_bit().cc2e().set_bit()); // Enable capture output
         dp.TIM4.cr1.write(|w| w.cen().enabled()); // Enable counter
         let frequency_inp0 = dp.TIM4;
 

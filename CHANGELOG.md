@@ -4,11 +4,19 @@
 
 ### Added - deimos
 
-* AnalogIRev4 peripheral implementation
+* Add AnalogIRev4 peripheral implementation
+
+### Changed - deimos
+
+* Rename `analog_i_rev3` example to `multi_daq` and add an AnalogIRev4
 
 ### Added - deimos_shared
 
-* AnalogIRev4 packet format
+* Add AnalogIRev4 packet format
+
+### Added - firmware
+
+* Add analog_i_rev4 firmware
 
 ## 2025-02-01 deimos 0.4.0, deimos_shared 0.2.0
 

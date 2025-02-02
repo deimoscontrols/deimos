@@ -16,6 +16,8 @@ use flaw::{
     SisoIirFilter,
 };
 
+use crate::board::DUTY_CYCLE_SAMPLE;
+
 use super::super::{
     ADC_CUTOFF_RATIO, ADC_SAMPLES, COUNTER_SAMPLES, COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF,
     VREF,
@@ -150,8 +152,8 @@ pub struct Sampler {
     // Counter and frequency
     pub encoder: (TIM1, Unroller),
     pub pulse_counter: (TIM8, Unroller),
-    pub frequency_inp0: (TIM4, MedianFilter<u16, 3>),
-    pub frequency_inp1: (TIM15, MedianFilter<u16, 3>),
+    pub pwmi0: (TIM4, MedianFilter<u16, 3>, MedianFilter<u16, 3>),
+    pub pwmi1: (TIM15, MedianFilter<u16, 3>),
     pub frequency_scaling: f32,
 }
 
@@ -166,8 +168,8 @@ impl Sampler {
 
         encoder: TIM1,
         pulse_counter: TIM8,
-        frequency_inp0: TIM4,
-        frequency_inp1: TIM15,
+        pwmi0: TIM4,
+        pwmi1: TIM15,
     ) -> Self {
         //
         // Set up ADC adc_scalings, adc_filters, and buffer
@@ -210,7 +212,7 @@ impl Sampler {
         // Set up frequency input adc_scalings
         //
         let tclk_hz = TIM4::get_clk(clocks).unwrap().to_Hz();
-        let tpsc = frequency_inp0.psc.read().psc().bits() + 1;
+        let tpsc = pwmi0.psc.read().psc().bits() + 1;
         let frequency_scaling = ((tclk_hz as f64) / (tpsc as f64)) as f32;
 
         Self {
@@ -224,8 +226,8 @@ impl Sampler {
             timer,
             encoder: (encoder, Unroller::new(0)),
             pulse_counter: (pulse_counter, Unroller::new(0)),
-            frequency_inp0: (frequency_inp0, MedianFilter::<u16, 3>::new(0)),
-            frequency_inp1: (frequency_inp1, MedianFilter::<u16, 3>::new(0)),
+            pwmi0: (pwmi0, MedianFilter::<u16, 3>::new(0), MedianFilter::<u16, 3>::new(0)),
+            pwmi1: (pwmi1, MedianFilter::<u16, 3>::new(0)),
             frequency_scaling,
         }
     }
@@ -258,12 +260,12 @@ impl Sampler {
             });
 
         // Reset counters and encoder
-        self.frequency_inp0.0.cnt.reset();
-        self.frequency_inp0.0.ccr1().reset();
-        self.frequency_inp1.0.cnt.reset();
-        self.frequency_inp1.0.ccr1().reset();
-        self.frequency_inp0.1 = MedianFilter::<u16, 3>::new(0);
-        self.frequency_inp1.1 = MedianFilter::<u16, 3>::new(0);
+        self.pwmi0.0.cnt.reset();
+        self.pwmi0.0.ccr1().reset();
+        self.pwmi1.0.cnt.reset();
+        self.pwmi1.0.ccr1().reset();
+        self.pwmi0.1 = MedianFilter::<u16, 3>::new(0);
+        self.pwmi1.1 = MedianFilter::<u16, 3>::new(0);
 
         self.encoder.0.cnt.reset();
         self.pulse_counter.0.cnt.reset(); // Does not use a compare-and-capture
@@ -374,27 +376,41 @@ impl Sampler {
         COUNTER_SAMPLES[1].store(pulse_counter_unwrapped, Ordering::Relaxed);
         COUNTER_WRAPS[1].store(pulse_counter_wraps, Ordering::Relaxed);
 
-        // Frequency input readings use a median filter on the raw counter value
+        // PWM input readings use a median filter on the raw counter value
         // in order to filter out the random values produced when the incoming signal
         // is at a lower frequency than what the timer can track
-        let frequency_inp0_val;
-        let fcnt0_raw = self.frequency_inp0.0.ccr1().read().ccr().bits();
-        let fcnt0 = self.frequency_inp0.1.update(fcnt0_raw);
-        if fcnt0 < 1 {
-            frequency_inp0_val = 0.0;
-        } else {
-            frequency_inp0_val = self.frequency_scaling / fcnt0 as f32;
-        }
-        FREQ_SAMPLES[0].store(frequency_inp0_val, Ordering::Relaxed);
 
-        let frequency_inp1_val;
-        let fcnt1_raw = self.frequency_inp1.0.ccr1().read().ccr().bits();
-        let fcnt1 = self.frequency_inp1.1.update(fcnt1_raw);
-        if fcnt1 < 1 {
-            frequency_inp1_val = 0.0;
+        // FREQ0
+        let pwmi0_freq_val;
+        let fcnt0_raw = self.pwmi0.0.ccr1().read().ccr().bits();
+        let fcnt0 = self.pwmi0.1.update(fcnt0_raw);
+        if fcnt0 < 1 {
+            pwmi0_freq_val = 0.0;
         } else {
-            frequency_inp1_val = self.frequency_scaling / fcnt1 as f32;
+            pwmi0_freq_val = self.frequency_scaling / fcnt0 as f32;
         }
-        FREQ_SAMPLES[1].store(frequency_inp1_val, Ordering::Relaxed);
+        FREQ_SAMPLES[0].store(pwmi0_freq_val, Ordering::Relaxed);
+
+        // PW0 duty cycle
+        let pwmi0_dc_val;
+        let pwcnt0_raw = self.pwmi0.0.ccr2().read().ccr().bits();
+        let pwcnt0 = self.pwmi0.2.update(pwcnt0_raw);
+        if fcnt0 < 1 {
+            pwmi0_dc_val = 1.0;
+        } else {
+            pwmi0_dc_val = pwcnt0 as f32 / fcnt0 as f32;
+        }
+        DUTY_CYCLE_SAMPLE.store(pwmi0_dc_val, Ordering::Relaxed);
+
+        // FREQ1
+        let pwmi1_val;
+        let fcnt1_raw = self.pwmi1.0.ccr1().read().ccr().bits();
+        let fcnt1 = self.pwmi1.1.update(fcnt1_raw);
+        if fcnt1 < 1 {
+            pwmi1_val = 0.0;
+        } else {
+            pwmi1_val = self.frequency_scaling / fcnt1 as f32;
+        }
+        FREQ_SAMPLES[1].store(pwmi1_val, Ordering::Relaxed);
     }
 }
