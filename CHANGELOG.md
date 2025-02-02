@@ -1,6 +1,6 @@
 # Changelog
 
-## 2025-02-01 deimos 0.4.1, deimos_shared 0.2.1
+## 2025-02-01 deimos 0.4.1, deimos_shared 0.2.1, firmware analog_i_rev4 0.1.0
 
 ### Added - deimos
 
@@ -17,6 +17,7 @@
 ### Added - firmware
 
 * Add analog_i_rev4 firmware
+    * Compared to rev3, includes use of second compare-and-capture on TIM4/FREQ0 input to extract duty cycle
 
 ## 2025-02-01 deimos 0.4.0, deimos_shared 0.2.0
 
