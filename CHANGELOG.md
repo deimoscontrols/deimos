@@ -1,6 +1,6 @@
 # Changelog
 
-## 2025-02-01 deimos 0.5.0, deimos_shared 0.3.0, firmware analog_i_rev4 0.1.0
+## 2025-02-02 deimos 0.5.0, deimos_shared 0.3.0, firmware analog_i_rev4 0.1.0
 
 ### Added - deimos
 
