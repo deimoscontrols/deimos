@@ -47,6 +47,7 @@ impl ControllerState {
         peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
         bind_result: &BTreeMap<SuperSocketAddr, Box<dyn Peripheral>>,
     ) -> Self {
+        // Map IDs to names
         let mut state = Self::default();
         let bound_pids = bind_result
             .keys()
@@ -59,11 +60,20 @@ impl ControllerState {
             let id = p.id();
             assert!(
                 bound_pids.contains(&id),
-                "Peripheral {p:?} not found in bind result"
+                "Peripheral `{}` not found in bind result",
+                pid_name_map[&id]
             );
         }
 
         for (addr, p) in bind_result.iter() {
+            // Check if this is one of the peripherals we intend to operate
+            let expected_this_peripheral = pid_name_map.contains_key(&p.id());
+            if !expected_this_peripheral {
+                println!("Unexpected peripheral with id {:?}", &p.id());
+                continue;
+            }
+
+            // If this is an expected unit, add an entry for its state
             let (_sid, pid) = addr;
             let name = pid_name_map[pid];
             let ps = PeripheralState::new(name, *addr, p);

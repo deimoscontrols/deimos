@@ -6,6 +6,7 @@ mod peripheral_state;
 mod timing;
 
 use std::collections::BTreeMap;
+use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
 use core_affinity;
@@ -177,6 +178,10 @@ impl Controller {
         };
         binding_msg.write_bytes(&mut buf[..BindingInput::BYTE_LEN]);
 
+        //    Start the clock at transmission
+        let start_of_binding = Instant::now();
+
+        //    Send binding requests
         if let Some(addresses) = addresses {
             // Bind specific modules with a (hopefully) nonzero timeout
             //    Send unicast request to bind
@@ -193,8 +198,7 @@ impl Controller {
         }
 
         //    Collect binding responses
-        let start_of_binding = Instant::now();
-        while start_of_binding.elapsed().as_millis() <= (binding_timeout_ms + 1) as u128 {
+        while start_of_binding.elapsed().as_millis() <= binding_timeout_ms as u128 {
             for (sid, socket) in self.sockets.iter_mut().enumerate() {
                 if let Some((_pid, _rxtime, recvd)) = socket.recv() {
                     // If this is from the right port and it's not capturing our own
@@ -208,7 +212,7 @@ impl Controller {
                                 let pid = parsed.id();
                                 let addr = (sid, pid);
                                 // Update the socket's address map
-                                socket.update_map(pid);
+                                socket.update_map(pid).unwrap();
                                 // Update the controller's address map
                                 available_peripherals.insert(addr, parsed);
                             }
@@ -250,13 +254,20 @@ impl Controller {
         // its loss-of-contact limit.
         let i = packet_index;
         peripheral_input_buffer.fill(0.0);
-        for j in i..i + 3 {
+        for j in 0..3 {
+            // Send 3x to each
             for (addr, ps) in state.peripheral_state.iter() {
                 let p = &self.peripherals[&ps.name];
                 let n = p.operating_roundtrip_input_size();
                 // TODO: log transmit errors
                 let (sid, pid) = addr;
-                p.emit_operating_roundtrip(j, 0, 0, &peripheral_input_buffer[..n], &mut txbuf[..n]);
+                p.emit_operating_roundtrip(
+                    j + i,
+                    0,
+                    0,
+                    &peripheral_input_buffer[..n],
+                    &mut txbuf[..n],
+                );
                 let _ = self.sockets[*sid].send(*pid, &txbuf[..n]);
             }
         }
@@ -356,31 +367,37 @@ impl Controller {
         'configuring_retry: for i in 0..10 {
             println!("Binding peripherals");
 
-            // Wait for peripherals to time out back to binding
+            // If this is a retry, wait for peripherals to time out back to binding
             if i > 0 {
-                std::thread::sleep(Duration::from_nanos(
-                    self.ctx.peripheral_loss_of_contact_limit as u64 * self.ctx.dt_ns as u64,
-                ));
+                // Some peripherals may have received their configuration and proceeded to operating,
+                // in which case we need to wait for them to time out and return to Connecting before retry,
+                // plus a buffer for the peripheral to proceed back to Binding.
+                let pad_ns = 20_000_000;
+                let retry_wait = Duration::from_nanos(
+                    self.ctx.peripheral_loss_of_contact_limit as u64 * self.ctx.dt_ns as u64
+                        + self.ctx.timeout_to_operating_ns as u64
+                        + self.ctx.configuring_timeout_ms as u64 * 1000
+                        + pad_ns,
+                );
+                println!("Waiting {:?} to retry configuring", &retry_wait);
+                thread::sleep(retry_wait);
             }
 
             // Clear buffers
             while self.sockets.iter_mut().any(|sock| sock.recv().is_some()) {}
 
-            // Configuring starts as soon as peripherals receive binding input,
-            // so start the clock now to avoid absorbing binding timeout
-            let start_of_configuring = Instant::now();
-
             // Bind
-            let dt_ms = (self.ctx.dt_ns / 1_000_000) as u16;
             let _bound_peripherals = self.bind(
                 Some(&addresses),
+                // None,
                 self.ctx.binding_timeout_ms,
-                self.ctx
-                    .configuring_timeout_ms
-                    .max(dt_ms)
-                    .max(2 * self.ctx.binding_timeout_ms),
+                self.ctx.configuring_timeout_ms,
                 plugins,
             );
+
+            // Operating countdown starts as soon as peripherals receive binding input,
+            // so start the clock now
+            let start_of_operating_countdown = Instant::now();
 
             // Configure peripherals
             //    Send configuration to each peripheral
@@ -389,7 +406,7 @@ impl Controller {
                 dt_ns: self.ctx.dt_ns,
                 timeout_to_operating_ns: self.ctx.timeout_to_operating_ns,
                 loss_of_contact_limit: self.ctx.peripheral_loss_of_contact_limit,
-                ..Default::default()
+                mode: Mode::Roundtrip,
             };
             let num_to_write = ConfiguringInput::BYTE_LEN;
             config_input.write_bytes(&mut txbuf[..num_to_write]);
@@ -404,7 +421,7 @@ impl Controller {
             let operating_timeout = Duration::from_nanos(self.ctx.timeout_to_operating_ns as u64);
 
             println!("Waiting for peripherals to acknowledge configuration");
-            while start_of_configuring.elapsed() < operating_timeout {
+            while start_of_operating_countdown.elapsed() < operating_timeout {
                 for (sid, socket) in self.sockets.iter_mut().enumerate() {
                     if let Some((pid, _rxtime, buf)) = socket.recv() {
                         let amt = buf.len();
@@ -415,6 +432,12 @@ impl Controller {
                                 let ack = ConfiguringOutput::read_bytes(buf);
                                 let addr = (sid, pid);
 
+                                // Check if this is peripheral belongs to this controller
+                                if !controller_state.peripheral_state.contains_key(&addr) {
+                                    continue;
+                                }
+
+                                // Check status
                                 match ack.acknowledge {
                                     AcknowledgeConfiguration::Ack => {
                                         controller_state
@@ -448,6 +471,14 @@ impl Controller {
 
             if all_peripherals_acknowledged {
                 break 'configuring_retry;
+            } else {
+                // Figure out which peripherals were missing
+                let peripherals_not_acknowledged = controller_state
+                    .peripheral_state
+                    .iter()
+                    .filter_map(|(_k, v)| (!v.acknowledged_configuration).then_some(v.name.clone()))
+                    .collect::<Vec<_>>();
+                println!("Peripherals did not acknowledge configuration: {peripherals_not_acknowledged:?}");
             }
         }
 

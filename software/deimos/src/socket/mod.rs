@@ -40,5 +40,5 @@ pub trait SuperSocket: Send + Sync {
 
     /// Update address map to associate the most recent address that
     /// provided a packet via recv() with a peripheral id.
-    fn update_map(&mut self, id: PeripheralId);
+    fn update_map(&mut self, id: PeripheralId) -> Result<(), String>;
 }

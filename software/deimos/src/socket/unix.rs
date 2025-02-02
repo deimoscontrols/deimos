@@ -211,10 +211,16 @@ impl SuperSocket for UnixSuperSocket {
         Ok(())
     }
 
-    fn update_map(&mut self, id: PeripheralId) {
+    fn update_map(&mut self, id: PeripheralId) -> Result<(), String> {
         if let Some(addr) = &self.last_received_addr {
             self.addrs.insert(id, addr.clone());
             self.pids.insert(addr.clone(), id);
+
+            if self.addrs.len() != self.pids.len() {
+                return Err(format!("Duplicate addresses or peripheral IDs detected.\nAddress map: {:?}\nPeripheral ID map: {:?}", &self.addrs, &self.pids));
+            }
         }
+
+        Ok(())
     }
 }
