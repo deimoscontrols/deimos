@@ -2596,6 +2596,17 @@
 		)
 		(uuid "22c1a1f2-9123-4e6c-82e5-98e2e5469ccd")
 	)
+	(text "G = 1 + (49.4k / Rg) = 1 + (49.4k / 2k) = 25.7"
+		(exclude_from_sim no)
+		(at 60.96 137.16 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "54539e59-593c-4559-ad0f-d58f77513410")
+	)
 	(text "Frontend & Connector"
 		(exclude_from_sim no)
 		(at 67.818 52.07 0)
@@ -2617,17 +2628,6 @@
 			(justify left bottom)
 		)
 		(uuid "945e0813-b881-496a-a466-27ea24592be9")
-	)
-	(text "G = 1 + (49.4k / Rg) = 50.4k / 2k = 25.7"
-		(exclude_from_sim no)
-		(at 61.468 136.144 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "9c1fe314-7c52-49dc-9acf-12633bf4af83")
 	)
 	(hierarchical_label "Signal-"
 		(shape input)
