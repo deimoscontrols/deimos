@@ -1,5 +1,16 @@
 # Changelog
 
+## 2025-02-02 Hardware - Analog I Rev 4.0.1
+
+### Changed - Hardware - Analog I Rev 4.0.1
+
+* Replace input comparators with TLV3201s with 1M input pulldown to resolve inadequate drive strength
+    * Non-inverting hysteresis-free configuration
+* Move screw terminal inward and place silkscreen terminal labels on the outside
+* Slightly widen board to make room for labels
+* Update 3 pin screw terminal footprint for more accurate courtyard
+* Update silkscreen labels to orient outward or toward the side opposite the power/eth plugs
+
 ## 2025-02-02 deimos 0.5.0, deimos_shared 0.3.0, firmware analog_i_rev4 0.1.0
 
 ### Added - deimos

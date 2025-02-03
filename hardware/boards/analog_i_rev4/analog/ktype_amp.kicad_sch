@@ -1156,7 +1156,7 @@
 		)
 		(uuid "fcc1e962-1cb1-4ea3-94a7-25eb0a80d44a")
 	)
-	(text "G = 1 + (49.4k / Rg) = 50.4k / 2k = 25.7"
+	(text "G = 1 + (49.4k / Rg) = 1 + (49.4k / 2k) = 25.7"
 		(exclude_from_sim no)
 		(at 153.67 113.03 0)
 		(effects

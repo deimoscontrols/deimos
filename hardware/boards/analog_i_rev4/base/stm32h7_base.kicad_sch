@@ -3606,7 +3606,7 @@
 			)
 			(project "simplicity_analog_1"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a"
-					(reference "D?")
+					(reference "D2003")
 					(unit 1)
 				)
 			)
@@ -4426,7 +4426,7 @@
 			)
 			(project "simplicity_analog_1"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a"
-					(reference "D?")
+					(reference "D2001")
 					(unit 1)
 				)
 			)

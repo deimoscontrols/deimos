@@ -324,7 +324,7 @@
 				)
 			)
 		)
-		(property "Footprint" "TerminalBlock:TerminalBlock_bornier-3_P5.08mm"
+		(property "Footprint" "aaa:Screw_Terminal_3_P5.08mm"
 			(at 69.85 81.788 0)
 			(effects
 				(font
