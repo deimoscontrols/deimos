@@ -1,6 +1,7 @@
 //! Control loop and integration with data pipeline and calc orchestrator
 
 pub mod context;
+pub mod channel;
 mod controller_state;
 mod peripheral_state;
 mod timing;
