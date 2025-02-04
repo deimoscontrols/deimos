@@ -1,7 +1,9 @@
 //! Information about the current operation
 //! that may be used by the controller's appendages.
 
+use std::ops::Deref;
 use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime};
 use std::{collections::BTreeMap, default::Default};
 
@@ -9,7 +11,7 @@ use chrono::{DateTime, Utc};
 
 use serde::{Deserialize, Serialize};
 
-use super::channel::Channel;
+use super::channel::{Channel, Endpoint};
 
 /// Criteria for exiting the control program
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -88,7 +90,7 @@ pub struct ControllerCtx {
 
     /// An escape hatch for sideloading user context (likely json-encoded)
     /// that is not yet implemented as a standalone field.
-    pub user_ctx: BTreeMap<String, String>,
+    pub user_ctx: Arc<BTreeMap<String, String>>,
 
     /// An escape hatch for sideloading communication between appendages.
     /// Each channel is a bidirectional MPMC message pipe.
@@ -97,7 +99,31 @@ pub struct ControllerCtx {
     /// on its own, the status of these channels should not be used to indicate
     /// when a freerunning thread should terminate, as this will often result in
     /// a resource leak.
-    pub user_channels: BTreeMap<String, Channel>
+    pub user_channels: Arc<RwLock<BTreeMap<String, Channel>>>
+}
+
+impl ControllerCtx {
+    /// Get a handle to a source endpoint tx/rx pair for the channel,
+    /// creating the channel if it does not exist.
+    pub fn source_endpoint(&self, channel_name: &str) -> Endpoint {
+        let map = &self.user_channels;
+        let inner = map.deref();
+        let mut writer = inner.try_write().unwrap();
+        let channel = writer.entry(channel_name.to_owned()).or_insert(Channel::default());
+        let endpoint = channel.source_endpoint();
+        endpoint
+    }
+
+    /// Get a handle to a sink endpoint tx/rx pair for the channel,
+    /// creating the channel if it does not exist.
+    pub fn sink_endpoint(&self, channel_name: &str) -> Endpoint {
+        let map = &self.user_channels;
+        let inner = map.deref();
+        let mut writer = inner.try_write().unwrap();
+        let channel = writer.entry(channel_name.to_owned()).or_insert(Channel::default());
+        let endpoint = channel.sink_endpoint();
+        endpoint
+    }
 }
 
 impl Default for ControllerCtx {
@@ -118,8 +144,8 @@ impl Default for ControllerCtx {
             controller_loss_of_contact_limit: 10,
             termination_criteria: Vec::new(),
             loss_of_contact_policy: LossOfContactPolicy::Terminate,
-            user_ctx: BTreeMap::new(),
-            user_channels: BTreeMap::new()
+            user_ctx: Arc::new(BTreeMap::new()),
+            user_channels: Arc::new(RwLock::new(BTreeMap::new()))
         }
     }
 }

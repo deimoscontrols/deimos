@@ -30,7 +30,7 @@ crossbeam = "0.8.4"
 # Serialization
 # Loose versioning enables plugins without multiple crate versions per build
 serde_json = "^1"
-serde = { version = "^1", features = ["derive"] }
+serde = { version = "^1", features = ["derive", "rc"] }
 typetag = { version = "^0.2" }
 
 # Timescale DB interface

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2025-02-04 deimos 0.4.1
+
+### Added
+
+* Implement user channels
+    * Bidirectional multiple-producer, multiple-consumer buffering message pipes
+    * Passed to appendages with context during init
+
 ## 2025-02-02 Hardware - Analog I Rev 4.0.1
 
 ### Changed - Hardware - Analog I Rev 4.0.1

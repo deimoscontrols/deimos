@@ -1,4 +1,4 @@
-//! Example demonstrating a 200Hz control program with two DAQ modules connected via UDP and time-synchronized.
+//! A 200Hz control program with two DAQ modules connected via UDP and time-synchronized.
 //!
 //! Demonstrated here:
 //! * Setting up a simple control program and connecting to hardware

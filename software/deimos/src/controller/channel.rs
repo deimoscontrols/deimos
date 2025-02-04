@@ -19,6 +19,12 @@ struct ChannelInner {
     rx: Receiver<Msg>,
 }
 
+impl ChannelInner {
+    fn from_handles(tx: Sender<Msg>, rx: Receiver<Msg>) -> Self {
+        Self { tx, rx }
+    }
+}
+
 impl Default for ChannelInner {
     fn default() -> Self {
         let (tx, rx) = bounded(10);
@@ -46,13 +52,40 @@ impl Channel {
 
     /// Get a handle for sources,
     /// which can to send to sinks and receive from sinks
-    pub fn source_channel(&self) -> (Sender<Msg>, Receiver<Msg>) {
-        (self.ch0.tx.clone(), self.ch1.rx.clone())
+    pub fn source_endpoint(&self) -> Endpoint {
+        Endpoint::new(self.ch0.tx.clone(), self.ch1.rx.clone())
     }
 
     /// Get a handle for sinks,
     /// which can send to sources and receive from sources
-    pub fn sink_channel(&self) -> (Sender<Msg>, Receiver<Msg>) {
-        (self.ch1.tx.clone(), self.ch0.rx.clone())
+    pub fn sink_endpoint(&self) -> Endpoint {
+        Endpoint::new(self.ch1.tx.clone(), self.ch0.rx.clone())
+    }
+}
+
+/// Channel endpoint for either a source or sink.
+///
+/// The channel buffers hold a maximum of 10 messages.
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct Endpoint {
+    #[serde(skip)]
+    ch: ChannelInner,
+}
+
+impl Endpoint {
+    pub fn new(tx: Sender<Msg>, rx: Receiver<Msg>) -> Self {
+        Self {
+            ch: ChannelInner::from_handles(tx, rx),
+        }
+    }
+
+    /// Get a sender handle
+    pub fn tx(&self) -> &Sender<Msg> {
+        &self.ch.tx
+    }
+
+    /// Get a receiver handle
+    pub fn rx(&self) -> &Receiver<Msg> {
+        &self.ch.rx
     }
 }

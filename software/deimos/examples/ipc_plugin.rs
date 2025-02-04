@@ -1,4 +1,4 @@
-//! Example of defining a mockup of a peripheral in software and communicating
+//! Define a mockup of a peripheral in software and communicate
 //! with the controller via unix socket.
 //!
 //! In this example, the software peripheral is running in the same process,
