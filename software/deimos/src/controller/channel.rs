@@ -5,6 +5,7 @@ use crossbeam::channel::{bounded, Receiver, Sender};
 use serde::{Deserialize, Serialize};
 
 /// A basic set of message types that can be passed along a user channel
+#[derive(Debug)]
 #[non_exhaustive]
 pub enum Msg {
     Val(f64),

@@ -56,7 +56,7 @@ fn main() {
     let rate_hz = 50.0;
     ctx.dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
 
-    // Set termination criteria to end the control loop after 1s
+    // Set termination criteria to end the control loop after a set duration from start of operating
     ctx.termination_criteria = vec![Termination::Timeout(Duration::from_millis(500))];
 
     // Define idle controller
@@ -88,7 +88,7 @@ fn main() {
     sock.set_nonblocking(true).unwrap();
 
     // Start the in-memory peripheral on a another thread,
-    // setting a timer for it to terminate after N seconds
+    // setting a timer for it to terminate at a specific time
     let mockup = PState::Binding {
         end: SystemTime::now() + Duration::from_millis(1000),
         sock,

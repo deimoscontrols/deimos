@@ -90,7 +90,7 @@ pub struct ControllerCtx {
 
     /// An escape hatch for sideloading user context (likely json-encoded)
     /// that is not yet implemented as a standalone field.
-    pub user_ctx: Arc<BTreeMap<String, String>>,
+    pub user_ctx: BTreeMap<String, String>,
 
     /// An escape hatch for sideloading communication between appendages.
     /// Each channel is a bidirectional MPMC message pipe.
@@ -144,7 +144,7 @@ impl Default for ControllerCtx {
             controller_loss_of_contact_limit: 10,
             termination_criteria: Vec::new(),
             loss_of_contact_policy: LossOfContactPolicy::Terminate,
-            user_ctx: Arc::new(BTreeMap::new()),
+            user_ctx: BTreeMap::new(),
             user_channels: Arc::new(RwLock::new(BTreeMap::new()))
         }
     }
