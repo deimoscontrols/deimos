@@ -12,7 +12,7 @@ pub enum Msg {
     Str(String),
 }
 
-/// Default-able channel with 10-message buffer
+/// Default-able one-way channel with 10-message buffer
 #[derive(Clone, Debug)]
 struct ChannelInner {
     tx: Sender<Msg>,
@@ -26,20 +26,20 @@ impl Default for ChannelInner {
     }
 }
 
-/// A multiple-producer, multiple-consumer (MPMC) bidirectional thread pipe
+/// A multiple-producer, multiple-consumer (MPMC) bidirectional message pipe
 /// that will be reinitialized (but not reconnected to any particular
 /// endpoints) when deserialized.
 ///
 /// The channel buffers hold a maximum of 10 messages.
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct UserChannel {
+pub struct Channel {
     #[serde(skip)]
-    source_channel: ChannelInner,
+    ch0: ChannelInner,
     #[serde(skip)]
-    sink_channel: ChannelInner,
+    ch1: ChannelInner,
 }
 
-impl UserChannel {
+impl Channel {
     pub fn new() -> Self {
         Self::default()
     }
@@ -47,12 +47,12 @@ impl UserChannel {
     /// Get a handle for sources,
     /// which can to send to sinks and receive from sinks
     pub fn source_channel(&self) -> (Sender<Msg>, Receiver<Msg>) {
-        (self.source_channel.tx.clone(), self.sink_channel.rx.clone())
+        (self.ch0.tx.clone(), self.ch1.rx.clone())
     }
 
     /// Get a handle for sinks,
     /// which can send to sources and receive from sources
     pub fn sink_channel(&self) -> (Sender<Msg>, Receiver<Msg>) {
-        (self.sink_channel.tx.clone(), self.source_channel.rx.clone())
+        (self.ch1.tx.clone(), self.ch0.rx.clone())
     }
 }

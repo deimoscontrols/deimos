@@ -9,6 +9,8 @@ use chrono::{DateTime, Utc};
 
 use serde::{Deserialize, Serialize};
 
+use super::channel::Channel;
+
 /// Criteria for exiting the control program
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[non_exhaustive]
@@ -84,9 +86,18 @@ pub struct ControllerCtx {
     /// Response to losing contact with a peripheral
     pub loss_of_contact_policy: LossOfContactPolicy,
 
-    /// A last-resort escape hatch for sideloading user context (likely json-encoded)
+    /// An escape hatch for sideloading user context (likely json-encoded)
     /// that is not yet implemented as a standalone field.
     pub user_ctx: BTreeMap<String, String>,
+
+    /// An escape hatch for sideloading communication between appendages.
+    /// Each channel is a bidirectional MPMC message pipe.
+    /// 
+    /// Because bidirectional channels may not close until the program terminates
+    /// on its own, the status of these channels should not be used to indicate
+    /// when a freerunning thread should terminate, as this will often result in
+    /// a resource leak.
+    pub user_channels: BTreeMap<String, Channel>
 }
 
 impl Default for ControllerCtx {
@@ -108,6 +119,7 @@ impl Default for ControllerCtx {
             termination_criteria: Vec::new(),
             loss_of_contact_policy: LossOfContactPolicy::Terminate,
             user_ctx: BTreeMap::new(),
+            user_channels: BTreeMap::new()
         }
     }
 }
