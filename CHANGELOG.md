@@ -7,6 +7,7 @@
 * Implement user channels
     * Bidirectional multiple-producer, multiple-consumer buffering message pipes
     * Passed to appendages with context during init
+* Add sideloading example that uses user_ctx and user_channels fields to bypass nominal flow of information
 
 ## 2025-02-02 Hardware - Analog I Rev 4.0.1
 
