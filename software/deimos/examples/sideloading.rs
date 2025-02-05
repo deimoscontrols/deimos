@@ -2,14 +2,22 @@
 //! and communication that are not explicitly supported.
 //!
 //! Demonstrated here:
-//!     * Running a control program with no peripherals, only calcs
-//!     * Using `user_ctx` and `user_channels` for sideloading
-//!     * Defining custom calcs
+//!   * Running a control program with no peripherals, only calcs
+//!   * Using `user_ctx` and `user_channels` fields for sideloading
+//!   * Defining custom calcs
 
 // For definining calcs
-use deimos::{calcs::*, controller::channel::{Endpoint, Msg}, dispatcher::fmt_time};
+use deimos::{
+    calcs::*,
+    controller::channel::{Endpoint, Msg},
+    dispatcher::fmt_time,
+};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, ops::Range, time::{Duration, SystemTime}};
+use std::{
+    collections::BTreeMap,
+    ops::Range,
+    time::{Duration, SystemTime},
+};
 
 // For using the controller
 use controller::context::ControllerCtx;
@@ -27,7 +35,8 @@ fn main() {
     let mut ctx = ControllerCtx::default();
     ctx.dt_ns = dt_ns;
     ctx.termination_criteria = termination_criteria;
-    ctx.user_ctx.insert("speaker_prefix".to_owned(), "foobar".to_owned());
+    ctx.user_ctx
+        .insert("speaker_prefix".to_owned(), "foobar".to_owned());
     let mut controller = Controller::new(ctx);
 
     // Clear default UDP socket, which we will not be using
@@ -36,11 +45,14 @@ fn main() {
     // Add calcs that use sideloading channel for comms.
     //
     // While they perform their communication on a channel, not via the calc tape,
-    // they still have a dummy input-output relationship registered with the controller's 
+    // they still have a dummy input-output relationship registered with the controller's
     // calc orchestrator in order to make sure that they are evaluated in the correct
     // order at each cycle.
     controller.add_calc("speaker", Box::new(Speaker::new("time channel")));
-    controller.add_calc("listener", Box::new(Listener::new("speaker.y", "time channel")));
+    controller.add_calc(
+        "listener",
+        Box::new(Listener::new("speaker.y", "time channel")),
+    );
 
     // Run to planned termination
     controller.run(&None).unwrap();
@@ -91,8 +103,12 @@ impl Calc for Speaker {
     /// Run calcs for a cycle
     fn eval(&mut self, _tape: &mut [f64]) {
         // Send time on user channel with prefix
-        let msg = Msg::Str(format!("{} at {:?}", &self.prefix, fmt_time(SystemTime::now())));
-        self.endpoint.tx().try_send(msg).unwrap();  // Will panic if buffer is full or channel is closed
+        let msg = Msg::Str(format!(
+            "{} at {:?}",
+            &self.prefix,
+            fmt_time(SystemTime::now())
+        ));
+        self.endpoint.tx().try_send(msg).unwrap(); // Will panic if buffer is full or channel is closed
 
         // We could write a dummy value to the tape here, but we don't need to
     }
@@ -105,14 +121,13 @@ impl Calc for Speaker {
 
     /// Change a value in the input map
     fn update_input_map(&mut self, field: &str, _source: &str) -> Result<(), String> {
-        return Err(format!("Unrecognized field {field}"));  // there aren't any input fields
+        return Err(format!("Unrecognized field {field}")); // there aren't any input fields
     }
 
     calc_config!();
     calc_input_names!();
     calc_output_names!(y);
 }
-
 
 /// A dummy calc that receives time from a listener and prints it to the terminal
 #[derive(Serialize, Deserialize, Default)]
@@ -159,14 +174,14 @@ impl Calc for Listener {
         // Print the time if we received it
         let msg = match self.endpoint.rx().try_recv() {
             Ok(x) => x,
-            Err(_) => return
+            Err(_) => return,
         };
 
         match msg {
             Msg::Str(s) => {
                 println!("{s}");
-            },
-            x => panic!("Unexpected message type: {x:?}")
+            }
+            x => panic!("Unexpected message type: {x:?}"),
         }
 
         // We could write a dummy value to the tape here, but we don't need to
@@ -180,7 +195,7 @@ impl Calc for Listener {
 
     /// Change a value in the input map
     fn update_input_map(&mut self, field: &str, _source: &str) -> Result<(), String> {
-        return Err(format!("Unrecognized field {field}"));  // there aren't any input fields
+        return Err(format!("Unrecognized field {field}")); // there aren't any input fields
     }
 
     calc_config!();

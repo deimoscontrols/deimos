@@ -1,10 +1,10 @@
 //! A 200Hz control program with two DAQ modules connected via UDP and time-synchronized.
 //!
 //! Demonstrated here:
-//! * Setting up a simple control program and connecting to hardware
-//! * Storing data
-//! * Performing calculations in the loop
-//! * Serialization and deserialization of the control program
+//!   * Setting up a simple control program and connecting to hardware
+//!   * Storing data
+//!   * Performing calculations in the loop
+//!   * Serialization and deserialization of the control program
 
 use std::time::Duration;
 

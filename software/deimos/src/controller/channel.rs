@@ -8,29 +8,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Msg {
+    Bool(bool),
     Val(f64),
     Arr(Vec<f64>),
     Str(String),
-}
-
-/// Default-able one-way channel with 10-message buffer
-#[derive(Clone, Debug)]
-struct ChannelInner {
-    tx: Sender<Msg>,
-    rx: Receiver<Msg>,
-}
-
-impl ChannelInner {
-    fn from_handles(tx: Sender<Msg>, rx: Receiver<Msg>) -> Self {
-        Self { tx, rx }
-    }
-}
-
-impl Default for ChannelInner {
-    fn default() -> Self {
-        let (tx, rx) = bounded(10);
-        Self { tx, rx }
-    }
 }
 
 /// A multiple-producer, multiple-consumer (MPMC) bidirectional message pipe
@@ -88,5 +69,25 @@ impl Endpoint {
     /// Get a receiver handle
     pub fn rx(&self) -> &Receiver<Msg> {
         &self.ch.rx
+    }
+}
+
+/// Default-able one-way channel with 10-message buffer
+#[derive(Clone, Debug)]
+struct ChannelInner {
+    tx: Sender<Msg>,
+    rx: Receiver<Msg>,
+}
+
+impl ChannelInner {
+    fn from_handles(tx: Sender<Msg>, rx: Receiver<Msg>) -> Self {
+        Self { tx, rx }
+    }
+}
+
+impl Default for ChannelInner {
+    fn default() -> Self {
+        let (tx, rx) = bounded(10);
+        Self { tx, rx }
     }
 }

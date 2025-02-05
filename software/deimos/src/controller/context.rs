@@ -94,12 +94,12 @@ pub struct ControllerCtx {
 
     /// An escape hatch for sideloading communication between appendages.
     /// Each channel is a bidirectional MPMC message pipe.
-    /// 
+    ///
     /// Because bidirectional channels may not close until the program terminates
     /// on its own, the status of these channels should not be used to indicate
     /// when a freerunning thread should terminate, as this will often result in
     /// a resource leak.
-    pub user_channels: Arc<RwLock<BTreeMap<String, Channel>>>
+    pub user_channels: Arc<RwLock<BTreeMap<String, Channel>>>,
 }
 
 impl ControllerCtx {
@@ -109,9 +109,10 @@ impl ControllerCtx {
         let map = &self.user_channels;
         let inner = map.deref();
         let mut writer = inner.try_write().unwrap();
-        let channel = writer.entry(channel_name.to_owned()).or_insert(Channel::default());
-        let endpoint = channel.source_endpoint();
-        endpoint
+        let channel = writer
+            .entry(channel_name.to_owned())
+            .or_default();
+        channel.source_endpoint()
     }
 
     /// Get a handle to a sink endpoint tx/rx pair for the channel,
@@ -120,9 +121,10 @@ impl ControllerCtx {
         let map = &self.user_channels;
         let inner = map.deref();
         let mut writer = inner.try_write().unwrap();
-        let channel = writer.entry(channel_name.to_owned()).or_insert(Channel::default());
-        let endpoint = channel.sink_endpoint();
-        endpoint
+        let channel = writer
+            .entry(channel_name.to_owned())
+            .or_default();
+        channel.sink_endpoint()
     }
 }
 
@@ -145,7 +147,7 @@ impl Default for ControllerCtx {
             termination_criteria: Vec::new(),
             loss_of_contact_policy: LossOfContactPolicy::Terminate,
             user_ctx: BTreeMap::new(),
-            user_channels: Arc::new(RwLock::new(BTreeMap::new()))
+            user_channels: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
 }
