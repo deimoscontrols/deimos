@@ -1,6 +1,6 @@
 [package]
 name = "deimos"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "0BSD OR Apache-2.0"

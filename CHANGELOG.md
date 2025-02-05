@@ -1,6 +1,6 @@
 # Changelog
 
-## 2025-02-04 deimos 0.4.1
+## 2025-02-04 deimos 0.5.1
 
 ### Added
 
