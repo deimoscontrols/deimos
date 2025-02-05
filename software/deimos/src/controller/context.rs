@@ -109,9 +109,7 @@ impl ControllerCtx {
         let map = &self.user_channels;
         let inner = map.deref();
         let mut writer = inner.try_write().unwrap();
-        let channel = writer
-            .entry(channel_name.to_owned())
-            .or_default();
+        let channel = writer.entry(channel_name.to_owned()).or_default();
         channel.source_endpoint()
     }
 
@@ -121,9 +119,7 @@ impl ControllerCtx {
         let map = &self.user_channels;
         let inner = map.deref();
         let mut writer = inner.try_write().unwrap();
-        let channel = writer
-            .entry(channel_name.to_owned())
-            .or_default();
+        let channel = writer.entry(channel_name.to_owned()).or_default();
         channel.sink_endpoint()
     }
 }
