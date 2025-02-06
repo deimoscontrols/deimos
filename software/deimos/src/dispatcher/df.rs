@@ -15,6 +15,12 @@ use crate::controller::context::ControllerCtx;
 
 use super::{fmt_time, header_columns, Dispatcher, Overflow};
 
+
+/// Store collected data in in-memory columns, moving columns into
+/// a dataframe behind a shared reference at termination.
+/// 
+/// To avoid deadlocks, the dataframe is not updated until after
+/// the run is complete. The dataframe is cleared at the start of each run.
 #[derive(Serialize, Deserialize, Default)]
 pub struct DataFrameDispatcher {
     max_size_megabytes: usize,
@@ -33,6 +39,15 @@ pub struct DataFrameDispatcher {
 }
 
 impl DataFrameDispatcher {
+
+    /// Create a dispatcher that will clear the data in the dataframe
+    /// at the start of a run, and store data in the dataframe at the
+    /// end of the run.
+    /// 
+    /// To prevent crashes, the stored data will occupy a fixed maximum size in RAM.
+    /// Above that amount, additional writes will cause it to either wrap (overwriting
+    /// data starting with the oldest) or produce an error. Producing a new chunk
+    /// is not a valid overflow behavior for this dispatcher.
     pub fn new(
         df: Arc<RwLock<DataFrame>>,
         max_size_megabytes: usize,
@@ -53,21 +68,24 @@ impl DataFrameDispatcher {
         }
     }
 
+    /// Get a write handle to the dataframe, if possible
     fn write(&self) -> Result<RwLockWriteGuard<'_, DataFrame>, String> {
         self.df
-            .write()
+            .try_write()
             .map_err(|_| "Unable to lock dataframe".to_string())
     }
 
+    /// Get a read handle to the dataframe, if possible
     fn read(&self) -> Result<RwLockReadGuard<'_, DataFrame>, String> {
         self.df
-            .read()
+            .try_read()
             .map_err(|_| "Unable to lock dataframe".to_string())
     }
 }
 
 #[typetag::serde]
 impl Dispatcher for DataFrameDispatcher {
+
     fn init(
         &mut self,
         _ctx: &ControllerCtx,
@@ -152,9 +170,9 @@ impl Dispatcher for DataFrameDispatcher {
         }
 
         // Clear state, keeping a handle to the same dataframe
+        // so that we can run again if needed
         *self = Self::new(self.df.clone(), self.max_size_megabytes, self.overflow_behavior);
         
-        // so that we can run again if needed
         Ok(())
     }
 }

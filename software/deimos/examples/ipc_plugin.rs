@@ -40,7 +40,7 @@ use deimos::{
 };
 use deimos::{
     controller::context::{ControllerCtx, Termination},
-    dispatcher::fmt_time,
+    dispatcher::{fmt_time, DataFrameDispatcher, Overflow},
 };
 use socket::unix::UnixSuperSocket;
 

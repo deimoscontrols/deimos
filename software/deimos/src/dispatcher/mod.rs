@@ -40,6 +40,8 @@ pub enum Overflow {
 /// one row at a time.
 #[typetag::serde(tag = "type")]
 pub trait Dispatcher: Send + Sync {
+
+    /// Set up the dispatcher at the start of a run
     fn init(
         &mut self,
         ctx: &ControllerCtx,
@@ -47,6 +49,7 @@ pub trait Dispatcher: Send + Sync {
         core_assignment: CoreId,
     ) -> Result<(), String>;
 
+    /// Ingest a row of data
     fn consume(
         &mut self,
         time: SystemTime,
@@ -54,6 +57,7 @@ pub trait Dispatcher: Send + Sync {
         channel_values: Vec<f64>,
     ) -> Result<(), String>;
 
+    /// Shut down the dispatcher and reset internal state for the next run
     fn terminate(&mut self) -> Result<(), String>;
 }
 

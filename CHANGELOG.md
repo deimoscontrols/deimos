@@ -6,7 +6,7 @@
 
 * Add `DataFrameDispatcher` for writing data to in-memory dataframe
 * Add `Msg::Packet(Vec<u8>)` variant of user channel message to enable generic packetized message-passing
-* !Add `reset` method to `Dispatcher` trait
+* !Add `terminate` method to `Dispatcher` trait
     * To be called when the controller terminates, returning dispatchers to their pre-init state for reuse
 
 ### Changed
