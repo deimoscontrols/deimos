@@ -130,7 +130,7 @@ impl Dispatcher for DataFrameDispatcher {
         Ok(())
     }
 
-    fn reset(&mut self) -> Result<(), String> {
+    fn terminate(&mut self) -> Result<(), String> {
         // Store columns in dataframe
         let headers = header_columns(&self.channel_names);
         self.write()?

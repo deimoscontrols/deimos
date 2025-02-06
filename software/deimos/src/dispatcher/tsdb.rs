@@ -140,7 +140,7 @@ impl Dispatcher for TimescaleDbDispatcher {
         Ok(())
     }
 
-    fn reset(&mut self) -> Result<(), String> {
+    fn terminate(&mut self) -> Result<(), String> {
         // Drop worker handle, closing thread channel,
         // which will indicate to the detached worker that it should
         // finish storing its buffered data and shut down.

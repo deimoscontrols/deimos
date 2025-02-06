@@ -272,6 +272,16 @@ impl Controller {
                 let _ = self.sockets[*sid].send(*pid, &txbuf[..n]);
             }
         }
+
+        // Reset appendages
+        let _err_rollup = self
+            .dispatchers
+            .iter_mut()
+            .filter_map(|d| match d.terminate() {
+                Ok(_) => None,
+                Err(x) => Some(x),
+            })
+            .collect::<Vec<String>>();
     }
 
     pub fn run(&mut self, plugins: &Option<PluginMap>) -> Result<String, String> {

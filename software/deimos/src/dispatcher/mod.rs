@@ -54,7 +54,7 @@ pub trait Dispatcher: Send + Sync {
         channel_values: Vec<f64>,
     ) -> Result<(), String>;
 
-    fn reset(&mut self) -> Result<(), String>;
+    fn terminate(&mut self) -> Result<(), String>;
 }
 
 /// Generate header strings including the time indices given some channel names
