@@ -1,5 +1,17 @@
 # Changelog
 
+## 2025-02-05 deimos 0.6.0
+
+### Added
+
+* Add `DataFrameDispatcher` for writing data to in-memory dataframe
+* Add `Msg::Packet(Vec<u8>)` variant of user channel message to enable generic packetized message-passing
+
+### Changed
+
+* !Change `Panic` variant of `Overflow` to `Error`
+    * Dispatchers can return an error on consuming values; this provides more flexibility in future error handling
+
 ## 2025-02-04 deimos 0.5.1
 
 ### Added
