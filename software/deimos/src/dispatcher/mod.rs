@@ -40,7 +40,6 @@ pub enum Overflow {
 /// one row at a time.
 #[typetag::serde(tag = "type")]
 pub trait Dispatcher: Send + Sync {
-
     /// Set up the dispatcher at the start of a run
     fn init(
         &mut self,

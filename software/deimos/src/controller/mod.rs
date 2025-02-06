@@ -285,10 +285,9 @@ impl Controller {
 
         // Report errors
         // TODO: log this
-        if err_rollup.len() > 0 {
+        if !err_rollup.is_empty() {
             println!("Encountered errors during termination: {err_rollup:?}");
         }
-        
     }
 
     pub fn run(&mut self, plugins: &Option<PluginMap>) -> Result<String, String> {
