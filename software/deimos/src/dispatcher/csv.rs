@@ -59,7 +59,7 @@ impl CsvDispatcher {
 
 #[typetag::serde]
 impl Dispatcher for CsvDispatcher {
-    fn initialize(
+    fn init(
         &mut self,
         ctx: &ControllerCtx,
         channel_names: &[String],
@@ -100,6 +100,14 @@ impl Dispatcher for CsvDispatcher {
             None => panic!("Dispatcher must be initialized before consuming data"),
         }
 
+        Ok(())
+    }
+
+    fn reset(&mut self) -> Result<(), String> {
+        // Drop worker handle, closing thread channel,
+        // which will indicate to the detached worker that it should
+        // finish storing its buffered data and shut down.
+        self.worker = None;
         Ok(())
     }
 }

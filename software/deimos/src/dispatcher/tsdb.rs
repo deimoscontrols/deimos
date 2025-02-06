@@ -79,7 +79,7 @@ impl TimescaleDbDispatcher {
 #[typetag::serde]
 impl Dispatcher for TimescaleDbDispatcher {
     /// Connect to the database and either reuse an existing table, or make a new one
-    fn initialize(
+    fn init(
         &mut self,
         ctx: &ControllerCtx,
         channel_names: &[String],
@@ -137,6 +137,14 @@ impl Dispatcher for TimescaleDbDispatcher {
             None => panic!("Dispatcher must be initialized before consuming data"),
         }
 
+        Ok(())
+    }
+
+    fn reset(&mut self) -> Result<(), String> {
+        // Drop worker handle, closing thread channel,
+        // which will indicate to the detached worker that it should
+        // finish storing its buffered data and shut down.
+        self.worker = None;
         Ok(())
     }
 }

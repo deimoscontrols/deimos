@@ -6,11 +6,14 @@
 
 * Add `DataFrameDispatcher` for writing data to in-memory dataframe
 * Add `Msg::Packet(Vec<u8>)` variant of user channel message to enable generic packetized message-passing
+* !Add `reset` method to `Dispatcher` trait
+    * To be called when the controller terminates, returning dispatchers to their pre-init state for reuse
 
 ### Changed
 
-* !Change `Panic` variant of `Overflow` to `Error`
+* !Rename `Panic` variant of `Overflow` to `Error`
     * Dispatchers can return an error on consuming values; this provides more flexibility in future error handling
+* !Rename `initialize` method of `Dispatcher` trait to `init`
 
 ## 2025-02-04 deimos 0.5.1
 

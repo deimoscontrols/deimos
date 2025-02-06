@@ -40,7 +40,7 @@ pub enum Overflow {
 /// one row at a time.
 #[typetag::serde(tag = "type")]
 pub trait Dispatcher: Send + Sync {
-    fn initialize(
+    fn init(
         &mut self,
         ctx: &ControllerCtx,
         channel_names: &[String],
@@ -53,6 +53,8 @@ pub trait Dispatcher: Send + Sync {
         timestamp: i64,
         channel_values: Vec<f64>,
     ) -> Result<(), String>;
+
+    fn reset(&mut self) -> Result<(), String>;
 }
 
 /// Generate header strings including the time indices given some channel names

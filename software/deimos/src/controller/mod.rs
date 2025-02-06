@@ -357,7 +357,7 @@ impl Controller {
         for dispatcher in self.dispatchers.iter_mut() {
             let core_assignment = aux_core_cycle.next().unwrap();
             dispatcher
-                .initialize(&self.ctx, &channel_names, *core_assignment)
+                .init(&self.ctx, &channel_names, *core_assignment)
                 .unwrap();
         }
         println!("Dispatching data for {n_channels} channels.");
