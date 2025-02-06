@@ -274,7 +274,7 @@ impl Controller {
         }
 
         // Reset appendages
-        let _err_rollup = self
+        let err_rollup = self
             .dispatchers
             .iter_mut()
             .filter_map(|d| match d.terminate() {
@@ -282,6 +282,13 @@ impl Controller {
                 Err(x) => Some(x),
             })
             .collect::<Vec<String>>();
+
+        // Report errors
+        // TODO: log this
+        if err_rollup.len() > 0 {
+            println!("Encountered errors during termination: {err_rollup:?}");
+        }
+        
     }
 
     pub fn run(&mut self, plugins: &Option<PluginMap>) -> Result<String, String> {

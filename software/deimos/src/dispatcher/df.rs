@@ -1,6 +1,6 @@
 //! Dataframe dispatcher for in-memory data collection
 
-use polars::{prelude::*, series::Series};
+use polars::prelude::*;
 
 use std::{
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
@@ -15,10 +15,9 @@ use crate::controller::context::ControllerCtx;
 
 use super::{fmt_time, header_columns, Dispatcher, Overflow};
 
-
 /// Store collected data in in-memory columns, moving columns into
 /// a dataframe behind a shared reference at termination.
-/// 
+///
 /// To avoid deadlocks, the dataframe is not updated until after
 /// the run is complete. The dataframe is cleared at the start of each run.
 #[derive(Serialize, Deserialize, Default)]
@@ -39,11 +38,10 @@ pub struct DataFrameDispatcher {
 }
 
 impl DataFrameDispatcher {
-
     /// Create a dispatcher that will clear the data in the dataframe
     /// at the start of a run, and store data in the dataframe at the
     /// end of the run.
-    /// 
+    ///
     /// To prevent crashes, the stored data will occupy a fixed maximum size in RAM.
     /// Above that amount, additional writes will cause it to either wrap (overwriting
     /// data starting with the oldest) or produce an error. Producing a new chunk
@@ -85,7 +83,6 @@ impl DataFrameDispatcher {
 
 #[typetag::serde]
 impl Dispatcher for DataFrameDispatcher {
-
     fn init(
         &mut self,
         _ctx: &ControllerCtx,
@@ -150,29 +147,27 @@ impl Dispatcher for DataFrameDispatcher {
 
     fn terminate(&mut self) -> Result<(), String> {
         // Store columns in dataframe
-        let headers = header_columns(&self.channel_names);
-        self.write()?
-            .set_column_names(&headers)
-            .map_err(|e| format!("Unable to set dataframe columns: {e}"))?;
-        self.write()?
-            .insert_column(0, Series::new((&headers[0]).into(), &self.cols.0))
-            .map_err(|e| format!("Unable to store data in dataframe: {e}"))?;
-        self.write()?
-            .insert_column(1, Series::new((&headers[1]).into(), &self.cols.1))
-            .map_err(|e| format!("Unable to store data in dataframe: {e}"))?;
-        for j in 0..self.channel_names.len() {
-            self.write()?
-                .insert_column(
-                    j + 2,
-                    Series::new((&headers[j + 2]).into(), &self.cols.2[j]),
-                )
+        {
+            let headers = header_columns(&self.channel_names);
+            let mut w = self.write()?;
+            let mut cols = Vec::new();
+            cols.push(Column::new((&headers[0]).into(), &self.cols.0));
+            cols.push(Column::new((&headers[1]).into(), &self.cols.1));
+            for (h, data) in headers[2..].iter().zip(self.cols.2.iter()) {
+                cols.push(Column::new(h.into(), data));
+            }
+            *w = DataFrame::new(cols)
                 .map_err(|e| format!("Unable to store data in dataframe: {e}"))?;
         }
 
         // Clear state, keeping a handle to the same dataframe
         // so that we can run again if needed
-        *self = Self::new(self.df.clone(), self.max_size_megabytes, self.overflow_behavior);
-        
+        *self = Self::new(
+            self.df.clone(),
+            self.max_size_megabytes,
+            self.overflow_behavior,
+        );
+
         Ok(())
     }
 }
