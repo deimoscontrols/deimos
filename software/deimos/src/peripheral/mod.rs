@@ -4,7 +4,7 @@ use typetag;
 
 use core::fmt::Debug;
 
-use super::calcs::*;
+use super::calc::*;
 use deimos_shared::{
     peripherals::{model_numbers, ModelNumber},
     states::*,

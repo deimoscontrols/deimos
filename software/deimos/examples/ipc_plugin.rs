@@ -9,11 +9,13 @@
 //!   * Using unix socket for communication with a peripheral
 //!   * Defining a mockup of a peripheral state machine in software
 //!   * Defining the controller's representation of that peripheral state machine
+//!   * Using an in-memory data target
 //!   * Running a control program with no hardware in the loop
 
 use std::{
     collections::BTreeMap,
     os::unix::net::{SocketAddr, UnixDatagram},
+    sync::{Arc, RwLock},
     thread::{self, JoinHandle},
     time::{Duration, Instant, SystemTime},
 };
@@ -30,17 +32,18 @@ use deimos_shared::{
     },
     OperatingMetrics,
 };
+use polars::frame::DataFrame;
 use serde::{Deserialize, Serialize};
 
 // For using the controller
 use deimos::{
-    calcs::Calc,
-    peripherals::{Peripheral, PluginMap},
+    calc::Calc,
+    peripheral::{Peripheral, PluginMap},
     *,
 };
 use deimos::{
     controller::context::{ControllerCtx, Termination},
-    dispatcher::fmt_time,
+    dispatcher::{fmt_time, DataFrameDispatcher, Overflow},
 };
 use socket::unix::UnixSuperSocket;
 
@@ -65,6 +68,15 @@ fn main() {
     // Remove the default UDP socket and add a unix socket
     controller.clear_sockets();
     controller.add_socket(Box::new(UnixSuperSocket::new("ipc_ex")));
+
+    // Add an in-memory data target
+    let df_handle = Arc::new(RwLock::new(DataFrame::empty()));
+    let df_dispatcher = Box::new(DataFrameDispatcher::new(
+        df_handle.clone(),
+        1,
+        Overflow::Error,
+    ));
+    controller.add_dispatcher(df_dispatcher);
 
     // Register the mockup as a plugin
     let mut pmap: PluginMap = BTreeMap::new();
@@ -105,6 +117,10 @@ fn main() {
 
     // Wait for the mockup to finish running
     mockup_thread.join().unwrap();
+
+    // Get collected dataframe
+    let df = df_handle.try_read().unwrap();
+    println!("Collected data: \n{}", df);
 
     // Clear sockets
     let _ = std::fs::remove_dir_all("./sock");

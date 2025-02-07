@@ -8,6 +8,9 @@ use std::{collections::BTreeMap, ops::Range};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
+mod orchestrator;
+pub use orchestrator::Orchestrator;
+
 // Specific calc implementations
 
 mod affine;
@@ -82,6 +85,9 @@ pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Calc>>> = Lazy::new(|| {
 pub trait Calc: Send + Sync {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>);
+
+    /// Clear state to reset for another run
+    fn terminate(&mut self);
 
     /// Run calcs for a cycle
     fn eval(&mut self, tape: &mut [f64]);

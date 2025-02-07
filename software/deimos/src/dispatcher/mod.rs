@@ -4,33 +4,60 @@ use chrono::{DateTime, Utc};
 use core_affinity::CoreId;
 use std::time::SystemTime;
 
+use serde::{Deserialize, Serialize};
+
 #[cfg(feature = "tsdb")]
 mod tsdb;
 #[cfg(feature = "tsdb")]
 pub use tsdb::TimescaleDbDispatcher;
 
+#[cfg(feature = "df")]
+mod df;
+#[cfg(feature = "df")]
+pub use df::DataFrameDispatcher;
+
 mod csv;
-pub use csv::{CsvDispatcher, Overflow};
+pub use csv::CsvDispatcher;
 
 use crate::controller::context::ControllerCtx;
+
+/// Choice of behavior when the current file is full
+#[derive(Serialize, Deserialize, Default, Clone, Copy, Debug)]
+pub enum Overflow {
+    /// Wrap back to the beginning of the file and
+    /// overwrite, starting with the oldest data
+    #[default]
+    Wrap,
+
+    /// Create a new file
+    NewFile,
+
+    /// Error on overflow if neither wrapping nor creating a new file is viable
+    Error,
+}
 
 /// A data pipeline plugin that receives data from the control loop
 /// one row at a time.
 #[typetag::serde(tag = "type")]
 pub trait Dispatcher: Send + Sync {
-    fn initialize(
+    /// Set up the dispatcher at the start of a run
+    fn init(
         &mut self,
         ctx: &ControllerCtx,
         channel_names: &[String],
         core_assignment: CoreId,
     ) -> Result<(), String>;
 
+    /// Ingest a row of data
     fn consume(
         &mut self,
         time: SystemTime,
         timestamp: i64,
         channel_values: Vec<f64>,
     ) -> Result<(), String>;
+
+    /// Shut down the dispatcher and reset internal state for the next run
+    fn terminate(&mut self) -> Result<(), String>;
 }
 
 /// Generate header strings including the time indices given some channel names

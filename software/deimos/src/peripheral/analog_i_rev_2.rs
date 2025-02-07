@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 
 use super::Peripheral;
 use super::PeripheralId;
-use crate::calcs::{Affine, Calc, Constant, InverseAffine, RtdPt100, TcKtype};
+use crate::calc::{Affine, Calc, Constant, InverseAffine, RtdPt100, TcKtype};
 use deimos_shared::states::OperatingMetrics;
 
 use deimos_shared::peripherals::{analog_i_rev_2::*, model_numbers};

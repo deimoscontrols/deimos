@@ -1,13 +1,11 @@
-//! Derive input voltage from linear amplifier reading
+//! A slope and offset, y = ax + b
 
 use super::*;
 use crate::{calc_config, calc_input_names, calc_output_names};
 
-/// Derive input voltage from linear amplifier reading
-///
-/// First subtracts the output offset, then divides by the slope.
+/// A slope and offset, y = ax + b
 #[derive(Serialize, Deserialize, Default)]
-pub struct InverseAffine {
+pub struct Affine {
     // User inputs
     input_name: String,
     slope: f64,
@@ -22,7 +20,7 @@ pub struct InverseAffine {
     output_index: usize,
 }
 
-impl InverseAffine {
+impl Affine {
     pub fn new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> Self {
         // These will be set during init.
         // Use default indices that will cause an error on the first call if not initialized properly
@@ -42,17 +40,22 @@ impl InverseAffine {
 }
 
 #[typetag::serde]
-impl Calc for InverseAffine {
+impl Calc for Affine {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, _: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
         self.input_index = input_indices[0];
         self.output_index = output_range.clone().next().unwrap();
     }
 
+    fn terminate(&mut self) {
+        self.input_index = usize::MAX;
+        self.output_index = usize::MAX;
+    }
+
     /// Run calcs for a cycle
     fn eval(&mut self, tape: &mut [f64]) {
         let x = tape[self.input_index];
-        let y = (x - self.offset) / self.slope;
+        let y = self.slope * x + self.offset;
 
         tape[self.output_index] = y;
     }

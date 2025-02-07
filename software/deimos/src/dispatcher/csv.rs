@@ -15,22 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::controller::context::ControllerCtx;
 
-use super::{csv_header, csv_row_fixed_width, Dispatcher};
-
-/// Choice of behavior when the current file is full
-#[derive(Serialize, Deserialize, Default, Clone, Copy, Debug)]
-pub enum Overflow {
-    /// Wrap back to the beginning of the file and
-    /// overwrite, starting with the oldest data
-    #[default]
-    Wrap,
-
-    /// Create a new file
-    NewFile,
-
-    /// Panic on overflow if neither wrapping nor creating a new file is viable
-    Panic,
-}
+use super::{csv_header, csv_row_fixed_width, Dispatcher, Overflow};
 
 /// A plain-text CSV data target, which uses a pre-sized file
 /// to prevent sudden increases in write latency during file resizing.
@@ -74,7 +59,7 @@ impl CsvDispatcher {
 
 #[typetag::serde]
 impl Dispatcher for CsvDispatcher {
-    fn initialize(
+    fn init(
         &mut self,
         ctx: &ControllerCtx,
         channel_names: &[String],
@@ -87,7 +72,7 @@ impl Dispatcher for CsvDispatcher {
         let header = csv_header(channel_names);
 
         // Preallocate output file
-        let total_len = 1024 * 1_000 * self.chunk_size_megabytes;
+        let total_len = 1024 * 1_024 * self.chunk_size_megabytes;
         let filepath = ctx.op_dir.join(format!("{}.csv", ctx.op_name));
 
         // Spawn worker
@@ -115,6 +100,14 @@ impl Dispatcher for CsvDispatcher {
             None => panic!("Dispatcher must be initialized before consuming data"),
         }
 
+        Ok(())
+    }
+
+    fn terminate(&mut self) -> Result<(), String> {
+        // Drop worker handle, closing thread channel,
+        // which will indicate to the detached worker that it should
+        // finish storing its buffered data and shut down.
+        self.worker = None;
         Ok(())
     }
 }
@@ -177,9 +170,9 @@ impl WorkerHandle {
                                 Overflow::Wrap => {
                                     writer.seek(SeekFrom::Start(header_len as u64)).unwrap();
                                 }
-                                Overflow::Panic => {
+                                Overflow::Error => {
                                     panic!(
-                                        "CSV dispatcher overflowed with `Panic` behavior selected"
+                                        "CSV dispatcher overflowed with `Error` behavior selected"
                                     );
                                 }
                                 Overflow::NewFile => {

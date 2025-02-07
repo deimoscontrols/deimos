@@ -8,7 +8,7 @@
 
 // For definining calcs
 use deimos::{
-    calcs::*,
+    calc::*,
     controller::channel::{Endpoint, Msg},
     dispatcher::fmt_time,
 };
@@ -100,6 +100,11 @@ impl Calc for Speaker {
         self.prefix = ctx.user_ctx.get("speaker_prefix").unwrap().to_owned();
     }
 
+    fn terminate(&mut self) {
+        self.output_index = usize::MAX;
+        self.endpoint = Endpoint::default();
+    }
+
     /// Run calcs for a cycle
     fn eval(&mut self, _tape: &mut [f64]) {
         // Send time on user channel with prefix
@@ -121,7 +126,7 @@ impl Calc for Speaker {
 
     /// Change a value in the input map
     fn update_input_map(&mut self, field: &str, _source: &str) -> Result<(), String> {
-        return Err(format!("Unrecognized field {field}")); // there aren't any input fields
+        Err(format!("Unrecognized field {field}")) // there aren't any input fields
     }
 
     calc_config!();
@@ -169,6 +174,11 @@ impl Calc for Listener {
         self.endpoint = ctx.sink_endpoint(&self.channel_name);
     }
 
+    fn terminate(&mut self) {
+        self.output_index = usize::MAX;
+        self.endpoint = Endpoint::default();
+    }
+
     /// Run calcs for a cycle
     fn eval(&mut self, _tape: &mut [f64]) {
         // Print the time if we received it
@@ -195,7 +205,7 @@ impl Calc for Listener {
 
     /// Change a value in the input map
     fn update_input_map(&mut self, field: &str, _source: &str) -> Result<(), String> {
-        return Err(format!("Unrecognized field {field}")); // there aren't any input fields
+        Err(format!("Unrecognized field {field}")) // there aren't any input fields
     }
 
     calc_config!();

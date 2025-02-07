@@ -8,8 +8,8 @@
 
 use std::time::Duration;
 
-use crate::calcs::{Constant, Sin};
-use crate::peripherals::{AnalogIRev3, AnalogIRev4};
+use crate::calc::{Constant, Sin};
+use crate::peripheral::{AnalogIRev3, AnalogIRev4};
 use controller::context::ControllerCtx;
 use deimos::*;
 

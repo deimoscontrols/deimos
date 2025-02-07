@@ -17,14 +17,14 @@ use serde::{Deserialize, Serialize};
 use flaw::MedianFilter;
 
 use crate::{
-    calcs::Calc,
-    peripherals::{parse_binding, Peripheral, PluginMap},
+    calc::Calc,
+    peripheral::{parse_binding, Peripheral, PluginMap},
 };
 use deimos_shared::states::*;
 use thread_priority::DeadlineFlags;
 
+use crate::calc::Orchestrator;
 use crate::dispatcher::Dispatcher;
-use crate::orchestrator::Orchestrator;
 use crate::socket::udp::UdpSuperSocket;
 use crate::socket::{SuperSocket, SuperSocketAddr};
 use context::{ControllerCtx, LossOfContactPolicy, Termination};
@@ -272,6 +272,28 @@ impl Controller {
                 let _ = self.sockets[*sid].send(*pid, &txbuf[..n]);
             }
         }
+
+        // Reset dispatchers
+        let err_rollup = self
+            .dispatchers
+            .iter_mut()
+            .filter_map(|d| match d.terminate() {
+                Ok(_) => None,
+                Err(x) => Some(x),
+            })
+            .collect::<Vec<String>>();
+
+        // Reset calc orchestrator
+        self.orchestrator.terminate();
+
+        // Close sockets
+        self.sockets.iter_mut().for_each(|sock| sock.close());
+
+        // Report errors
+        // TODO: log this
+        if !err_rollup.is_empty() {
+            println!("Encountered errors during termination: {err_rollup:?}");
+        }
     }
 
     pub fn run(&mut self, plugins: &Option<PluginMap>) -> Result<String, String> {
@@ -357,7 +379,7 @@ impl Controller {
         for dispatcher in self.dispatchers.iter_mut() {
             let core_assignment = aux_core_cycle.next().unwrap();
             dispatcher
-                .initialize(&self.ctx, &channel_names, *core_assignment)
+                .init(&self.ctx, &channel_names, *core_assignment)
                 .unwrap();
         }
         println!("Dispatching data for {n_channels} channels.");
@@ -466,8 +488,7 @@ impl Controller {
                 all_peripherals_acknowledged = controller_state
                     .peripheral_state
                     .values()
-                    .map(|ps| ps.acknowledged_configuration)
-                    .all(|x| x);
+                    .all(|ps| ps.acknowledged_configuration);
             }
 
             if all_peripherals_acknowledged {
@@ -751,7 +772,7 @@ mod test {
     #[test]
     fn test_ser_roundtrip() {
         let mut controller = Controller::default();
-        let per = crate::peripherals::analog_i_rev_2::AnalogIRev2 { serial_number: 0 };
+        let per = crate::peripheral::analog_i_rev_2::AnalogIRev2 { serial_number: 0 };
         controller
             .peripherals
             .insert("test".to_owned(), Box::new(per));

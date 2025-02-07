@@ -1,20 +1,20 @@
 use super::Peripheral;
-use crate::calcs::{Affine, Calc, InverseAffine, RtdPt100, TcKtype};
-use deimos_shared::peripherals::{analog_i_rev_3::*, model_numbers, PeripheralId};
+use crate::calc::{Affine, Calc, InverseAffine, RtdPt100, TcKtype};
+use deimos_shared::peripherals::{analog_i_rev_4::*, model_numbers, PeripheralId};
 use deimos_shared::OperatingMetrics;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct AnalogIRev3 {
+pub struct AnalogIRev4 {
     pub serial_number: u64,
 }
 
 #[typetag::serde]
-impl Peripheral for AnalogIRev3 {
+impl Peripheral for AnalogIRev4 {
     fn id(&self) -> PeripheralId {
         PeripheralId {
-            model_number: model_numbers::ANALOG_I_REV_3_MODEL_NUMBER,
+            model_number: model_numbers::ANALOG_I_REV_4_MODEL_NUMBER,
             serial_number: self.serial_number,
         }
     }
@@ -43,6 +43,7 @@ impl Peripheral for AnalogIRev3 {
         names.push("counter".to_owned());
         names.push("freq0".to_owned());
         names.push("freq1".to_owned());
+        names.push("duty0".to_owned());
 
         names
     }
@@ -91,6 +92,7 @@ impl Peripheral for AnalogIRev3 {
         outputs[21] = out.pulse_counter as f64;
         outputs[22] = out.frequency_meas[0] as f64;
         outputs[23] = out.frequency_meas[1] as f64;
+        outputs[24] = out.duty_cycle_meas as f64;
 
         out.metrics
     }
@@ -101,19 +103,15 @@ impl Peripheral for AnalogIRev3 {
         let mut calcs: BTreeMap<String, Box<dyn Calc>> = BTreeMap::new();
 
         {
-            // 1.024V reference alias
-            let vref_1v024 = Affine::new(format!("{name}.ain0"), 1.0, 0.0, true);
-            calcs.insert(format!("{name}_1v024_ref_V"), Box::new(vref_1v024));
-
             // Bus current measured on shunt resistors with G=50
-            let module_bus_current = Affine::new(format!("{name}.ain1"), 4.0 / 1.5, 0.0, true);
+            let module_bus_current = Affine::new(format!("{name}.ain0"), 4.0 / 1.5, 0.0, true);
             calcs.insert(
                 format!("{name}_bus_current_A"),
                 Box::new(module_bus_current),
             );
 
             // Bus voltage measured with sub-unity gain
-            let module_bus_voltage = Affine::new(format!("{name}.ain2"), 21.5 / 1.5, 0.0, true);
+            let module_bus_voltage = Affine::new(format!("{name}.ain1"), 21.5 / 1.5, 0.0, true);
             calcs.insert(
                 format!("{name}_bus_voltage_V"),
                 Box::new(module_bus_voltage),
@@ -122,7 +120,7 @@ impl Peripheral for AnalogIRev3 {
 
         // Cold junction RTD is also board temp
         {
-            let i = 3;
+            let i = 2;
             let input_name = format!("{name}.ain{i}");
             let resistance_calc_name = format!("{name}_board_temp_resistance_ohm");
             let temperature_calc_name: String = format!("{name}_board_temp");
@@ -136,17 +134,17 @@ impl Peripheral for AnalogIRev3 {
         }
 
         // The sensor analog frontends occupy contiguous blocks of channels
-        let milliamp_4_20_range = 4..=8;
-        let rtd_range = 9..=13;
-        let tc_range = 14..=17;
+        let milliamp_4_20_range = 3..=7;
+        let rtd_range = 8..=12;
+        let tc_range = 13..=16;
 
-        // 4-20mA channels use a 100 ohm reference resistor and G=1 amp
+        // 4-20mA channels use a 75 ohm reference resistor and G=1 amp
         {
             for i in milliamp_4_20_range {
-                let n = i - 3;
+                let n = i - 2;
                 let input_name = format!("{name}.ain{i}");
                 let calc_name = format!("{name}_4_20_mA_{n}_A");
-                let slope = 100.0; // [V/A] due to 100 ohm resistor
+                let slope = 75.0; // [V/A] due to 75 ohm resistor
                 calcs.insert(
                     calc_name,
                     Box::new(InverseAffine::new(input_name, slope, 0.0, true)),
@@ -157,7 +155,7 @@ impl Peripheral for AnalogIRev3 {
         // RTDs use a 250uA reference current and gain of 25.7
         {
             for i in rtd_range {
-                let n = i - 8;
+                let n = i - 7;
                 let input_name = format!("{name}.ain{i}");
                 let resistance_calc_name = format!("{name}_rtd_{n}_resistance_ohm");
                 let temperature_calc_name = format!("{name}_rtd_{n}");
@@ -175,7 +173,7 @@ impl Peripheral for AnalogIRev3 {
         // to allow measuring temperatures below 0C
         {
             for i in tc_range {
-                let n = i - 13;
+                let n = i - 12;
                 let slope = 25.7;
                 let offset = 1.024;
 
@@ -186,7 +184,7 @@ impl Peripheral for AnalogIRev3 {
                 let voltage_calc = InverseAffine::new(input_name, slope, offset, true);
                 let temperature_calc = TcKtype::new(
                     format!("{voltage_calc_name}.y"),
-                    format!("{name}_rtd_5.temperature_K"), // TODO: this is swapped because the board temp hardware is bad
+                    format!("{name}_board_temp.temperature_K"),
                     true,
                 );
                 calcs.insert(voltage_calc_name, Box::new(voltage_calc));

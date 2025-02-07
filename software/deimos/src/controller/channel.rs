@@ -12,6 +12,7 @@ pub enum Msg {
     Val(f64),
     Arr(Vec<f64>),
     Str(String),
+    Packet(Vec<u8>),
 }
 
 /// A multiple-producer, multiple-consumer (MPMC) bidirectional message pipe
