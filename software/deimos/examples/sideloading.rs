@@ -126,7 +126,7 @@ impl Calc for Speaker {
 
     /// Change a value in the input map
     fn update_input_map(&mut self, field: &str, _source: &str) -> Result<(), String> {
-        return Err(format!("Unrecognized field {field}")); // there aren't any input fields
+        Err(format!("Unrecognized field {field}"))// there aren't any input fields
     }
 
     calc_config!();
@@ -205,7 +205,7 @@ impl Calc for Listener {
 
     /// Change a value in the input map
     fn update_input_map(&mut self, field: &str, _source: &str) -> Result<(), String> {
-        return Err(format!("Unrecognized field {field}")); // there aren't any input fields
+        Err(format!("Unrecognized field {field}"))// there aren't any input fields
     }
 
     calc_config!();

@@ -488,8 +488,7 @@ impl Controller {
                 all_peripherals_acknowledged = controller_state
                     .peripheral_state
                     .values()
-                    .map(|ps| ps.acknowledged_configuration)
-                    .all(|x| x);
+                    .all(|ps| ps.acknowledged_configuration);
             }
 
             if all_peripherals_acknowledged {
