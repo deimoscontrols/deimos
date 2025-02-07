@@ -71,6 +71,11 @@ impl Calc for RtdPt100 {
         INTERPOLATOR.interp_one(&[0.0]).unwrap();
     }
 
+    fn terminate(&mut self) {
+        self.input_index = usize::MAX;
+        self.output_index = usize::MAX;
+    }
+
     /// Run calcs for a cycle
     fn eval(&mut self, tape: &mut [f64]) {
         let sensed_resistance = tape[self.input_index];

@@ -83,6 +83,9 @@ pub trait Calc: Send + Sync {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>);
 
+    /// Clear state to reset for another run
+    fn terminate(&mut self);
+
     /// Run calcs for a cycle
     fn eval(&mut self, tape: &mut [f64]);
 

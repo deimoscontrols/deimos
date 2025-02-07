@@ -62,6 +62,13 @@ impl Calc for Sin {
         self.rad_per_cycle = (ctx.dt_ns as f64 / 1e9) * 2.0 * f64::consts::PI / self.period_s;
     }
 
+    fn terminate(&mut self) {
+        self.output_index = usize::MAX;
+        self.rad_per_cycle = 0.0;
+        self.angle_rad = 0.0;
+        self.scale = 0.0;
+    }
+
     /// Run calcs for a cycle
     fn eval(&mut self, tape: &mut [f64]) {
         self.angle_rad += self.rad_per_cycle;

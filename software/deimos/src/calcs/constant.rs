@@ -35,6 +35,10 @@ impl Calc for Constant {
         self.output_index = output_range.clone().next().unwrap();
     }
 
+    fn terminate(&mut self) {
+        self.output_index = usize::MAX;
+    }
+
     /// Run calcs for a cycle
     fn eval(&mut self, tape: &mut [f64]) {
         tape[self.output_index] = self.y;

@@ -381,4 +381,10 @@ impl Orchestrator {
             peripheral_input_source_indices,
         }
     }
+
+    /// Clear state to reset for another run
+    pub fn terminate(&mut self) {
+        self.state = OrchestratorState::default();
+        self.calcs.values_mut().for_each(|c| c.terminate());
+    }
 }

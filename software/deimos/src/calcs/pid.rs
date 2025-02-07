@@ -82,6 +82,14 @@ impl Calc for Pid {
         self.output_index = output_range.clone().next().unwrap();
     }
 
+    fn terminate(&mut self) {
+        self.err = 0.0;
+        self.dt_s = 1.0;
+        self.integral = 0.0;
+        self.input_indices.clear();
+        self.output_index = usize::MAX;
+    }
+
     /// Run calcs for a cycle
     fn eval(&mut self, tape: &mut [f64]) {
         // Consume latest error estimate

@@ -273,7 +273,7 @@ impl Controller {
             }
         }
 
-        // Reset appendages
+        // Reset dispatchers
         let err_rollup = self
             .dispatchers
             .iter_mut()
@@ -282,6 +282,12 @@ impl Controller {
                 Err(x) => Some(x),
             })
             .collect::<Vec<String>>();
+
+        // Reset calc orchestrator
+        self.orchestrator.terminate();
+
+        // Close sockets
+        self.sockets.iter_mut().for_each(|sock| sock.close());
 
         // Report errors
         // TODO: log this

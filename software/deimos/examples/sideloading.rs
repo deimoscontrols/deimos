@@ -100,6 +100,11 @@ impl Calc for Speaker {
         self.prefix = ctx.user_ctx.get("speaker_prefix").unwrap().to_owned();
     }
 
+    fn terminate(&mut self) {
+        self.output_index = usize::MAX;
+        self.endpoint = Endpoint::default();
+    }
+
     /// Run calcs for a cycle
     fn eval(&mut self, _tape: &mut [f64]) {
         // Send time on user channel with prefix
@@ -167,6 +172,11 @@ impl Calc for Listener {
     fn init(&mut self, ctx: ControllerCtx, _input_indices: Vec<usize>, output_range: Range<usize>) {
         self.output_index = output_range.clone().next().unwrap();
         self.endpoint = ctx.sink_endpoint(&self.channel_name);
+    }
+
+    fn terminate(&mut self) {
+        self.output_index = usize::MAX;
+        self.endpoint = Endpoint::default();
     }
 
     /// Run calcs for a cycle

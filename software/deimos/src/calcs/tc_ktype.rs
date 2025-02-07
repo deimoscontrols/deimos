@@ -94,6 +94,11 @@ impl Calc for TcKtype {
         INTERPOLATOR.interp_one(&[0.0, 0.0]).unwrap();
     }
 
+    fn terminate(&mut self) {
+        self.input_indices.clear();
+        self.output_index = usize::MAX;
+    }
+
     /// Run calcs for a cycle
     fn eval(&mut self, tape: &mut [f64]) {
         let sensed_voltage = tape[self.input_indices[0]];
