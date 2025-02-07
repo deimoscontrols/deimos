@@ -23,8 +23,8 @@ use crate::{
 use deimos_shared::states::*;
 use thread_priority::DeadlineFlags;
 
-use crate::dispatcher::Dispatcher;
 use crate::calc::Orchestrator;
+use crate::dispatcher::Dispatcher;
 use crate::socket::udp::UdpSuperSocket;
 use crate::socket::{SuperSocket, SuperSocketAddr};
 use context::{ControllerCtx, LossOfContactPolicy, Termination};
