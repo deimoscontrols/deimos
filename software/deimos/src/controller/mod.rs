@@ -17,14 +17,14 @@ use serde::{Deserialize, Serialize};
 use flaw::MedianFilter;
 
 use crate::{
-    calcs::Calc,
-    peripherals::{parse_binding, Peripheral, PluginMap},
+    calc::Calc,
+    peripheral::{parse_binding, Peripheral, PluginMap},
 };
 use deimos_shared::states::*;
 use thread_priority::DeadlineFlags;
 
 use crate::dispatcher::Dispatcher;
-use crate::orchestrator::Orchestrator;
+use crate::calc::Orchestrator;
 use crate::socket::udp::UdpSuperSocket;
 use crate::socket::{SuperSocket, SuperSocketAddr};
 use context::{ControllerCtx, LossOfContactPolicy, Termination};
@@ -772,7 +772,7 @@ mod test {
     #[test]
     fn test_ser_roundtrip() {
         let mut controller = Controller::default();
-        let per = crate::peripherals::analog_i_rev_2::AnalogIRev2 { serial_number: 0 };
+        let per = crate::peripheral::analog_i_rev_2::AnalogIRev2 { serial_number: 0 };
         controller
             .peripherals
             .insert("test".to_owned(), Box::new(per));

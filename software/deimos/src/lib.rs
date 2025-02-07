@@ -1,11 +1,10 @@
 #![doc = include_str!("../README.md")]
 #![allow(clippy::needless_range_loop)]
 
-pub mod calcs;
+pub mod calc;
 pub mod controller;
 pub mod dispatcher;
-pub mod orchestrator;
-pub mod peripherals;
+pub mod peripheral;
 pub mod socket;
 
 pub use controller::{

@@ -80,8 +80,8 @@ account for the slow drift of the monotonic clock relative to system time.
 ```rust
 use std::time::Duration;
 
-use deimos::calcs::{Constant, Sin};
-use deimos::peripherals::{PluginMap, analog_i_rev_3::AnalogIRev3};
+use deimos::calc::{Constant, Sin};
+use deimos::peripheral::{PluginMap, analog_i_rev_3::AnalogIRev3};
 use controller::context::ControllerCtx;
 use deimos::*;
 

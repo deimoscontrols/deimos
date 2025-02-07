@@ -1,4 +1,4 @@
-use crate::peripherals::Peripheral;
+use crate::peripheral::Peripheral;
 use deimos_shared::{peripherals::PeripheralId, states::OperatingMetrics};
 
 use crate::socket::SuperSocketAddr;

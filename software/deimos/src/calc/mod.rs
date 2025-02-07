@@ -8,6 +8,9 @@ use std::{collections::BTreeMap, ops::Range};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
+mod orchestrator;
+pub use orchestrator::Orchestrator;
+
 // Specific calc implementations
 
 mod affine;

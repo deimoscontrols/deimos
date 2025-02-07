@@ -7,7 +7,7 @@ use std::{collections::BTreeMap, ops::Range};
 use serde::{Deserialize, Serialize};
 
 use crate::ControllerCtx;
-use crate::{calcs::*, peripherals::Peripheral};
+use crate::{calc::*, peripheral::Peripheral};
 use deimos_shared::states::OperatingMetrics;
 
 /// Internal state of calc orchestrator
@@ -171,7 +171,6 @@ impl Orchestrator {
         peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
     ) {
         // These will be stored
-
         let mut peripheral_output_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
         let mut peripheral_input_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
         let mut peripheral_input_source_indices: Vec<(usize, usize)> = Vec::new();

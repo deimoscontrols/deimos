@@ -37,8 +37,8 @@ use serde::{Deserialize, Serialize};
 
 // For using the controller
 use deimos::{
-    calcs::Calc,
-    peripherals::{Peripheral, PluginMap},
+    calc::Calc,
+    peripheral::{Peripheral, PluginMap},
     *,
 };
 use deimos::{

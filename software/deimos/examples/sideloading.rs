@@ -8,7 +8,7 @@
 
 // For definining calcs
 use deimos::{
-    calcs::*,
+    calc::*,
     controller::channel::{Endpoint, Msg},
     dispatcher::fmt_time,
 };
