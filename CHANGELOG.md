@@ -14,6 +14,9 @@
 * !Rename `Panic` variant of `Overflow` to `Error`
     * Dispatchers can return an error on consuming values; this provides more flexibility in future error handling
 * !Rename `initialize` method of `Dispatcher` trait to `init`
+* !Rename `calcs` module to `calc`
+* !Rename `peripherals` module to `peripheral`
+* !Move orchestrator module under `calcs` and export 
 * Make large const arrays static to avoid inlining excessively large data
 
 ## 2025-02-04 deimos 0.5.1
