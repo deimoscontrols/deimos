@@ -69,17 +69,8 @@ pub fn header_columns(channel_names: &[String]) -> Vec<String> {
 
 /// Generate CSV header row given some channel names
 pub fn csv_header(channel_names: &[String]) -> String {
-    let cols = header_columns(channel_names);
-    let mut header_string = String::new();
-    let n = cols.len();
-    for (i, c) in cols.iter().enumerate() {
-        header_string.push_str(c);
-        if i < n - 1 {
-            header_string.push(',');
-        } else {
-            header_string.push('\n');
-        }
-    }
+    let mut header_string = header_columns(channel_names).join(",");
+    header_string.push_str("\n");
     header_string
 }
 

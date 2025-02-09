@@ -21,8 +21,8 @@ pub use analog_i_rev_4::AnalogIRev4;
 
 pub use deimos_shared::peripherals::PeripheralId;
 
-// Plugin system for handling custom device models
-/// Function that takes the model number and serial number from a bind result
+/// Plugin system for handling custom device models
+/// Takes the model number and serial number from a bind result
 /// and initializes a Peripheral representation.
 pub type PluginFn = dyn Fn(&BindingOutput) -> Box<dyn Peripheral>;
 
@@ -41,14 +41,22 @@ pub trait Peripheral: Send + Sync + Debug {
     /// Unique device ID combining model number and serial number
     fn id(&self) -> PeripheralId;
 
-    // Lists of names and post-conversion units
+    /// List of names of input fields
     fn input_names(&self) -> Vec<String>;
+
+    /// List of names of output fields
     fn output_names(&self) -> Vec<String>;
+
     // fn input_units(&self) -> Vec<String>;
     // fn output_units(&self) -> Vec<String>;
 
+    /// Byte length of packet to send to the peripheral
     fn operating_roundtrip_input_size(&self) -> usize;
+
+    /// Byte length of packet to send to the controller
     fn operating_roundtrip_output_size(&self) -> usize;
+
+    /// Generate bytes for a packet to send to the peripheral based on some input values
     fn emit_operating_roundtrip(
         &self,
         id: u64,
@@ -57,10 +65,40 @@ pub trait Peripheral: Send + Sync + Debug {
         inputs: &[f64],
         bytes: &mut [u8],
     );
+
+    /// Parse bytes of a packet sent to the controller
     fn parse_operating_roundtrip(&self, bytes: &[u8], outputs: &mut [f64]) -> OperatingMetrics;
 
-    /// Get a standard set of calcs that convert the raw outputs
-    /// into a useable format.
+    /// Byte length of packet to send to the peripheral
+    fn configuring_input_size(&self) -> usize {
+        ConfiguringInput::BYTE_LEN
+    }
+
+    /// Byte length of packet to send to the controller
+    fn configuring_output_size(&self) -> usize {
+        ConfiguringOutput::BYTE_LEN
+    }
+
+    /// Generate bytes for a packet to send to the peripheral based on some input values
+    fn emit_configuring(
+        &self,
+        base_config: ConfiguringInput,
+        bytes: &mut [u8],
+    ) {
+        let num_to_write = self.configuring_input_size();
+        base_config.write_bytes(&mut bytes[..num_to_write]);
+    }
+
+    /// Parse bytes of a packet sent to the controller
+    fn parse_configuring(&self, bytes: &[u8]) -> Result<(), String> {
+        let resp = ConfiguringOutput::read_bytes(bytes);
+        match resp.acknowledge {
+            AcknowledgeConfiguration::Ack => Ok(()),
+            x => Err(format!("{x:?}"))
+        }
+    }
+
+    /// Get a standard set of calcs that convert the raw outputs into a useable format
     fn standard_calcs(&self, name: String) -> BTreeMap<String, Box<dyn Calc>>;
 }
 
