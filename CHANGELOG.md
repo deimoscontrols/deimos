@@ -1,5 +1,12 @@
 # Changelog
 
+## 2025-02-09 deimos 0.6.1
+
+### Added
+
+* Add methods for parsing and emitting configuration packets to Peripheral
+    * Default impl matches existing system, but allows future peripherals with additional config fields
+
 ## 2025-02-05 deimos 0.6.0
 
 ### Added

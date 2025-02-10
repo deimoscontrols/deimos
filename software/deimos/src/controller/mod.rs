@@ -410,7 +410,7 @@ impl Controller {
             while self.sockets.iter_mut().any(|sock| sock.recv().is_some()) {}
 
             // Bind
-            let _bound_peripherals = self.bind(
+            let bound_peripherals = self.bind(
                 Some(&addresses),
                 // None,
                 self.ctx.binding_timeout_ms,
@@ -431,10 +431,13 @@ impl Controller {
                 loss_of_contact_limit: self.ctx.peripheral_loss_of_contact_limit,
                 mode: Mode::Roundtrip,
             };
-            let num_to_write = ConfiguringInput::BYTE_LEN;
-            config_input.write_bytes(&mut txbuf[..num_to_write]);
+            // let num_to_write = ConfiguringInput::BYTE_LEN;
+            // config_input.write_bytes(&mut txbuf[..num_to_write]);
 
             for (sid, pid) in addresses.iter() {
+                let p = bound_peripherals.get(&(*sid, *pid)).unwrap();
+                let num_to_write = p.configuring_input_size();
+                p.emit_configuring(config_input, &mut txbuf[..num_to_write]);
                 self.sockets[*sid]
                     .send(*pid, &txbuf[..num_to_write])
                     .unwrap();
@@ -448,10 +451,18 @@ impl Controller {
                 for (sid, socket) in self.sockets.iter_mut().enumerate() {
                     if let Some((pid, _rxtime, buf)) = socket.recv() {
                         let amt = buf.len();
+
                         // Make sure the packet is the right size and the peripheral ID is recognized
-                        match (pid, amt) {
-                            (Some(pid), ConfiguringOutput::BYTE_LEN) => {
+                        match pid {
+                            Some(pid) => {
                                 // Parse the (potential) peripheral's response
+                                let p = bound_peripherals.get(&(sid, pid)).unwrap();
+                                if amt != p.configuring_output_size() {
+                                    println!(
+                                            "Received malformed configuration response from peripheral {pid:?} on socket {sid}"
+                                        );
+                                    continue;
+                                }
                                 let ack = ConfiguringOutput::read_bytes(buf);
                                 let addr = (sid, pid);
 
@@ -477,9 +488,7 @@ impl Controller {
                                 }
                             }
                             _ => {
-                                println!(
-                                    "Received malformed configuration response from socket {sid}"
-                                )
+                                println!("Received response from peripheral not in address table")
                             }
                         }
                     }
