@@ -461,7 +461,7 @@ impl Controller {
                                     println!(
                                             "Received malformed configuration response from peripheral {pid:?} on socket {sid}"
                                         );
-                                        continue
+                                    continue;
                                 }
                                 let ack = ConfiguringOutput::read_bytes(buf);
                                 let addr = (sid, pid);

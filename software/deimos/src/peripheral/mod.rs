@@ -80,11 +80,7 @@ pub trait Peripheral: Send + Sync + Debug {
     }
 
     /// Generate bytes for a packet to send to the peripheral based on some input values
-    fn emit_configuring(
-        &self,
-        base_config: ConfiguringInput,
-        bytes: &mut [u8],
-    ) {
+    fn emit_configuring(&self, base_config: ConfiguringInput, bytes: &mut [u8]) {
         let num_to_write = self.configuring_input_size();
         base_config.write_bytes(&mut bytes[..num_to_write]);
     }
@@ -94,7 +90,7 @@ pub trait Peripheral: Send + Sync + Debug {
         let resp = ConfiguringOutput::read_bytes(bytes);
         match resp.acknowledge {
             AcknowledgeConfiguration::Ack => Ok(()),
-            x => Err(format!("{x:?}"))
+            x => Err(format!("{x:?}")),
         }
     }
 
