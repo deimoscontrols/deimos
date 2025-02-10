@@ -70,7 +70,7 @@ pub fn header_columns(channel_names: &[String]) -> Vec<String> {
 /// Generate CSV header row given some channel names
 pub fn csv_header(channel_names: &[String]) -> String {
     let mut header_string = header_columns(channel_names).join(",");
-    header_string.push_str("\n");
+    header_string.push('\n');
     header_string
 }
 
