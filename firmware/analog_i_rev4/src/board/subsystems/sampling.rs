@@ -16,9 +16,7 @@ use flaw::{
     SisoIirFilter,
 };
 
-use crate::board::DUTY_CYCLE_SAMPLE;
-
-use super::super::{
+use crate::board::{
     ADC_CUTOFF_RATIO, ADC_SAMPLES, COUNTER_SAMPLES, COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF,
     VREF,
 };
@@ -256,7 +254,7 @@ impl Sampler {
                 new_filter.initialize(init_val);
 
                 // Swap the old and new adc_filters
-                let _ = core::mem::replace(old_filter, new_filter);
+                *old_filter = new_filter;
             });
 
         // Reset counters and encoder
@@ -390,17 +388,6 @@ impl Sampler {
             pwmi0_freq_val = self.frequency_scaling / fcnt0 as f32;
         }
         FREQ_SAMPLES[0].store(pwmi0_freq_val, Ordering::Relaxed);
-
-        // PW0 duty cycle
-        let pwmi0_dc_val;
-        let pwcnt0_raw = self.pwmi0.0.ccr2().read().ccr().bits();
-        let pwcnt0 = self.pwmi0.2.update(pwcnt0_raw);
-        if fcnt0 < 1 {
-            pwmi0_dc_val = 1.0;
-        } else {
-            pwmi0_dc_val = pwcnt0 as f32 / fcnt0 as f32;
-        }
-        DUTY_CYCLE_SAMPLE.store(pwmi0_dc_val, Ordering::Relaxed);
 
         // FREQ1
         let pwmi1_val;
