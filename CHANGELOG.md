@@ -4,7 +4,9 @@
 
 ### Changed
 
-* Remove duty cycle measurement from Analog I Rev4 firmware, packet format, and calcs
+* !Remove duty cycle measurement from Analog I Rev4 firmware, packet format, and calcs
+    * Despite deconflicting the duty cycle measurement to a different compare-and-capture and its own pin, configuring TIM4's second CCMR for duty cycle measurement causes both CCMR1 and CCMR2 to fail to trigger
+    * This is the only remaining timer module with a second pin or compatible second compare-and-capture available, so duty cycle measurement will not be available on this unit
 * Relicense under MIT/Apache-2.0 from 0BSD/Apache-2.0
 * Update readme to be more concise
 
