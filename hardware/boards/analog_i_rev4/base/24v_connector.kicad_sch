@@ -3424,7 +3424,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "Barrel_Jack"
+		(property "Value" "Barrel_Jack PJ-202BH"
 			(at 125.476 84.8359 90)
 			(effects
 				(font
@@ -3453,6 +3453,15 @@
 		)
 		(property "Description" ""
 			(at 120.396 83.566 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C3094841"
+			(at 120.396 83.566 90)
 			(effects
 				(font
 					(size 1.27 1.27)
