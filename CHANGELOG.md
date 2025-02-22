@@ -1,5 +1,13 @@
 # Changelog
 
+## 2025-02-22 deimos 0.6.2, deimos_shared 0.4.0
+
+### Changed
+
+* Remove duty cycle measurement from Analog I Rev4 firmware, packet format, and calcs
+* Relicense under MIT/Apache-2.0 from 0BSD/Apache-2.0
+* Update readme to be more concise
+
 ## 2025-02-09 deimos 0.6.1
 
 ### Added

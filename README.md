@@ -19,7 +19,7 @@ but system setup services and integrations with proprietary data targets are exp
 
 | Model | I/O Medium | Sample/Control Rate | Input Capabilities | Output Capabilities |
 |------|------------|------------|--------------------|---------------------|
-| [Analog I 4.0.x](https://github.com/deimoscontrols/deimos/tree/main/hardware/boards/analog_i_rev4) | UDP over IPV4<br> on ethernet with LAN-only (non-routeable) MAC address | 5Hz-5kHz roundtrip<br><br>Performance depends on network and host machine | External:<br>5x 4-20mA (24V)<br>5x Pt100 RTD<br>4x K-Type TC<br>3x 0-2.5V<br>1x Encoder<br>1x Counter<br>1x Freq<br>1x Freq+Duty<br><br>Internal:<br>- Cold-junction RTD<br>- Bus current<br>- Bus voltage | 4x PWM (1Hz-1MHz, 3.3V) |
+| [Analog I 4.0.x](https://github.com/deimoscontrols/deimos/tree/main/hardware/boards/analog_i_rev4) | UDP over IPV4<br> on ethernet with LAN-only (non-routeable) MAC address | 5Hz-5kHz roundtrip<br><br>Performance depends on network and host machine | External:<br>5x 4-20mA (24V)<br>5x Pt100 RTD<br>4x K-Type TC<br>3x 0-2.5V<br>1x Encoder<br>1x Counter<br>2x Freq<br>Internal:<br>- Cold-junction RTD<br>- Bus current<br>- Bus voltage | 4x PWM (1Hz-1MHz, 3.3V) |
 
 # Controller Comm. Media
 
@@ -59,45 +59,21 @@ Data integration implementations perform I/O and database transactions on a sepa
 The goals of this ecosystem are:
 
 * Tightly-integrated sensor frontends
-    * Amplifiers and filters for thermocouples, RTDs, 4-20mA, etc
-    * Comparators for counters, encoders, frequency inputs, etc
-* _Fully independent_ input and output channels
-    * No overlapping resources; every advertised channel is available _at the same time_ .
+* _Fully independent_ input and output channels; every advertised channel is available _at the same time_
 * Full reassertion of state at each control cycle
-    * A change in state is never missed permanently, regardless of packet loss
-    * This eliminates network congestion storms, because packet retrying is not required
-* Zero-calibration operation
-    * NIST-traceable calibrations are provided, but not required
+* Zero-calibration operation; NIST-traceable calibrations available, but not required
 * Control program without required root/admin access or drivers
-* Run on standard networking hardware
-    * Plain ethernet comms; no PTP hardware required
-    * Sub-microsecond distributed time-synchronization is achieved by application-level active control
+* Run on standard networking hardware with sub-microsecond time sync
 * Semantic versioning for both hardware and software to prevent unexpected breaking changes
 * 100% end-to-end open-source hardware, firmware, and software under permissive licenses
-    * Do as you please. Hack, modify, copy, link, and extend without concern for retaliation
-    * Implement your own hardware, plugins, or data integrations with full visibility into the system
-    * A rising tide lifts all boats. Trust that a gift provided to the universe will find its way back to all of us
 
 Notable anti-goals:
 
 * Copyright mongering
-    * Anyone with the capability and motivation to understand the design could copy it easily, with or without the design files
-        * Electronics reverse-engineering labs are fast, cheap, and well-established
-        * Decompilers, especially for simple firmware programs, are similarly well-established, diverse, and profoundly effective
-    * Restricting information harms the community without providing any significant benefit to anyone
 * "Internet-of-Things" (IoT) functionality
-    * The devices in this ecosystem are _not_ IoT devices, despite using networked comms.
-    * Security is taken as a physical concern: control networks must be physically isolated from unauthorized access, and unlike IoT devices, zero consideration is given to preventing or mitigating unauthorized access within the control network.
 * Over-the-Air (OTA) firmware updates
-    * The devices in this ecosystem are finished products as-shipped.
-    * No mechanism is provided for performing firmware updates, except that every version of the firmware is provided as an open-source software package, the debug/flash port is populated on each device, and guidance is available for manually flashing updated or customized firmware.
-    * Much of the data processing logic is performed in software on the control machine, and updates may be provided for that software.
 * Performative complexity
-    * Whenever possible, the complexity of a system will be reduced to the minimum level achievable in the available time. The final result should appear "obvious" and "trivial"; when this is not achievable, irreducible complexity should be accompanied by an appropriate body of documentation.
-    * Instructions will be as simple as possible, avoiding the use of obfuscating or aggrandizing jargon.
-    * Where complexity is found, it should be emergent complexity grown as a system from simple parts that can be understood easily on their own in order to understand the whole.
 * Skimping on bits
-    * A single unexpected integer overflow event can be more costly than a lifetime of savings from using a smaller type
 
 # Versioning
 
@@ -120,7 +96,7 @@ Both major and minor hardware versions are accompanied by new hardware project f
 
 Licensed under either of
 
-- 0-Clause BSD License ([LICENSE-0BSD](LICENSE-0BSD.txt))
-- Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE.txt) or http://www.apache.org/licenses/LICENSE-2.0)
+* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE.txt) or http://www.apache.org/licenses/LICENSE-2.0)
+* MIT license ([LICENSE-MIT](LICENSE-MIT.txt) or http://opensource.org/licenses/MIT)
 
 at your option.
