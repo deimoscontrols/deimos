@@ -191,27 +191,26 @@ impl<'a> Board<'a> {
         // TIM4 CH1
         // Read ccr1 for latest period
         // Using second CCR with the same channel input does not work; needs its own input channel
-        let _pwmi1_pin: Pin<'B', 6, stm32h7xx_hal::gpio::Alternate<2>> = gpiob.pb6.into_alternate();
-        let _pwmi1_pin2: Pin<'B', 7, stm32h7xx_hal::gpio::Alternate<2>> = gpiob.pb7.into_alternate();
+        //
+        // Using TIM4 CCR2 in any capacity - even just having it enabled and not connected to any reset trigger,
+        // let alone using it to measure pulse width - causes failures across multiple timer modules (TIM4
+        // CCMR1 fails to trigger, and TIM15 CH2 prescale becomes misconfigured).
+        let _pwmi0_pin: Pin<'B', 6, stm32h7xx_hal::gpio::Alternate<2>> = gpiob.pb6.into_alternate();
         TIM4::get_clk(&ccdr.clocks).unwrap();
         ccdr.peripheral.TIM4.enable().reset();
         dp.TIM4.psc.write(|w| w.psc().bits(7)); // 8x prescale -> about 400Hz min freq, 80ns res
         dp.TIM4.ccmr1_input().write(|w| w.cc1s().ti1()); // Compare/capture channel input for period
-        dp.TIM4.ccmr1_input().write(|w| w.cc2s().ti2()); // Compare/capture channel input for pulse width
-        dp.TIM4.smcr.write(|w| w.ts().ti1fp1().sms().reset_mode()); // Trigger input CH2, reset mode
-        dp.TIM4.smcr.write(|w| w.ts().ti2fp2().sms().reset_mode()); // Trigger input CH2, reset mode
-        dp.TIM4.ccer.write(|w| w.cc2p().set_bit().cc2np().clear_bit());  // Second channel capture on falling edge
-        dp.TIM4.ccer.write(|w| w.cc1e().set_bit().cc2e().set_bit()); // Enable capture output
+        dp.TIM4.smcr.write(|w| w.ts().ti1fp1().sms().reset_mode()); // Trigger input, reset mode
+        dp.TIM4.ccer.write(|w| w.cc1e().set_bit()); // Enable capture output
         dp.TIM4.cr1.write(|w| w.cen().enabled()); // Enable counter
         let frequency_inp0 = dp.TIM4;
 
         // TIM15 CH2
         // Read ccr1 for latest period
         // Using second CCR with the same channel input does not work; needs its own input channel
-        let _pwmi0_pin: Pin<'E', 6, stm32h7xx_hal::gpio::Alternate<4>> = gpioe.pe6.into_alternate(); // TIM15 CH2
+        let _pwmi1_pin: Pin<'E', 6, stm32h7xx_hal::gpio::Alternate<4>> = gpioe.pe6.into_alternate(); // TIM15 CH2
         TIM15::get_clk(&ccdr.clocks).unwrap();
         ccdr.peripheral.TIM15.enable().reset();
-        // Both capture-compares on CH2 input
         dp.TIM15.psc.write(|w| w.psc().bits(7)); // 8x prescale -> about 400Hz min freq, 80ns res
         dp.TIM15.ccmr1_input().write(|w| w.cc1s().ti2()); // Compare/capture channel input
         unsafe {

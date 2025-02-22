@@ -43,7 +43,6 @@ impl Peripheral for AnalogIRev4 {
         names.push("counter".to_owned());
         names.push("freq0".to_owned());
         names.push("freq1".to_owned());
-        names.push("duty0".to_owned());
 
         names
     }
@@ -92,7 +91,6 @@ impl Peripheral for AnalogIRev4 {
         outputs[21] = out.pulse_counter as f64;
         outputs[22] = out.frequency_meas[0] as f64;
         outputs[23] = out.frequency_meas[1] as f64;
-        outputs[24] = out.duty_cycle_meas as f64;
 
         out.metrics
     }

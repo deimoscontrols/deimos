@@ -101,8 +101,6 @@ impl<'a> Board<'a> {
                 udp_output.frequency_meas[0] = FREQ_SAMPLES[0].load(Ordering::Relaxed);
                 udp_output.frequency_meas[1] = FREQ_SAMPLES[1].load(Ordering::Relaxed);
 
-                udp_output.duty_cycle_meas = DUTY_CYCLE_SAMPLE.load(Ordering::Relaxed);
-
                 // UDP send
                 if let Some(meta) = self.controller {
                     udp_output.metrics.cycle_time_ns = self.time_ns;

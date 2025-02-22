@@ -70,10 +70,6 @@ pub static COUNTER_WRAPS: [AtomicI32; 2] = array_macro::array![_ => AtomicI32::n
 /// These see the same filter as ADC samples
 pub static FREQ_SAMPLES: [AtomicF32; 2] = array_macro::array![_ => AtomicF32::new(0.0); 2];
 
-/// Only the first PWM input has a corresponding pulse width measurement
-/// because none of the other timers' second input pin is available
-pub static DUTY_CYCLE_SAMPLE: AtomicF32 = AtomicF32::new(0.0);
-
 /// ADC filter cutoff ratio
 /// Ideally, this would be an AtomicF64, but the STM32H7 doesn't have 64-bit atomics
 /// and the loss of resolution due to casting to/from 64-bit is not too bad here

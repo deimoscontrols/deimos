@@ -1,9 +1,9 @@
 [package]
 name = "deimos"
-version = "0.6.1"
+version = "0.6.2"
 edition = "2021"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
-license = "0BSD OR Apache-2.0"
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/deimoscontrols/deimos"
 homepage = "https://github.com/deimoscontrols/deimos"
 description = "Control-loop and data pipeline for Deimos data acquisition system"
@@ -12,7 +12,7 @@ readme = "./README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-deimos_shared = { path = "../deimos_shared", version = "0.3.0" }
+deimos_shared = { path = "../deimos_shared", version = "0.4.0" }
 flaw = "0.2.4"
 
 # Control loop prep
