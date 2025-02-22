@@ -1,5 +1,12 @@
 # Changelog
 
+## 2025-02-22 Hardware - Analog I Rev 4.0.2
+
+### Changed
+
+* Replace input comparators with SN74LV Schmitt trigger logic buffers
+    * Adds about 0.5V hysteresis to resolve jitter & eliminates exposure of 1V024 ref to noise from digital signals
+
 ## 2025-02-22 deimos 0.6.2, deimos_shared 0.4.0
 
 ### Changed
