@@ -8,7 +8,7 @@ resolver = "2"
 
 [workspace.package]
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
-license = "0BSD OR Apache-2.0"
+license = "MIT OR Apache-2.0"
 homepage = "https://github.com/deimoscontrols/deimos"
 
 [profile.release]
