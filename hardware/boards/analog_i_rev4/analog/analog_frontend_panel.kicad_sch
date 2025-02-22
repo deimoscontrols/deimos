@@ -5,6 +5,205 @@
 	(uuid "c241d083-1323-4b4a-a540-956d0afb7b72")
 	(paper "A3")
 	(lib_symbols
+		(symbol "74xGxx:74LVC1G17"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "U"
+				(at 0 3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "74LVC1G17"
+				(at 0 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" ""
+				(at -2.54 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "https://www.ti.com/lit/ds/symlink/sn74lvc1g17.pdf"
+				(at 0 -6.35 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Description" "Single Schmitt Buffer Gate, Low-Voltage CMOS"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "Single Gate Buff Schmitt LVC CMOS"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "SOT?23* SOT?553* Texas?R-PDSO-G5?DCK* Texas?R-PDSO-N5?DRL* Texas?X2SON*0.8x0.8mm*P0.48mm*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "74LVC1G17_0_1"
+				(polyline
+					(pts
+						(xy -7.62 6.35) (xy -7.62 -6.35) (xy 5.08 0) (xy -7.62 6.35)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(polyline
+					(pts
+						(xy -3.81 -1.27) (xy -2.54 -1.27) (xy -2.54 1.27) (xy -1.27 1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.54 -1.27) (xy -1.27 -1.27) (xy -1.27 1.27) (xy 0 1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "74LVC1G17_1_1"
+				(pin no_connect line
+					(at -7.62 5.08 180)
+					(length 5.08) hide
+					(name "NC"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -12.7 0 0)
+					(length 5.08)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at -5.08 -10.16 90)
+					(length 5.08)
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 10.16 0 180)
+					(length 5.08)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at -5.08 10.16 270)
+					(length 5.08)
+					(name "VCC"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
 		(symbol "Connector:Screw_Terminal_01x04"
 			(pin_names
 				(offset 1.016) hide)
@@ -1056,194 +1255,6 @@
 				)
 			)
 		)
-		(symbol "aaa:TLV3201AIDBVR"
-			(pin_names
-				(offset 0.127)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "U"
-				(at 1.27 5.08 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "TLV3201AIDBVR"
-				(at 10.922 -4.826 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
-				(at 0 2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "https://www.ti.com/lit/ds/symlink/tlv3201.pdf?ts=1738533993239&ref_url=https%253A%252F%252Fwww.ti.com%252Fproduct%252FTLV3201"
-				(at 22.606 -19.812 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Single Push-Pull Low-Voltage Comparator, SOT-23-5/SC-70-5"
-				(at 35.814 -15.748 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "single comparator"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_fp_filters" "SOT?23* *SC?70*"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "TLV3201AIDBVR_0_1"
-				(polyline
-					(pts
-						(xy -5.08 5.08) (xy 5.08 0) (xy -5.08 -5.08) (xy -5.08 5.08)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-				(polyline
-					(pts
-						(xy 3.302 -0.508) (xy 2.794 -0.508) (xy 3.302 0) (xy 2.794 0.508) (xy 2.286 0) (xy 2.794 -0.508)
-						(xy 2.286 -0.508)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "TLV3201AIDBVR_1_1"
-				(pin bidirectional line
-					(at 7.62 0 180)
-					(length 2.54)
-					(name "~"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_in line
-					(at -2.54 -7.62 90)
-					(length 3.81)
-					(name "V-"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at -7.62 2.54 0)
-					(length 2.54)
-					(name "+"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at -7.62 -2.54 0)
-					(length 2.54)
-					(name "-"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_in line
-					(at -2.54 7.62 270)
-					(length 3.81)
-					(name "V+"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "5"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-		)
 		(symbol "power:+3V3"
 			(power)
 			(pin_numbers hide)
@@ -1582,10 +1593,10 @@
 		)
 	)
 	(junction
-		(at 250.698 100.076)
+		(at 248.92 137.16)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "0204d406-41ee-47f9-8acc-def11f065a57")
+		(uuid "07fc8f35-57e9-4981-be00-713afcd7d56f")
 	)
 	(junction
 		(at 180.086 83.312)
@@ -1598,6 +1609,18 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "0ad61ad4-f021-4cc8-9f9a-efd2e2d88f27")
+	)
+	(junction
+		(at 248.92 106.68)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "302080d5-7d4d-4837-8c04-9b20346b1c89")
+	)
+	(junction
+		(at 248.92 74.93)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "3a41e279-00aa-4f8e-990d-6409be948c96")
 	)
 	(junction
 		(at 180.086 78.232)
@@ -1618,22 +1641,16 @@
 		(uuid "7ce5e5b5-2088-4d9e-b3cd-d828c97b25de")
 	)
 	(junction
-		(at 250.698 127.508)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "8192adc2-e0db-4980-8ee7-f3e6e2fbd0f6")
-	)
-	(junction
 		(at 176.276 106.426)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "9412721d-4674-477a-b6d8-d64c104b6a98")
 	)
 	(junction
-		(at 252.476 41.91)
+		(at 248.92 41.91)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "a456e63d-e11b-46fb-a6a5-382751d817d5")
+		(uuid "9cb64673-791e-4f7e-9bb3-24b1aab4cb4d")
 	)
 	(junction
 		(at 132.08 114.046)
@@ -1684,22 +1701,10 @@
 		(uuid "d96aebd6-a3ec-44af-b8a5-17a7e36ee248")
 	)
 	(junction
-		(at 250.19 156.464)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "debfd867-d856-4073-9049-0db241f690b4")
-	)
-	(junction
 		(at 62.23 157.988)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "e7fedcd9-988a-474c-bbfa-436542a1ff5f")
-	)
-	(junction
-		(at 252.222 70.612)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "eaf17724-725f-40bf-b7e9-ae45c0dd30db")
 	)
 	(junction
 		(at 177.038 133.604)
@@ -1712,6 +1717,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "f4dd6cd5-2cca-4c34-9830-767fa695c9cd")
+	)
+	(junction
+		(at 248.92 167.64)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "f693ae1b-7fdf-472f-9de0-e80c0678a9f1")
 	)
 	(wire
 		(pts
@@ -1785,16 +1796,6 @@
 	)
 	(wire
 		(pts
-			(xy 239.014 46.99) (xy 247.396 46.99)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3313ea32-4dbf-4b76-8220-7b02b6913be5")
-	)
-	(wire
-		(pts
 			(xy 175.006 83.312) (xy 180.086 83.312)
 		)
 		(stroke
@@ -1865,16 +1866,6 @@
 	)
 	(wire
 		(pts
-			(xy 236.728 161.544) (xy 245.11 161.544)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "614ae754-3fac-41c5-ae11-e34cb5a3eb01")
-	)
-	(wire
-		(pts
 			(xy 65.024 162.306) (xy 62.23 162.306)
 		)
 		(stroke
@@ -1935,16 +1926,6 @@
 	)
 	(wire
 		(pts
-			(xy 237.236 105.156) (xy 245.618 105.156)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "96e03f33-4e74-4749-9ad9-e38ec1891cda")
-	)
-	(wire
-		(pts
 			(xy 28.956 160.528) (xy 24.13 160.528)
 		)
 		(stroke
@@ -1995,16 +1976,6 @@
 	)
 	(wire
 		(pts
-			(xy 238.76 75.692) (xy 247.142 75.692)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ac3061e7-8d80-4dd7-a82b-7bcbd0ce2cae")
-	)
-	(wire
-		(pts
 			(xy 136.906 85.852) (xy 130.556 85.852)
 		)
 		(stroke
@@ -2042,16 +2013,6 @@
 			(type default)
 		)
 		(uuid "cc1689a8-9a0b-49b3-8408-b01795939bc5")
-	)
-	(wire
-		(pts
-			(xy 237.236 132.588) (xy 245.618 132.588)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d2c0080f-9ac2-40ff-b2e1-bc3f75e7d2be")
 	)
 	(wire
 		(pts
@@ -2296,116 +2257,6 @@
 		)
 		(uuid "dd537d8c-b01b-4424-a431-071b57fe7ddd")
 	)
-	(global_label "+1V024"
-		(shape input)
-		(at 247.142 80.772 180)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "0443ef76-1cc1-4f24-8fc8-1f67d5918746")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 236.6578 80.772 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-				(hide yes)
-			)
-		)
-	)
-	(global_label "+1V024"
-		(shape input)
-		(at 245.618 110.236 180)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "19d39845-cc8f-4d37-9088-7adb9871456b")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 235.1338 110.236 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-				(hide yes)
-			)
-		)
-	)
-	(global_label "+1V024"
-		(shape input)
-		(at 247.396 52.07 180)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "863ef2d9-afdc-4a01-968b-9ffe07a8a2eb")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 236.9118 52.07 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-				(hide yes)
-			)
-		)
-	)
-	(global_label "+1V024"
-		(shape input)
-		(at 245.11 166.624 180)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "e88760ad-d046-4b52-b176-db5dd384b7b9")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 234.6258 166.624 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-				(hide yes)
-			)
-		)
-	)
-	(global_label "+1V024"
-		(shape input)
-		(at 245.618 137.668 180)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "fae53d1b-7297-46a6-85a8-16d91999f13c")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 235.1338 137.668 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-				(hide yes)
-			)
-		)
-	)
 	(hierarchical_label "ENCODER0_1_PRE"
 		(shape input)
 		(at 164.846 53.086 270)
@@ -2474,7 +2325,7 @@
 	)
 	(hierarchical_label "COUNTER0_PRE"
 		(shape input)
-		(at 236.728 161.544 180)
+		(at 241.3 177.8 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2496,7 +2347,7 @@
 	)
 	(hierarchical_label "ENCODER0_1_PRE"
 		(shape input)
-		(at 239.014 46.99 180)
+		(at 241.3 52.07 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2507,7 +2358,7 @@
 	)
 	(hierarchical_label "ENCODER0_1"
 		(shape input)
-		(at 262.636 49.53 0)
+		(at 264.16 52.07 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2573,7 +2424,7 @@
 	)
 	(hierarchical_label "FREQ1"
 		(shape input)
-		(at 260.858 107.696 0)
+		(at 264.16 116.84 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2694,7 +2545,7 @@
 	)
 	(hierarchical_label "FREQ0_PRE"
 		(shape input)
-		(at 237.236 132.588 180)
+		(at 241.3 147.32 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2738,7 +2589,7 @@
 	)
 	(hierarchical_label "COUNTER0"
 		(shape input)
-		(at 260.35 164.084 0)
+		(at 264.16 177.8 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2749,7 +2600,7 @@
 	)
 	(hierarchical_label "ENCODER0_0_PRE"
 		(shape input)
-		(at 238.76 75.692 180)
+		(at 241.3 85.09 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2771,7 +2622,7 @@
 	)
 	(hierarchical_label "FREQ0"
 		(shape input)
-		(at 260.858 135.128 0)
+		(at 264.16 147.32 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2782,7 +2633,7 @@
 	)
 	(hierarchical_label "FREQ1_PRE"
 		(shape input)
-		(at 237.236 105.156 180)
+		(at 241.3 116.84 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2793,7 +2644,7 @@
 	)
 	(hierarchical_label "ENCODER0_0"
 		(shape input)
-		(at 262.382 78.232 0)
+		(at 264.16 85.09 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2887,7 +2738,7 @@
 	)
 	(symbol
 		(lib_id "Device:C_Small")
-		(at 249.936 41.91 90)
+		(at 246.38 41.91 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2895,7 +2746,7 @@
 		(dnp no)
 		(uuid "05a2fd43-13fc-48c0-aad0-19c37507f9ef")
 		(property "Reference" "C3011"
-			(at 247.142 37.084 90)
+			(at 243.586 37.084 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2903,7 +2754,7 @@
 			)
 		)
 		(property "Value" "0.1uF"
-			(at 247.65 39.116 90)
+			(at 244.094 39.116 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2911,7 +2762,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 249.936 41.91 0)
+			(at 246.38 41.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2920,7 +2771,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 249.936 41.91 0)
+			(at 246.38 41.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2929,7 +2780,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 249.936 41.91 0)
+			(at 246.38 41.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2960,7 +2811,7 @@
 	)
 	(symbol
 		(lib_id "Device:R_Small_US")
-		(at 237.236 130.048 180)
+		(at 241.3 144.78 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2968,7 +2819,7 @@
 		(dnp no)
 		(uuid "07b92d58-e103-4cd3-a930-bc41c1a4b211")
 		(property "Reference" "R3007"
-			(at 235.966 130.048 0)
+			(at 240.03 144.78 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2977,7 +2828,7 @@
 			)
 		)
 		(property "Value" "1M"
-			(at 235.966 127.508 0)
+			(at 240.03 142.24 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2986,7 +2837,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 237.236 130.048 0)
+			(at 241.3 144.78 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2995,7 +2846,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 237.236 130.048 0)
+			(at 241.3 144.78 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3004,7 +2855,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 237.236 130.048 0)
+			(at 241.3 144.78 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3110,7 +2961,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 239.014 41.91 180)
+		(at 241.3 46.99 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -3118,7 +2969,7 @@
 		(dnp no)
 		(uuid "0a65ed7f-1353-4975-922c-3a78b8c9754f")
 		(property "Reference" "#PWR0119"
-			(at 239.014 35.56 0)
+			(at 241.3 40.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3127,7 +2978,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 236.728 38.354 0)
+			(at 235.712 44.958 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3136,7 +2987,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 239.014 41.91 0)
+			(at 241.3 46.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3145,7 +2996,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 239.014 41.91 0)
+			(at 241.3 46.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3154,7 +3005,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 239.014 41.91 0)
+			(at 241.3 46.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3175,89 +3026,6 @@
 			(project "analog_frontend_panel"
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
 					(reference "#PWR01029")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "aaa:TLV3201AIDBVR")
-		(at 252.73 164.084 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "0e2dc6de-c38f-463d-a866-adcf97dca39f")
-		(property "Reference" "U3001"
-			(at 266.954 157.7654 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "TLV3201AIDBVR"
-			(at 266.954 160.3054 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
-			(at 252.73 161.544 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/tlv3201.pdf?ts=1738533993239&ref_url=https%253A%252F%252Fwww.ti.com%252Fproduct%252FTLV3201"
-			(at 275.336 183.896 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Single Push-Pull Low-Voltage Comparator, SOT-23-5/SC-70-5"
-			(at 288.544 179.832 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "5"
-			(uuid "069fad65-9369-452f-a1af-f043830f79ab")
-		)
-		(pin "2"
-			(uuid "c8976e6b-d018-40fb-9c53-c9644f194b3f")
-		)
-		(pin "1"
-			(uuid "5fb26792-5f5a-470d-a7a8-402b219f19bb")
-		)
-		(pin "4"
-			(uuid "4aa9b2b0-6d7f-4018-8231-d77d5be3ee15")
-		)
-		(pin "3"
-			(uuid "c6bd4dce-9c59-4f7c-941f-12961843764d")
-		)
-		(instances
-			(project "analog_i"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f"
-					(reference "U3001")
-					(unit 1)
-				)
-			)
-			(project ""
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
-					(reference "U1001")
 					(unit 1)
 				)
 			)
@@ -3639,6 +3407,93 @@
 		)
 	)
 	(symbol
+		(lib_id "74xGxx:74LVC1G17")
+		(at 254 52.07 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "1cef804e-30b6-4237-9ec3-5d16dc9abb62")
+		(property "Reference" "U7"
+			(at 265.43 45.7514 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "74LVC1G17"
+			(at 265.43 48.2914 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
+			(at 251.46 52.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/sn74lvc1g17.pdf"
+			(at 254 58.42 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "Single Schmitt Buffer Gate, Low-Voltage CMOS"
+			(at 254 52.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C7836"
+			(at 254 52.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "c2f7382d-1bf7-4979-9351-a2b69f4ac3e7")
+		)
+		(pin "2"
+			(uuid "b96a4bac-bcef-4e25-9799-f5a6e1d06f46")
+		)
+		(pin "4"
+			(uuid "e41499fa-d696-4b81-afef-833ede6efe87")
+		)
+		(pin "5"
+			(uuid "656ab4fd-cbd2-42d2-9259-333ab4f6ced3")
+		)
+		(pin "3"
+			(uuid "e8652d23-0f4a-41c3-9b69-fad8e89ac95b")
+		)
+		(instances
+			(project ""
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
+					(reference "U7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 138.938 133.604 270)
 		(unit 1)
@@ -3788,7 +3643,7 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 250.19 156.464 0)
+		(at 248.92 167.64 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -3797,7 +3652,7 @@
 		(fields_autoplaced yes)
 		(uuid "249e6c9e-098f-4284-8d7c-be5f78d11cb3")
 		(property "Reference" "#PWR0129"
-			(at 250.19 160.274 0)
+			(at 248.92 171.45 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3806,7 +3661,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 251.968 155.1939 0)
+			(at 250.698 166.3699 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3815,7 +3670,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 250.19 156.464 0)
+			(at 248.92 167.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3824,7 +3679,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 250.19 156.464 0)
+			(at 248.92 167.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3833,7 +3688,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 250.19 156.464 0)
+			(at 248.92 167.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3934,7 +3789,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 250.698 115.316 0)
+		(at 248.92 127 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -3942,7 +3797,7 @@
 		(dnp no)
 		(uuid "2c383f9c-906e-4918-9d21-2d4c5da8ba4d")
 		(property "Reference" "#PWR0133"
-			(at 250.698 121.666 0)
+			(at 248.92 133.35 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3951,7 +3806,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 250.698 119.888 90)
+			(at 252.476 129.032 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3959,7 +3814,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 250.698 115.316 0)
+			(at 248.92 127 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3968,7 +3823,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 250.698 115.316 0)
+			(at 248.92 127 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3977,7 +3832,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 250.698 115.316 0)
+			(at 248.92 127 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4005,7 +3860,7 @@
 	)
 	(symbol
 		(lib_id "Device:R_Small_US")
-		(at 236.728 159.004 180)
+		(at 241.3 175.26 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4013,7 +3868,7 @@
 		(dnp no)
 		(uuid "2d449a4f-a230-419d-8254-384c1dd6b120")
 		(property "Reference" "R3005"
-			(at 235.458 159.004 0)
+			(at 240.03 175.26 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4022,7 +3877,7 @@
 			)
 		)
 		(property "Value" "1M"
-			(at 235.458 156.464 0)
+			(at 240.03 172.72 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4031,7 +3886,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 236.728 159.004 0)
+			(at 241.3 175.26 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4040,7 +3895,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 236.728 159.004 0)
+			(at 241.3 175.26 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4049,7 +3904,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 236.728 159.004 0)
+			(at 241.3 175.26 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4080,7 +3935,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 245.618 100.076 270)
+		(at 243.84 106.68 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4088,7 +3943,7 @@
 		(dnp no)
 		(uuid "329d842a-0d32-4ee8-afa1-2b578ee1159a")
 		(property "Reference" "#PWR0115"
-			(at 239.268 100.076 0)
+			(at 237.49 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4097,7 +3952,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 242.062 100.076 0)
+			(at 239.014 106.68 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4105,7 +3960,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 245.618 100.076 0)
+			(at 243.84 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4114,7 +3969,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 245.618 100.076 0)
+			(at 243.84 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4123,7 +3978,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 245.618 100.076 0)
+			(at 243.84 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4295,8 +4150,95 @@
 		)
 	)
 	(symbol
+		(lib_id "74xGxx:74LVC1G17")
+		(at 254 147.32 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "374a3a80-5138-4daf-bdf2-fb3bebbae8b6")
+		(property "Reference" "U10"
+			(at 265.43 141.0014 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "74LVC1G17"
+			(at 265.43 143.5414 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
+			(at 251.46 147.32 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/sn74lvc1g17.pdf"
+			(at 254 153.67 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "Single Schmitt Buffer Gate, Low-Voltage CMOS"
+			(at 254 147.32 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C7836"
+			(at 254 147.32 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "a2e88a23-cd6b-49b7-9402-136278952293")
+		)
+		(pin "2"
+			(uuid "51d8333d-faf4-490e-85e1-96c53d395bab")
+		)
+		(pin "4"
+			(uuid "7f1011bf-6f31-4d5f-addb-e52a6abde454")
+		)
+		(pin "5"
+			(uuid "fb702c8e-96c2-42e8-80d4-b1a49c615e41")
+		)
+		(pin "3"
+			(uuid "b67e657a-40e7-4509-8a76-a029374c9c12")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
+					(reference "U10")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:R_Small_US")
-		(at 238.76 73.152 180)
+		(at 241.3 82.55 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4304,7 +4246,7 @@
 		(dnp no)
 		(uuid "3c4fed9e-bde3-49a2-968b-a208c239ade7")
 		(property "Reference" "R3008"
-			(at 237.49 73.152 0)
+			(at 240.03 82.55 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4313,7 +4255,7 @@
 			)
 		)
 		(property "Value" "1M"
-			(at 237.49 70.612 0)
+			(at 240.03 80.01 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4322,7 +4264,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 238.76 73.152 0)
+			(at 241.3 82.55 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4331,7 +4273,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 238.76 73.152 0)
+			(at 241.3 82.55 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4340,7 +4282,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 238.76 73.152 0)
+			(at 241.3 82.55 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4364,6 +4306,93 @@
 			(project "analog_frontend_panel"
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
 					(reference "R1005")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "74xGxx:74LVC1G17")
+		(at 254 85.09 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "4b0cc957-25d3-49a6-a1c5-09c307254c45")
+		(property "Reference" "U8"
+			(at 265.43 78.7714 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "74LVC1G17"
+			(at 265.43 81.3114 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
+			(at 251.46 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/sn74lvc1g17.pdf"
+			(at 254 91.44 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "Single Schmitt Buffer Gate, Low-Voltage CMOS"
+			(at 254 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C7836"
+			(at 254 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "7323ba7b-6a87-4f48-889f-5c467c7eeb1e")
+		)
+		(pin "2"
+			(uuid "4c2105c4-e97d-470b-85c4-46f7e2bdd2a5")
+		)
+		(pin "4"
+			(uuid "e49cb781-d75c-46af-a202-16c4f1bf7961")
+		)
+		(pin "5"
+			(uuid "0a119dca-595c-4377-aca3-48242cb687c6")
+		)
+		(pin "3"
+			(uuid "aefc524b-a422-4af3-be8d-2cc60aeffdf3")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
+					(reference "U8")
 					(unit 1)
 				)
 			)
@@ -4586,7 +4615,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 237.236 100.076 180)
+		(at 241.3 111.76 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4594,7 +4623,7 @@
 		(dnp no)
 		(uuid "53d34ec7-cef8-4e26-8cf0-f9a427954199")
 		(property "Reference" "#PWR0114"
-			(at 237.236 93.726 0)
+			(at 241.3 105.41 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4603,7 +4632,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 234.95 96.52 0)
+			(at 235.712 109.728 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4612,7 +4641,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 237.236 100.076 0)
+			(at 241.3 111.76 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4621,7 +4650,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 237.236 100.076 0)
+			(at 241.3 111.76 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4630,7 +4659,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 237.236 100.076 0)
+			(at 241.3 111.76 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4658,7 +4687,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 245.11 156.464 270)
+		(at 243.84 167.64 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4666,7 +4695,7 @@
 		(dnp no)
 		(uuid "5423aa92-f7f0-4fab-9fc8-3b14340b1885")
 		(property "Reference" "#PWR0131"
-			(at 238.76 156.464 0)
+			(at 237.49 167.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4675,7 +4704,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 241.554 156.464 0)
+			(at 238.506 167.64 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4683,7 +4712,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 245.11 156.464 0)
+			(at 243.84 167.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4692,7 +4721,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 245.11 156.464 0)
+			(at 243.84 167.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4701,7 +4730,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 245.11 156.464 0)
+			(at 243.84 167.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4722,89 +4751,6 @@
 			(project "analog_frontend_panel"
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
 					(reference "#PWR01013")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "aaa:TLV3201AIDBVR")
-		(at 253.238 135.128 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "547e79db-8248-4fdd-a41e-ab6697d6a159")
-		(property "Reference" "U3003"
-			(at 267.462 128.8094 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "TLV3201AIDBVR"
-			(at 267.462 131.3494 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
-			(at 253.238 132.588 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/tlv3201.pdf?ts=1738533993239&ref_url=https%253A%252F%252Fwww.ti.com%252Fproduct%252FTLV3201"
-			(at 275.844 154.94 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Single Push-Pull Low-Voltage Comparator, SOT-23-5/SC-70-5"
-			(at 289.052 150.876 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "5"
-			(uuid "72b7dee4-97a3-4ebf-a8d7-6597e8fc5045")
-		)
-		(pin "2"
-			(uuid "8fcfea89-199e-4cc8-8d48-6edcfde358bb")
-		)
-		(pin "1"
-			(uuid "f6d670a0-bd89-4d12-8ba5-365bfc179639")
-		)
-		(pin "4"
-			(uuid "7eef0c0e-f87b-4a20-ba14-1daf5f11dd5c")
-		)
-		(pin "3"
-			(uuid "e6e085ce-d1a0-410a-9654-c3b1a684946b")
-		)
-		(instances
-			(project "analog_i"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f"
-					(reference "U3003")
-					(unit 1)
-				)
-			)
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
-					(reference "U1002")
 					(unit 1)
 				)
 			)
@@ -4884,7 +4830,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 252.222 85.852 0)
+		(at 248.92 95.25 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4892,7 +4838,7 @@
 		(dnp no)
 		(uuid "5a3f829c-e300-4c9d-a89f-3bd9049022dc")
 		(property "Reference" "#PWR0122"
-			(at 252.222 92.202 0)
+			(at 248.92 101.6 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4901,7 +4847,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 252.222 90.424 90)
+			(at 252.222 96.774 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4909,7 +4855,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 252.222 85.852 0)
+			(at 248.92 95.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4918,7 +4864,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 252.222 85.852 0)
+			(at 248.92 95.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4927,7 +4873,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 252.222 85.852 0)
+			(at 248.92 95.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5494,7 +5440,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 236.728 156.464 180)
+		(at 241.3 172.72 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5502,7 +5448,7 @@
 		(dnp no)
 		(uuid "69a109d6-09e3-4381-badb-b0df92282ace")
 		(property "Reference" "#PWR0128"
-			(at 236.728 150.114 0)
+			(at 241.3 166.37 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5511,7 +5457,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 234.442 152.908 0)
+			(at 235.966 170.688 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5520,7 +5466,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 236.728 156.464 0)
+			(at 241.3 172.72 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5529,7 +5475,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 236.728 156.464 0)
+			(at 241.3 172.72 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5538,7 +5484,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 236.728 156.464 0)
+			(at 241.3 172.72 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5565,8 +5511,95 @@
 		)
 	)
 	(symbol
+		(lib_id "74xGxx:74LVC1G17")
+		(at 254 177.8 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "6b2d8e12-4d3b-45f9-bffa-514d46c1c952")
+		(property "Reference" "U11"
+			(at 265.43 171.4814 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "74LVC1G17"
+			(at 265.43 174.0214 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
+			(at 251.46 177.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/sn74lvc1g17.pdf"
+			(at 254 184.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "Single Schmitt Buffer Gate, Low-Voltage CMOS"
+			(at 254 177.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C7836"
+			(at 254 177.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "21c7cf71-c8a7-4fd2-b980-a1a2bf209a68")
+		)
+		(pin "2"
+			(uuid "506bb3c1-1e76-4a88-a796-c0209f877233")
+		)
+		(pin "4"
+			(uuid "a32d96f0-0236-43c3-8cc1-fbdd6b270901")
+		)
+		(pin "5"
+			(uuid "18077237-baaa-46c7-9993-a495cb879f40")
+		)
+		(pin "3"
+			(uuid "43b4e744-3f6a-4186-9389-1352538973bc")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
+					(reference "U11")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:+3V3")
-		(at 250.698 127.508 0)
+		(at 248.92 137.16 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5575,7 +5608,7 @@
 		(fields_autoplaced yes)
 		(uuid "6ce38159-7f7d-495b-948b-8083af394071")
 		(property "Reference" "#PWR0134"
-			(at 250.698 131.318 0)
+			(at 248.92 140.97 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5584,7 +5617,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 252.476 126.2379 0)
+			(at 250.698 135.8899 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5593,7 +5626,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 250.698 127.508 0)
+			(at 248.92 137.16 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5602,7 +5635,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 250.698 127.508 0)
+			(at 248.92 137.16 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5611,7 +5644,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 250.698 127.508 0)
+			(at 248.92 137.16 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5639,7 +5672,7 @@
 	)
 	(symbol
 		(lib_id "Device:C_Small")
-		(at 248.158 127.508 90)
+		(at 246.38 137.16 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5647,7 +5680,7 @@
 		(dnp no)
 		(uuid "6eca8a12-9869-43df-8607-99d1a3e703f6")
 		(property "Reference" "C3009"
-			(at 245.364 122.682 90)
+			(at 243.586 132.334 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5655,7 +5688,7 @@
 			)
 		)
 		(property "Value" "0.1uF"
-			(at 245.872 124.714 90)
+			(at 244.094 134.366 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5663,7 +5696,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 248.158 127.508 0)
+			(at 246.38 137.16 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5672,7 +5705,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 248.158 127.508 0)
+			(at 246.38 137.16 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5681,7 +5714,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 248.158 127.508 0)
+			(at 246.38 137.16 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5856,89 +5889,6 @@
 		)
 	)
 	(symbol
-		(lib_id "aaa:TLV3201AIDBVR")
-		(at 255.016 49.53 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "7433e8c7-1296-48ea-92a2-cd3d669727e9")
-		(property "Reference" "U3005"
-			(at 269.24 43.2114 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "TLV3201AIDBVR"
-			(at 269.24 45.7514 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
-			(at 255.016 46.99 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/tlv3201.pdf?ts=1738533993239&ref_url=https%253A%252F%252Fwww.ti.com%252Fproduct%252FTLV3201"
-			(at 277.622 69.342 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Single Push-Pull Low-Voltage Comparator, SOT-23-5/SC-70-5"
-			(at 290.83 65.278 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "5"
-			(uuid "ad740819-dbb1-4453-935f-15ac0aed9226")
-		)
-		(pin "2"
-			(uuid "d0fa7df3-ec93-400f-bb6e-85fe3f401ffa")
-		)
-		(pin "1"
-			(uuid "9f909608-95e0-466a-80f6-e168e4b7c850")
-		)
-		(pin "4"
-			(uuid "bf95a23d-7929-4ad9-9431-e0e2999671be")
-		)
-		(pin "3"
-			(uuid "d00bcca5-780b-4fb5-85e9-24dfbb133299")
-		)
-		(instances
-			(project "analog_i"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f"
-					(reference "U3005")
-					(unit 1)
-				)
-			)
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
-					(reference "U1005")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Connector:TestPoint")
 		(at 65.024 162.306 270)
 		(unit 1)
@@ -6010,7 +5960,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 238.76 70.612 180)
+		(at 241.3 80.01 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -6018,7 +5968,7 @@
 		(dnp no)
 		(uuid "76d95109-3170-4252-bd82-1a446e6532ce")
 		(property "Reference" "#PWR0124"
-			(at 238.76 64.262 0)
+			(at 241.3 73.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6027,7 +5977,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 236.474 67.056 0)
+			(at 235.966 77.978 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6036,7 +5986,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 238.76 70.612 0)
+			(at 241.3 80.01 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6045,7 +5995,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 238.76 70.612 0)
+			(at 241.3 80.01 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6054,7 +6004,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 238.76 70.612 0)
+			(at 241.3 80.01 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6082,7 +6032,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 250.19 171.704 0)
+		(at 248.92 187.96 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -6090,7 +6040,7 @@
 		(dnp no)
 		(uuid "7ca2a0fe-08c9-4d15-839d-57b63848b570")
 		(property "Reference" "#PWR0130"
-			(at 250.19 178.054 0)
+			(at 248.92 194.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6099,7 +6049,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 250.19 176.276 90)
+			(at 252.222 189.738 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6107,7 +6057,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 250.19 171.704 0)
+			(at 248.92 187.96 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6116,7 +6066,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 250.19 171.704 0)
+			(at 248.92 187.96 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6125,7 +6075,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 250.19 171.704 0)
+			(at 248.92 187.96 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6153,7 +6103,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 247.396 41.91 270)
+		(at 243.84 41.91 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -6161,7 +6111,7 @@
 		(dnp no)
 		(uuid "7d5a8390-990b-4a62-9879-9b4c2dcbfde9")
 		(property "Reference" "#PWR0120"
-			(at 241.046 41.91 0)
+			(at 237.49 41.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6170,7 +6120,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 243.84 41.91 0)
+			(at 238.76 41.91 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6178,7 +6128,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 247.396 41.91 0)
+			(at 243.84 41.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6187,7 +6137,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 247.396 41.91 0)
+			(at 243.84 41.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6196,7 +6146,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 247.396 41.91 0)
+			(at 243.84 41.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6453,7 +6403,7 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 252.476 41.91 0)
+		(at 248.92 41.91 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -6462,7 +6412,7 @@
 		(fields_autoplaced yes)
 		(uuid "87eb273c-d042-4419-b1fb-d50c89c653f5")
 		(property "Reference" "#PWR0118"
-			(at 252.476 45.72 0)
+			(at 248.92 45.72 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6471,7 +6421,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 254.254 40.6399 0)
+			(at 250.698 40.6399 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6480,7 +6430,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 252.476 41.91 0)
+			(at 248.92 41.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6489,7 +6439,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 252.476 41.91 0)
+			(at 248.92 41.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6498,7 +6448,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 252.476 41.91 0)
+			(at 248.92 41.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6686,7 +6636,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 250.698 142.748 0)
+		(at 248.92 157.48 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -6694,7 +6644,7 @@
 		(dnp no)
 		(uuid "92564d53-e5bf-495e-8b28-75bc804f218d")
 		(property "Reference" "#PWR0132"
-			(at 250.698 149.098 0)
+			(at 248.92 163.83 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6703,7 +6653,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 250.698 147.32 90)
+			(at 252.476 159.258 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6711,7 +6661,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 250.698 142.748 0)
+			(at 248.92 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6720,7 +6670,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 250.698 142.748 0)
+			(at 248.92 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6729,7 +6679,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 250.698 142.748 0)
+			(at 248.92 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6757,7 +6707,7 @@
 	)
 	(symbol
 		(lib_id "Device:C_Small")
-		(at 248.158 100.076 90)
+		(at 246.38 106.68 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -6765,7 +6715,7 @@
 		(dnp no)
 		(uuid "9426f5ac-988f-413c-a6ad-4ca96267e712")
 		(property "Reference" "C3008"
-			(at 245.364 95.25 90)
+			(at 243.586 101.854 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6773,7 +6723,7 @@
 			)
 		)
 		(property "Value" "0.1uF"
-			(at 245.872 97.282 90)
+			(at 244.094 103.886 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6781,7 +6731,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 248.158 100.076 0)
+			(at 246.38 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6790,7 +6740,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 248.158 100.076 0)
+			(at 246.38 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6799,7 +6749,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 248.158 100.076 0)
+			(at 246.38 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6902,7 +6852,7 @@
 	)
 	(symbol
 		(lib_id "Device:C_Small")
-		(at 247.65 156.464 90)
+		(at 246.38 167.64 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -6910,7 +6860,7 @@
 		(dnp no)
 		(uuid "971bfc12-405f-4692-b3d8-089d7259e578")
 		(property "Reference" "C3007"
-			(at 244.856 151.638 90)
+			(at 243.586 162.814 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6918,7 +6868,7 @@
 			)
 		)
 		(property "Value" "0.1uF"
-			(at 245.364 153.67 90)
+			(at 244.094 164.846 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6926,7 +6876,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 247.65 156.464 0)
+			(at 246.38 167.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6935,7 +6885,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 247.65 156.464 0)
+			(at 246.38 167.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6944,7 +6894,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 247.65 156.464 0)
+			(at 246.38 167.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7136,7 +7086,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 252.476 57.15 0)
+		(at 248.92 62.23 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -7144,7 +7094,7 @@
 		(dnp no)
 		(uuid "a0c21b01-0ed1-45f7-ba90-d5752ccd1c46")
 		(property "Reference" "#PWR0117"
-			(at 252.476 63.5 0)
+			(at 248.92 68.58 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7153,7 +7103,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 252.476 61.722 90)
+			(at 252.222 64.008 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7161,7 +7111,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 252.476 57.15 0)
+			(at 248.92 62.23 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7170,7 +7120,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 252.476 57.15 0)
+			(at 248.92 62.23 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7179,7 +7129,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 252.476 57.15 0)
+			(at 248.92 62.23 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7924,91 +7874,8 @@
 		)
 	)
 	(symbol
-		(lib_id "aaa:TLV3201AIDBVR")
-		(at 253.238 107.696 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "c5dc0ac1-4ce7-4498-b6eb-656908ea454d")
-		(property "Reference" "U3002"
-			(at 267.462 101.3774 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "TLV3201AIDBVR"
-			(at 267.462 103.9174 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
-			(at 253.238 105.156 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/tlv3201.pdf?ts=1738533993239&ref_url=https%253A%252F%252Fwww.ti.com%252Fproduct%252FTLV3201"
-			(at 275.844 127.508 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Single Push-Pull Low-Voltage Comparator, SOT-23-5/SC-70-5"
-			(at 289.052 123.444 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "5"
-			(uuid "f65ecc87-9b3e-4768-98a2-5a3b91c6d89b")
-		)
-		(pin "2"
-			(uuid "1e75896f-6b3c-422b-92a0-0d35fa90d173")
-		)
-		(pin "1"
-			(uuid "1f7c7269-9034-48d0-9f91-c18e65031293")
-		)
-		(pin "4"
-			(uuid "7638cf51-0bfe-4fa5-9cb2-e25f0bc1f947")
-		)
-		(pin "3"
-			(uuid "0caf1264-f4ac-4401-8d63-2bd3216cdba2")
-		)
-		(instances
-			(project "analog_i"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f"
-					(reference "U3002")
-					(unit 1)
-				)
-			)
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
-					(reference "U1003")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:+3V3")
-		(at 250.698 100.076 0)
+		(at 248.92 106.68 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -8017,7 +7884,7 @@
 		(fields_autoplaced yes)
 		(uuid "d5417c10-7479-42b5-ab22-2eef03fc5402")
 		(property "Reference" "#PWR0121"
-			(at 250.698 103.886 0)
+			(at 248.92 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8026,7 +7893,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 252.476 98.8059 0)
+			(at 250.698 105.4099 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8035,7 +7902,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 250.698 100.076 0)
+			(at 248.92 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8044,7 +7911,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 250.698 100.076 0)
+			(at 248.92 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8053,7 +7920,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 250.698 100.076 0)
+			(at 248.92 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8081,7 +7948,7 @@
 	)
 	(symbol
 		(lib_id "Device:C_Small")
-		(at 249.682 70.612 90)
+		(at 246.38 74.93 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -8089,7 +7956,7 @@
 		(dnp no)
 		(uuid "d8c3054d-bb8d-4055-bc38-ec9af0d673e1")
 		(property "Reference" "C3010"
-			(at 246.888 65.786 90)
+			(at 243.586 70.104 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8097,7 +7964,7 @@
 			)
 		)
 		(property "Value" "0.1uF"
-			(at 247.396 67.818 90)
+			(at 244.094 72.136 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8105,7 +7972,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 249.682 70.612 0)
+			(at 246.38 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8114,7 +7981,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 249.682 70.612 0)
+			(at 246.38 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8123,7 +7990,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 249.682 70.612 0)
+			(at 246.38 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8296,7 +8163,7 @@
 	)
 	(symbol
 		(lib_id "Device:R_Small_US")
-		(at 239.014 44.45 180)
+		(at 241.3 49.53 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -8304,7 +8171,7 @@
 		(dnp no)
 		(uuid "deb054c0-f7a1-4bb7-9706-b402ccaab283")
 		(property "Reference" "R3009"
-			(at 237.744 44.45 0)
+			(at 240.03 49.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8313,7 +8180,7 @@
 			)
 		)
 		(property "Value" "1M"
-			(at 237.744 41.91 0)
+			(at 240.03 46.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8322,7 +8189,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 239.014 44.45 0)
+			(at 241.3 49.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8331,7 +8198,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 239.014 44.45 0)
+			(at 241.3 49.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8340,7 +8207,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 239.014 44.45 0)
+			(at 241.3 49.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8371,7 +8238,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 237.236 127.508 180)
+		(at 241.3 142.24 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -8379,7 +8246,7 @@
 		(dnp no)
 		(uuid "e072dbd3-4253-4a83-933f-5fd97cf9ac0c")
 		(property "Reference" "#PWR0126"
-			(at 237.236 121.158 0)
+			(at 241.3 135.89 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8388,7 +8255,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 234.95 123.952 0)
+			(at 235.712 140.208 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8397,7 +8264,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 237.236 127.508 0)
+			(at 241.3 142.24 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8406,7 +8273,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 237.236 127.508 0)
+			(at 241.3 142.24 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8415,7 +8282,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 237.236 127.508 0)
+			(at 241.3 142.24 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8515,7 +8382,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 247.142 70.612 270)
+		(at 243.84 74.93 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -8523,7 +8390,7 @@
 		(dnp no)
 		(uuid "e51d3dc0-2bbc-4a20-8a92-e985750fee43")
 		(property "Reference" "#PWR0125"
-			(at 240.792 70.612 0)
+			(at 237.49 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8532,7 +8399,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 243.586 70.612 0)
+			(at 239.014 74.93 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8540,7 +8407,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 247.142 70.612 0)
+			(at 243.84 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8549,7 +8416,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 247.142 70.612 0)
+			(at 243.84 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8558,7 +8425,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 247.142 70.612 0)
+			(at 243.84 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8579,6 +8446,93 @@
 			(project "analog_frontend_panel"
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
 					(reference "#PWR01025")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "74xGxx:74LVC1G17")
+		(at 254 116.84 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "e972f0e5-33c9-42b5-ad9c-7dba8158a098")
+		(property "Reference" "U9"
+			(at 265.43 110.5214 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "74LVC1G17"
+			(at 265.43 113.0614 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
+			(at 251.46 116.84 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/sn74lvc1g17.pdf"
+			(at 254 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "Single Schmitt Buffer Gate, Low-Voltage CMOS"
+			(at 254 116.84 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C7836"
+			(at 254 116.84 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "fbb36608-dfcd-4d76-99aa-cd59bbf7f026")
+		)
+		(pin "2"
+			(uuid "af3d619d-392b-410e-a9eb-70578e5b49b4")
+		)
+		(pin "4"
+			(uuid "3a16dc48-fdfe-4313-bae6-8ae449a8c073")
+		)
+		(pin "5"
+			(uuid "ab0e6785-07db-4246-bc16-e4bfeff12099")
+		)
+		(pin "3"
+			(uuid "766948d5-36b5-4038-aa2c-12fed93ffb6c")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
+					(reference "U9")
 					(unit 1)
 				)
 			)
@@ -8728,7 +8682,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 245.618 127.508 270)
+		(at 243.84 137.16 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -8736,7 +8690,7 @@
 		(dnp no)
 		(uuid "f1a5f7da-a304-46b2-9342-f7f8c6c9ec8f")
 		(property "Reference" "#PWR0127"
-			(at 239.268 127.508 0)
+			(at 237.49 137.16 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8745,7 +8699,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 242.062 127.508 0)
+			(at 239.014 137.16 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8753,7 +8707,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 245.618 127.508 0)
+			(at 243.84 137.16 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8762,7 +8716,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 245.618 127.508 0)
+			(at 243.84 137.16 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8771,7 +8725,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 245.618 127.508 0)
+			(at 243.84 137.16 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9187,7 +9141,7 @@
 	)
 	(symbol
 		(lib_id "Device:R_Small_US")
-		(at 237.236 102.616 180)
+		(at 241.3 114.3 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -9195,7 +9149,7 @@
 		(dnp no)
 		(uuid "f40b780c-3372-4b5e-a0eb-3a4a16bac074")
 		(property "Reference" "R3006"
-			(at 235.966 102.616 0)
+			(at 240.03 114.3 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9204,7 +9158,7 @@
 			)
 		)
 		(property "Value" "1M"
-			(at 235.966 100.076 0)
+			(at 240.03 111.76 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9213,7 +9167,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 237.236 102.616 0)
+			(at 241.3 114.3 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9222,7 +9176,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 237.236 102.616 0)
+			(at 241.3 114.3 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9231,7 +9185,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 237.236 102.616 0)
+			(at 241.3 114.3 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9262,7 +9216,7 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 252.222 70.612 0)
+		(at 248.92 74.93 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -9271,7 +9225,7 @@
 		(fields_autoplaced yes)
 		(uuid "f53ad0fb-e6df-4dbf-b00d-c824a1c98de8")
 		(property "Reference" "#PWR0123"
-			(at 252.222 74.422 0)
+			(at 248.92 78.74 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9280,7 +9234,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 254 69.3419 0)
+			(at 250.698 73.6599 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9289,7 +9243,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 252.222 70.612 0)
+			(at 248.92 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9298,7 +9252,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 252.222 70.612 0)
+			(at 248.92 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9307,7 +9261,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 252.222 70.612 0)
+			(at 248.92 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9400,89 +9354,6 @@
 			(project ""
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
 					(reference "#PWR03016")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "aaa:TLV3201AIDBVR")
-		(at 254.762 78.232 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "f7bed8d2-8880-479b-911c-61d86945aeab")
-		(property "Reference" "U3004"
-			(at 268.986 71.9134 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "TLV3201AIDBVR"
-			(at 268.986 74.4534 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
-			(at 254.762 75.692 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/tlv3201.pdf?ts=1738533993239&ref_url=https%253A%252F%252Fwww.ti.com%252Fproduct%252FTLV3201"
-			(at 277.368 98.044 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Single Push-Pull Low-Voltage Comparator, SOT-23-5/SC-70-5"
-			(at 290.576 93.98 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "5"
-			(uuid "2b9f2348-248c-4293-94da-2dbaf8f7a074")
-		)
-		(pin "2"
-			(uuid "1ff741c0-5ff9-4fac-aa87-ea8b88cc2e36")
-		)
-		(pin "1"
-			(uuid "b79e50a8-8320-4dcb-9bcf-d26e463b6394")
-		)
-		(pin "4"
-			(uuid "04468413-2278-400a-89a2-77a1be731f6c")
-		)
-		(pin "3"
-			(uuid "5f5ffe6b-484a-4b9d-a79b-e139b3ff25f0")
-		)
-		(instances
-			(project "analog_i"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f"
-					(reference "U3004")
-					(unit 1)
-				)
-			)
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
-					(reference "U1004")
 					(unit 1)
 				)
 			)
