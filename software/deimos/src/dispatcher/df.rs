@@ -7,8 +7,6 @@ use std::{
     time::SystemTime,
 };
 
-use core_affinity::CoreId;
-
 #[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
@@ -89,7 +87,8 @@ impl Dispatcher for DataFrameDispatcher {
         &mut self,
         _ctx: &ControllerCtx,
         channel_names: &[String],
-        _core_assignment: CoreId,
+        #[cfg(feature = "affinity")]
+        _core_assignment: usize,
     ) -> Result<(), String> {
         // Store channel names for
         self.channel_names = channel_names.to_vec();

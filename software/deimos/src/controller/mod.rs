@@ -10,8 +10,6 @@ use std::collections::BTreeMap;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
-use core_affinity;
-
 #[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
@@ -19,10 +17,9 @@ use flaw::MedianFilter;
 
 use crate::{
     calc::Calc,
-    peripheral::{parse_binding, Peripheral, PluginMap},
+    peripheral::{Peripheral, PluginMap, parse_binding},
 };
 use deimos_shared::states::*;
-use thread_priority::DeadlineFlags;
 
 use crate::calc::Orchestrator;
 use crate::dispatcher::Dispatcher;
@@ -298,47 +295,54 @@ impl Controller {
     }
 
     pub fn run(&mut self, plugins: &Option<PluginMap>) -> Result<String, String> {
-        // Set core affinity, if possible
-        // This may not be available on every platform, so it should not break if not available
+        #[cfg(feature = "affinity")]
         let core_ids = core_affinity::get_core_ids().unwrap_or_default();
-        let n_cores = core_ids.len();
 
-        // Make a cycle over the cores that are available for auxiliary functions
-        // other than the control loop. Because many modern CPUs present one extra fake "core"
-        // per real core due to hyperthreading functionality, only every second core is
-        // assumed to represent a real independent computing resource.
-        let mut aux_core_cycle;
-        if n_cores > 2 {
-            aux_core_cycle = core_ids[2..].iter().step_by(2).cycle();
-        } else {
-            aux_core_cycle = core_ids[0..1].iter().step_by(2).cycle();
-        }
+        #[cfg(feature = "affinity")]
+        let mut aux_core_cycle = {
+            // Set core affinity, if possible
+            // This may not be available on every platform, so it should not break if not available
+            let n_cores = core_ids.len();
 
-        // Consume the first core for the control loop
-        // While the last core is less likely to be overutilized, the first core is more
-        // likely to be a high-performance core on a heterogeneous computing device
-        if let Some(core) = core_ids.first() {
-            core_affinity::set_for_current(*core);
-        }
-
-        // Set filled deadline scheduling to indicate that the control loop thread
-        // should stay fully occupied. This is not available on Windows, in which
-        // case, use max priority as a next-best option.
-        // If both options fail, continue as-is.
-        match thread_priority::set_current_thread_priority(
-            thread_priority::ThreadPriority::Deadline {
-                runtime: Duration::from_nanos(1),
-                deadline: Duration::from_nanos(1),
-                period: Duration::from_nanos(1),
-                flags: DeadlineFlags::RESET_ON_FORK, // Children do not inherit deadline scheduling
-            },
-        ) {
-            Ok(_) => (),
-            Err(_) => {
-                let _ = thread_priority::set_current_thread_priority(
-                    thread_priority::ThreadPriority::Max,
-                );
+            // Make a cycle over the cores that are available for auxiliary functions
+            // other than the control loop. Because many modern CPUs present one extra fake "core"
+            // per real core due to hyperthreading functionality, only every second core is
+            // assumed to represent a real independent computing resource.
+            let mut aux_core_cycle;
+            if n_cores > 2 {
+                aux_core_cycle = core_ids[2..].iter().step_by(2).cycle();
+            } else {
+                aux_core_cycle = core_ids[0..1].iter().step_by(2).cycle();
             }
+
+            // Consume the first core for the control loop
+            // While the last core is less likely to be overutilized, the first core is more
+            // likely to be a high-performance core on a heterogeneous computing device
+            if let Some(core) = core_ids.first() {
+                core_affinity::set_for_current(*core);
+            }
+
+            // Set filled deadline scheduling to indicate that the control loop thread
+            // should stay fully occupied. This is not available on Windows, in which
+            // case, use max priority as a next-best option.
+            // If both options fail, continue as-is.
+            match thread_priority::set_current_thread_priority(
+                thread_priority::ThreadPriority::Deadline {
+                    runtime: Duration::from_nanos(1),
+                    deadline: Duration::from_nanos(1),
+                    period: Duration::from_nanos(1),
+                    flags: thread_priority::DeadlineFlags::RESET_ON_FORK, // Children do not inherit deadline scheduling
+                },
+            ) {
+                Ok(_) => (),
+                Err(_) => {
+                    let _ = thread_priority::set_current_thread_priority(
+                        thread_priority::ThreadPriority::Max,
+                    );
+                }
+            };
+
+            aux_core_cycle
         };
 
         // Buffer for writing bytes to send on sockets
@@ -378,9 +382,13 @@ impl Controller {
         let n_channels = n_metrics + n_io;
         let mut channel_values = vec![0.0; n_channels];
         for dispatcher in self.dispatchers.iter_mut() {
-            let core_assignment = aux_core_cycle.next().unwrap();
             dispatcher
-                .init(&self.ctx, &channel_names, *core_assignment)
+                .init(
+                    &self.ctx,
+                    &channel_names,
+                    #[cfg(feature = "affinity")]
+                    aux_core_cycle.next().unwrap().id,
+                )
                 .unwrap();
         }
         println!("Dispatching data for {n_channels} channels.");
@@ -460,8 +468,8 @@ impl Controller {
                                 let p = bound_peripherals.get(&(sid, pid)).unwrap();
                                 if amt != p.configuring_output_size() {
                                     println!(
-                                            "Received malformed configuration response from peripheral {pid:?} on socket {sid}"
-                                        );
+                                        "Received malformed configuration response from peripheral {pid:?} on socket {sid}"
+                                    );
                                     continue;
                                 }
                                 let ack = ConfiguringOutput::read_bytes(buf);
@@ -484,7 +492,7 @@ impl Controller {
                                     _ => {
                                         return Err(format!(
                                             "Peripheral at {addr:?} rejected configuration"
-                                        ))
+                                        ));
                                     }
                                 }
                             }
@@ -510,7 +518,9 @@ impl Controller {
                     .iter()
                     .filter_map(|(_k, v)| (!v.acknowledged_configuration).then_some(v.name.clone()))
                     .collect::<Vec<_>>();
-                println!("Peripherals did not acknowledge configuration: {peripherals_not_acknowledged:?}");
+                println!(
+                    "Peripherals did not acknowledge configuration: {peripherals_not_acknowledged:?}"
+                );
             }
         }
 
@@ -778,7 +788,7 @@ mod test {
     /// It is possible to produce a system where a serialized output is not able to be
     /// deserialized without error due to type ambiguity in `dyn Trait` collections,
     /// which is resolved via type tagging here.
-    #[cfg(feature="ser")]
+    #[cfg(feature = "ser")]
     #[test]
     fn test_ser_roundtrip() {
         use super::*;

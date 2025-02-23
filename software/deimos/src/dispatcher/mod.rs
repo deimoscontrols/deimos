@@ -1,7 +1,6 @@
 //! Dispatchers send data to an outside consumer, usually a database or display
 
 use chrono::{DateTime, Utc};
-use core_affinity::CoreId;
 use std::time::SystemTime;
 
 #[cfg(feature = "ser")]
@@ -47,7 +46,8 @@ pub trait Dispatcher: Send + Sync {
         &mut self,
         ctx: &ControllerCtx,
         channel_names: &[String],
-        core_assignment: CoreId,
+        #[cfg(feature = "affinity")]
+        core_assignment: usize,
     ) -> Result<(), String>;
 
     /// Ingest a row of data

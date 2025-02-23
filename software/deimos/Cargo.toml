@@ -20,8 +20,8 @@ flaw = "0.2.4"
 
 # Control loop prep
 chrono = { version = "0.4.39", features = ["std"], default-features = false }  # timestamp formatting
-core_affinity = "0.8.1"
-thread-priority = "1.2.0"
+core_affinity = { version = "0.8.1", optional = true }
+thread-priority = {version = "1.2.0", optional = true }
 
 # Calcs
 interpn = { version = "0.4.3", default-features = false }
@@ -50,6 +50,7 @@ default = []
 tsdb = ["postgres", "postgres-types"]
 df = ["polars"]
 ser = ["serde", "typetag"]
+affinity = ["core_affinity", "thread-priority"]
 
 [[example]]
 name = "multi_daq"
