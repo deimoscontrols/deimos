@@ -2,6 +2,10 @@
 
 ## 2025-02-23 deimos 0.7.0
 
+Place functionality not required to run the base control program behind feature flags,
+including serialization, user channels, and manipulation of thread priority and core affinity.
+This reduces the base set of deps to 21, only 8 of which are not either proc macros or build deps.
+
 ### Changed
 
 * !Roll forward to 2024 edition
