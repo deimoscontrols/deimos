@@ -108,29 +108,31 @@ let mut controller = Controller::new(ctx);
 // Set up any number of data integrations,
 // all of which will receive the same data at each cycle of the control loop
 //    TSDB-flavored postgres database
-let buffer_window = Duration::from_nanos(1); // Non-buffering mode
-let retention_time_hours = 1;
-let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(
-    "<database name>",  // Database name
-    "<database address>", // URL or unix socket interface
-    "<username>",  // Login name; for unix socket, must match OS username
-    "<token env var>",  // Environment variable containing password or token
-    buffer_window,
-    retention_time_hours,
-));
+#[cfg(feature="tsdb")]
+{
+    let buffer_window = Duration::from_nanos(1); // Non-buffering mode
+    let retention_time_hours = 1;
+    let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(
+        "<database name>",  // Database name
+        "<database address>", // URL or unix socket interface
+        "<username>",  // Login name; for unix socket, must match OS username
+        "<token env var>",  // Environment variable containing password or token
+        buffer_window,
+        retention_time_hours,
+    ));
+    controller.add_dispatcher(timescale_dispatcher);
+}
+
 //    A 50MB CSV file that will be wrapped an overwritten when full
 let csv_dispatcher: Box<dyn Dispatcher> =
     Box::new(CsvDispatcher::new(50, dispatcher::Overflow::Wrap));
+controller.add_dispatcher(csv_dispatcher);
 
 // Associate hardware peripherals that we expect to find on the network
 // The controller can also run with no peripherals at all, and simply do
 // calculations on a fixed time interval.
 controller.add_peripheral("p1", Box::new(AnalogIRev3 { serial_number: 1 }));
 controller.add_peripheral("p2", Box::new(AnalogIRev3 { serial_number: 2 }));
-
-// Associate data integrations with the controller
-controller.add_dispatcher(timescale_dispatcher);
-controller.add_dispatcher(csv_dispatcher);
 
 // Set up calcs that will be run at each cycle
 //     Add a constant for duty cycle and a sine wave for frequency
@@ -148,8 +150,11 @@ controller.set_peripheral_input_source("p2.pwm0_freq", "p1_rtd_5.temperature_K")
 // Serialize and deserialize the controller (for demonstration purposes).
 // All of the configuration up to this point, including any custom peripheral plugins
 // or user-defined calcs, are serialized with the controller and can be written to and read from a json file.
-let serialized_controller: String = serde_json::to_string_pretty(&controller).unwrap();
-let _deserialized_controller: Controller = serde_json::from_str(&serialized_controller).unwrap();
+#[cfg(feature="ser")]
+{
+    let serialized_controller: String = serde_json::to_string_pretty(&controller).unwrap();
+    let _deserialized_controller: Controller = serde_json::from_str(&serialized_controller).unwrap();
+}
 
 // Run the control program
 // (skipped here because there are no peripherals

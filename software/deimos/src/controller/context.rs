@@ -9,12 +9,14 @@ use std::{collections::BTreeMap, default::Default};
 
 use chrono::{DateTime, Utc};
 
+#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 use super::channel::{Channel, Endpoint};
 
 /// Criteria for exiting the control program
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum Termination {
     /// A duration after which the control program should terminate.
@@ -32,7 +34,8 @@ pub enum Termination {
 }
 
 /// Response to losing contact with a peripheral
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum LossOfContactPolicy {
     /// Terminate the control program
@@ -48,7 +51,8 @@ pub enum LossOfContactPolicy {
 }
 
 /// Operation context, provided to appendages during init
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct ControllerCtx {
     /// A name for this controller op,

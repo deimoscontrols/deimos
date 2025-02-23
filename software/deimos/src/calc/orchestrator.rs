@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use std::iter::Iterator;
 use std::{collections::BTreeMap, ops::Range};
 
+#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 use crate::ControllerCtx;
@@ -54,12 +55,13 @@ struct OrchestratorState {
 /// evaluation order. During init, each calc is provided with the indices of the tape
 /// where its inputs and outputs will be placed. During evaluation, each calc is responsible
 /// for using those indices to read its inputs and write its outputs.
-#[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default)]
 pub struct Orchestrator {
     calcs: BTreeMap<CalcName, Box<dyn Calc>>,
     peripheral_input_sources: BTreeMap<PeripheralInputName, FieldName>,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     state: OrchestratorState,
 }
 

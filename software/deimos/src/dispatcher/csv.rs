@@ -11,6 +11,7 @@ use std::thread::{self, spawn, JoinHandle};
 
 use core_affinity::CoreId;
 
+#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 use crate::controller::context::ControllerCtx;
@@ -34,7 +35,8 @@ use super::{csv_header, csv_row_fixed_width, Dispatcher, Overflow};
 /// and so on, or if non-finite values are encountered in measurements, calcs, or metrics.
 ///
 /// Writes to disk on a separate thread to avoid blocking the control loop.
-#[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default)]
 pub struct CsvDispatcher {
     /// Size per file
     chunk_size_megabytes: usize,
@@ -42,7 +44,7 @@ pub struct CsvDispatcher {
     /// Choice of behavior when the current file is full
     overflow_behavior: Overflow,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     worker: Option<WorkerHandle>,
 }
 
@@ -57,7 +59,7 @@ impl CsvDispatcher {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "ser", typetag::serde)]
 impl Dispatcher for CsvDispatcher {
     fn init(
         &mut self,

@@ -11,6 +11,7 @@ use core_affinity::CoreId;
 use postgres::{Client, NoTls, Statement};
 use postgres_types::{ToSql, Type};
 
+#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 use crate::controller::context::ControllerCtx;
@@ -28,7 +29,8 @@ use super::{csv_row, Dispatcher};
 ///
 /// Does not support TLS, and as a result, is recommended for communication with databases
 /// on the same internal network, not on the open web.
-#[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default)]
 pub struct TimescaleDbDispatcher {
     /// Name of the database. The table name will be the controller's op name.
     dbname: String,
@@ -49,7 +51,7 @@ pub struct TimescaleDbDispatcher {
     /// Duration for which data will be retained in the database
     retention_time_hours: u64,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     worker: Option<WorkerHandle>,
 }
 
@@ -76,7 +78,7 @@ impl TimescaleDbDispatcher {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "ser", typetag::serde)]
 impl Dispatcher for TimescaleDbDispatcher {
     /// Connect to the database and either reuse an existing table, or make a new one
     fn init(

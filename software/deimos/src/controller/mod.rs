@@ -12,6 +12,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use core_affinity;
 
+#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 use flaw::MedianFilter;
@@ -34,7 +35,7 @@ use timing::TimingPID;
 /// The controller implements the control loop,
 /// synchronizes sample reporting time between the peripherals,
 /// and dispatches measured data, calculations, and metrics to the data pipeline.
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 pub struct Controller {
     // Input config, which is passed to appendages during their init
     ctx: ControllerCtx,
@@ -772,14 +773,16 @@ impl Controller {
 
 #[cfg(test)]
 mod test {
-    use super::*;
 
     /// Make sure that we can serialize _and_ deserialize a full controller.
     /// It is possible to produce a system where a serialized output is not able to be
     /// deserialized without error due to type ambiguity in `dyn Trait` collections,
     /// which is resolved via type tagging here.
+    #[cfg(feature="ser")]
     #[test]
     fn test_ser_roundtrip() {
+        use super::*;
+
         let mut controller = Controller::default();
         let per = crate::peripheral::analog_i_rev_2::AnalogIRev2 { serial_number: 0 };
         controller

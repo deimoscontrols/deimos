@@ -17,7 +17,7 @@ pub type SuperSocketAddr = (usize, PeripheralId);
 
 /// Packetized socket interface for message-passing
 /// to/from peripherals on different I/O media.
-#[typetag::serde(tag = "type")]
+#[cfg_attr(feature = "ser", typetag::serde(tag = "type"))]
 pub trait SuperSocket: Send + Sync {
     /// Check whether the socket is already open
     fn is_open(&self) -> bool;

@@ -32,9 +32,8 @@ crossbeam = "0.8.4"
 
 # Serialization
 # Loose versioning enables plugins without multiple crate versions per build
-serde_json = "^1"
-serde = { version = "^1", features = ["derive", "rc"] }
-typetag = { version = "^0.2" }
+serde = { version = "^1", features = ["derive", "rc"], optional = true }
+typetag = { version = "^0.2", optional = true }
 
 # Dataframe dispatcher
 polars = { version = "0.46.0", optional = true, features = ["fmt"], default-features = false }
@@ -43,10 +42,14 @@ polars = { version = "0.46.0", optional = true, features = ["fmt"], default-feat
 postgres = { version = "0.19.9", optional = true }
 postgres-types = { version = "0.2.8", optional = true }
 
+[dev-dependencies]
+serde_json = "^1"
+
 [features]
 default = []
 tsdb = ["postgres", "postgres-types"]
 df = ["polars"]
+ser = ["serde", "typetag"]
 
 [[example]]
 name = "multi_daq"

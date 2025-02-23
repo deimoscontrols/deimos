@@ -1,7 +1,5 @@
 use std::collections::BTreeMap;
 
-use typetag;
-
 use core::fmt::Debug;
 
 use super::calc::*;
@@ -36,7 +34,7 @@ pub type PluginMap<'a> = BTreeMap<ModelNumber, &'a PluginFn>;
 ///
 /// This is a representation from the perspective of
 /// the application-side controller.
-#[typetag::serde(tag = "type")]
+#[cfg_attr(feature = "ser", typetag::serde(tag = "type"))]
 pub trait Peripheral: Send + Sync + Debug {
     /// Unique device ID combining model number and serial number
     fn id(&self) -> PeripheralId;

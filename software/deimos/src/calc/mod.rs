@@ -6,6 +6,8 @@ use std::iter::Iterator;
 use std::{collections::BTreeMap, ops::Range};
 
 use once_cell::sync::Lazy;
+
+#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 mod orchestrator;
@@ -81,7 +83,7 @@ pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Calc>>> = Lazy::new(|| {
 
 /// A calculation that takes some inputs and produces some outputs
 /// at each timestep, and may have some persistent internal state.
-#[typetag::serde(tag = "type")]
+#[cfg_attr(feature = "ser", typetag::serde(tag = "type"))]
 pub trait Calc: Send + Sync {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>);

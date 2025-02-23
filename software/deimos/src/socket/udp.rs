@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
 use std::time::Instant;
 
+#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 use crate::controller::context::ControllerCtx;
@@ -13,17 +14,18 @@ use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::{CONTROLLER_RX_PORT, PERIPHERAL_RX_PORT};
 
 /// Implementation of SuperSocket trait for stdlib UDP socket on IPV4
-#[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default)]
 pub struct UdpSuperSocket {
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     socket: Option<UdpSocket>,
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     rxbuf: Vec<u8>,
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     addrs: BTreeMap<PeripheralId, SocketAddr>,
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     pids: BTreeMap<SocketAddr, PeripheralId>,
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     last_received_addr: Option<SocketAddr>,
 }
 
@@ -39,7 +41,7 @@ impl UdpSuperSocket {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "ser", typetag::serde)]
 impl SuperSocket for UdpSuperSocket {
     fn is_open(&self) -> bool {
         self.socket.is_some()

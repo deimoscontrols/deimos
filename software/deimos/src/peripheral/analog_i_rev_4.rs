@@ -2,15 +2,18 @@ use super::Peripheral;
 use crate::calc::{Affine, Calc, InverseAffine, RtdPt100, TcKtype};
 use deimos_shared::peripherals::{analog_i_rev_4::*, model_numbers, PeripheralId};
 use deimos_shared::OperatingMetrics;
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg(feature="ser")]
+use serde::{Deserialize, Serialize};
+
+#[cfg_attr(feature="ser", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct AnalogIRev4 {
     pub serial_number: u64,
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "ser", typetag::serde)]
 impl Peripheral for AnalogIRev4 {
     fn id(&self) -> PeripheralId {
         PeripheralId {

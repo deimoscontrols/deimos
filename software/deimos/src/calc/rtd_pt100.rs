@@ -29,17 +29,18 @@ pub static INTERPOLATOR: Lazy<MulticubicRegular<'static, f64, 1>> = Lazy::new(||
 });
 
 /// Derive input voltage from amplifier output
-#[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default)]
 pub struct RtdPt100 {
     // User inputs
     resistance_name: String,
     save_outputs: bool,
 
     // Values provided by calc orchestrator during init
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     input_index: usize,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     output_index: usize,
 }
 
@@ -60,7 +61,7 @@ impl RtdPt100 {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "ser", typetag::serde)]
 impl Calc for RtdPt100 {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, _: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {

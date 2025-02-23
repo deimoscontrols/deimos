@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use core_affinity::CoreId;
 use std::time::SystemTime;
 
+#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "tsdb")]
@@ -22,7 +23,8 @@ pub use csv::CsvDispatcher;
 use crate::controller::context::ControllerCtx;
 
 /// Choice of behavior when the current file is full
-#[derive(Serialize, Deserialize, Default, Clone, Copy, Debug)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default, Clone, Copy, Debug)]
 pub enum Overflow {
     /// Wrap back to the beginning of the file and
     /// overwrite, starting with the oldest data
@@ -38,7 +40,7 @@ pub enum Overflow {
 
 /// A data pipeline plugin that receives data from the control loop
 /// one row at a time.
-#[typetag::serde(tag = "type")]
+#[cfg_attr(feature = "ser", typetag::serde(tag = "type"))]
 pub trait Dispatcher: Send + Sync {
     /// Set up the dispatcher at the start of a run
     fn init(
