@@ -136,7 +136,7 @@ fn main() {
 /// The controller's representation of the in-memory peripheral mockup,
 /// reusing the AnalogIRev3's packet formats for convenience.
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct IpcMockup {
     pub serial_number: u64,
 }
