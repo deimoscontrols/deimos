@@ -33,6 +33,8 @@ use deimos_shared::{
     },
 };
 use polars::frame::DataFrame;
+
+#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 // For using the controller
@@ -133,12 +135,13 @@ fn main() {
 
 /// The controller's representation of the in-memory peripheral mockup,
 /// reusing the AnalogIRev3's packet formats for convenience.
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default)]
 pub struct IpcMockup {
     pub serial_number: u64,
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "ser", typetag::serde)]
 impl Peripheral for IpcMockup {
     fn id(&self) -> PeripheralId {
         PeripheralId {
