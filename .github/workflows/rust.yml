@@ -17,6 +17,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Get latest rustc
+      run: rustup update
     - name: Format
       run: cargo fmt --check --verbose
     - name: Lint
