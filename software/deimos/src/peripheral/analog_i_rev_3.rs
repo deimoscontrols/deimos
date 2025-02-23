@@ -167,7 +167,7 @@ impl Peripheral for AnalogIRev3 {
                 // v_sensed = 250e-6 amps * r_sensed * 25.7
                 // => r_sensed = v_sensed / (250e-6 * 25.7)
                 let slope = 250e-6 * 25.7;
-                let resistance_calc = InverseAffine::new(input_name, slope, 0.0, false);
+                let resistance_calc = InverseAffine::new(input_name, slope, 0.0, true);
                 let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
                 calcs.insert(resistance_calc_name, Box::new(resistance_calc));
                 calcs.insert(temperature_calc_name, Box::new(temperature_calc));
