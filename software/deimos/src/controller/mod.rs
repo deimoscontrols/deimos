@@ -310,12 +310,11 @@ impl Controller {
             // other than the control loop. Because many modern CPUs present one extra fake "core"
             // per real core due to hyperthreading functionality, only every second core is
             // assumed to represent a real independent computing resource.
-            let aux_core_cycle;
-            if n_cores > 2 {
-                aux_core_cycle = core_ids[2..].iter().step_by(2).cycle();
+            let aux_core_cycle = if n_cores > 2 {
+                core_ids[2..].iter().step_by(2).cycle()
             } else {
-                aux_core_cycle = core_ids[0..1].iter().step_by(2).cycle();
-            }
+                core_ids[0..1].iter().step_by(2).cycle()
+            };
 
             // Consume the first core for the control loop
             // While the last core is less likely to be overutilized, the first core is more
