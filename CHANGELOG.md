@@ -1,5 +1,15 @@
 # Changelog
 
+## 2025-02-23 deimos 0.7.0
+
+### Changed
+
+* !Roll forward to 2024 edition
+* !Eliminate default features
+* !Put serialization behind a feature flag
+* !Rename `SuperSocket` trait and types to `PSocket`
+* Reduce saved intermediate calcs in standard calcs for AnalogIRev{3,4}
+
 ## 2025-02-22 Hardware - Analog I Rev 4.0.2
 
 ### Changed

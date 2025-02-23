@@ -1,4 +1,4 @@
-//! Implementation of SuperSocket trait for stdlib UDP socket on IPV4
+//! Implementation of PSocket trait for stdlib UDP socket on IPV4
 
 use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
@@ -13,10 +13,10 @@ use super::*;
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::{CONTROLLER_RX_PORT, PERIPHERAL_RX_PORT};
 
-/// Implementation of SuperSocket trait for stdlib UDP socket on IPV4
+/// Implementation of PSocket trait for stdlib UDP socket on IPV4
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 #[derive(Default)]
-pub struct UdpSuperSocket {
+pub struct UdpPSocket {
     #[cfg_attr(feature = "ser", serde(skip))]
     socket: Option<UdpSocket>,
     #[cfg_attr(feature = "ser", serde(skip))]
@@ -29,7 +29,7 @@ pub struct UdpSuperSocket {
     last_received_addr: Option<SocketAddr>,
 }
 
-impl UdpSuperSocket {
+impl UdpPSocket {
     pub fn new() -> Self {
         Self {
             rxbuf: vec![0; 1522],
@@ -42,7 +42,7 @@ impl UdpSuperSocket {
 }
 
 #[cfg_attr(feature = "ser", typetag::serde)]
-impl SuperSocket for UdpSuperSocket {
+impl PSocket for UdpPSocket {
     fn is_open(&self) -> bool {
         self.socket.is_some()
     }

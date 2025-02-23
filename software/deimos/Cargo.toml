@@ -1,7 +1,7 @@
 [package]
 name = "deimos"
-version = "0.6.2"
-edition = "2021"
+version = "0.7.0"
+edition = "2024"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/deimoscontrols/deimos"

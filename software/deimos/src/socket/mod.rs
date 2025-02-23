@@ -10,15 +10,15 @@ use crate::controller::context::ControllerCtx;
 use deimos_shared::peripherals::PeripheralId;
 
 /// Socket index
-pub type SuperSocketId = usize;
+pub type PSocketId = usize;
 
 /// Address of a peripheral that is communicating on a socket
-pub type SuperSocketAddr = (usize, PeripheralId);
+pub type PSocketAddr = (usize, PeripheralId);
 
 /// Packetized socket interface for message-passing
 /// to/from peripherals on different I/O media.
 #[cfg_attr(feature = "ser", typetag::serde(tag = "type"))]
-pub trait SuperSocket: Send + Sync {
+pub trait PSocket: Send + Sync {
     /// Check whether the socket is already open
     fn is_open(&self) -> bool;
 

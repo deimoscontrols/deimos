@@ -13,7 +13,7 @@ pub use controller::{
 };
 pub use dispatcher::{CsvDispatcher, Dispatcher};
 pub use socket::{
-    udp::UdpSuperSocket, unix::UnixSuperSocket, SuperSocket, SuperSocketAddr, SuperSocketId,
+    udp::UdpPSocket, unix::UnixPSocket, PSocket, PSocketAddr, PSocketId,
 };
 
 

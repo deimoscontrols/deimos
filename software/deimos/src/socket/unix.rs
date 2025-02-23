@@ -1,4 +1,4 @@
-//! Implementation of SuperSocket trait for stdlib unix datagram socket,
+//! Implementation of PSocket trait for stdlib unix datagram socket,
 //! which provides inter-process communication for peripherals that are
 //! defined in software, or a bridge to an arbitrary data source.
 
@@ -13,10 +13,10 @@ use serde::{Deserialize, Serialize};
 use super::*;
 use deimos_shared::peripherals::PeripheralId;
 
-/// Implementation of SuperSocket trait for stdlib UDP socket on IPV4
+/// Implementation of PSocket trait for stdlib UDP socket on IPV4
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 #[derive(Default)]
-pub struct UnixSuperSocket {
+pub struct UnixPSocket {
     /// The name of the socket will be combined with the op directory
     /// to make a socket address like {op_dir}/sock/{name} .
     /// Peripheral sockets are expected in {op_dir}/sock/per/* .
@@ -41,7 +41,7 @@ pub struct UnixSuperSocket {
     ctx: ControllerCtx,
 }
 
-impl UnixSuperSocket {
+impl UnixPSocket {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_owned(),
@@ -82,7 +82,7 @@ impl UnixSuperSocket {
 }
 
 #[cfg_attr(feature = "ser", typetag::serde)]
-impl SuperSocket for UnixSuperSocket {
+impl PSocket for UnixPSocket {
     fn is_open(&self) -> bool {
         self.socket.is_some()
     }
