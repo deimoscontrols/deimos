@@ -1,9 +1,10 @@
-//! Implementation of SuperSocket trait for stdlib UDP socket on IPV4
+//! Implementation of Socket trait for stdlib UDP socket on IPV4
 
 use std::collections::BTreeMap;
-use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
+use std::net::Ipv4Addr;
 use std::time::Instant;
 
+#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 use crate::controller::context::ControllerCtx;
@@ -12,22 +13,23 @@ use super::*;
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::{CONTROLLER_RX_PORT, PERIPHERAL_RX_PORT};
 
-/// Implementation of SuperSocket trait for stdlib UDP socket on IPV4
-#[derive(Serialize, Deserialize, Default)]
-pub struct UdpSuperSocket {
-    #[serde(skip)]
-    socket: Option<UdpSocket>,
-    #[serde(skip)]
+/// Implementation of Socket trait for stdlib UDP socket on IPV4
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default)]
+pub struct UdpSocket {
+    #[cfg_attr(feature = "ser", serde(skip))]
+    socket: Option<std::net::UdpSocket>,
+    #[cfg_attr(feature = "ser", serde(skip))]
     rxbuf: Vec<u8>,
-    #[serde(skip)]
-    addrs: BTreeMap<PeripheralId, SocketAddr>,
-    #[serde(skip)]
-    pids: BTreeMap<SocketAddr, PeripheralId>,
-    #[serde(skip)]
-    last_received_addr: Option<SocketAddr>,
+    #[cfg_attr(feature = "ser", serde(skip))]
+    addrs: BTreeMap<PeripheralId, std::net::SocketAddr>,
+    #[cfg_attr(feature = "ser", serde(skip))]
+    pids: BTreeMap<std::net::SocketAddr, PeripheralId>,
+    #[cfg_attr(feature = "ser", serde(skip))]
+    last_received_addr: Option<std::net::SocketAddr>,
 }
 
-impl UdpSuperSocket {
+impl UdpSocket {
     pub fn new() -> Self {
         Self {
             rxbuf: vec![0; 1522],
@@ -39,8 +41,8 @@ impl UdpSuperSocket {
     }
 }
 
-#[typetag::serde]
-impl SuperSocket for UdpSuperSocket {
+#[cfg_attr(feature = "ser", typetag::serde)]
+impl Socket for UdpSocket {
     fn is_open(&self) -> bool {
         self.socket.is_some()
     }
@@ -48,7 +50,7 @@ impl SuperSocket for UdpSuperSocket {
     fn open(&mut self, _ctx: &ControllerCtx) -> Result<(), String> {
         if self.socket.is_none() {
             // Socket populated on access
-            let socket = UdpSocket::bind(format!("0.0.0.0:{CONTROLLER_RX_PORT}"))
+            let socket = std::net::UdpSocket::bind(format!("0.0.0.0:{CONTROLLER_RX_PORT}"))
                 .map_err(|e| format!("Unable to bind UDP socket: {e}"))?;
             socket
                 .set_nonblocking(true)
@@ -145,7 +147,10 @@ impl SuperSocket for UdpSuperSocket {
             // If there are duplicate addresses _or_ duplicate IDs, the number of entries
             // in the maps won't match.
             if self.addrs.len() != self.pids.len() {
-                return Err(format!("Duplicate addresses or peripheral IDs detected.\nAddress map: {:?}\nPeripheral ID map: {:?}", &self.addrs, &self.pids));
+                return Err(format!(
+                    "Duplicate addresses or peripheral IDs detected.\nAddress map: {:?}\nPeripheral ID map: {:?}",
+                    &self.addrs, &self.pids
+                ));
             }
         }
 

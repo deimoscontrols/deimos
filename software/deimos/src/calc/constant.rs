@@ -4,14 +4,15 @@ use super::*;
 use crate::{calc_config, calc_input_names, calc_output_names};
 
 /// Simplest calc that does anything at all
-#[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default)]
 pub struct Constant {
     // User inputs
     y: f64,
     save_outputs: bool,
 
     // Values provided by calc orchestrator during init
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     output_index: usize,
 }
 
@@ -28,7 +29,7 @@ impl Constant {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "ser", typetag::serde)]
 impl Calc for Constant {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, _: ControllerCtx, _: Vec<usize>, output_range: Range<usize>) {

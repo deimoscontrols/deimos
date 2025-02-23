@@ -1,16 +1,19 @@
 use super::Peripheral;
 use crate::calc::{Affine, Calc, InverseAffine, RtdPt100, TcKtype};
-use deimos_shared::peripherals::{analog_i_rev_4::*, model_numbers, PeripheralId};
 use deimos_shared::OperatingMetrics;
-use serde::{Deserialize, Serialize};
+use deimos_shared::peripherals::{PeripheralId, analog_i_rev_4::*, model_numbers};
 use std::collections::BTreeMap;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg(feature = "ser")]
+use serde::{Deserialize, Serialize};
+
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct AnalogIRev4 {
     pub serial_number: u64,
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "ser", typetag::serde)]
 impl Peripheral for AnalogIRev4 {
     fn id(&self) -> PeripheralId {
         PeripheralId {
@@ -125,7 +128,7 @@ impl Peripheral for AnalogIRev4 {
             // v_sensed = 250e-6 amps * r_sensed * 25.7
             // => r_sensed = v_sensed / (250e-6 * 25.7)
             let slope = 250e-6 * 25.7;
-            let resistance_calc = InverseAffine::new(input_name, slope, 0.0, true);
+            let resistance_calc = InverseAffine::new(input_name, slope, 0.0, false);
             let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
             calcs.insert(resistance_calc_name, Box::new(resistance_calc));
             calcs.insert(temperature_calc_name.clone(), Box::new(temperature_calc));
@@ -179,7 +182,7 @@ impl Peripheral for AnalogIRev4 {
                 let voltage_calc_name = format!("{name}_tc_{n}_voltage_V");
                 let temperature_calc_name = format!("{name}_tc_{n}_temp_K");
 
-                let voltage_calc = InverseAffine::new(input_name, slope, offset, true);
+                let voltage_calc = InverseAffine::new(input_name, slope, offset, false);
                 let temperature_calc = TcKtype::new(
                     format!("{voltage_calc_name}.y"),
                     format!("{name}_board_temp.temperature_K"),

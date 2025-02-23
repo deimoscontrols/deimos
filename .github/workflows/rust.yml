@@ -17,12 +17,20 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Get latest rustc
+      run: rustup update
     - name: Format
       run: cargo fmt --check --verbose
     - name: Lint
-      run: cargo clippy
+      run: cargo clippy --all-features
     - name: Run tests
       run: |
-        cargo test --verbose
-        cargo run --example ipc_plugin
-        cargo run --example sideloading
+        cargo test --verbose --no-default-features
+        cargo test --verbose --features=tsdb
+        cargo test --verbose --features=df
+        cargo test --verbose --features=ser
+        cargo test --verbose --features=affinity
+        cargo test --verbose --features=sideloading
+        cargo test --verbose --all-features
+        cargo run --example ipc_plugin --features=df,ser
+        cargo run --example sideloading --features=sideloading,ser

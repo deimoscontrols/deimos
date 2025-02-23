@@ -1,5 +1,22 @@
 # Changelog
 
+## 2025-02-23 deimos 0.7.0
+
+Place functionality not required to run the base control program behind feature flags,
+including serialization, user channels, and manipulation of thread priority and core affinity.
+This reduces the base set of deps to 21, only 8 of which are not either proc macros or build deps.
+
+### Changed
+
+* !Roll forward to 2024 edition
+* !Eliminate default features
+* !Put serialization behind a feature flag
+* !Put sideloading thread channels behind a feature flag
+* !Put thread priority and core affinity behind a feature flag
+* !Rename `SuperSocket` trait and types to `Socket`
+* Reduce saved intermediate calcs in standard calcs for AnalogIRev{3,4}
+* Include all features in docs
+
 ## 2025-02-22 Hardware - Analog I Rev 4.0.2
 
 ### Changed

@@ -1,7 +1,9 @@
 //! Serializable thread channel to allow user sideloading
 //! of comms between the controller's appendages
 
-use crossbeam::channel::{bounded, Receiver, Sender};
+use crossbeam::channel::{Receiver, Sender, bounded};
+
+#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 /// A basic set of message types that can be passed along a user channel
@@ -20,11 +22,12 @@ pub enum Msg {
 /// endpoints) when deserialized.
 ///
 /// The channel buffers hold a maximum of 10 messages.
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default)]
 pub struct Channel {
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     ch0: ChannelInner,
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     ch1: ChannelInner,
 }
 
@@ -49,9 +52,10 @@ impl Channel {
 /// Channel endpoint for either a source or sink.
 ///
 /// The channel buffers hold a maximum of 10 messages.
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default)]
 pub struct Endpoint {
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     ch: ChannelInner,
 }
 

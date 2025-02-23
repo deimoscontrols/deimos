@@ -1,12 +1,12 @@
-use std::collections::BTreeMap;
+//! Peripherals are timing-controlled external I/O modules, usually a DAQ
 
-use typetag;
+use std::collections::BTreeMap;
 
 use core::fmt::Debug;
 
 use super::calc::*;
 use deimos_shared::{
-    peripherals::{model_numbers, ModelNumber},
+    peripherals::{ModelNumber, model_numbers},
     states::*,
 };
 
@@ -36,7 +36,7 @@ pub type PluginMap<'a> = BTreeMap<ModelNumber, &'a PluginFn>;
 ///
 /// This is a representation from the perspective of
 /// the application-side controller.
-#[typetag::serde(tag = "type")]
+#[cfg_attr(feature = "ser", typetag::serde(tag = "type"))]
 pub trait Peripheral: Send + Sync + Debug {
     /// Unique device ID combining model number and serial number
     fn id(&self) -> PeripheralId;

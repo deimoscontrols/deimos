@@ -2,20 +2,19 @@
 //! database and write to that table.
 
 use std::io::Write;
-use std::sync::mpsc::{channel, Sender};
-use std::thread::{self, spawn, JoinHandle};
+use std::sync::mpsc::{Sender, channel};
+use std::thread::{self, JoinHandle, spawn};
 use std::time::{Duration, SystemTime};
-
-use core_affinity::CoreId;
 
 use postgres::{Client, NoTls, Statement};
 use postgres_types::{ToSql, Type};
 
+#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 use crate::controller::context::ControllerCtx;
 
-use super::{csv_row, Dispatcher};
+use super::{Dispatcher, csv_row};
 
 /// Either reuse or create a new table in a TimescaleDB postgres
 /// database and write to that table.
@@ -28,7 +27,8 @@ use super::{csv_row, Dispatcher};
 ///
 /// Does not support TLS, and as a result, is recommended for communication with databases
 /// on the same internal network, not on the open web.
-#[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default)]
 pub struct TimescaleDbDispatcher {
     /// Name of the database. The table name will be the controller's op name.
     dbname: String,
@@ -49,7 +49,7 @@ pub struct TimescaleDbDispatcher {
     /// Duration for which data will be retained in the database
     retention_time_hours: u64,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     worker: Option<WorkerHandle>,
 }
 
@@ -76,14 +76,14 @@ impl TimescaleDbDispatcher {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "ser", typetag::serde)]
 impl Dispatcher for TimescaleDbDispatcher {
     /// Connect to the database and either reuse an existing table, or make a new one
     fn init(
         &mut self,
         ctx: &ControllerCtx,
         channel_names: &[String],
-        core_assignment: CoreId,
+        #[cfg(feature = "affinity")] core_assignment: usize,
     ) -> Result<(), String> {
         // Shut down any existing workers by dropping their tx handle
         self.worker = None;
@@ -118,6 +118,7 @@ impl Dispatcher for TimescaleDbDispatcher {
             channel_names,
             ctx.op_name.to_owned(),
             n_buffer,
+            #[cfg(feature = "affinity")]
             core_assignment,
         ));
 
@@ -164,7 +165,7 @@ impl WorkerHandle {
         channel_names: &[String],
         table_name: String,
         n_buffer: usize,
-        core_assignment: CoreId,
+        #[cfg(feature = "affinity")] core_assignment: usize,
     ) -> Self {
         let (tx, rx) = channel::<(SystemTime, i64, Vec<f64>)>();
         let channel_names: Vec<String> = channel_names.to_vec();
@@ -172,11 +173,16 @@ impl WorkerHandle {
         // Run database I/O on a separate thread to avoid blocking controller
         let _thread = spawn(move || {
             // Bind to assigned core, and set priority only if the core is not shared with the control loop
-            core_affinity::set_for_current(core_assignment);
-            if core_assignment.id > 0 {
-                let _ = thread_priority::set_current_thread_priority(
-                    thread_priority::ThreadPriority::Max,
-                );
+            #[cfg(feature = "affinity")]
+            {
+                core_affinity::set_for_current(core_affinity::CoreId {
+                    id: core_assignment,
+                });
+                if core_assignment > 0 {
+                    let _ = thread_priority::set_current_thread_priority(
+                        thread_priority::ThreadPriority::Max,
+                    );
+                }
             }
 
             // Connect to database

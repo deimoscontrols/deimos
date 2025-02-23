@@ -11,6 +11,9 @@ authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/deimoscontrols/deimos"
 
+[workspace.metadata."docs.rs"]
+all-features = true
+
 [profile.release]
 opt-level = 3
 codegen-units = 1

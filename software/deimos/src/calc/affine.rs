@@ -4,7 +4,8 @@ use super::*;
 use crate::{calc_config, calc_input_names, calc_output_names};
 
 /// A slope and offset, y = ax + b
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 pub struct Affine {
     // User inputs
     input_name: String,
@@ -13,10 +14,10 @@ pub struct Affine {
     save_outputs: bool,
 
     // Values provided by calc orchestrator during init
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     input_index: usize,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     output_index: usize,
 }
 
@@ -39,7 +40,7 @@ impl Affine {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "ser", typetag::serde)]
 impl Calc for Affine {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, _: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {

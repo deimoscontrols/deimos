@@ -12,7 +12,10 @@ use deimos::{
     controller::channel::{Endpoint, Msg},
     dispatcher::fmt_time,
 };
+
+#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
+
 use std::{
     collections::BTreeMap,
     ops::Range,
@@ -54,24 +57,32 @@ fn main() {
         Box::new(Listener::new("speaker.y", "time channel")),
     );
 
+    // Serialize and deserialize the controller (for demonstration purposes)
+    #[cfg(feature = "ser")]
+    {
+        let serialized_controller = serde_json::to_string_pretty(&controller).unwrap();
+        let _: Controller = serde_json::from_str(&serialized_controller).unwrap();
+    }
+
     // Run to planned termination
     controller.run(&None).unwrap();
 }
 
 /// A dummy calc that calls out the time on a channel each cycle
-#[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default)]
 pub struct Speaker {
     // User inputs
     channel_name: String,
     save_outputs: bool,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     endpoint: Endpoint,
 
     prefix: String,
 
     // Values provided by calc orchestrator during init
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     output_index: usize,
 }
 
@@ -91,7 +102,7 @@ impl Speaker {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "ser", typetag::serde)]
 impl Calc for Speaker {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, ctx: ControllerCtx, _input_indices: Vec<usize>, output_range: Range<usize>) {
@@ -135,29 +146,30 @@ impl Calc for Speaker {
 }
 
 /// A dummy calc that receives time from a listener and prints it to the terminal
-#[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default)]
 pub struct Listener {
     // User inputs
-    input_name: String,
+    // input_name: String,
     channel_name: String,
     save_outputs: bool,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     endpoint: Endpoint,
 
     // Values provided by calc orchestrator during init
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     output_index: usize,
 }
 
 impl Listener {
-    pub fn new(input_name: &str, channel_name: &str) -> Self {
+    pub fn new(_input_name: &str, channel_name: &str) -> Self {
         // These will be set during init.
         // Use default indices that will cause an error on the first call if not initialized properly
         let output_index = usize::MAX;
 
         Self {
-            input_name: input_name.to_owned(),
+            // input_name: input_name.to_owned(),
             channel_name: channel_name.to_owned(),
             save_outputs: false,
             endpoint: Endpoint::default(),
@@ -166,7 +178,7 @@ impl Listener {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "ser", typetag::serde)]
 impl Calc for Listener {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, ctx: ControllerCtx, _input_indices: Vec<usize>, output_range: Range<usize>) {

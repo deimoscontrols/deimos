@@ -4,7 +4,8 @@ use super::*;
 use crate::{calc_config, calc_input_names, calc_output_names};
 
 /// A PID controller with simple saturation for anti-windup
-#[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default)]
 pub struct Pid {
     // User inputs
     measurement_name: String,
@@ -22,10 +23,10 @@ pub struct Pid {
     // Values provided by calc orchestrator during init
     dt_s: f64,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     input_indices: Vec<usize>,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     output_index: usize,
 }
 
@@ -67,7 +68,7 @@ impl Pid {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "ser", typetag::serde)]
 impl Calc for Pid {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {

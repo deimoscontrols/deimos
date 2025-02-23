@@ -1,20 +1,22 @@
-//! Implementation of SuperSocket trait for stdlib unix datagram socket,
+//! Implementation of Socket trait for stdlib unix datagram socket,
 //! which provides inter-process communication for peripherals that are
 //! defined in software, or a bridge to an arbitrary data source.
 
 use std::collections::BTreeMap;
-use std::os::unix::net::{SocketAddr, UnixDatagram};
+use std::os::unix::net; //{SocketAddr, UnixDatagram};
 use std::path::PathBuf;
 use std::time::Instant;
 
+#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 use super::*;
 use deimos_shared::peripherals::PeripheralId;
 
-/// Implementation of SuperSocket trait for stdlib UDP socket on IPV4
-#[derive(Serialize, Deserialize, Default)]
-pub struct UnixSuperSocket {
+/// Implementation of Socket trait for stdlib UDP socket on IPV4
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default)]
+pub struct UnixSocket {
     /// The name of the socket will be combined with the op directory
     /// to make a socket address like {op_dir}/sock/{name} .
     /// Peripheral sockets are expected in {op_dir}/sock/per/* .
@@ -25,21 +27,21 @@ pub struct UnixSuperSocket {
     /// the controller in different folder structures.
     name: String,
 
-    #[serde(skip)]
-    socket: Option<UnixDatagram>,
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
+    socket: Option<net::UnixDatagram>,
+    #[cfg_attr(feature = "ser", serde(skip))]
     rxbuf: Vec<u8>,
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     addrs: BTreeMap<PeripheralId, PathBuf>,
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     pids: BTreeMap<PathBuf, PeripheralId>,
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     last_received_addr: Option<PathBuf>,
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     ctx: ControllerCtx,
 }
 
-impl UnixSuperSocket {
+impl UnixSocket {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_owned(),
@@ -68,8 +70,8 @@ impl UnixSuperSocket {
     ///
     /// * If socket path length exceeds platform maximum characters
     ///   for a unix socket (about 94-108 depending on platform)
-    pub fn addr(&self) -> Result<SocketAddr, String> {
-        SocketAddr::from_pathname(self.path())
+    pub fn addr(&self) -> Result<net::SocketAddr, String> {
+        net::SocketAddr::from_pathname(self.path())
             .map_err(|e| format!("Unable to form socket address for `{}`: {}", self.name, e))
     }
 
@@ -79,8 +81,8 @@ impl UnixSuperSocket {
     }
 }
 
-#[typetag::serde]
-impl SuperSocket for UnixSuperSocket {
+#[cfg_attr(feature = "ser", typetag::serde)]
+impl Socket for UnixSocket {
     fn is_open(&self) -> bool {
         self.socket.is_some()
     }
@@ -95,7 +97,7 @@ impl SuperSocket for UnixSuperSocket {
                 .map_err(|e| format!("Unable to create socket folders: {e}"))?;
 
             // Bind the socket
-            let socket = UnixDatagram::bind(self.path())
+            let socket = net::UnixDatagram::bind(self.path())
                 .map_err(|e| format!("Unable to bind unix socket: {e}"))?;
             socket
                 .set_nonblocking(true)
@@ -217,7 +219,10 @@ impl SuperSocket for UnixSuperSocket {
             self.pids.insert(addr.clone(), id);
 
             if self.addrs.len() != self.pids.len() {
-                return Err(format!("Duplicate addresses or peripheral IDs detected.\nAddress map: {:?}\nPeripheral ID map: {:?}", &self.addrs, &self.pids));
+                return Err(format!(
+                    "Duplicate addresses or peripheral IDs detected.\nAddress map: {:?}\nPeripheral ID map: {:?}",
+                    &self.addrs, &self.pids
+                ));
             }
         }
 

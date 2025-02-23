@@ -7,33 +7,33 @@ use std::{
     time::SystemTime,
 };
 
-use core_affinity::CoreId;
-
+#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 use crate::controller::context::ControllerCtx;
 
-use super::{fmt_time, header_columns, Dispatcher, Overflow};
+use super::{Dispatcher, Overflow, fmt_time, header_columns};
 
 /// Store collected data in in-memory columns, moving columns into
 /// a dataframe behind a shared reference at termination.
 ///
 /// To avoid deadlocks, the dataframe is not updated until after
 /// the run is complete. The dataframe is cleared at the start of each run.
-#[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default)]
 pub struct DataFrameDispatcher {
     max_size_megabytes: usize,
     overflow_behavior: Overflow,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     df: Arc<RwLock<DataFrame>>,
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     channel_names: Vec<String>,
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     nrows: usize,
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     row_index: usize,
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     cols: (Vec<String>, Vec<i64>, Vec<Vec<f64>>),
 }
 
@@ -81,13 +81,13 @@ impl DataFrameDispatcher {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "ser", typetag::serde)]
 impl Dispatcher for DataFrameDispatcher {
     fn init(
         &mut self,
         _ctx: &ControllerCtx,
         channel_names: &[String],
-        _core_assignment: CoreId,
+        #[cfg(feature = "affinity")] _core_assignment: usize,
     ) -> Result<(), String> {
         // Store channel names for
         self.channel_names = channel_names.to_vec();

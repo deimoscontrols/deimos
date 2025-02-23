@@ -6,7 +6,8 @@ use super::*;
 use crate::{calc_config, calc_input_names, calc_output_names};
 
 /// Sin wave between `low` and `high` with a period of `period_s` and phase offset of `offset_s`
-#[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default)]
 pub struct Sin {
     // User inputs
     period_s: f64,
@@ -16,16 +17,16 @@ pub struct Sin {
     save_outputs: bool,
 
     // Values provided by calc orchestrator during init
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     output_index: usize,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     rad_per_cycle: f64,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     angle_rad: f64,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "ser", serde(skip))]
     scale: f64,
 }
 
@@ -54,7 +55,7 @@ impl Sin {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "ser", typetag::serde)]
 impl Calc for Sin {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, ctx: ControllerCtx, _input_indices: Vec<usize>, output_range: Range<usize>) {
