@@ -7,6 +7,8 @@
 * !Roll forward to 2024 edition
 * !Eliminate default features
 * !Put serialization behind a feature flag
+* !Put sideloading thread channels behind a feature flag
+* !Put thread priority and core affinity behind a feature flag
 * !Rename `SuperSocket` trait and types to `Socket`
 * Reduce saved intermediate calcs in standard calcs for AnalogIRev{3,4}
 * Include all features in docs
