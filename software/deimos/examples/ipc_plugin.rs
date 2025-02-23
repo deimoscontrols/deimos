@@ -14,7 +14,7 @@
 
 use std::{
     collections::BTreeMap,
-    os::unix::net::{SocketAddr, UnixDatagram},
+    os::unix::net,
     sync::{Arc, RwLock},
     thread::{self, JoinHandle},
     time::{Duration, Instant, SystemTime},
@@ -22,15 +22,15 @@ use std::{
 
 // For defining the peripheral mockup
 use deimos_shared::{
+    OperatingMetrics,
     peripherals::{
+        PeripheralId,
         analog_i_rev_3::operating_roundtrip::{OperatingRoundtripInput, OperatingRoundtripOutput},
         model_numbers::EXPERIMENTAL_MODEL_NUMBER,
-        PeripheralId,
     },
     states::{
         BindingInput, BindingOutput, ByteStruct, ByteStructLen, ConfiguringInput, ConfiguringOutput,
     },
-    OperatingMetrics,
 };
 use polars::frame::DataFrame;
 use serde::{Deserialize, Serialize};
@@ -38,14 +38,12 @@ use serde::{Deserialize, Serialize};
 // For using the controller
 use deimos::{
     calc::Calc,
+    controller::context::{ControllerCtx, Termination},
+    dispatcher::{DataFrameDispatcher, Overflow, fmt_time},
     peripheral::{Peripheral, PluginMap},
+    socket::unix::UnixSocket,
     *,
 };
-use deimos::{
-    controller::context::{ControllerCtx, Termination},
-    dispatcher::{fmt_time, DataFrameDispatcher, Overflow},
-};
-use socket::unix::UnixSuperSocket;
 
 fn main() {
     // Clear sockets
@@ -67,7 +65,7 @@ fn main() {
 
     // Remove the default UDP socket and add a unix socket
     controller.clear_sockets();
-    controller.add_socket(Box::new(UnixSuperSocket::new("ipc_ex")));
+    controller.add_socket(Box::new(UnixSocket::new("ipc_ex")));
 
     // Add an in-memory data target
     let df_handle = Arc::new(RwLock::new(DataFrame::empty()));
@@ -96,7 +94,7 @@ fn main() {
     controller.scan(100, &plugins);
 
     // Open a socket for the peripheral mockup
-    let sock = UnixDatagram::bind("./sock/per/mockup").unwrap();
+    let sock = net::UnixDatagram::bind("./sock/per/mockup").unwrap();
     sock.set_nonblocking(true).unwrap();
 
     // Start the in-memory peripheral on a another thread,
@@ -218,18 +216,18 @@ impl Peripheral for IpcMockup {
 enum PState {
     Binding {
         end: SystemTime,
-        sock: UnixDatagram,
+        sock: net::UnixDatagram,
     },
     Configuring {
-        controller: SocketAddr,
+        controller: net::SocketAddr,
         timeout: Duration,
         end: SystemTime,
-        sock: UnixDatagram,
+        sock: net::UnixDatagram,
     },
     Operating {
-        controller: SocketAddr,
+        controller: net::SocketAddr,
         end: SystemTime,
-        sock: UnixDatagram,
+        sock: net::UnixDatagram,
     },
     Terminated,
 }
@@ -238,13 +236,15 @@ impl PState {
     /// Run state machine until arriving at Terminated
     fn run(self) -> JoinHandle<()> {
         let mut state = self;
-        thread::spawn(|| loop {
-            state = match state.step() {
-                Self::Terminated => {
-                    println!("Peripheral -> Terminated");
-                    return;
+        thread::spawn(|| {
+            loop {
+                state = match state.step() {
+                    Self::Terminated => {
+                        println!("Peripheral -> Terminated");
+                        return;
+                    }
+                    x => x,
                 }
-                x => x,
             }
         })
     }

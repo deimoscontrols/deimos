@@ -7,8 +7,9 @@
 * !Roll forward to 2024 edition
 * !Eliminate default features
 * !Put serialization behind a feature flag
-* !Rename `SuperSocket` trait and types to `PSocket`
+* !Rename `SuperSocket` trait and types to `Socket`
 * Reduce saved intermediate calcs in standard calcs for AnalogIRev{3,4}
+* Include all features in docs
 
 ## 2025-02-22 Hardware - Analog I Rev 4.0.2
 

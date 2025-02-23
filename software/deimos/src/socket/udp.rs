@@ -1,7 +1,7 @@
-//! Implementation of PSocket trait for stdlib UDP socket on IPV4
+//! Implementation of Socket trait for stdlib UDP socket on IPV4
 
 use std::collections::BTreeMap;
-use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
+use std::net::Ipv4Addr;
 use std::time::Instant;
 
 #[cfg(feature = "ser")]
@@ -13,23 +13,23 @@ use super::*;
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::{CONTROLLER_RX_PORT, PERIPHERAL_RX_PORT};
 
-/// Implementation of PSocket trait for stdlib UDP socket on IPV4
+/// Implementation of Socket trait for stdlib UDP socket on IPV4
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 #[derive(Default)]
-pub struct UdpPSocket {
+pub struct UdpSocket {
     #[cfg_attr(feature = "ser", serde(skip))]
-    socket: Option<UdpSocket>,
+    socket: Option<std::net::UdpSocket>,
     #[cfg_attr(feature = "ser", serde(skip))]
     rxbuf: Vec<u8>,
     #[cfg_attr(feature = "ser", serde(skip))]
-    addrs: BTreeMap<PeripheralId, SocketAddr>,
+    addrs: BTreeMap<PeripheralId, std::net::SocketAddr>,
     #[cfg_attr(feature = "ser", serde(skip))]
-    pids: BTreeMap<SocketAddr, PeripheralId>,
+    pids: BTreeMap<std::net::SocketAddr, PeripheralId>,
     #[cfg_attr(feature = "ser", serde(skip))]
-    last_received_addr: Option<SocketAddr>,
+    last_received_addr: Option<std::net::SocketAddr>,
 }
 
-impl UdpPSocket {
+impl UdpSocket {
     pub fn new() -> Self {
         Self {
             rxbuf: vec![0; 1522],
@@ -42,7 +42,7 @@ impl UdpPSocket {
 }
 
 #[cfg_attr(feature = "ser", typetag::serde)]
-impl PSocket for UdpPSocket {
+impl Socket for UdpSocket {
     fn is_open(&self) -> bool {
         self.socket.is_some()
     }
@@ -50,7 +50,7 @@ impl PSocket for UdpPSocket {
     fn open(&mut self, _ctx: &ControllerCtx) -> Result<(), String> {
         if self.socket.is_none() {
             // Socket populated on access
-            let socket = UdpSocket::bind(format!("0.0.0.0:{CONTROLLER_RX_PORT}"))
+            let socket = std::net::UdpSocket::bind(format!("0.0.0.0:{CONTROLLER_RX_PORT}"))
                 .map_err(|e| format!("Unable to bind UDP socket: {e}"))?;
             socket
                 .set_nonblocking(true)

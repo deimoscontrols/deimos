@@ -26,8 +26,8 @@ use thread_priority::DeadlineFlags;
 
 use crate::calc::Orchestrator;
 use crate::dispatcher::Dispatcher;
-use crate::socket::udp::UdpPSocket;
-use crate::socket::{PSocket, PSocketAddr};
+use crate::socket::udp::UdpSocket;
+use crate::socket::{Socket, SocketAddr};
 use context::{ControllerCtx, LossOfContactPolicy, Termination};
 use controller_state::ControllerState;
 use timing::TimingPID;
@@ -41,7 +41,7 @@ pub struct Controller {
     ctx: ControllerCtx,
 
     // Appendages
-    sockets: Vec<Box<dyn PSocket>>,
+    sockets: Vec<Box<dyn Socket>>,
     dispatchers: Vec<Box<dyn Dispatcher>>,
     peripherals: BTreeMap<String, Box<dyn Peripheral>>,
     orchestrator: Orchestrator,
@@ -50,7 +50,7 @@ pub struct Controller {
 impl Default for Controller {
     fn default() -> Self {
         // Include a UDP socket by default, but otherwise blank
-        let sockets: Vec<Box<dyn PSocket>> = vec![Box::new(UdpPSocket::new())];
+        let sockets: Vec<Box<dyn Socket>> = vec![Box::new(UdpSocket::new())];
 
         let dispatchers = Vec::new();
         let peripherals = BTreeMap::new();
@@ -101,7 +101,7 @@ impl Controller {
     }
 
     /// Register a socket
-    pub fn add_socket(&mut self, socket: Box<dyn PSocket>) {
+    pub fn add_socket(&mut self, socket: Box<dyn Socket>) {
         self.sockets.push(socket);
     }
 
@@ -164,11 +164,11 @@ impl Controller {
     /// and set configuring_timeout_ms to 0.
     pub fn bind(
         &mut self,
-        addresses: Option<&Vec<PSocketAddr>>,
+        addresses: Option<&Vec<SocketAddr>>,
         binding_timeout_ms: u16,
         configuring_timeout_ms: u16,
         plugins: &Option<PluginMap>,
-    ) -> BTreeMap<PSocketAddr, Box<dyn Peripheral>> {
+    ) -> BTreeMap<SocketAddr, Box<dyn Peripheral>> {
         // Make sure sockets are configured and ports are bound
         self.open_sockets().unwrap();
 
@@ -236,7 +236,7 @@ impl Controller {
         &mut self,
         timeout_ms: u16,
         plugins: &Option<PluginMap>,
-    ) -> BTreeMap<PSocketAddr, Box<dyn Peripheral>> {
+    ) -> BTreeMap<SocketAddr, Box<dyn Peripheral>> {
         // Ping with the longer desired timeout
         self.bind(None, timeout_ms, 0, plugins)
     }
@@ -358,7 +358,7 @@ impl Controller {
             .peripheral_state
             .keys()
             .copied()
-            .collect::<Vec<PSocketAddr>>();
+            .collect::<Vec<SocketAddr>>();
 
         // Initialize calc graph
         println!("Initializing calc orchestrator");
@@ -525,7 +525,7 @@ impl Controller {
         let start_of_operating = Instant::now();
         let cycle_duration = Duration::from_nanos(self.ctx.dt_ns as u64);
         let mut target_time = cycle_duration;
-        let mut peripheral_timing: BTreeMap<PSocketAddr, (TimingPID, MedianFilter<i64, 7>)> =
+        let mut peripheral_timing: BTreeMap<SocketAddr, (TimingPID, MedianFilter<i64, 7>)> =
             BTreeMap::new();
         for addr in controller_state.peripheral_state.keys() {
             let max_clock_rate_err = 5e-2; // at least 5% tolerance for dev units using onboard clocks

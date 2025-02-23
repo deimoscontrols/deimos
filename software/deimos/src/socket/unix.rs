@@ -1,9 +1,9 @@
-//! Implementation of PSocket trait for stdlib unix datagram socket,
+//! Implementation of Socket trait for stdlib unix datagram socket,
 //! which provides inter-process communication for peripherals that are
 //! defined in software, or a bridge to an arbitrary data source.
 
 use std::collections::BTreeMap;
-use std::os::unix::net::{SocketAddr, UnixDatagram};
+use std::os::unix::net; //{SocketAddr, UnixDatagram};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -13,10 +13,10 @@ use serde::{Deserialize, Serialize};
 use super::*;
 use deimos_shared::peripherals::PeripheralId;
 
-/// Implementation of PSocket trait for stdlib UDP socket on IPV4
+/// Implementation of Socket trait for stdlib UDP socket on IPV4
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 #[derive(Default)]
-pub struct UnixPSocket {
+pub struct UnixSocket {
     /// The name of the socket will be combined with the op directory
     /// to make a socket address like {op_dir}/sock/{name} .
     /// Peripheral sockets are expected in {op_dir}/sock/per/* .
@@ -28,7 +28,7 @@ pub struct UnixPSocket {
     name: String,
 
     #[cfg_attr(feature = "ser", serde(skip))]
-    socket: Option<UnixDatagram>,
+    socket: Option<net::UnixDatagram>,
     #[cfg_attr(feature = "ser", serde(skip))]
     rxbuf: Vec<u8>,
     #[cfg_attr(feature = "ser", serde(skip))]
@@ -41,7 +41,7 @@ pub struct UnixPSocket {
     ctx: ControllerCtx,
 }
 
-impl UnixPSocket {
+impl UnixSocket {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_owned(),
@@ -70,8 +70,8 @@ impl UnixPSocket {
     ///
     /// * If socket path length exceeds platform maximum characters
     ///   for a unix socket (about 94-108 depending on platform)
-    pub fn addr(&self) -> Result<SocketAddr, String> {
-        SocketAddr::from_pathname(self.path())
+    pub fn addr(&self) -> Result<net::SocketAddr, String> {
+        net::SocketAddr::from_pathname(self.path())
             .map_err(|e| format!("Unable to form socket address for `{}`: {}", self.name, e))
     }
 
@@ -82,7 +82,7 @@ impl UnixPSocket {
 }
 
 #[cfg_attr(feature = "ser", typetag::serde)]
-impl PSocket for UnixPSocket {
+impl Socket for UnixSocket {
     fn is_open(&self) -> bool {
         self.socket.is_some()
     }
@@ -97,7 +97,7 @@ impl PSocket for UnixPSocket {
                 .map_err(|e| format!("Unable to create socket folders: {e}"))?;
 
             // Bind the socket
-            let socket = UnixDatagram::bind(self.path())
+            let socket = net::UnixDatagram::bind(self.path())
                 .map_err(|e| format!("Unable to bind unix socket: {e}"))?;
             socket
                 .set_nonblocking(true)
