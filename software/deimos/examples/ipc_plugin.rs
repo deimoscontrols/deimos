@@ -109,6 +109,13 @@ fn main() {
     let scan_result = controller.scan(100, &plugins);
     println!("Scan found:\n{:?}", scan_result.values());
 
+    // Serialize and deserialize the controller (for demonstration purposes)
+    #[cfg(feature = "ser")]
+    {
+        let serialized_controller = serde_json::to_string_pretty(&controller).unwrap();
+        let _: Controller = serde_json::from_str(&serialized_controller).unwrap();
+    }
+
     // Start the controller
     let exit_status = controller.run(&plugins);
     println!("Controller exit status: {exit_status:?}");

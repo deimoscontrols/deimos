@@ -57,6 +57,13 @@ fn main() {
         Box::new(Listener::new("speaker.y", "time channel")),
     );
 
+    // Serialize and deserialize the controller (for demonstration purposes)
+    #[cfg(feature = "ser")]
+    {
+        let serialized_controller = serde_json::to_string_pretty(&controller).unwrap();
+        let _: Controller = serde_json::from_str(&serialized_controller).unwrap();
+    }
+
     // Run to planned termination
     controller.run(&None).unwrap();
 }
