@@ -128,7 +128,7 @@ impl Peripheral for AnalogIRev4 {
             // v_sensed = 250e-6 amps * r_sensed * 25.7
             // => r_sensed = v_sensed / (250e-6 * 25.7)
             let slope = 250e-6 * 25.7;
-            let resistance_calc = InverseAffine::new(input_name, slope, 0.0, true);
+            let resistance_calc = InverseAffine::new(input_name, slope, 0.0, false);
             let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
             calcs.insert(resistance_calc_name, Box::new(resistance_calc));
             calcs.insert(temperature_calc_name.clone(), Box::new(temperature_calc));
@@ -163,7 +163,7 @@ impl Peripheral for AnalogIRev4 {
                 // v_sensed = 250e-6 amps * r_sensed * 25.7
                 // => r_sensed = v_sensed / (250e-6 * 25.7)
                 let slope = 250e-6 * 25.7;
-                let resistance_calc = InverseAffine::new(input_name, slope, 0.0, true);
+                let resistance_calc = InverseAffine::new(input_name, slope, 0.0, false);
                 let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
                 calcs.insert(resistance_calc_name, Box::new(resistance_calc));
                 calcs.insert(temperature_calc_name, Box::new(temperature_calc));
@@ -182,7 +182,7 @@ impl Peripheral for AnalogIRev4 {
                 let voltage_calc_name = format!("{name}_tc_{n}_voltage_V");
                 let temperature_calc_name = format!("{name}_tc_{n}_temp_K");
 
-                let voltage_calc = InverseAffine::new(input_name, slope, offset, true);
+                let voltage_calc = InverseAffine::new(input_name, slope, offset, false);
                 let temperature_calc = TcKtype::new(
                     format!("{voltage_calc_name}.y"),
                     format!("{name}_board_temp.temperature_K"),
