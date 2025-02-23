@@ -11,7 +11,14 @@ pub use controller::{
     context::{ControllerCtx, LossOfContactPolicy, Termination},
     Controller,
 };
-pub use dispatcher::{CsvDispatcher, Dispatcher, TimescaleDbDispatcher};
+pub use dispatcher::{CsvDispatcher, Dispatcher};
 pub use socket::{
     udp::UdpSuperSocket, unix::UnixSuperSocket, SuperSocket, SuperSocketAddr, SuperSocketId,
 };
+
+
+#[cfg(feature="tsdb")]
+pub use dispatcher::TimescaleDbDispatcher;
+
+#[cfg(feature="df")]
+pub use dispatcher::DataFrameDispatcher;

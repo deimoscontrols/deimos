@@ -23,6 +23,6 @@ jobs:
       run: cargo clippy
     - name: Run tests
       run: |
-        cargo test --verbose
+        cargo test --verbose --all-features
         cargo run --example ipc_plugin
         cargo run --example sideloading
