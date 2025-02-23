@@ -63,8 +63,7 @@ impl Dispatcher for CsvDispatcher {
         &mut self,
         ctx: &ControllerCtx,
         channel_names: &[String],
-        #[cfg(feature = "affinity")]
-        core_assignment: usize,
+        #[cfg(feature = "affinity")] core_assignment: usize,
     ) -> Result<(), String> {
         // Shut down any existing workers by dropping their tx handle
         self.worker = None;
@@ -125,8 +124,7 @@ impl WorkerHandle {
         header: String,
         total_size: usize,
         overflow_behavior: Overflow,
-        #[cfg(feature = "affinity")]
-        core_assignment: usize,
+        #[cfg(feature = "affinity")] core_assignment: usize,
     ) -> Self {
         let (tx, rx) = channel::<(SystemTime, i64, Vec<f64>)>();
 

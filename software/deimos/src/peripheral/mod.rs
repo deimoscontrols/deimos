@@ -6,7 +6,7 @@ use core::fmt::Debug;
 
 use super::calc::*;
 use deimos_shared::{
-    peripherals::{model_numbers, ModelNumber},
+    peripherals::{ModelNumber, model_numbers},
     states::*,
 };
 

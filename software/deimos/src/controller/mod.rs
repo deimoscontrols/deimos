@@ -1,6 +1,8 @@
 //! Control loop and integration with data pipeline and calc orchestrator
 
+#[cfg(feature = "sideloading")]
 pub mod channel;
+
 pub mod context;
 mod controller_state;
 mod peripheral_state;
@@ -308,7 +310,7 @@ impl Controller {
             // other than the control loop. Because many modern CPUs present one extra fake "core"
             // per real core due to hyperthreading functionality, only every second core is
             // assumed to represent a real independent computing resource.
-            let mut aux_core_cycle;
+            let aux_core_cycle;
             if n_cores > 2 {
                 aux_core_cycle = core_ids[2..].iter().step_by(2).cycle();
             } else {

@@ -46,8 +46,7 @@ pub trait Dispatcher: Send + Sync {
         &mut self,
         ctx: &ControllerCtx,
         channel_names: &[String],
-        #[cfg(feature = "affinity")]
-        core_assignment: usize,
+        #[cfg(feature = "affinity")] core_assignment: usize,
     ) -> Result<(), String>;
 
     /// Ingest a row of data

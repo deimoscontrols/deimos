@@ -219,7 +219,10 @@ impl Socket for UnixSocket {
             self.pids.insert(addr.clone(), id);
 
             if self.addrs.len() != self.pids.len() {
-                return Err(format!("Duplicate addresses or peripheral IDs detected.\nAddress map: {:?}\nPeripheral ID map: {:?}", &self.addrs, &self.pids));
+                return Err(format!(
+                    "Duplicate addresses or peripheral IDs detected.\nAddress map: {:?}\nPeripheral ID map: {:?}",
+                    &self.addrs, &self.pids
+                ));
             }
         }
 

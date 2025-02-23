@@ -1,7 +1,7 @@
 //! Serializable thread channel to allow user sideloading
 //! of comms between the controller's appendages
 
-use crossbeam::channel::{bounded, Receiver, Sender};
+use crossbeam::channel::{Receiver, Sender, bounded};
 
 #[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};

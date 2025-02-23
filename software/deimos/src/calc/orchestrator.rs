@@ -236,7 +236,9 @@ impl Orchestrator {
             // Check depth
             traversal_iterations += 1;
             if traversal_iterations > max_depth {
-                panic!("Exceeded maximum number of iterations while building calc graph evaluation order");
+                panic!(
+                    "Exceeded maximum number of iterations while building calc graph evaluation order"
+                );
             }
 
             // Loop over calcs and find the ones that are ready to evaluate next

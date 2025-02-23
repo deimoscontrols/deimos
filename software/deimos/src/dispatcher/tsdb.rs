@@ -120,7 +120,8 @@ impl Dispatcher for TimescaleDbDispatcher {
             channel_names,
             ctx.op_name.to_owned(),
             n_buffer,
-            #[cfg(feature = "affinity")] core_assignment,
+            #[cfg(feature = "affinity")]
+            core_assignment,
         ));
 
         Ok(())

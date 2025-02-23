@@ -147,7 +147,10 @@ impl Socket for UdpSocket {
             // If there are duplicate addresses _or_ duplicate IDs, the number of entries
             // in the maps won't match.
             if self.addrs.len() != self.pids.len() {
-                return Err(format!("Duplicate addresses or peripheral IDs detected.\nAddress map: {:?}\nPeripheral ID map: {:?}", &self.addrs, &self.pids));
+                return Err(format!(
+                    "Duplicate addresses or peripheral IDs detected.\nAddress map: {:?}\nPeripheral ID map: {:?}",
+                    &self.addrs, &self.pids
+                ));
             }
         }
 

@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::controller::context::ControllerCtx;
 
-use super::{fmt_time, header_columns, Dispatcher, Overflow};
+use super::{Dispatcher, Overflow, fmt_time, header_columns};
 
 /// Store collected data in in-memory columns, moving columns into
 /// a dataframe behind a shared reference at termination.
@@ -87,8 +87,7 @@ impl Dispatcher for DataFrameDispatcher {
         &mut self,
         _ctx: &ControllerCtx,
         channel_names: &[String],
-        #[cfg(feature = "affinity")]
-        _core_assignment: usize,
+        #[cfg(feature = "affinity")] _core_assignment: usize,
     ) -> Result<(), String> {
         // Store channel names for
         self.channel_names = channel_names.to_vec();

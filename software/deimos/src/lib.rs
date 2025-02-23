@@ -8,17 +8,14 @@ pub mod peripheral;
 pub mod socket;
 
 pub use controller::{
-    context::{ControllerCtx, LossOfContactPolicy, Termination},
     Controller,
+    context::{ControllerCtx, LossOfContactPolicy, Termination},
 };
 pub use dispatcher::{CsvDispatcher, Dispatcher};
-pub use socket::{
-    udp::UdpSocket, unix::UnixSocket, Socket, SocketAddr, SocketId,
-};
+pub use socket::{Socket, SocketAddr, SocketId, udp::UdpSocket, unix::UnixSocket};
 
-
-#[cfg(feature="tsdb")]
+#[cfg(feature = "tsdb")]
 pub use dispatcher::TimescaleDbDispatcher;
 
-#[cfg(feature="df")]
+#[cfg(feature = "df")]
 pub use dispatcher::DataFrameDispatcher;
