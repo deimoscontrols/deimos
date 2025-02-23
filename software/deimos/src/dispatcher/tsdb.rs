@@ -6,8 +6,6 @@ use std::sync::mpsc::{Sender, channel};
 use std::thread::{self, JoinHandle, spawn};
 use std::time::{Duration, SystemTime};
 
-use core_affinity::CoreId;
-
 use postgres::{Client, NoTls, Statement};
 use postgres_types::{ToSql, Type};
 

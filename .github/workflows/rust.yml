@@ -23,7 +23,12 @@ jobs:
       run: cargo clippy
     - name: Run tests
       run: |
-        cargo test --verbose
+        cargo test --verbose --no-default-features
+        cargo test --verbose --features=tsdb
+        cargo test --verbose --features=df
+        cargo test --verbose --features=ser
+        cargo test --verbose --features=affinity
+        cargo test --verbose --features=sideloading
         cargo test --verbose --all-features
         cargo run --example ipc_plugin
         cargo run --example sideloading
