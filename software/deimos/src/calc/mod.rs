@@ -23,6 +23,8 @@ mod rtd_pt100;
 mod sin;
 mod tc_ktype;
 
+pub mod machine;
+
 pub use affine::Affine;
 pub use constant::Constant;
 pub use inverse_affine::InverseAffine;
@@ -30,6 +32,7 @@ pub use pid::Pid;
 pub use rtd_pt100::RtdPt100;
 pub use sin::Sin;
 pub use tc_ktype::TcKtype;
+pub use machine::Machine;
 
 use crate::ControllerCtx;
 

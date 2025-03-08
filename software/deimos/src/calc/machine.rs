@@ -4,12 +4,12 @@
 //! Unlike most calcs, the names of the inputs and outputs of this calc
 //! are not known at compile-time, and are assembled from inputs instead.
 
+use core::f64;
+
 use interpn::one_dim::{Interp1D, RectilinearGrid1D};
 
 use super::*;
 use crate::{calc_config, calc_input_names, calc_output_names};
-
-pub type Interpolator = Box<dyn Interp1D<'_, f64, RectilinearGrid1D<'_, f64>>>;
 
 /// Choice of behavior when a given state reaches the end of its lookup table
 #[derive(Default)]
@@ -31,6 +31,7 @@ pub enum Timeout {
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 pub enum ThreshOp {
     /// Greater than
+    #[default]
     Gt,
 
     /// Less than
@@ -49,7 +50,6 @@ pub enum ThreshOp {
     Approx { rtol: f64, atol: f64 },
 }
 
-#[derive(Default)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 #[non_exhaustive]
 pub enum Transition {
@@ -60,6 +60,16 @@ pub enum Transition {
     /// or to wait until a controlled parameter has converged to a value
     /// before proceeding into the next part of an operation.
     Thresh(String, ThreshOp, f64),
+
+    /// Time out to a given state if sequence time (including previous timeout loops)
+    /// exceeds some value.
+    Timeout(String, f64),
+}
+
+impl Default for Transition {
+    fn default() -> Self {
+        Self::Timeout("".to_owned(), f64::INFINITY)
+    }
 }
 
 /// Interpolation method
@@ -68,6 +78,7 @@ pub enum Transition {
 #[non_exhaustive]
 pub enum Method {
     Linear,
+    #[default]
     Left,
     Right,
     Nearest
@@ -121,7 +132,7 @@ pub struct Machine {
     input_indices: Vec<usize>,
 
     #[cfg_attr(feature = "ser", serde(skip))]
-    output_indices: Vec<usize>,
+    output_range: Range<usize>,
 }
 
 impl Machine {
@@ -147,43 +158,40 @@ impl Machine {
 impl Calc for Machine {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, _: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
-        self.input_index = input_indices[0];
-        self.output_index = output_range.clone().next().unwrap();
+        self.input_indices = input_indices;
+        self.output_range = output_range;
     }
 
     fn terminate(&mut self) {
-        self.input_index = usize::MAX;
-        self.output_index = usize::MAX;
+        self.input_indices.clear();
+        self.output_range = usize::MAX..usize::MAX;
     }
 
     /// Run calcs for a cycle
     fn eval(&mut self, tape: &mut [f64]) {
-        let x = tape[self.input_index];
-        let y = self.slope * x + self.offset;
-
-        tape[self.output_index] = y;
     }
 
     /// Map from input field names (like `v`, without prefix) to the state name
     /// that the input should draw from (like `peripheral_0.output_1`, with prefix)
     fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
         let mut map = BTreeMap::new();
-        map.insert("x".to_owned(), self.input_name.clone());
+        
         map
     }
 
     /// Change a value in the input map
-    fn update_input_map(&mut self, field: &str, source: &str) -> Result<(), String> {
-        if field == "x" {
-            self.input_name = source.to_owned();
-        } else {
-            return Err(format!("Unrecognized field {field}"));
-        }
-
-        Ok(())
+    fn update_input_map(&mut self, _field: &str, _source: &str) -> Result<(), String> {
+        
+        return Err(format!("Machine input map does not support direct updates"));
     }
 
-    calc_config!(slope, offset);
-    calc_input_names!(x);
-    calc_output_names!(y);
+    fn get_input_names(&self) -> Vec<CalcInputName> {
+        
+    }
+
+    fn get_output_names(&self) -> Vec<CalcOutputName> {
+        
+    }
+
+    calc_config!();
 }
