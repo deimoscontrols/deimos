@@ -5,6 +5,7 @@
 //! are not known at compile-time, and are assembled from inputs instead.
 
 use core::f64;
+use std::collections::HashSet;
 
 use interpn::one_dim::{Interp1D, RectilinearGrid1D};
 
@@ -88,7 +89,7 @@ pub enum Method {
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 pub struct State {
     name: String,
-    input_names: Vec<String>,
+    // input_names: Vec<String>,
     output_names: Vec<String>,
 
     // Interpolation
@@ -101,6 +102,20 @@ pub struct State {
 
     timeout: Timeout,
     transitions: BTreeMap<String, Transition>,
+}
+
+impl State {
+    fn get_input_names(&self) -> Vec<CalcInputName> {
+        let mut names = HashSet::new();
+        for t in self.transitions.values() {
+            match t {
+                Transition::Thresh(n, _, _) => {names.insert(n.clone());},
+                _ => {},
+            }
+        }
+
+        names.iter().cloned().collect()
+    }
 }
 
 /// A lookup-table state machine that follows a set procedure during
@@ -160,6 +175,10 @@ impl Calc for Machine {
     fn init(&mut self, _: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
         self.input_indices = input_indices;
         self.output_range = output_range;
+
+        // TODO: check that all outputs are consistent
+        // TODO: set up eval order for transitions for each state
+        // TODO: check that entrypoint is a real state that exists
     }
 
     fn terminate(&mut self) {
@@ -185,12 +204,21 @@ impl Calc for Machine {
         return Err(format!("Machine input map does not support direct updates"));
     }
 
+    /// Inputs are the sum of all inputs required by any state
     fn get_input_names(&self) -> Vec<CalcInputName> {
-        
+        let mut names = HashSet::new();
+        for s in self.states.iter() {
+            for n in s.get_input_names() {
+                names.insert(n);
+            }
+        }
+
+        names.iter().cloned().collect()
     }
 
+    /// All states have the same outputs
     fn get_output_names(&self) -> Vec<CalcOutputName> {
-        
+        self.states[0].output_names.clone()
     }
 
     calc_config!();
