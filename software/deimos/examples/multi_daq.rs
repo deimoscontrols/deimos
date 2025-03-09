@@ -51,6 +51,8 @@ fn main() {
     controller.add_peripheral("p4", Box::new(AnalogIRev4 { serial_number: 2 }));
     controller.add_peripheral("p5", Box::new(AnalogIRev4 { serial_number: 3 }));
     controller.add_peripheral("p6", Box::new(AnalogIRev4 { serial_number: 4 }));
+    controller.add_peripheral("p7", Box::new(AnalogIRev4 { serial_number: 5 }));
+    controller.add_peripheral("p8", Box::new(AnalogIRev4 { serial_number: 6 }));
 
     // Set up database dispatchers
     let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(
