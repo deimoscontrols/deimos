@@ -56,21 +56,11 @@ pub enum ThreshOp {
 pub enum Transition {
     /// Transition if a value of some input exceeds a threshold value
     /// based on some choice of comparison operation.
-    /// 
+    ///
     /// This may be used, for example, to exit when overheating is detected,
     /// or to wait until a controlled parameter has converged to a value
     /// before proceeding into the next part of an operation.
     Thresh(String, ThreshOp, f64),
-
-    /// Time out to a given state if sequence time (including previous timeout loops)
-    /// exceeds some value.
-    Timeout(String, f64),
-}
-
-impl Default for Transition {
-    fn default() -> Self {
-        Self::Timeout("".to_owned(), f64::INFINITY)
-    }
 }
 
 /// Interpolation method
@@ -82,40 +72,51 @@ pub enum Method {
     #[default]
     Left,
     Right,
-    Nearest
+    Nearest,
 }
 
 #[derive(Default)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 pub struct State {
-    name: String,
     // input_names: Vec<String>,
     output_names: Vec<String>,
 
     // Interpolation
     /// Grid to interpolate on
     time_s: Vec<f64>,
+
     /// Values to interpolate
     vals: Vec<(Method, Vec<f64>)>,
 
     // Transition criteria
-
-    timeout: Timeout,
     transitions: BTreeMap<String, Transition>,
+    timeout: Timeout,
 }
 
 impl State {
+    fn get_start_time_s(&self) -> f64 {
+        return self.time_s[0]
+    }
+
     fn get_input_names(&self) -> Vec<CalcInputName> {
         let mut names = HashSet::new();
         for t in self.transitions.values() {
             match t {
-                Transition::Thresh(n, _, _) => {names.insert(n.clone());},
-                _ => {},
+                Transition::Thresh(n, _, _) => {
+                    names.insert(n.clone());
+                }
+                _ => {}
             }
         }
 
         names.iter().cloned().collect()
     }
+}
+
+#[derive(Default)]
+struct ExecutionState {
+    pub state_time_s: f64,
+    pub current_state: String,
 }
 
 /// A lookup-table state machine that follows a set procedure during
@@ -134,13 +135,17 @@ pub struct Machine {
 
     /// All the lookup states of the machine, including their
     /// transition criteria.
-    /// 
+    ///
     /// All states must have the same outputs so that no values
     /// are ever left dangling.
-    /// 
+    ///
     /// The inputs to the machine are the sum of all the inputs
     /// required by each state.
-    states: Vec<State>,
+    states: BTreeMap<String, State>,
+
+    // Current execution state
+    #[cfg_attr(feature = "ser", serde(skip))]
+    execution_state: ExecutionState,
 
     // Values provided by calc orchestrator during init
     #[cfg_attr(feature = "ser", serde(skip))]
@@ -173,6 +178,10 @@ impl Machine {
 impl Calc for Machine {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, _: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
+        // Reset execution state
+        self.terminate();
+
+        // Set per-run config
         self.input_indices = input_indices;
         self.output_range = output_range;
 
@@ -184,30 +193,33 @@ impl Calc for Machine {
     fn terminate(&mut self) {
         self.input_indices.clear();
         self.output_range = usize::MAX..usize::MAX;
+        let start_time = self.states.get(&self.entry).unwrap().get_start_time_s();
+        self.execution_state = ExecutionState {
+            state_time_s: start_time,
+            current_state: self.entry.clone(),
+        };
     }
 
     /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) {
-    }
+    fn eval(&mut self, tape: &mut [f64]) {}
 
     /// Map from input field names (like `v`, without prefix) to the state name
     /// that the input should draw from (like `peripheral_0.output_1`, with prefix)
     fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
         let mut map = BTreeMap::new();
-        
+
         map
     }
 
     /// Change a value in the input map
     fn update_input_map(&mut self, _field: &str, _source: &str) -> Result<(), String> {
-        
         return Err(format!("Machine input map does not support direct updates"));
     }
 
     /// Inputs are the sum of all inputs required by any state
     fn get_input_names(&self) -> Vec<CalcInputName> {
         let mut names = HashSet::new();
-        for s in self.states.iter() {
+        for s in self.states.values() {
             for n in s.get_input_names() {
                 names.insert(n);
             }
@@ -218,7 +230,7 @@ impl Calc for Machine {
 
     /// All states have the same outputs
     fn get_output_names(&self) -> Vec<CalcOutputName> {
-        self.states[0].output_names.clone()
+        self.states.get(&self.execution_state.current_state).unwrap().output_names.clone()
     }
 
     calc_config!();
