@@ -117,17 +117,38 @@ impl State {
         names.iter().cloned().collect()
     }
 
-    // fn permute(&mut self, output_names: Vec<String>) {}
+    /// Shuffle internal ordering of outputs to match the provided order
+    fn permute(&mut self, output_names: &Vec<String>) {
+        let ind_map =
+            BTreeMap::from_iter(self.output_names.iter().enumerate().map(|(i, x)| (x, i)));
 
-    fn eval(&self, state_time_s: f64, output_range: Range<usize>, tape: &mut [f64]) {
+        let mut new_vals = Vec::new();
+
+        for n in output_names.iter() {
+            let ind = ind_map[n];
+            new_vals.push(self.vals.remove(ind));
+        }
+
+        self.vals = new_vals;
+        self.output_names = output_names.clone();
+    }
+
+    /// Run the interpolators for this timestep
+    fn eval(&self, sequence_time_s: f64, output_range: Range<usize>, tape: &mut [f64]) {
         for (i, (method, v)) in output_range.zip(self.vals.iter()) {
             let grid = RectilinearGrid1D::new(&self.time_s, &v).unwrap();
             let v = match method {
-                Method::Linear => interpn::Linear1D::new(grid).eval_one(state_time_s).unwrap(),
-                Method::Left => interpn::Left1D::new(grid).eval_one(state_time_s).unwrap(),
-                Method::Right => interpn::Right1D::new(grid).eval_one(state_time_s).unwrap(),
+                Method::Linear => interpn::Linear1D::new(grid)
+                    .eval_one(sequence_time_s)
+                    .unwrap(),
+                Method::Left => interpn::Left1D::new(grid)
+                    .eval_one(sequence_time_s)
+                    .unwrap(),
+                Method::Right => interpn::Right1D::new(grid)
+                    .eval_one(sequence_time_s)
+                    .unwrap(),
                 Method::Nearest => interpn::Nearest1D::new(grid)
-                    .eval_one(state_time_s)
+                    .eval_one(sequence_time_s)
                     .unwrap(),
             };
 
@@ -138,7 +159,9 @@ impl State {
 
 #[derive(Default)]
 struct ExecutionState {
-    pub state_time_s: f64,
+    /// Time in current state's sequence.
+    /// Starts at the first time in the state's lookup table.
+    pub sequence_time_s: f64,
     pub current_state: String,
 }
 
@@ -238,7 +261,7 @@ impl Machine {
             // to the start of the next state.
             if should_transition {
                 self.execution_state.current_state = target_state.clone();
-                self.execution_state.state_time_s = self.current_state().get_start_time_s();
+                self.execution_state.sequence_time_s = self.current_state().get_start_time_s();
                 return;
             }
         }
@@ -256,6 +279,12 @@ impl Calc for Machine {
         self.input_indices = input_indices;
         self.output_range = output_range;
 
+        // Permute order of each state's lookups to match the entrypoint
+        let entry_order = &self.current_state().output_names.clone();
+        for s in self.states.values_mut() {
+            s.permute(entry_order);
+        }
+
         // TODO: check that all outputs are consistent
         // TODO: set up eval order for transitions for each state
         // TODO: check that entrypoint is a real state that exists
@@ -266,7 +295,7 @@ impl Calc for Machine {
         self.output_range = usize::MAX..usize::MAX;
         let start_time = self.states.get(&self.entry).unwrap().get_start_time_s();
         self.execution_state = ExecutionState {
-            state_time_s: start_time,
+            sequence_time_s: start_time,
             current_state: self.entry.clone(),
         };
     }
@@ -274,12 +303,12 @@ impl Calc for Machine {
     /// Run calcs for a cycle
     fn eval(&mut self, tape: &mut [f64]) {
         // Increment sequence time
-        self.execution_state.state_time_s += self.dt_s;
+        self.execution_state.sequence_time_s += self.dt_s;
         // Transition to the next state if needed, which may reset sequence time
         self.check_transitions(&tape);
         // Update output values based on the current state
         self.current_state().eval(
-            self.execution_state.state_time_s,
+            self.execution_state.sequence_time_s,
             self.output_range.clone(),
             tape,
         );
@@ -322,11 +351,7 @@ impl Calc for Machine {
 
     /// All states have the same outputs
     fn get_output_names(&self) -> Vec<CalcOutputName> {
-        self.states
-            .get(&self.execution_state.current_state)
-            .unwrap()
-            .output_names
-            .clone()
+        self.current_state().output_names.clone()
     }
 
     calc_config!();
