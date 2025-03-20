@@ -54,6 +54,17 @@ pub enum Transition {
     Thresh(String, ThreshOp, f64),
 }
 
+impl Transition {
+    pub fn get_input_names(&self) -> Vec<FieldName> {
+        let mut names = Vec::new();
+        match self {
+            Self::Thresh(name, _, _) => names.push(name.clone()),
+        };
+
+        names
+    }
+}
+
 /// Interpolation method
 #[derive(Default)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
@@ -84,7 +95,7 @@ pub struct State {
     vals: Vec<(Method, Vec<f64>)>,
 
     // Transition criteria
-    transitions: BTreeMap<String, Transition>,
+    transitions: BTreeMap<FieldName, Transition>,
     timeout: Timeout,
 }
 
@@ -100,7 +111,6 @@ impl State {
                 Transition::Thresh(n, _, _) => {
                     names.insert(n.clone());
                 }
-                _ => {}
             }
         }
 
@@ -280,12 +290,22 @@ impl Calc for Machine {
     fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
         let mut map = BTreeMap::new();
 
+        for state in self.states.values() {
+            for c in state.transitions.values() {
+                for name in c.get_input_names() {
+                    map.insert(name.clone(), name);
+                }
+            }
+        }
+
         map
     }
 
     /// Change a value in the input map
     fn update_input_map(&mut self, _field: &str, _source: &str) -> Result<(), String> {
-        return Err(format!("Machine input map does not support direct updates"));
+        return Err(format!(
+            "Machine input map is derived from state transition criterion dependencies"
+        ));
     }
 
     /// Inputs are the sum of all inputs required by any state
