@@ -38,15 +38,6 @@ pub enum ThreshOp {
     /// Less than
     Lt,
 
-    /// Greater than or equal
-    Ge,
-
-    /// Less than or equal
-    Le,
-
-    /// Equal
-    Eq,
-
     /// Approximately equal
     Approx { rtol: f64, atol: f64 },
 }
@@ -99,7 +90,7 @@ pub struct State {
 
 impl State {
     fn get_start_time_s(&self) -> f64 {
-        return self.time_s[0]
+        return self.time_s[0];
     }
 
     fn get_input_names(&self) -> Vec<CalcInputName> {
@@ -117,28 +108,21 @@ impl State {
     }
 
     // fn permute(&mut self, output_names: Vec<String>) {}
-    
-    fn eval(&self, state_time_s: f64, output_indices: &[usize], tape: &mut [f64]) {
-        for (i, (method, v)) in output_indices.iter().zip(self.vals.iter()) {
+
+    fn eval(&self, state_time_s: f64, output_range: Range<usize>, tape: &mut [f64]) {
+        for (i, (method, v)) in output_range.zip(self.vals.iter()) {
             let grid = RectilinearGrid1D::new(&self.time_s, &v).unwrap();
             let v = match method {
-                Method::Linear => {
-                    interpn::Linear1D::new(grid).eval_one(state_time_s).unwrap()
-                },
-                Method::Left => {
-                    interpn::Left1D::new(grid).eval_one(state_time_s).unwrap()
-                },
-                Method::Right => {
-                    interpn::Right1D::new(grid).eval_one(state_time_s).unwrap()
-                },
-                Method::Nearest => {
-                    interpn::Nearest1D::new(grid).eval_one(state_time_s).unwrap()
-                }
+                Method::Linear => interpn::Linear1D::new(grid).eval_one(state_time_s).unwrap(),
+                Method::Left => interpn::Left1D::new(grid).eval_one(state_time_s).unwrap(),
+                Method::Right => interpn::Right1D::new(grid).eval_one(state_time_s).unwrap(),
+                Method::Nearest => interpn::Nearest1D::new(grid)
+                    .eval_one(state_time_s)
+                    .unwrap(),
             };
 
-            tape[*i] = v;
+            tape[i] = v;
         }
-        
     }
 }
 
@@ -177,6 +161,15 @@ pub struct Machine {
     execution_state: ExecutionState,
 
     // Values provided by calc orchestrator during init
+    /// Lookup map for channel names to indices, required for evaluating
+    /// transition criteria
+    #[cfg_attr(feature = "ser", serde(skip))]
+    input_map: BTreeMap<String, usize>,
+
+    /// Timestep
+    #[cfg_attr(feature = "ser", serde(skip))]
+    dt_s: f64,
+
     #[cfg_attr(feature = "ser", serde(skip))]
     input_indices: Vec<usize>,
 
@@ -201,6 +194,45 @@ impl Machine {
     //         output_index,
     //     }
     // }
+
+    fn current_state(&self) -> &State {
+        self.states
+            .get(&self.execution_state.current_state)
+            .unwrap()
+    }
+
+    /// Check each state transition criterion and set the next state if needed.
+    /// If multiple transition criteria are met at the same time, the first
+    /// one in the list will be prioritized.
+    fn check_transitions(&mut self, tape: &[f64]) {
+        for (target_state, criterion) in self.current_state().transitions.iter() {
+            // Check whether this criterion has been met
+            let should_transition = match criterion {
+                Transition::Thresh(channel, op, thresh) => {
+                    let i = self.input_map[channel];
+                    let v = tape[i];
+
+                    match op {
+                        ThreshOp::Gt => v > *thresh,
+                        ThreshOp::Lt => v < *thresh,
+                        ThreshOp::Approx { rtol, atol } => {
+                            let drel = rtol * thresh.abs();
+                            let dtot = drel + atol;
+                            (v - thresh).abs() < dtot
+                        }
+                    }
+                }
+            };
+
+            // If a state transition has been triggered, update the execution state
+            // to the start of the next state.
+            if should_transition {
+                self.execution_state.current_state = target_state.clone();
+                self.execution_state.state_time_s = self.current_state().get_start_time_s();
+                return;
+            }
+        }
+    }
 }
 
 #[cfg_attr(feature = "ser", typetag::serde)]
@@ -230,7 +262,18 @@ impl Calc for Machine {
     }
 
     /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) {}
+    fn eval(&mut self, tape: &mut [f64]) {
+        // Increment sequence time
+        self.execution_state.state_time_s += self.dt_s;
+        // Transition to the next state if needed, which may reset sequence time
+        self.check_transitions(&tape);
+        // Update output values based on the current state
+        self.current_state().eval(
+            self.execution_state.state_time_s,
+            self.output_range.clone(),
+            tape,
+        );
+    }
 
     /// Map from input field names (like `v`, without prefix) to the state name
     /// that the input should draw from (like `peripheral_0.output_1`, with prefix)
@@ -259,7 +302,11 @@ impl Calc for Machine {
 
     /// All states have the same outputs
     fn get_output_names(&self) -> Vec<CalcOutputName> {
-        self.states.get(&self.execution_state.current_state).unwrap().output_names.clone()
+        self.states
+            .get(&self.execution_state.current_state)
+            .unwrap()
+            .output_names
+            .clone()
     }
 
     calc_config!();
