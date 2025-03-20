@@ -69,6 +69,10 @@ pub enum Transition {
 #[non_exhaustive]
 pub enum Method {
     Linear,
+
+    /// Hold-left is the default because intermediate values may not be
+    /// valid values in some cases, while the values at the control points
+    /// are valid to the extent that the user's intent is valid.
     #[default]
     Left,
     Right,
@@ -110,6 +114,31 @@ impl State {
         }
 
         names.iter().cloned().collect()
+    }
+
+    // fn permute(&mut self, output_names: Vec<String>) {}
+    
+    fn eval(&self, state_time_s: f64, output_indices: &[usize], tape: &mut [f64]) {
+        for (i, (method, v)) in output_indices.iter().zip(self.vals.iter()) {
+            let grid = RectilinearGrid1D::new(&self.time_s, &v).unwrap();
+            let v = match method {
+                Method::Linear => {
+                    interpn::Linear1D::new(grid).eval_one(state_time_s).unwrap()
+                },
+                Method::Left => {
+                    interpn::Left1D::new(grid).eval_one(state_time_s).unwrap()
+                },
+                Method::Right => {
+                    interpn::Right1D::new(grid).eval_one(state_time_s).unwrap()
+                },
+                Method::Nearest => {
+                    interpn::Nearest1D::new(grid).eval_one(state_time_s).unwrap()
+                }
+            };
+
+            tape[*i] = v;
+        }
+        
     }
 }
 
