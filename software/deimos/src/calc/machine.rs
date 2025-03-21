@@ -21,11 +21,11 @@ pub enum Timeout {
     Transition(String),
 
     /// Start over from the beginning of the table
+    #[default]
     Loop,
 
-    /// Raise an error
-    #[default]
-    Error,
+    /// Raise an error with a message
+    Error(String),
 }
 
 #[derive(Default)]
@@ -100,8 +100,16 @@ pub struct State {
 }
 
 impl State {
+    fn get_end_time_s(&self) -> f64 {
+        return *self.time_s.last().unwrap();
+    }
+
     fn get_start_time_s(&self) -> f64 {
         return self.time_s[0];
+    }
+
+    fn get_timeout(&self) -> &Timeout {
+        &self.timeout
     }
 
     fn get_input_names(&self) -> Vec<CalcInputName> {
@@ -234,10 +242,31 @@ impl Machine {
             .unwrap()
     }
 
+    fn transition(&mut self, target_state: String) {
+        self.execution_state.current_state = target_state;
+        self.execution_state.sequence_time_s = self.current_state().get_start_time_s();
+    }
+
     /// Check each state transition criterion and set the next state if needed.
     /// If multiple transition criteria are met at the same time, the first
     /// one in the list will be prioritized.
-    fn check_transitions(&mut self, tape: &[f64]) {
+    fn check_transitions(&mut self, sequence_time_s: f64, tape: &[f64]) -> Result<(), String> {
+        // Check for timeout
+        if sequence_time_s > self.current_state().get_end_time_s() {
+            return match self.current_state().get_timeout() {
+                Timeout::Transition(target_state) => {
+                    self.transition(target_state.clone());
+                    Ok(())
+                }
+                Timeout::Loop => {
+                    self.transition(self.execution_state.current_state.clone());
+                    Ok(())
+                }
+                Timeout::Error(msg) => Err(msg.clone()),
+            };
+        }
+
+        // Check other criteria
         for (target_state, criterion) in self.current_state().transitions.iter() {
             // Check whether this criterion has been met
             let should_transition = match criterion {
@@ -260,11 +289,13 @@ impl Machine {
             // If a state transition has been triggered, update the execution state
             // to the start of the next state.
             if should_transition {
-                self.execution_state.current_state = target_state.clone();
-                self.execution_state.sequence_time_s = self.current_state().get_start_time_s();
-                return;
+                self.transition(target_state.clone());
+                return Ok(());
             }
         }
+
+        // No transition criteria were met; stay the course
+        Ok(())
     }
 }
 
@@ -305,7 +336,8 @@ impl Calc for Machine {
         // Increment sequence time
         self.execution_state.sequence_time_s += self.dt_s;
         // Transition to the next state if needed, which may reset sequence time
-        self.check_transitions(&tape);
+        self.check_transitions(self.execution_state.sequence_time_s, &tape)
+            .unwrap();
         // Update output values based on the current state
         self.current_state().eval(
             self.execution_state.sequence_time_s,
