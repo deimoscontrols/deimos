@@ -224,7 +224,7 @@ impl State {
             .map(|s| s.to_owned())
             .collect();
 
-        // Parse methods
+        // Parse interpolation methods
         let mut methods: Vec<Method> = Vec::new();
 
         for s in lines
@@ -233,7 +233,7 @@ impl State {
             .split(",")
             .skip(1)
         {
-            let m = Method::from_str(s)?;
+            let m = Method::from_str(s.trim())?;
             methods.push(m);
         }
 
@@ -241,25 +241,59 @@ impl State {
         let mut vals = vec![vec![]; methods.len()];
         let mut time_s = vec![vec![]; methods.len()];
         for (i, line) in lines.enumerate() {
-            let entries = line.split(",");
+            let mut entries = line.split(",");
 
+            // If the line is empty or only contains a time and no data, skip to the next line
+            if entries.size_hint().0 < 2 {
+                continue;
+            }
+
+            // Leftmost column is the time index
+            let time = entries
+                .next()
+                .ok_or(format!("CSV read error on line {i}, empty line"))?;
+            let time = time
+                .trim()
+                .parse::<f64>()
+                .map_err(|e| format!("Error parsing time value in CSV on line {i}: {e}"))?;
+
+            // Other columns are values that may or may not be present on every row, but must be present on the first row
+            if i == 0 && entries.size_hint().0 != methods.len() {
+                return Err(
+                    "CSV parse error; all values must be defined for the start time".to_string(),
+                );
+            }
+
+            for (j, entry) in entries.enumerate() {
+                // Whitespace-only entries are null
+                if entry.trim() == "" {
+                    continue;
+                }
+
+                // Entries that are not empty or whitespace should be valid numbers
+                let v = entry.parse::<f64>().map_err(|e| {
+                    format!("CSV parse error on line {i} column {j} with entry {entry}")
+                })?;
+
+                time_s[j].push(time);
+                vals[j].push(v);
+            }
         }
 
         let mut data = Vec::new();
         for _ in 0..methods.len() {
-            data.push(
-                StateData {
-                    method: methods.pop().unwrap(),
-                    time_s: time_s.pop().unwrap(),
-                    vals: vals.pop().unwrap()
-                }
-            )
+            data.push(StateData {
+                method: methods.pop().unwrap(),
+                time_s: time_s.pop().unwrap(),
+                vals: vals.pop().unwrap(),
+            })
         }
+        data.reverse();
 
         Ok(Self {
-            output_names, 
+            output_names,
             data,
-            cfg
+            cfg,
         })
     }
 }
