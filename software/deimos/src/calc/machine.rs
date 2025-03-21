@@ -10,7 +10,6 @@ use std::collections::HashSet;
 use interpn::one_dim::{Interp1D, RectilinearGrid1D};
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names};
 
 /// Choice of behavior when a given state reaches the end of its lookup table
 #[derive(Default)]
@@ -173,6 +172,16 @@ struct ExecutionState {
     pub current_state: String,
 }
 
+#[derive(Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+pub struct MachineCfg {
+    // User inputs
+    save_outputs: bool,
+
+    /// State which is the entrypoint for the machine
+    entry: String,
+}
+
 /// A lookup-table state machine that follows a set procedure during
 /// each state, and transitions between states based on set criteria.
 ///
@@ -181,11 +190,7 @@ struct ExecutionState {
 #[derive(Default)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 pub struct Machine {
-    // User inputs
-    save_outputs: bool,
-
-    /// State which is the entrypoint for the machine
-    entry: String,
+    cfg: MachineCfg,
 
     /// All the lookup states of the machine, including their
     /// transition criteria.
@@ -324,10 +329,10 @@ impl Calc for Machine {
     fn terminate(&mut self) {
         self.input_indices.clear();
         self.output_range = usize::MAX..usize::MAX;
-        let start_time = self.states.get(&self.entry).unwrap().get_start_time_s();
+        let start_time = self.states.get(&self.cfg.entry).unwrap().get_start_time_s();
         self.execution_state = ExecutionState {
             sequence_time_s: start_time,
-            current_state: self.entry.clone(),
+            current_state: self.cfg.entry.clone(),
         };
     }
 
@@ -386,5 +391,27 @@ impl Calc for Machine {
         self.current_state().output_names.clone()
     }
 
-    calc_config!();
+    /// Get flag for whether to save outputs
+    fn get_save_outputs(&self) -> bool {
+        self.cfg.save_outputs
+    }
+
+    /// Set flag for whether to save outputs
+    fn set_save_outputs(&mut self, save_outputs: bool) {
+        self.cfg.save_outputs = save_outputs;
+    }
+
+    /// Get config field values
+    fn get_config(&self) -> BTreeMap<String, f64> {
+        #[allow(unused_mut)]
+        let mut cfg = BTreeMap::<String, f64>::new();
+
+        cfg
+    }
+
+    /// Apply config field values
+    #[allow(unused)]
+    fn set_config(&mut self, cfg: &BTreeMap<String, f64>) -> Result<(), String> {
+        Err("No settable config fields".to_string())
+    }
 }
