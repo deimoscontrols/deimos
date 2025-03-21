@@ -257,13 +257,6 @@ impl State {
                 .parse::<f64>()
                 .map_err(|e| format!("Error parsing time value in CSV on line {i}: {e}"))?;
 
-            // Other columns are values that may or may not be present on every row, but must be present on the first row
-            if i == 0 && entries.size_hint().0 != methods.len() {
-                return Err(
-                    "CSV parse error; all values must be defined for the start time".to_string(),
-                );
-            }
-
             for (j, entry) in entries.enumerate() {
                 // Whitespace-only entries are null
                 if entry.trim() == "" {
@@ -280,6 +273,24 @@ impl State {
             }
         }
 
+        // Make sure all the columns have the same start time
+        let start_time = time_s[0][0];
+        for i in 0..methods.len() {
+            let n = &output_names[i];
+            if time_s[i][0] != start_time {
+                return Err(format!("Value at start time missing for column {i} (`{n}`)"))
+            }
+        }
+
+        // Make sure time is sorted
+        for (i, t) in time_s.iter().enumerate() {
+            let n = &output_names[i];
+            if !t.is_sorted() {
+                return Err(format!("Out-of-order sequence for column {i} (`{n}`)"))
+            }
+        }
+
+        // Pack parsed values into states
         let mut data = Vec::new();
         for _ in 0..methods.len() {
             data.push(StateData {
