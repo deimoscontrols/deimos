@@ -7,6 +7,12 @@
 use core::f64;
 use std::collections::HashSet;
 
+#[cfg(feature = "ser")]
+use serde_json;
+
+#[cfg(feature = "ser")]
+use serde::{Deserialize, Serialize};
+
 use interpn::one_dim::{Interp1D, RectilinearGrid1D};
 
 use super::*;
@@ -80,40 +86,78 @@ pub enum Method {
     Nearest,
 }
 
+impl Method {
+    /// Attempt to parse a string into an interpolation method.
+    /// Case-insensitive and discards whitespace.
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        let lower = s.to_lowercase();
+        let normalized = lower
+            .split_whitespace()
+            .next()
+            .ok_or(format!("Unable to process method: `{s}`"))?;
+        match normalized {
+            x if x == "linear" => Ok(Self::Linear),
+            x if x == "left" => Ok(Self::Left),
+            x if x == "right" => Ok(Self::Right),
+            x if x == "nearest" => Ok(Self::Nearest),
+            _ => Err(format!("Unable to process method: `{s}`")),
+        }
+    }
+}
+
 #[derive(Default)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-pub struct State {
-    // input_names: Vec<String>,
-    output_names: Vec<String>,
-
-    // Interpolation
-    /// Grid to interpolate on
-    time_s: Vec<f64>,
-
-    /// Values to interpolate
-    vals: Vec<(Method, Vec<f64>)>,
-
+pub struct StateCfg {
     // Transition criteria
     transitions: BTreeMap<FieldName, Transition>,
     timeout: Timeout,
 }
 
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+pub struct StateData {
+    /// Interpolation method
+    method: Method,
+
+    /// Grid to interpolate on
+    time_s: Vec<f64>,
+
+    /// Values to interpolate
+    vals: Vec<f64>,
+}
+
+#[derive(Default)]
+#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+pub struct State {
+    // input_names: Vec<String>,
+    output_names: Vec<String>,
+    data: Vec<StateData>,
+    cfg: StateCfg,
+}
+
 impl State {
     fn get_end_time_s(&self) -> f64 {
-        return *self.time_s.last().unwrap();
+        let mut t = f64::NEG_INFINITY;
+        for d in self.data.iter() {
+            t = t.max(*d.time_s.last().unwrap());
+        }
+        t
     }
 
     fn get_start_time_s(&self) -> f64 {
-        return self.time_s[0];
+        let mut t = f64::INFINITY;
+        for d in self.data.iter() {
+            t = t.min(d.time_s[0]);
+        }
+        t
     }
 
     fn get_timeout(&self) -> &Timeout {
-        &self.timeout
+        &self.cfg.timeout
     }
 
     fn get_input_names(&self) -> Vec<CalcInputName> {
         let mut names = HashSet::new();
-        for t in self.transitions.values() {
+        for t in self.cfg.transitions.values() {
             match t {
                 Transition::Thresh(n, _, _) => {
                     names.insert(n.clone());
@@ -129,22 +173,22 @@ impl State {
         let ind_map =
             BTreeMap::from_iter(self.output_names.iter().enumerate().map(|(i, x)| (x, i)));
 
-        let mut new_vals = Vec::new();
+        let mut permuted_data = Vec::new();
 
         for n in output_names.iter() {
             let ind = ind_map[n];
-            new_vals.push(self.vals.remove(ind));
+            permuted_data.push(self.data.remove(ind));
         }
 
-        self.vals = new_vals;
+        self.data = permuted_data;
         self.output_names = output_names.clone();
     }
 
     /// Run the interpolators for this timestep
     fn eval(&self, sequence_time_s: f64, output_range: Range<usize>, tape: &mut [f64]) {
-        for (i, (method, v)) in output_range.zip(self.vals.iter()) {
-            let grid = RectilinearGrid1D::new(&self.time_s, &v).unwrap();
-            let v = match method {
+        for (i, d) in output_range.zip(self.data.iter()) {
+            let grid = RectilinearGrid1D::new(&d.time_s, &d.vals).unwrap();
+            let v = match d.method {
                 Method::Linear => interpn::Linear1D::new(grid)
                     .eval_one(sequence_time_s)
                     .unwrap(),
@@ -161,6 +205,62 @@ impl State {
 
             tape[i] = v;
         }
+    }
+
+    /// Load sequence from a CSV string
+    #[cfg(feature = "ser")]
+    pub fn from_csv_json_strings(cfg: &str, data: &str) -> Result<Self, String> {
+        let mut lines = data.lines();
+
+        // Parse config
+        let cfg: StateCfg = serde_json::from_str(cfg).map_err(|e| stringify!(e))?;
+
+        // Parse header row, discarding time column name
+        let output_names: Vec<String> = lines
+            .next()
+            .ok_or("Empty csv".to_string())?
+            .split(",")
+            .skip(1)
+            .map(|s| s.to_owned())
+            .collect();
+
+        // Parse methods
+        let mut methods: Vec<Method> = Vec::new();
+
+        for s in lines
+            .next()
+            .ok_or("Empty csv".to_string())?
+            .split(",")
+            .skip(1)
+        {
+            let m = Method::from_str(s)?;
+            methods.push(m);
+        }
+
+        // Parse values from remaining lines
+        let mut vals = vec![vec![]; methods.len()];
+        let mut time_s = vec![vec![]; methods.len()];
+        for (i, line) in lines.enumerate() {
+            let entries = line.split(",");
+
+        }
+
+        let mut data = Vec::new();
+        for _ in 0..methods.len() {
+            data.push(
+                StateData {
+                    method: methods.pop().unwrap(),
+                    time_s: time_s.pop().unwrap(),
+                    vals: vals.pop().unwrap()
+                }
+            )
+        }
+
+        Ok(Self {
+            output_names, 
+            data,
+            cfg
+        })
     }
 }
 
@@ -272,7 +372,7 @@ impl Machine {
         }
 
         // Check other criteria
-        for (target_state, criterion) in self.current_state().transitions.iter() {
+        for (target_state, criterion) in self.current_state().cfg.transitions.iter() {
             // Check whether this criterion has been met
             let should_transition = match criterion {
                 Transition::Thresh(channel, op, thresh) => {
@@ -357,7 +457,7 @@ impl Calc for Machine {
         let mut map = BTreeMap::new();
 
         for state in self.states.values() {
-            for c in state.transitions.values() {
+            for c in state.cfg.transitions.values() {
                 for name in c.get_input_names() {
                     map.insert(name.clone(), name);
                 }
