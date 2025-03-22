@@ -1,6 +1,7 @@
 {
   "save_outputs": true,
   "entry": "low",
+  "link_folder": "machine",
   "timeouts": {
     "high": {
       "Transition": "low"

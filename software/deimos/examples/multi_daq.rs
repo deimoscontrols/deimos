@@ -14,7 +14,7 @@ use crate::calc::{Constant, Sin};
 use crate::peripheral::{AnalogIRev3, AnalogIRev4};
 use controller::context::ControllerCtx;
 use deimos::calc::Machine;
-use deimos::calc::machine::{self, MachineCfg, ThreshOp, Timeout, Transition};
+use deimos::calc::machine::{MachineCfg, ThreshOp, Timeout, Transition};
 use deimos::*;
 
 fn main() {
@@ -112,6 +112,7 @@ fn main() {
     let cfg = MachineCfg {
         save_outputs: true,
         entry: "low".to_owned(),
+        link_folder: Some("machine".to_owned()),
         timeouts,
         transitions,
     };

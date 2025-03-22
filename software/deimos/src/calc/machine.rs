@@ -335,6 +335,9 @@ pub struct MachineCfg {
     /// Name of SequenceState which is the entrypoint for the machine
     pub entry: String,
 
+    /// Whether to reload from a folder at this relative path from the op dir during init
+    pub link_folder: Option<String>,
+
     /// Timeout behavior for each state
     pub timeouts: BTreeMap<String, Timeout>,
 
@@ -545,6 +548,12 @@ impl Machine {
 impl Calc for Machine {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
+        // Reload from folder, if linked
+        if let Some(rel_path) = &self.cfg.link_folder {
+            let folder = ctx.op_dir.join(rel_path);
+            *self = Self::load_folder(&folder).unwrap();
+        }
+
         // Reset execution state
         self.terminate();
 
