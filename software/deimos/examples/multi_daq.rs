@@ -93,7 +93,6 @@ fn main() {
         ("low".to_owned(), Timeout::Loop),
         ("high".to_owned(), Timeout::Transition("low".to_owned())),
     ]);
-    // println!("{}", serde_json::to_string_pretty(&timeouts).unwrap());
 
     let transitions: BTreeMap<String, BTreeMap<String, Vec<Transition>>> = BTreeMap::from([
         (
@@ -109,7 +108,6 @@ fn main() {
         ),
         ("high".to_owned(), BTreeMap::from([])),
     ]);
-    // println!("{}", serde_json::to_string_pretty(&transitions).unwrap());
 
     let cfg = MachineCfg {
         save_outputs: true,
@@ -118,14 +116,12 @@ fn main() {
         transitions,
     };
     let cfg_str = serde_json::to_string_pretty(&cfg).unwrap();
-    // println!("{}", serde_json::to_string_pretty(&cfg).unwrap());
 
     let machine_dir = op_dir.join("machine");
     let fp = machine_dir.join("cfg.json");
     std::fs::write(fp, cfg_str).unwrap();
 
     let machine = Machine::load_folder(&machine_dir).unwrap();
-    // println!("{}", serde_json::to_string_pretty(&machine).unwrap());
     controller.add_calc("sequence_machine", Box::new(machine));
 
     // Serialize and deserialize the controller (for demonstration purposes)
