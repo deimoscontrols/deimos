@@ -5,10 +5,7 @@
 //! are not known at compile-time, and are assembled from inputs instead.
 
 use core::f64;
-use std::{
-    collections::HashSet,
-    path::{Path, PathBuf},
-};
+use std::path::Path;
 
 #[cfg(feature = "ser")]
 use serde_json;
@@ -178,23 +175,6 @@ impl SequenceState {
         t
     }
 
-    // fn get_timeout(&self) -> &Timeout {
-    //     &self.cfg.timeout
-    // }
-
-    // fn get_input_names(&self) -> Vec<CalcInputName> {
-    //     let mut names = HashSet::new();
-    //     for t in self.cfg.transitions.values() {
-    //         match t {
-    //             Transition::Thresh(n, _, _) => {
-    //                 names.insert(n.clone());
-    //             }
-    //         }
-    //     }
-
-    //     names.iter().cloned().collect()
-    // }
-
     /// Shuffle internal ordering of outputs to match the provided order
     fn permute(&mut self, output_names: &Vec<String>) {
         let mut new_map = BTreeMap::new();
@@ -218,11 +198,8 @@ impl SequenceState {
 
     /// Load sequence from a CSV string
     #[cfg(feature = "ser")]
-    pub fn from_csv_json_strings(data_csv: &str) -> Result<Self, String> {
+    pub fn from_csv_str(data_csv: &str) -> Result<Self, String> {
         let mut lines = data_csv.lines();
-
-        // Parse config
-        // let cfg: StateCfg = serde_json::from_str(cfg_json).map_err(|e| stringify!(e))?;
 
         // Parse header row, discarding time column name
         let output_names: Vec<String> = lines
@@ -330,9 +307,12 @@ impl SequenceState {
         Ok(Self { data })
     }
 
-    // pub fn from_csv_json_files(cfg_json_path: &dyn Into<PathBuf>, csv_data_path) -> Result<Self, String> {
-
-    // }
+    /// Load sequence from a CSV file
+    pub fn from_csv_file(path: &dyn AsRef<Path>) -> Result<Self, String> {
+        let csv_str =
+            std::fs::read_to_string(path).map_err(|e| format!("CSV file read error: {e}"))?;
+        Self::from_csv_str(&csv_str)
+    }
 }
 
 #[derive(Default)]
@@ -350,9 +330,10 @@ struct ExecutionState {
 #[non_exhaustive]
 pub struct MachineCfg {
     // User inputs
+    /// Whether to dispatch outputs
     save_outputs: bool,
 
-    /// SequenceState which is the entrypoint for the machine
+    /// Name of SequenceState which is the entrypoint for the machine
     entry: String,
 
     /// Timeout behavior for each state
@@ -370,6 +351,7 @@ pub struct MachineCfg {
 #[derive(Default)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 pub struct Machine {
+    /// State transition criteria and other configuration
     cfg: MachineCfg,
 
     /// All the lookup sequence states of the machine, including their
@@ -405,13 +387,13 @@ pub struct Machine {
 }
 
 impl Machine {
-    pub fn new(cfg: MachineCfg, states: BTreeMap<String, SequenceState>) -> Self {
+    pub fn new(cfg: MachineCfg, states: BTreeMap<String, SequenceState>) -> Result<Self, String> {
         // These will be set during init.
         // Use default indices that will cause an error on the first call if not initialized properly
         let input_indices = Vec::new();
         let output_range = usize::MAX..usize::MAX;
 
-        Self {
+        let machine = Self {
             cfg,
             states,
             execution_state: ExecutionState::default(),
@@ -420,7 +402,15 @@ impl Machine {
             dt_s: f64::NAN,
             input_indices,
             output_range,
-        }
+        };
+
+        machine.validate()?;
+
+        Ok(machine)
+    }
+
+    fn validate(&self) -> Result<(), String> {
+        Ok(())
     }
 
     /// Get a reference to the state indicated in execution_state.current_state
@@ -493,18 +483,68 @@ impl Machine {
         // No transition criteria were met; stay the course
         Ok(())
     }
+
+    pub fn load_folder(path: &dyn AsRef<Path>) -> Result<Self, String> {
+        let dir = std::fs::read_dir(path).map_err(|e| format!("Unable to read items in folder {}: {e}", path.into()))?;
+
+        let mut csv_files = Vec::new();
+        let mut json_files = Vec::new();
+        for entry in dir {
+            match entry {
+                Ok(e) => {
+                    let path = e.path();
+                    if path.is_file() {
+                        match path.extension() {
+                            Some(ext) if ext.to_ascii_lowercase().to_str() == Some("csv") => csv_files.push(path),
+                            Some(ext) if ext.to_ascii_lowercase().to_str() == Some("json") => json_files.push(path),
+                            _ => {},
+                        }
+                    }
+
+                },
+                _ => {}
+            }
+        };
+
+        // Make sure there is exactly one json file
+        if json_files.len() == 0 {
+            return Err("Did not find configuration json file".to_string())
+        }
+
+        if json_files.len() > 1 {
+            return Err(format!("Found multiple config json files: {json_files:?}"))
+        }
+
+        // Load config
+        let json_file = json_files[0];
+        let json_str = std::fs::read_to_string(json_file).map_err(|e| format!("Failed to read config json: {e}"))?;
+        let cfg: MachineCfg = serde_json::from_str(&json_str).map_err(|e| format!("Failed to parse config json: {e}"))?;
+
+        // Load sequences
+        let mut states = BTreeMap::new();
+        for fp in csv_files {
+            // unwrap: ok because we already checked that this is a file with an extension
+            let name = fp.file_stem().unwrap().to_str().unwrap().to_owned();
+            let csv_str = std::fs::read_to_string(fp).map_err(|e| format!("Failed to read sequence csv `{fp:?}`: {e}"))?;
+            let seq: SequenceState = serde_json::from_str(&csv_str).map_err(|e| format!("Failed to parse sequence csv `{fp:?}`: {e}"))?;
+            states.insert(name, seq);
+        }
+
+        Self::new(cfg, states)
+    }
 }
 
 #[cfg_attr(feature = "ser", typetag::serde)]
 impl Calc for Machine {
     /// Reset internal state and register calc tape indices
-    fn init(&mut self, _: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
+    fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
         // Reset execution state
         self.terminate();
 
         // Set per-run config
         self.input_indices = input_indices;
         self.output_range = output_range;
+        self.dt_s = ctx.dt_ns as f64 / 1e9;
 
         // Permute order of each state's lookups to match the entrypoint
         let entry_order = &self.current_state().data.keys().cloned().collect();
