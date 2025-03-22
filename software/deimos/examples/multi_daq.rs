@@ -13,14 +13,16 @@ use std::time::Duration;
 use crate::calc::{Constant, Sin};
 use crate::peripheral::{AnalogIRev3, AnalogIRev4};
 use controller::context::ControllerCtx;
-use deimos::calc::machine::{self, MachineCfg, ThreshOp, Timeout, Transition};
 use deimos::calc::Machine;
+use deimos::calc::machine::{self, MachineCfg, ThreshOp, Timeout, Transition};
 use deimos::*;
 
 fn main() {
     // Set op name
     // None -> Let the controller set the name of the op automatically
-    let op_name = std::fs::read_to_string("./op_name.tmp").unwrap_or_else(|_| {
+    let op_dir: PathBuf = "./software/deimos/examples".into();
+    let op_name_path = op_dir.join("op_name.tmp");
+    let op_name = std::fs::read_to_string(&op_name_path).unwrap_or_else(|_| {
         format!(
             "{:?}",
             std::time::SystemTime::now()
@@ -29,9 +31,7 @@ fn main() {
                 .as_nanos() as u64
         )
     });
-    std::fs::write("./op_name.tmp", &op_name).unwrap();
-
-    let op_dir: PathBuf = "./software/deimos/examples".into();
+    std::fs::write(op_name_path, &op_name).unwrap();
 
     // Collect initalizers for custom peripherals, if needed
     let peripheral_plugins = None;
