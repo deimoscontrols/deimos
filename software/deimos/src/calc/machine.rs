@@ -5,7 +5,10 @@
 //! are not known at compile-time, and are assembled from inputs instead.
 
 use core::f64;
-use std::collections::HashSet;
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
 #[cfg(feature = "ser")]
 use serde_json;
@@ -57,6 +60,10 @@ pub enum Transition {
     /// or to wait until a controlled parameter has converged to a value
     /// before proceeding into the next part of an operation.
     Thresh(String, ThreshOp, f64),
+    // /// Transition if a value of some input exceeds a threshold value
+    // /// that is interpolated from a lookup table
+    // /// based on some choice of comparison operation and interpolation method.
+    // LookupThresh(String, ThreshOp, SequenceLookup),
 }
 
 impl Transition {
@@ -91,10 +98,7 @@ impl Method {
     /// Case-insensitive and discards whitespace.
     pub fn from_str(s: &str) -> Result<Self, String> {
         let lower = s.to_lowercase();
-        let normalized = lower
-            .split_whitespace()
-            .next()
-            .ok_or(format!("Unable to process method: `{s}`"))?;
+        let normalized = lower.trim();
         match normalized {
             x if x == "linear" => Ok(Self::Linear),
             x if x == "left" => Ok(Self::Left),
@@ -105,39 +109,62 @@ impl Method {
     }
 }
 
-#[derive(Default)]
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-pub struct StateCfg {
-    // Transition criteria
-    transitions: BTreeMap<FieldName, Transition>,
-    timeout: Timeout,
-}
+// #[derive(Default)]
+// #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+// pub struct StateCfg {
+//     /// Transition criteria to evaluate at the beginning of each timestep
+//     transitions: BTreeMap<FieldName, Transition>,
+
+//     /// What to do at the end of the sequence
+//     timeout: Timeout,
+// }
 
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-pub struct StateData {
+pub struct SequenceLookup {
     /// Interpolation method
     method: Method,
 
-    /// Grid to interpolate on
+    /// Grid to interpolate on. Must be the same length as `vals`.
     time_s: Vec<f64>,
 
-    /// Values to interpolate
+    /// Values to interpolate. Must be the same length as `time_s`.
     vals: Vec<f64>,
+}
+
+impl SequenceLookup {
+    /// Sample the lookup at a point in time
+    pub fn eval(&self, sequence_time_s: f64) -> f64 {
+        let grid = RectilinearGrid1D::new(&self.time_s, &self.vals).unwrap();
+        let v = match self.method {
+            Method::Linear => interpn::Linear1D::new(grid)
+                .eval_one(sequence_time_s)
+                .unwrap(),
+            Method::Left => interpn::Left1D::new(grid)
+                .eval_one(sequence_time_s)
+                .unwrap(),
+            Method::Right => interpn::Right1D::new(grid)
+                .eval_one(sequence_time_s)
+                .unwrap(),
+            Method::Nearest => interpn::Nearest1D::new(grid)
+                .eval_one(sequence_time_s)
+                .unwrap(),
+        };
+
+        v
+    }
 }
 
 #[derive(Default)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-pub struct State {
-    // input_names: Vec<String>,
-    output_names: Vec<String>,
-    data: Vec<StateData>,
-    cfg: StateCfg,
+pub struct SequenceState {
+    /// Sequence interpolation data
+    data: BTreeMap<String, SequenceLookup>,
 }
 
-impl State {
+impl SequenceState {
     fn get_end_time_s(&self) -> f64 {
         let mut t = f64::NEG_INFINITY;
-        for d in self.data.iter() {
+        for d in self.data.values() {
             t = t.max(*d.time_s.last().unwrap());
         }
         t
@@ -145,75 +172,57 @@ impl State {
 
     fn get_start_time_s(&self) -> f64 {
         let mut t = f64::INFINITY;
-        for d in self.data.iter() {
+        for d in self.data.values() {
             t = t.min(d.time_s[0]);
         }
         t
     }
 
-    fn get_timeout(&self) -> &Timeout {
-        &self.cfg.timeout
-    }
+    // fn get_timeout(&self) -> &Timeout {
+    //     &self.cfg.timeout
+    // }
 
-    fn get_input_names(&self) -> Vec<CalcInputName> {
-        let mut names = HashSet::new();
-        for t in self.cfg.transitions.values() {
-            match t {
-                Transition::Thresh(n, _, _) => {
-                    names.insert(n.clone());
-                }
-            }
-        }
+    // fn get_input_names(&self) -> Vec<CalcInputName> {
+    //     let mut names = HashSet::new();
+    //     for t in self.cfg.transitions.values() {
+    //         match t {
+    //             Transition::Thresh(n, _, _) => {
+    //                 names.insert(n.clone());
+    //             }
+    //         }
+    //     }
 
-        names.iter().cloned().collect()
-    }
+    //     names.iter().cloned().collect()
+    // }
 
     /// Shuffle internal ordering of outputs to match the provided order
     fn permute(&mut self, output_names: &Vec<String>) {
-        let ind_map =
-            BTreeMap::from_iter(self.output_names.iter().enumerate().map(|(i, x)| (x, i)));
-
-        let mut permuted_data = Vec::new();
-
+        let mut new_map = BTreeMap::new();
         for n in output_names.iter() {
-            let ind = ind_map[n];
-            permuted_data.push(self.data.remove(ind));
+            new_map.insert(n.clone(), self.data.remove(n).unwrap());
         }
-
-        self.data = permuted_data;
-        self.output_names = output_names.clone();
+        assert!(
+            self.data.is_empty(),
+            "State eval order permutation was missing entres: {:?}",
+            self.data.keys()
+        );
+        self.data = new_map;
     }
 
     /// Run the interpolators for this timestep
     fn eval(&self, sequence_time_s: f64, output_range: Range<usize>, tape: &mut [f64]) {
-        for (i, d) in output_range.zip(self.data.iter()) {
-            let grid = RectilinearGrid1D::new(&d.time_s, &d.vals).unwrap();
-            let v = match d.method {
-                Method::Linear => interpn::Linear1D::new(grid)
-                    .eval_one(sequence_time_s)
-                    .unwrap(),
-                Method::Left => interpn::Left1D::new(grid)
-                    .eval_one(sequence_time_s)
-                    .unwrap(),
-                Method::Right => interpn::Right1D::new(grid)
-                    .eval_one(sequence_time_s)
-                    .unwrap(),
-                Method::Nearest => interpn::Nearest1D::new(grid)
-                    .eval_one(sequence_time_s)
-                    .unwrap(),
-            };
-
-            tape[i] = v;
+        for (i, d) in output_range.zip(self.data.values()) {
+            tape[i] = d.eval(sequence_time_s);
         }
     }
 
     /// Load sequence from a CSV string
     #[cfg(feature = "ser")]
-    pub fn from_csv_json_strings(cfg: &str, data: &str) -> Result<Self, String> {
-        let mut lines = data.lines();
+    pub fn from_csv_json_strings(data_csv: &str) -> Result<Self, String> {
+        let mut lines = data_csv.lines();
 
         // Parse config
-        let cfg: StateCfg = serde_json::from_str(cfg).map_err(|e| stringify!(e))?;
+        // let cfg: StateCfg = serde_json::from_str(cfg_json).map_err(|e| stringify!(e))?;
 
         // Parse header row, discarding time column name
         let output_names: Vec<String> = lines
@@ -226,7 +235,6 @@ impl State {
 
         // Parse interpolation methods
         let mut methods: Vec<Method> = Vec::new();
-
         for s in lines
             .next()
             .ok_or("Empty csv".to_string())?
@@ -242,21 +250,32 @@ impl State {
         let mut time_s = vec![vec![]; methods.len()];
         for (i, line) in lines.enumerate() {
             let mut entries = line.split(",");
+            let ne = entries.size_hint().0; // Size hint is exact for split
+            let ne_expected = methods.len() + 1; // Expected number of entries per line
 
-            // If the line is empty or only contains a time and no data, skip to the next line
-            if entries.size_hint().0 < 2 {
+            // If the line is empty, skip to the next line.
+            if ne == 0 {
                 continue;
+            }
+
+            // If the line is not empty but doesn't contain exactly one entry for each column,
+            // we can't be sure that we are interpreting the user's intent correctly
+            if ne < ne_expected {
+                return Err(format!("CSV missing column on line {i}"));
+            }
+            if ne > ne_expected {
+                return Err(format!("CSV has an extra column on line {i}"));
             }
 
             // Leftmost column is the time index
             let time = entries
                 .next()
-                .ok_or(format!("CSV read error on line {i}, empty line"))?;
-            let time = time
+                .ok_or(format!("CSV read error on line {i}, empty line"))?
                 .trim()
                 .parse::<f64>()
                 .map_err(|e| format!("Error parsing time value in CSV on line {i}: {e}"))?;
 
+            // Parse column values
             for (j, entry) in entries.enumerate() {
                 // Whitespace-only entries are null
                 if entry.trim() == "" {
@@ -265,7 +284,7 @@ impl State {
 
                 // Entries that are not empty or whitespace should be valid numbers
                 let v = entry.parse::<f64>().map_err(|e| {
-                    format!("CSV parse error on line {i} column {j} with entry {entry}")
+                    format!("CSV parse error on line {i} column {j} with entry {entry}: {e:?}")
                 })?;
 
                 time_s[j].push(time);
@@ -278,7 +297,9 @@ impl State {
         for i in 0..methods.len() {
             let n = &output_names[i];
             if time_s[i][0] != start_time {
-                return Err(format!("Value at start time missing for column {i} (`{n}`)"))
+                return Err(format!(
+                    "Value at start time missing for column {i} (`{n}`)"
+                ));
             }
         }
 
@@ -286,27 +307,32 @@ impl State {
         for (i, t) in time_s.iter().enumerate() {
             let n = &output_names[i];
             if !t.is_sorted() {
-                return Err(format!("Out-of-order sequence for column {i} (`{n}`)"))
+                return Err(format!("Out-of-order sequence for column {i} (`{n}`)"));
             }
         }
 
-        // Pack parsed values into states
-        let mut data = Vec::new();
-        for _ in 0..methods.len() {
-            data.push(StateData {
-                method: methods.pop().unwrap(),
-                time_s: time_s.pop().unwrap(),
-                vals: vals.pop().unwrap(),
-            })
+        // Pack parsed values
+        let mut data = BTreeMap::new();
+        methods.reverse();
+        time_s.reverse();
+        vals.reverse();
+        for i in 0..methods.len() {
+            data.insert(
+                output_names[i].clone(),
+                SequenceLookup {
+                    method: methods.pop().unwrap(),
+                    time_s: time_s.pop().unwrap(),
+                    vals: vals.pop().unwrap(),
+                },
+            );
         }
-        data.reverse();
 
-        Ok(Self {
-            output_names,
-            data,
-            cfg,
-        })
+        Ok(Self { data })
     }
+
+    // pub fn from_csv_json_files(cfg_json_path: &dyn Into<PathBuf>, csv_data_path) -> Result<Self, String> {
+
+    // }
 }
 
 #[derive(Default)]
@@ -314,17 +340,26 @@ struct ExecutionState {
     /// Time in current state's sequence.
     /// Starts at the first time in the state's lookup table.
     pub sequence_time_s: f64,
+
+    /// Name of the current operating sequence
     pub current_state: String,
 }
 
 #[derive(Default)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct MachineCfg {
     // User inputs
     save_outputs: bool,
 
-    /// State which is the entrypoint for the machine
+    /// SequenceState which is the entrypoint for the machine
     entry: String,
+
+    /// Timeout behavior for each state
+    timeouts: BTreeMap<String, Timeout>,
+
+    /// Early transition criteria for each state
+    transitions: BTreeMap<String, BTreeMap<String, Vec<Transition>>>,
 }
 
 /// A lookup-table state machine that follows a set procedure during
@@ -337,15 +372,16 @@ pub struct MachineCfg {
 pub struct Machine {
     cfg: MachineCfg,
 
-    /// All the lookup states of the machine, including their
+    /// All the lookup sequence states of the machine, including their
     /// transition criteria.
     ///
     /// All states must have the same outputs so that no values
-    /// are ever left dangling.
+    /// are ever left dangling, and all values must be defined
+    /// at the first timestep of each sequence.
     ///
     /// The inputs to the machine are the sum of all the inputs
     /// required by each state.
-    states: BTreeMap<String, State>,
+    states: BTreeMap<String, SequenceState>,
 
     // Current execution state
     #[cfg_attr(feature = "ser", serde(skip))]
@@ -355,7 +391,7 @@ pub struct Machine {
     /// Lookup map for channel names to indices, required for evaluating
     /// transition criteria
     #[cfg_attr(feature = "ser", serde(skip))]
-    input_map: BTreeMap<String, usize>,
+    input_index_map: BTreeMap<String, usize>,
 
     /// Timestep
     #[cfg_attr(feature = "ser", serde(skip))]
@@ -369,29 +405,35 @@ pub struct Machine {
 }
 
 impl Machine {
-    // pub fn new(save_outputs: bool) -> Self {
-    //     // These will be set during init.
-    //     // Use default indices that will cause an error on the first call if not initialized properly
-    //     let input_indices = Vec::new();
-    //     let output_indices = Vec::new();
+    pub fn new(cfg: MachineCfg, states: BTreeMap<String, SequenceState>) -> Self {
+        // These will be set during init.
+        // Use default indices that will cause an error on the first call if not initialized properly
+        let input_indices = Vec::new();
+        let output_range = usize::MAX..usize::MAX;
 
-    //     Self {
-    //         input_name,
-    //         slope,
-    //         offset,
-    //         save_outputs,
+        Self {
+            cfg,
+            states,
+            execution_state: ExecutionState::default(),
+            input_index_map: BTreeMap::new(),
 
-    //         input_index,
-    //         output_index,
-    //     }
-    // }
-
-    fn current_state(&self) -> &State {
-        self.states
-            .get(&self.execution_state.current_state)
-            .unwrap()
+            dt_s: f64::NAN,
+            input_indices,
+            output_range,
+        }
     }
 
+    /// Get a reference to the state indicated in execution_state.current_state
+    fn current_state(&self) -> &SequenceState {
+        &self.states[&self.execution_state.current_state]
+    }
+
+    /// Get a reference to the entrypoint state
+    fn entry_state(&self) -> &SequenceState {
+        &self.states[&self.cfg.entry]
+    }
+
+    /// Set next target state and reset sequence time to the initial time for that state.
     fn transition(&mut self, target_state: String) {
         self.execution_state.current_state = target_state;
         self.execution_state.sequence_time_s = self.current_state().get_start_time_s();
@@ -401,15 +443,17 @@ impl Machine {
     /// If multiple transition criteria are met at the same time, the first
     /// one in the list will be prioritized.
     fn check_transitions(&mut self, sequence_time_s: f64, tape: &[f64]) -> Result<(), String> {
+        let state_name = &self.execution_state.current_state;
+
         // Check for timeout
         if sequence_time_s > self.current_state().get_end_time_s() {
-            return match self.current_state().get_timeout() {
+            return match &self.cfg.timeouts[state_name] {
                 Timeout::Transition(target_state) => {
                     self.transition(target_state.clone());
                     Ok(())
                 }
                 Timeout::Loop => {
-                    self.transition(self.execution_state.current_state.clone());
+                    self.transition(state_name.clone());
                     Ok(())
                 }
                 Timeout::Error(msg) => Err(msg.clone()),
@@ -417,30 +461,32 @@ impl Machine {
         }
 
         // Check other criteria
-        for (target_state, criterion) in self.current_state().cfg.transitions.iter() {
-            // Check whether this criterion has been met
-            let should_transition = match criterion {
-                Transition::Thresh(channel, op, thresh) => {
-                    let i = self.input_map[channel];
-                    let v = tape[i];
+        for (target_state, criteria) in self.cfg.transitions[state_name].iter() {
+            // Check whether this each criterion has been met
+            for criterion in criteria {
+                let should_transition = match criterion {
+                    Transition::Thresh(channel, op, thresh) => {
+                        let i = self.input_index_map[channel];
+                        let v = tape[i];
 
-                    match op {
-                        ThreshOp::Gt => v > *thresh,
-                        ThreshOp::Lt => v < *thresh,
-                        ThreshOp::Approx { rtol, atol } => {
-                            let drel = rtol * thresh.abs();
-                            let dtot = drel + atol;
-                            (v - thresh).abs() < dtot
+                        match op {
+                            ThreshOp::Gt => v > *thresh,
+                            ThreshOp::Lt => v < *thresh,
+                            ThreshOp::Approx { rtol, atol } => {
+                                let drel = rtol * thresh.abs();
+                                let dtot = drel + atol;
+                                (v - thresh).abs() < dtot
+                            }
                         }
                     }
-                }
-            };
+                };
 
-            // If a state transition has been triggered, update the execution state
-            // to the start of the next state.
-            if should_transition {
-                self.transition(target_state.clone());
-                return Ok(());
+                // If a state transition has been triggered, update the execution state
+                // to the start of the next state.
+                if should_transition {
+                    self.transition(target_state.clone());
+                    return Ok(());
+                }
             }
         }
 
@@ -461,13 +507,24 @@ impl Calc for Machine {
         self.output_range = output_range;
 
         // Permute order of each state's lookups to match the entrypoint
-        let entry_order = &self.current_state().output_names.clone();
+        let entry_order = &self.current_state().data.keys().cloned().collect();
         for s in self.states.values_mut() {
             s.permute(entry_order);
         }
 
+        // Set up map from input names to tape indices to support
+        // transition checks
+        self.input_index_map = BTreeMap::new();
+        for (i, name) in self
+            .input_indices
+            .iter()
+            .cloned()
+            .zip(self.get_input_names().iter())
+        {
+            self.input_index_map.insert(name.clone(), i);
+        }
+
         // TODO: check that all outputs are consistent
-        // TODO: set up eval order for transitions for each state
         // TODO: check that entrypoint is a real state that exists
     }
 
@@ -501,10 +558,13 @@ impl Calc for Machine {
     fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
         let mut map = BTreeMap::new();
 
-        for state in self.states.values() {
-            for c in state.cfg.transitions.values() {
-                for name in c.get_input_names() {
-                    map.insert(name.clone(), name);
+        for transitions in self.cfg.transitions.values() {
+            for criteria in transitions.values() {
+                for criterion in criteria {
+                    let names = criterion.get_input_names();
+                    for name in names {
+                        map.insert(name.clone(), name);
+                    }
                 }
             }
         }
@@ -521,19 +581,12 @@ impl Calc for Machine {
 
     /// Inputs are the sum of all inputs required by any state
     fn get_input_names(&self) -> Vec<CalcInputName> {
-        let mut names = HashSet::new();
-        for s in self.states.values() {
-            for n in s.get_input_names() {
-                names.insert(n);
-            }
-        }
-
-        names.iter().cloned().collect()
+        self.get_input_map().keys().cloned().collect()
     }
 
     /// All states have the same outputs
     fn get_output_names(&self) -> Vec<CalcOutputName> {
-        self.current_state().output_names.clone()
+        self.entry_state().data.keys().cloned().collect()
     }
 
     /// Get flag for whether to save outputs
@@ -548,10 +601,7 @@ impl Calc for Machine {
 
     /// Get config field values
     fn get_config(&self) -> BTreeMap<String, f64> {
-        #[allow(unused_mut)]
-        let mut cfg = BTreeMap::<String, f64>::new();
-
-        cfg
+        BTreeMap::<String, f64>::new()
     }
 
     /// Apply config field values
