@@ -1,0 +1,24 @@
+{
+  "save_outputs": true,
+  "entry": "low",
+  "timeouts": {
+    "high": {
+      "Transition": "low"
+    },
+    "low": "Loop"
+  },
+  "transitions": {
+    "high": {},
+    "low": {
+      "high": [
+        {
+          "Thresh": [
+            "freq.y",
+            "Gt",
+            100000.0
+          ]
+        }
+      ]
+    }
+  }
+}

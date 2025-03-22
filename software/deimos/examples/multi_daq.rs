@@ -6,11 +6,15 @@
 //!   * Performing calculations in the loop
 //!   * Serialization and deserialization of the control program
 
+use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::calc::{Constant, Sin};
 use crate::peripheral::{AnalogIRev3, AnalogIRev4};
 use controller::context::ControllerCtx;
+use deimos::calc::machine::{self, MachineCfg, ThreshOp, Timeout, Transition};
+use deimos::calc::Machine;
 use deimos::*;
 
 fn main() {
@@ -27,6 +31,8 @@ fn main() {
     });
     std::fs::write("./op_name.tmp", &op_name).unwrap();
 
+    let op_dir: PathBuf = "./software/deimos/examples".into();
+
     // Collect initalizers for custom peripherals, if needed
     let peripheral_plugins = None;
 
@@ -38,6 +44,7 @@ fn main() {
     let mut ctx = ControllerCtx::default();
     ctx.op_name = op_name;
     ctx.dt_ns = dt_ns;
+    ctx.op_dir = op_dir.clone();
     let mut controller = Controller::new(ctx);
 
     // Scan for peripherals on LAN
@@ -79,15 +86,51 @@ fn main() {
     controller.set_peripheral_input_source("p1.pwm0_freq", "freq.y");
     controller.set_peripheral_input_source("p1.pwm1_duty", "duty.y");
     controller.set_peripheral_input_source("p1.pwm1_freq", "freq1.y");
-    controller.set_peripheral_input_source("p1.pwm3_duty", "duty.y");
+    controller.set_peripheral_input_source("p1.pwm3_duty", "sequence_machine.duty");
     controller.set_peripheral_input_source("p1.pwm3_freq", "freq.y");
 
+    let timeouts = BTreeMap::from([
+        ("low".to_owned(), Timeout::Loop),
+        ("high".to_owned(), Timeout::Transition("low".to_owned())),
+    ]);
+    // println!("{}", serde_json::to_string_pretty(&timeouts).unwrap());
+
+    let transitions: BTreeMap<String, BTreeMap<String, Vec<Transition>>> = BTreeMap::from([
+        (
+            "low".to_owned(),
+            BTreeMap::from([(
+                "high".to_owned(),
+                vec![Transition::Thresh(
+                    "freq.y".to_owned(),
+                    ThreshOp::Gt,
+                    100_000.0,
+                )],
+            )]),
+        ),
+        ("high".to_owned(), BTreeMap::from([])),
+    ]);
+    // println!("{}", serde_json::to_string_pretty(&transitions).unwrap());
+
+    let cfg = MachineCfg {
+        save_outputs: true,
+        entry: "low".to_owned(),
+        timeouts,
+        transitions,
+    };
+    let cfg_str = serde_json::to_string_pretty(&cfg).unwrap();
+    // println!("{}", serde_json::to_string_pretty(&cfg).unwrap());
+
+    let machine_dir = op_dir.join("machine");
+    let fp = machine_dir.join("cfg.json");
+    std::fs::write(fp, cfg_str).unwrap();
+
+    let machine = Machine::load_folder(&machine_dir).unwrap();
+    // println!("{}", serde_json::to_string_pretty(&machine).unwrap());
+    controller.add_calc("sequence_machine", Box::new(machine));
+
     // Serialize and deserialize the controller (for demonstration purposes)
-    #[cfg(feature = "ser")]
-    {
-        let serialized_controller = serde_json::to_string_pretty(&controller).unwrap();
-        let _: Controller = serde_json::from_str(&serialized_controller).unwrap();
-    }
+    let serialized_controller = serde_json::to_string_pretty(&controller).unwrap();
+    let _: Controller = serde_json::from_str(&serialized_controller).unwrap();
 
     // Run the control program
     println!("Starting controller");

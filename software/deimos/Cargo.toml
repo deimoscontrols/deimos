@@ -53,7 +53,7 @@ sideloading = ["crossbeam"]
 
 [[example]]
 name = "multi_daq"
-required-features = ["tsdb"]
+required-features = ["tsdb", "ser"]
 
 [[example]]
 name = "ipc_plugin"

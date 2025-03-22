@@ -75,7 +75,7 @@ impl Transition {
 }
 
 /// Interpolation method
-#[derive(Default)]
+#[derive(Default, Debug)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 #[non_exhaustive]
 pub enum Method {
@@ -227,7 +227,7 @@ impl SequenceState {
         let mut time_s = vec![vec![]; methods.len()];
         for (i, line) in lines.enumerate() {
             let mut entries = line.split(",");
-            let ne = entries.size_hint().0; // Size hint is exact for split
+            let ne = line.chars().filter(|c| *c == ',').count() + 1; // Size hint is not exact for split
             let ne_expected = methods.len() + 1; // Expected number of entries per line
 
             // If the line is empty, skip to the next line.
@@ -327,20 +327,19 @@ struct ExecutionState {
 
 #[derive(Default)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[non_exhaustive]
 pub struct MachineCfg {
     // User inputs
     /// Whether to dispatch outputs
-    save_outputs: bool,
+    pub save_outputs: bool,
 
     /// Name of SequenceState which is the entrypoint for the machine
-    entry: String,
+    pub entry: String,
 
     /// Timeout behavior for each state
-    timeouts: BTreeMap<String, Timeout>,
+    pub timeouts: BTreeMap<String, Timeout>,
 
     /// Early transition criteria for each state
-    transitions: BTreeMap<String, BTreeMap<String, Vec<Transition>>>,
+    pub transitions: BTreeMap<String, BTreeMap<String, Vec<Transition>>>,
 }
 
 /// A lookup-table state machine that follows a set procedure during
@@ -484,8 +483,12 @@ impl Machine {
         Ok(())
     }
 
+    /// Read a configuration json and sequence CSV files from a folder.
+    /// The folder must contain one json representing a [MachineCfg] and
+    /// some number of CSV files each representing a [SequenceState].
     pub fn load_folder(path: &dyn AsRef<Path>) -> Result<Self, String> {
-        let dir = std::fs::read_dir(path).map_err(|e| format!("Unable to read items in folder {}: {e}", path.into()))?;
+        let dir = std::fs::read_dir(path)
+            .map_err(|e| format!("Unable to read items in folder {:?}: {e}", path.as_ref()))?;
 
         let mut csv_files = Vec::new();
         let mut json_files = Vec::new();
@@ -495,38 +498,42 @@ impl Machine {
                     let path = e.path();
                     if path.is_file() {
                         match path.extension() {
-                            Some(ext) if ext.to_ascii_lowercase().to_str() == Some("csv") => csv_files.push(path),
-                            Some(ext) if ext.to_ascii_lowercase().to_str() == Some("json") => json_files.push(path),
-                            _ => {},
+                            Some(ext) if ext.to_ascii_lowercase().to_str() == Some("csv") => {
+                                csv_files.push(path)
+                            }
+                            Some(ext) if ext.to_ascii_lowercase().to_str() == Some("json") => {
+                                json_files.push(path)
+                            }
+                            _ => {}
                         }
                     }
-
-                },
+                }
                 _ => {}
             }
-        };
+        }
 
         // Make sure there is exactly one json file
         if json_files.len() == 0 {
-            return Err("Did not find configuration json file".to_string())
+            return Err("Did not find configuration json file".to_string());
         }
 
         if json_files.len() > 1 {
-            return Err(format!("Found multiple config json files: {json_files:?}"))
+            return Err(format!("Found multiple config json files: {json_files:?}"));
         }
 
         // Load config
-        let json_file = json_files[0];
-        let json_str = std::fs::read_to_string(json_file).map_err(|e| format!("Failed to read config json: {e}"))?;
-        let cfg: MachineCfg = serde_json::from_str(&json_str).map_err(|e| format!("Failed to parse config json: {e}"))?;
+        let json_file = &json_files[0];
+        let json_str = std::fs::read_to_string(json_file)
+            .map_err(|e| format!("Failed to read config json: {e}"))?;
+        let cfg: MachineCfg = serde_json::from_str(&json_str)
+            .map_err(|e| format!("Failed to parse config json: {e}"))?;
 
         // Load sequences
         let mut states = BTreeMap::new();
         for fp in csv_files {
             // unwrap: ok because we already checked that this is a file with an extension
             let name = fp.file_stem().unwrap().to_str().unwrap().to_owned();
-            let csv_str = std::fs::read_to_string(fp).map_err(|e| format!("Failed to read sequence csv `{fp:?}`: {e}"))?;
-            let seq: SequenceState = serde_json::from_str(&csv_str).map_err(|e| format!("Failed to parse sequence csv `{fp:?}`: {e}"))?;
+            let seq: SequenceState = SequenceState::from_csv_file(&fp)?;
             states.insert(name, seq);
         }
 

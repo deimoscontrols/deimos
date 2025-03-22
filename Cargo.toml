@@ -4,7 +4,7 @@ members = [
     "software/deimos_shared"
 ]
 exclude = [ "firmware", "hardware" ]
-resolver = "2"
+resolver = "3"
 
 [workspace.package]
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
