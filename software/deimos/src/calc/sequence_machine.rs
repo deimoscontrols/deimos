@@ -55,7 +55,10 @@ impl ThreshOp {
     /// Check whether a value meets a threshold based on this operation.
     pub fn eval(&self, v: f64, thresh: f64) -> bool {
         // Check for NaN
-        assert!(!v.is_nan() && !thresh.is_nan(), "Unable to assess transition criteria involving NaN values.");
+        assert!(
+            !v.is_nan() && !thresh.is_nan(),
+            "Unable to assess transition criteria involving NaN values."
+        );
 
         // Evaluate whether a transition should occur
         match self {
@@ -94,7 +97,7 @@ pub enum Transition {
     /// Transition if a value of some input exceeds a threshold value
     /// that is interpolated from a lookup table based on some choice
     /// of comparison operation and interpolation method.
-    /// 
+    ///
     /// This type of threshold can help maintain guard rails around sensitive values
     /// during sensitive transient operations.
     LookupThresh(CalcInputName, ThreshOp, SequenceLookup),
@@ -478,12 +481,8 @@ pub struct SequenceMachine {
 }
 
 impl SequenceMachine {
-
     /// Store and validate a new SequenceMachine
-    pub fn new(
-        cfg: MachineCfg,
-        sequences: BTreeMap<String, Sequence>,
-    ) -> Result<Self, String> {
+    pub fn new(cfg: MachineCfg, sequences: BTreeMap<String, Sequence>) -> Result<Self, String> {
         // These will be set during init.
         // Use default indices that will cause an error on the first call if not initialized properly
         let input_indices = Vec::new();
@@ -661,7 +660,7 @@ impl SequenceMachine {
         }
 
         // Make sure there is exactly one json file
-        if json_files.len() == 0 {
+        if json_files.is_empty() {
             return Err("Did not find configuration json file".to_string());
         }
 
@@ -778,9 +777,10 @@ impl Calc for SequenceMachine {
 
     /// Change a value in the input map
     fn update_input_map(&mut self, _field: &str, _source: &str) -> Result<(), String> {
-        return Err(format!(
+        Err(
             "SequenceMachine input map is derived from sequence transition criterion dependencies"
-        ));
+                .to_string(),
+        )
     }
 
     /// Inputs are the sum of all inputs required by any sequence
@@ -791,7 +791,11 @@ impl Calc for SequenceMachine {
     /// All sequences have the same outputs
     fn get_output_names(&self) -> Vec<CalcOutputName> {
         let mut output_names = vec!["sequence_time_s".to_owned()];
-        self.entry_sequence().data.keys().cloned().for_each(|n| output_names.push(n));
+        self.entry_sequence()
+            .data
+            .keys()
+            .cloned()
+            .for_each(|n| output_names.push(n));
         output_names
     }
 
