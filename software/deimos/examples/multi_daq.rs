@@ -99,9 +99,9 @@ fn main() {
             "low".to_owned(),
             BTreeMap::from([(
                 "high".to_owned(),
-                vec![Transition::Thresh(
+                vec![Transition::ConstantThresh(
                     "freq.y".to_owned(),
-                    ThreshOp::Gt,
+                    ThreshOp::Gt { by: 0.0 },
                     100_000.0,
                 )],
             )]),

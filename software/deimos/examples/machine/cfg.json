@@ -13,9 +13,13 @@
     "low": {
       "high": [
         {
-          "Thresh": [
+          "ConstantThresh": [
             "freq.y",
-            "Gt",
+            {
+              "Gt": {
+                "by": 0.0
+              }
+            },
             100000.0
           ]
         }

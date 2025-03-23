@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 
 use interpn::one_dim::{Interp1D, RectilinearGrid1D};
 
+pub type StateName = String;
+
 use super::*;
 
 /// Choice of behavior when a given state reaches the end of its lookup table
@@ -23,7 +25,7 @@ use super::*;
 #[non_exhaustive]
 pub enum Timeout {
     /// Transition to the next state
-    Transition(String),
+    Transition(StateName),
 
     /// Start over from the beginning of the table
     #[default]
@@ -33,18 +35,37 @@ pub enum Timeout {
     Error(String),
 }
 
-#[derive(Default)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 pub enum ThreshOp {
     /// Greater than
-    #[default]
-    Gt,
+    Gt { by: f64 },
 
     /// Less than
-    Lt,
+    Lt { by: f64 },
 
     /// Approximately equal
     Approx { rtol: f64, atol: f64 },
+}
+
+impl Default for ThreshOp {
+    fn default() -> Self {
+        Self::Gt { by: 0.0 }
+    }
+}
+
+impl ThreshOp {
+    /// Check whether a value meets a threshold based on this operation.
+    pub fn eval(&self, v: f64, thresh: f64) -> bool {
+        match self {
+            ThreshOp::Gt { by } => v > thresh + by,
+            ThreshOp::Lt { by } => v < thresh - by,
+            ThreshOp::Approx { rtol, atol } => {
+                let drel = rtol * thresh.abs();
+                let dtot = drel + atol;
+                (v - thresh).abs() < dtot
+            }
+        }
+    }
 }
 
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
@@ -56,18 +77,30 @@ pub enum Transition {
     /// This may be used, for example, to exit when overheating is detected,
     /// or to wait until a controlled parameter has converged to a value
     /// before proceeding into the next part of an operation.
-    Thresh(String, ThreshOp, f64),
-    // /// Transition if a value of some input exceeds a threshold value
-    // /// that is interpolated from a lookup table
-    // /// based on some choice of comparison operation and interpolation method.
-    // LookupThresh(String, ThreshOp, SequenceLookup),
+    ConstantThresh(CalcInputName, ThreshOp, f64),
+
+    /// Transition if a value of some input exceeds the value of another input
+    /// based on some choice of comparison operation.
+    ///
+    /// This may be used, for example, to continue to the next state
+    /// once a controller has converged (for example, waiting to preheat).
+    ChannelThresh(CalcInputName, ThreshOp, CalcInputName),
+
+    /// Transition if a value of some input exceeds a threshold value
+    /// that is interpolated from a lookup table based on some choice
+    /// of comparison operation and interpolation method.
+    LookupThresh(CalcInputName, ThreshOp, SequenceLookup),
 }
 
 impl Transition {
     pub fn get_input_names(&self) -> Vec<FieldName> {
         let mut names = Vec::new();
         match self {
-            Self::Thresh(name, _, _) => names.push(name.clone()),
+            Self::ConstantThresh(name, _, _) => names.push(name.clone()),
+            Self::ChannelThresh(first, _, second) => {
+                names.extend_from_slice(&[first.clone(), second.clone()])
+            }
+            Self::LookupThresh(name, _, _) => names.push(name.clone()),
         };
 
         names
@@ -79,14 +112,22 @@ impl Transition {
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 #[non_exhaustive]
 pub enum Method {
+    /// Linear interpolation inside the grid. Outside the grid,
+    /// the nearest value is held constant to prevent runaway extrapolation.
     Linear,
 
+    /// Hold the value on the left side of the current cell.
+    /// 
     /// Hold-left is the default because intermediate values may not be
     /// valid values in some cases, while the values at the control points
     /// are valid to the extent that the user's intent is valid.
     #[default]
     Left,
+
+    /// Hold the value on the right side of the current cell.
     Right,
+
+    /// Hold the nearest value to the left or right of the current cell.
     Nearest,
 }
 
@@ -133,7 +174,7 @@ impl SequenceLookup {
     pub fn eval(&self, sequence_time_s: f64) -> f64 {
         let grid = RectilinearGrid1D::new(&self.time_s, &self.vals).unwrap();
         let v = match self.method {
-            Method::Linear => interpn::Linear1D::new(grid)
+            Method::Linear => interpn::LinearHoldLast1D::new(grid)
                 .eval_one(sequence_time_s)
                 .unwrap(),
             Method::Left => interpn::Left1D::new(grid)
@@ -457,19 +498,26 @@ impl Machine {
             // Check whether this each criterion has been met
             for criterion in criteria {
                 let should_transition = match criterion {
-                    Transition::Thresh(channel, op, thresh) => {
+                    Transition::ConstantThresh(channel, op, thresh) => {
                         let i = self.input_index_map[channel];
                         let v = tape[i];
 
-                        match op {
-                            ThreshOp::Gt => v > *thresh,
-                            ThreshOp::Lt => v < *thresh,
-                            ThreshOp::Approx { rtol, atol } => {
-                                let drel = rtol * thresh.abs();
-                                let dtot = drel + atol;
-                                (v - thresh).abs() < dtot
-                            }
-                        }
+                        op.eval(v, *thresh)
+                    },
+                    Transition::ChannelThresh(val_channel, op, thresh_channel) => {
+                        let ival = self.input_index_map[val_channel];
+                        let ithresh = self.input_index_map[thresh_channel];
+                        let v = tape[ival];
+                        let thresh = tape[ithresh];
+
+                        op.eval(v, thresh)
+                    },
+                    Transition::LookupThresh(channel, op, lookup) => {
+                        let i = self.input_index_map[channel];
+                        let v = tape[i];
+                        let thresh = lookup.eval(sequence_time_s);
+
+                        op.eval(v, thresh)
                     }
                 };
 
