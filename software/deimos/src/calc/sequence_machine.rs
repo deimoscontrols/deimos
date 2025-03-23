@@ -32,6 +32,7 @@ pub enum Timeout {
     Error(String),
 }
 
+/// A logical operator used to evaluate whether a transition should occur.
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 pub enum ThreshOp {
     /// Greater than
@@ -53,6 +54,10 @@ impl Default for ThreshOp {
 impl ThreshOp {
     /// Check whether a value meets a threshold based on this operation.
     pub fn eval(&self, v: f64, thresh: f64) -> bool {
+        // Check for NaN
+        assert!(!v.is_nan() && !thresh.is_nan(), "Unable to assess transition criteria involving NaN values.");
+
+        // Evaluate whether a transition should occur
         match self {
             ThreshOp::Gt { by } => v > thresh + by,
             ThreshOp::Lt { by } => v < thresh - by,
@@ -65,6 +70,7 @@ impl ThreshOp {
     }
 }
 
+/// Methods for checking whether a sequence transition should occur
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 #[non_exhaustive]
 pub enum Transition {
@@ -79,13 +85,18 @@ pub enum Transition {
     /// Transition if a value of some input exceeds the value of another input
     /// based on some choice of comparison operation.
     ///
-    /// This may be used, for example, to continue to the next sequence
-    /// once a controller has converged (for example, waiting to preheat).
+    /// This is an adaptable way to continue to the next sequence
+    /// once a controller has converged (for example, waiting to preheat)
+    /// by comparing the target state and measured state, without the need
+    /// to update the threshold value every time the setpoint changes.
     ChannelThresh(CalcInputName, ThreshOp, CalcInputName),
 
     /// Transition if a value of some input exceeds a threshold value
     /// that is interpolated from a lookup table based on some choice
     /// of comparison operation and interpolation method.
+    /// 
+    /// This type of threshold can help maintain guard rails around sensitive values
+    /// during sensitive transient operations.
     LookupThresh(CalcInputName, ThreshOp, SequenceLookup),
 }
 
@@ -145,6 +156,7 @@ impl InterpMethod {
     }
 }
 
+/// A lookup table defining one sequenced output from a Sequence
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 pub struct SequenceLookup {
     /// Interpolation method
@@ -158,6 +170,7 @@ pub struct SequenceLookup {
 }
 
 impl SequenceLookup {
+    /// Validate and store lookup
     pub fn new(method: InterpMethod, time_s: Vec<f64>, vals: Vec<f64>) -> Result<Self, String> {
         let seq = Self {
             method,
@@ -171,7 +184,7 @@ impl SequenceLookup {
         }
     }
 
-    /// Check
+    /// Check that time is monotonic and lengths are correct
     pub fn validate(&self) -> Result<(), String> {
         if !self.time_s.is_sorted() {
             return Err("Sequence time entries must be monotonically increasing".to_owned());
@@ -263,13 +276,17 @@ impl Sequence {
 
     /// Run the interpolators for this timestep
     pub fn eval(&self, sequence_time_s: f64, output_range: Range<usize>, tape: &mut [f64]) {
-        for (i, d) in output_range.zip(self.data.values()) {
+        // First entry is sequence time
+        let time_ind = output_range.start;
+        tape[time_ind] = sequence_time_s;
+
+        // Later entries are lookup outputs
+        for (i, d) in output_range.skip(1).zip(self.data.values()) {
             tape[i] = d.eval(sequence_time_s);
         }
     }
 
     /// Load sequence from a CSV string
-    #[cfg(feature = "ser")]
     pub fn from_csv_str(data_csv: &str) -> Result<Self, String> {
         let mut lines = data_csv.lines();
 
@@ -404,11 +421,14 @@ struct ExecutionState {
     /// Timestep
     pub dt_s: f64,
 
+    /// Indices of input calc/channel names
     pub input_indices: Vec<usize>,
 
+    /// Where to write the calc outputs in the calc tape
     pub output_range: Range<usize>,
 }
 
+/// Sequence entrypoint and transition criteria for the SequenceMachine.
 #[derive(Default)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 pub struct MachineCfg {
@@ -451,12 +471,15 @@ pub struct SequenceMachine {
     /// required by each sequence.
     sequences: BTreeMap<String, Sequence>,
 
-    // Current execution sequence
+    /// Current execution state of the SequenceMachine
+    /// including sequence time and per-run configuration.
     #[cfg_attr(feature = "ser", serde(skip))]
     execution_state: ExecutionState,
 }
 
 impl SequenceMachine {
+
+    /// Store and validate a new SequenceMachine
     pub fn new(
         cfg: MachineCfg,
         sequences: BTreeMap<String, Sequence>,
@@ -485,6 +508,7 @@ impl SequenceMachine {
         Ok(machine)
     }
 
+    /// Check the validity of sequences, transitions, timeouts, etc
     fn validate(&self) -> Result<(), String> {
         // Validate individual sequences and lookups
         for seq in self.sequences.values() {
@@ -609,6 +633,7 @@ impl SequenceMachine {
     /// Read a configuration json and sequence CSV files from a folder.
     /// The folder must contain one json representing a [MachineCfg] and
     /// some number of CSV files each representing a [Sequence].
+    #[cfg(feature = "ser")]
     pub fn load_folder(path: &dyn AsRef<Path>) -> Result<Self, String> {
         let dir = std::fs::read_dir(path)
             .map_err(|e| format!("Unable to read items in folder {:?}: {e}", path.as_ref()))?;
@@ -717,13 +742,13 @@ impl Calc for SequenceMachine {
         self.execution_state.current_sequence = self.cfg.entry.clone();
     }
 
-    /// Run calcs for a cycle
     fn eval(&mut self, tape: &mut [f64]) {
         // Increment sequence time
         self.execution_state.sequence_time_s += self.execution_state.dt_s;
         // Transition to the next sequence if needed, which may reset sequence time
         self.check_transitions(self.execution_state.sequence_time_s, &tape)
             .unwrap();
+
         // Update output values based on the current sequence
         self.current_sequence().eval(
             self.execution_state.sequence_time_s,
@@ -765,7 +790,9 @@ impl Calc for SequenceMachine {
 
     /// All sequences have the same outputs
     fn get_output_names(&self) -> Vec<CalcOutputName> {
-        self.entry_sequence().data.keys().cloned().collect()
+        let mut output_names = vec!["sequence_time_s".to_owned()];
+        self.entry_sequence().data.keys().cloned().for_each(|n| output_names.push(n));
+        output_names
     }
 
     /// Get flag for whether to save outputs
