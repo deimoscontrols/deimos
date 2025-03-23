@@ -1,5 +1,23 @@
 # Changelog
 
+## 2025-03-23 deimos 0.7.1
+
+Implement `SequenceMachine` calc, which provides arbitrary lookup-table state machines in order to support
+user-defined scheduling and operational logic.
+
+### Changed
+
+* Make serde_json part of `ser` feature
+* Update `multi_daq` example
+  * Include more hardware units
+  * Include an example `SequenceMachine` usage
+  * Use the examples folder as the op folder
+  * Make `ser` a required dep to handle loading `SequenceMachine` from disk
+
+### Added
+
+* Add `calc::sequence_machine` module with `SequenceMachine` and related types and functionality.
+
 ## 2025-02-23 deimos 0.7.0
 
 Place functionality not required to run the base control program behind feature flags,

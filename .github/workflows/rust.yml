@@ -25,7 +25,7 @@ jobs:
       run: cargo clippy --all-features
     - name: Run tests
       run: |
-        cargo test --verbose --no-default-features
+        cargo test --verbose --no-default-features --features=ser
         cargo test --verbose --features=tsdb
         cargo test --verbose --features=df
         cargo test --verbose --features=ser
