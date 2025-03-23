@@ -202,7 +202,8 @@ impl SequenceLookup {
     /// Sample the lookup, propagating any errors encountered while assembling or evaluating the interpolator.
     pub fn eval_checked(&self, sequence_time_s: f64) -> Result<f64, String> {
         let grid = RectilinearGrid1D::new(&self.time_s, &self.vals).map_err(|e| e.to_owned())?;
-        let v = match self.method {
+
+        match self.method {
             InterpMethod::Linear => interpn::LinearHoldLast1D::new(grid)
                 .eval_one(sequence_time_s)
                 .map_err(|e| e.to_owned()),
@@ -215,9 +216,7 @@ impl SequenceLookup {
             InterpMethod::Nearest => interpn::Nearest1D::new(grid)
                 .eval_one(sequence_time_s)
                 .map_err(|e| e.to_owned()),
-        };
-
-        v
+        }
     }
 
     /// Sample the lookup at a point in time
@@ -640,22 +639,19 @@ impl SequenceMachine {
         let mut csv_files = Vec::new();
         let mut json_files = Vec::new();
         for entry in dir {
-            match entry {
-                Ok(e) => {
-                    let path = e.path();
-                    if path.is_file() {
-                        match path.extension() {
-                            Some(ext) if ext.to_ascii_lowercase().to_str() == Some("csv") => {
-                                csv_files.push(path)
-                            }
-                            Some(ext) if ext.to_ascii_lowercase().to_str() == Some("json") => {
-                                json_files.push(path)
-                            }
-                            _ => {}
+            if let Ok(e) = entry {
+                let path = e.path();
+                if path.is_file() {
+                    match path.extension() {
+                        Some(ext) if ext.to_ascii_lowercase().to_str() == Some("csv") => {
+                            csv_files.push(path)
                         }
+                        Some(ext) if ext.to_ascii_lowercase().to_str() == Some("json") => {
+                            json_files.push(path)
+                        }
+                        _ => {}
                     }
                 }
-                _ => {}
             }
         }
 
@@ -745,7 +741,7 @@ impl Calc for SequenceMachine {
         // Increment sequence time
         self.execution_state.sequence_time_s += self.execution_state.dt_s;
         // Transition to the next sequence if needed, which may reset sequence time
-        self.check_transitions(self.execution_state.sequence_time_s, &tape)
+        self.check_transitions(self.execution_state.sequence_time_s, tape)
             .unwrap();
 
         // Update output values based on the current sequence
