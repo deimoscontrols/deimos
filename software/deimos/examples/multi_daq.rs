@@ -13,8 +13,8 @@ use std::time::Duration;
 use crate::calc::{Constant, Sin};
 use crate::peripheral::{AnalogIRev3, AnalogIRev4};
 use controller::context::ControllerCtx;
-use deimos::calc::Machine;
-use deimos::calc::machine::{MachineCfg, ThreshOp, Timeout, Transition};
+use deimos::calc::SequenceMachine;
+use deimos::calc::sequence_machine::{MachineCfg, ThreshOp, Timeout, Transition};
 use deimos::*;
 
 fn main() {
@@ -122,7 +122,7 @@ fn main() {
     let fp = machine_dir.join("cfg.json");
     std::fs::write(fp, cfg_str).unwrap();
 
-    let machine = Machine::load_folder(&machine_dir).unwrap();
+    let machine = SequenceMachine::load_folder(&machine_dir).unwrap();
     controller.add_calc("sequence_machine", Box::new(machine));
 
     // Serialize and deserialize the controller (for demonstration purposes)

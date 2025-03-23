@@ -23,7 +23,7 @@ mod rtd_pt100;
 mod sin;
 mod tc_ktype;
 
-pub mod machine;
+pub mod sequence_machine;
 
 pub use affine::Affine;
 pub use constant::Constant;
@@ -32,7 +32,7 @@ pub use pid::Pid;
 pub use rtd_pt100::RtdPt100;
 pub use sin::Sin;
 pub use tc_ktype::TcKtype;
-pub use machine::Machine;
+pub use sequence_machine::SequenceMachine;
 
 use crate::ControllerCtx;
 
