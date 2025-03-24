@@ -146,14 +146,14 @@ pub enum InterpMethod {
 impl InterpMethod {
     /// Attempt to parse a string into an interpolation method.
     /// Case-insensitive and discards whitespace.
-    pub fn from_str(s: &str) -> Result<Self, String> {
+    pub fn try_parse(s: &str) -> Result<Self, String> {
         let lower = s.to_lowercase();
         let normalized = lower.trim();
         match normalized {
-            x if x == "linear" => Ok(Self::Linear),
-            x if x == "left" => Ok(Self::Left),
-            x if x == "right" => Ok(Self::Right),
-            x if x == "nearest" => Ok(Self::Nearest),
+            "linear" => Ok(Self::Linear),
+            "left" => Ok(Self::Left),
+            "right" => Ok(Self::Right),
+            "nearest" => Ok(Self::Nearest),
             _ => Err(format!("Unable to process method: `{s}`")),
         }
     }
@@ -263,7 +263,7 @@ impl Sequence {
     }
 
     /// Shuffle internal ordering of outputs to match the provided order
-    pub fn permute(&mut self, output_names: &Vec<String>) {
+    pub fn permute(&mut self, output_names: &[String]) {
         let mut new_map = BTreeMap::new();
         for n in output_names.iter() {
             new_map.insert(n.clone(), self.data.remove(n).unwrap());
@@ -309,7 +309,7 @@ impl Sequence {
             .split(",")
             .skip(1)
         {
-            let m = InterpMethod::from_str(s.trim())?;
+            let m = InterpMethod::try_parse(s.trim())?;
             methods.push(m);
         }
 
@@ -638,19 +638,17 @@ impl SequenceMachine {
 
         let mut csv_files = Vec::new();
         let mut json_files = Vec::new();
-        for entry in dir {
-            if let Ok(e) = entry {
-                let path = e.path();
-                if path.is_file() {
-                    match path.extension() {
-                        Some(ext) if ext.to_ascii_lowercase().to_str() == Some("csv") => {
-                            csv_files.push(path)
-                        }
-                        Some(ext) if ext.to_ascii_lowercase().to_str() == Some("json") => {
-                            json_files.push(path)
-                        }
-                        _ => {}
+        for e in dir.flatten() {
+            let path = e.path();
+            if path.is_file() {
+                match path.extension() {
+                    Some(ext) if ext.to_ascii_lowercase().to_str() == Some("csv") => {
+                        csv_files.push(path)
                     }
+                    Some(ext) if ext.to_ascii_lowercase().to_str() == Some("json") => {
+                        json_files.push(path)
+                    }
+                    _ => {}
                 }
             }
         }
@@ -703,9 +701,9 @@ impl Calc for SequenceMachine {
         self.execution_state.dt_s = ctx.dt_ns as f64 / 1e9;
 
         // Permute order of each sequence's lookups to match the entrypoint
-        let entry_order = &self.current_sequence().data.keys().cloned().collect();
+        let entry_order: Vec<String> = self.current_sequence().data.keys().cloned().collect();
         for s in self.sequences.values_mut() {
-            s.permute(entry_order);
+            s.permute(&entry_order);
         }
 
         // Set up map from input names to tape indices to support
