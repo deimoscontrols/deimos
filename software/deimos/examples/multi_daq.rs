@@ -6,17 +6,23 @@
 //!   * Performing calculations in the loop
 //!   * Serialization and deserialization of the control program
 
+use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::calc::{Constant, Sin};
 use crate::peripheral::{AnalogIRev3, AnalogIRev4};
 use controller::context::ControllerCtx;
+use deimos::calc::SequenceMachine;
+use deimos::calc::sequence_machine::{MachineCfg, ThreshOp, Timeout, Transition};
 use deimos::*;
 
 fn main() {
     // Set op name
     // None -> Let the controller set the name of the op automatically
-    let op_name = std::fs::read_to_string("./op_name.tmp").unwrap_or_else(|_| {
+    let op_dir: PathBuf = "./software/deimos/examples".into();
+    let op_name_path = op_dir.join("op_name.tmp");
+    let op_name = std::fs::read_to_string(&op_name_path).unwrap_or_else(|_| {
         format!(
             "{:?}",
             std::time::SystemTime::now()
@@ -25,19 +31,20 @@ fn main() {
                 .as_nanos() as u64
         )
     });
-    std::fs::write("./op_name.tmp", &op_name).unwrap();
+    std::fs::write(op_name_path, &op_name).unwrap();
 
     // Collect initalizers for custom peripherals, if needed
     let peripheral_plugins = None;
 
     // Set control rate
-    let rate_hz = 200.0;
+    let rate_hz = 100.0;
     let dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
 
     // Define idle controller
     let mut ctx = ControllerCtx::default();
     ctx.op_name = op_name;
     ctx.dt_ns = dt_ns;
+    ctx.op_dir = op_dir.clone();
     let mut controller = Controller::new(ctx);
 
     // Scan for peripherals on LAN
@@ -51,6 +58,8 @@ fn main() {
     controller.add_peripheral("p4", Box::new(AnalogIRev4 { serial_number: 2 }));
     controller.add_peripheral("p5", Box::new(AnalogIRev4 { serial_number: 3 }));
     controller.add_peripheral("p6", Box::new(AnalogIRev4 { serial_number: 4 }));
+    controller.add_peripheral("p7", Box::new(AnalogIRev4 { serial_number: 5 }));
+    controller.add_peripheral("p8", Box::new(AnalogIRev4 { serial_number: 6 }));
 
     // Set up database dispatchers
     let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(
@@ -77,15 +86,48 @@ fn main() {
     controller.set_peripheral_input_source("p1.pwm0_freq", "freq.y");
     controller.set_peripheral_input_source("p1.pwm1_duty", "duty.y");
     controller.set_peripheral_input_source("p1.pwm1_freq", "freq1.y");
-    controller.set_peripheral_input_source("p1.pwm3_duty", "duty.y");
+    controller.set_peripheral_input_source("p1.pwm3_duty", "sequence_machine.duty");
     controller.set_peripheral_input_source("p1.pwm3_freq", "freq.y");
 
+    let timeouts = BTreeMap::from([
+        ("low".to_owned(), Timeout::Loop),
+        ("high".to_owned(), Timeout::Transition("low".to_owned())),
+    ]);
+
+    let transitions: BTreeMap<String, BTreeMap<String, Vec<Transition>>> = BTreeMap::from([
+        (
+            "low".to_owned(),
+            BTreeMap::from([(
+                "high".to_owned(),
+                vec![Transition::ConstantThresh(
+                    "freq.y".to_owned(),
+                    ThreshOp::Gt { by: 0.0 },
+                    100_000.0,
+                )],
+            )]),
+        ),
+        ("high".to_owned(), BTreeMap::from([])),
+    ]);
+
+    let cfg = MachineCfg {
+        save_outputs: true,
+        entry: "low".to_owned(),
+        link_folder: Some("machine".to_owned()),
+        timeouts,
+        transitions,
+    };
+    let cfg_str = serde_json::to_string_pretty(&cfg).unwrap();
+
+    let machine_dir = op_dir.join("machine");
+    let fp = machine_dir.join("cfg.json");
+    std::fs::write(fp, cfg_str).unwrap();
+
+    let machine = SequenceMachine::load_folder(&machine_dir).unwrap();
+    controller.add_calc("sequence_machine", Box::new(machine));
+
     // Serialize and deserialize the controller (for demonstration purposes)
-    #[cfg(feature = "ser")]
-    {
-        let serialized_controller = serde_json::to_string_pretty(&controller).unwrap();
-        let _: Controller = serde_json::from_str(&serialized_controller).unwrap();
-    }
+    let serialized_controller = serde_json::to_string_pretty(&controller).unwrap();
+    let _: Controller = serde_json::from_str(&serialized_controller).unwrap();
 
     // Run the control program
     println!("Starting controller");

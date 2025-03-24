@@ -1,0 +1,29 @@
+{
+  "save_outputs": true,
+  "entry": "low",
+  "link_folder": "machine",
+  "timeouts": {
+    "high": {
+      "Transition": "low"
+    },
+    "low": "Loop"
+  },
+  "transitions": {
+    "high": {},
+    "low": {
+      "high": [
+        {
+          "ConstantThresh": [
+            "freq.y",
+            {
+              "Gt": {
+                "by": 0.0
+              }
+            },
+            100000.0
+          ]
+        }
+      ]
+    }
+  }
+}

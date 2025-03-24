@@ -48,6 +48,7 @@ Data integration implementations perform I/O and database transactions on a sepa
 
 | Name | Description | Notes |
 |------|-------------|-------|
+| SequenceMachine | A flexible state-machine where each state is defined by a time-dependent lookup table sequence with user-defined transition criteria | Allows implementation of essentially arbitrary scheduling and operational logic |
 | TcKtype | K-type thermocouple tables with cold-junction correction | Based on ITS-90 tables |
 | RtdPt100 | 100-ohm platinum RTD temperature-resistance tables | Based on DIN-43-760 and ITS-90 |
 | Pid | Simple proportion-integral-derivative controller with primitive saturation anti-windup protection | |
