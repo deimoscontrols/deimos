@@ -442,6 +442,7 @@ pub struct MachineCfg {
     pub entry: String,
 
     /// Whether to reload from a folder at this relative path from the op dir during init
+    #[cfg(feature = "ser")]
     pub link_folder: Option<String>,
 
     /// Timeout behavior for each sequence
@@ -687,6 +688,7 @@ impl Calc for SequenceMachine {
     /// Reset internal sequence and register calc tape indices
     fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
         // Reload from folder, if linked
+        #[cfg(feature = "ser")]
         if let Some(rel_path) = &self.cfg.link_folder {
             let folder = ctx.op_dir.join(rel_path);
             *self = Self::load_folder(&folder).unwrap();
