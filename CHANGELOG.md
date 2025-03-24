@@ -1,12 +1,13 @@
 # Changelog
 
-## 2025-03-23 deimos 0.7.1
+## 2025-03-23 deimos 0.8.0
 
 Implement `SequenceMachine` calc, which provides arbitrary lookup-table state machines in order to support
 user-defined scheduling and operational logic.
 
 ### Changed
 
+* !Make `ser` a default feature
 * Make serde_json part of `ser` feature
 * Update `multi_daq` example
   * Include more hardware units
