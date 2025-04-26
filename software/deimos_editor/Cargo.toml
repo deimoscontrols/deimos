@@ -1,0 +1,21 @@
+[package]
+name = "deimos_editor"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+eframe = "0.29.1"
+egui_node_graph2 = "0.7.0"
+anyhow = "^1"
+serde = { version = "^1", optional = true }
+
+deimos_shared = { path = "../deimos_shared", version = "0.4.0" }
+deimos = { path = "../deimos", version = "0.8.0" }
+
+[features]
+default = ["persistence"]
+persistence = ["serde", "egui_node_graph2/persistence", "eframe/persistence"]
+

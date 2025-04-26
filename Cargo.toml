@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "software/deimos",
-    "software/deimos_shared"
+    "software/deimos_shared",
+    "software/deimos_editor"
 ]
 exclude = [ "firmware", "hardware" ]
 resolver = "3"
