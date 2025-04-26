@@ -16,7 +16,7 @@ serde_json = { version = "^1", features = ["preserve_order"] }
 rfd = "0.15.3"
 
 deimos_shared = { path = "../deimos_shared", version = "0.4.0" }
-deimos = { path = "../deimos", version = "0.8.0", features=["tsdb"] }
+deimos = { path = "../deimos", version = "0.8.1", features=["tsdb"] }
 
 [features]
 default = ["persistence"]

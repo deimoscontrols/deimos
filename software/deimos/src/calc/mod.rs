@@ -2,6 +2,7 @@
 //!
 //! `Calc` objects are registered with the `Orchestrator` and serialized with the controller.
 //! Each calc is a function consuming any number of inputs and producing any number of outputs.
+use std::any::type_name;
 use std::iter::Iterator;
 use std::{collections::BTreeMap, ops::Range};
 
@@ -81,6 +82,7 @@ pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Calc>>> = Lazy::new(|| {
         RtdPt100::prototype(),
         TcKtype::prototype(),
         Sin::prototype(),
+        SequenceMachine::prototype(),
     ])
 });
 
@@ -138,6 +140,13 @@ pub trait Calc: Send + Sync {
 
     /// List of output field names in the order that they will be written out
     fn get_output_names(&self) -> Vec<CalcOutputName>;
+
+    /// Get the type name, which is guaranteed to be unique among implementations of the trait
+    /// because of the use of a global vtable for serialization, and guaranteed not to include
+    /// non-'static lifetimes due to trait bounds.
+    fn kind(&self) -> String {
+        type_name::<Self>().split(":").last().unwrap().into()
+    }
 }
 
 /// Build functions for getting and setting calc config fields

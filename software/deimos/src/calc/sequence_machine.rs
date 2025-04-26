@@ -457,7 +457,6 @@ pub struct MachineCfg {
 ///
 /// Unlike most calcs, the names of the inputs and outputs of this calc
 /// are not known at compile-time, and are assembled from inputs instead.
-#[derive(Default)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 pub struct SequenceMachine {
     /// State transition criteria and other configuration
@@ -478,6 +477,19 @@ pub struct SequenceMachine {
     /// including sequence time and per-run configuration.
     #[cfg_attr(feature = "ser", serde(skip))]
     execution_state: ExecutionState,
+}
+
+impl Default for SequenceMachine {
+    fn default() -> Self {
+        Self {
+            cfg: MachineCfg {
+                entry: "Placeholder".into(),
+                ..Default::default()
+            },
+            sequences: BTreeMap::from([("Placeholder".into(), Sequence::default())]),
+            execution_state: ExecutionState::default(),
+        }
+    }
 }
 
 impl SequenceMachine {

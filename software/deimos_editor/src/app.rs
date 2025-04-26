@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, default, path::PathBuf};
+use std::{any::type_name_of_val, borrow::Cow, collections::HashMap, default, path::PathBuf};
 
 use eframe::egui::{self, DragValue, TextStyle};
 use egui_node_graph2::*;
@@ -16,8 +16,60 @@ use deimos::{
 /// store additional information that doesn't live in parameters. For this
 /// example, the node data stores the template (i.e. the "type") of the node.
 #[cfg_attr(feature = "persistence", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone)]
 pub struct MyNodeData {
     template: MyNodeTemplate,
+}
+
+impl MyNodeData {
+    pub fn add_to_graph(&self, graph: &mut MyGraph, node_id: Option<NodeId>) {
+        let input_scalar = |graph: &mut MyGraph, name: &str, node_id: NodeId| {
+            graph.add_input_param(
+                node_id,
+                name.to_string(),
+                MyDataType::Scalar,
+                MyValueType::Scalar { value: 0.0 },
+                InputParamKind::ConnectionOnly,
+                false,
+            );
+        };
+
+        let config_scalar = |graph: &mut MyGraph, name: &str, node_id: NodeId| {
+            graph.add_input_param(
+                node_id,
+                name.to_string(),
+                MyDataType::Scalar,
+                MyValueType::Scalar { value: 0.0 },
+                InputParamKind::ConstantOnly,
+                true,
+            );
+        };
+
+        let output_scalar = |graph: &mut MyGraph, name: &str, node_id: NodeId| {
+            graph.add_output_param(node_id, name.to_string(), MyDataType::Scalar);
+        };
+
+        match &self.template {
+            MyNodeTemplate::Calc { kind, name, calc } => {
+                // Use the node id if it was provided; overwise, make a new one
+                let node_id = node_id.unwrap_or_else(|| {
+                    graph.add_node(kind.to_owned(), self.clone(), |graph, node_id| {
+                        for config_name in calc.get_config().keys() {
+                            config_scalar(graph, &config_name, node_id);
+                        }
+
+                        for input_name in calc.get_input_names() {
+                            input_scalar(graph, &input_name, node_id);
+                        }
+
+                        for output_name in calc.get_output_names() {
+                            output_scalar(graph, &output_name, node_id);
+                        }
+                    })
+                });
+            }
+        }
+    }
 }
 
 /// `DataType`s are what defines the possible range of connections when
@@ -134,53 +186,17 @@ impl NodeTemplateTrait for MyNodeTemplate {
         }
     }
 
+    /// Add a template default node to the graph
     fn build_node(
         &self,
         graph: &mut Graph<Self::NodeData, Self::DataType, Self::ValueType>,
         _user_state: &mut Self::UserState,
         node_id: NodeId,
     ) {
-        let input_scalar = |graph: &mut MyGraph, name: &str| {
-            graph.add_input_param(
-                node_id,
-                name.to_string(),
-                MyDataType::Scalar,
-                MyValueType::Scalar { value: 0.0 },
-                InputParamKind::ConnectionOnly,
-                false,
-            );
+        let data = MyNodeData {
+            template: self.clone(),
         };
-
-        let config_scalar = |graph: &mut MyGraph, name: &str| {
-            graph.add_input_param(
-                node_id,
-                name.to_string(),
-                MyDataType::Scalar,
-                MyValueType::Scalar { value: 0.0 },
-                InputParamKind::ConstantOnly,
-                true,
-            );
-        };
-
-        let output_scalar = |graph: &mut MyGraph, name: &str| {
-            graph.add_output_param(node_id, name.to_string(), MyDataType::Scalar);
-        };
-
-        match self {
-            MyNodeTemplate::Calc { kind, .. } => {
-                for config_name in PROTOTYPES[kind].get_config().keys() {
-                    config_scalar(graph, &config_name);
-                }
-
-                for input_name in PROTOTYPES[kind].get_input_names() {
-                    input_scalar(graph, &input_name);
-                }
-
-                for output_name in PROTOTYPES[kind].get_output_names() {
-                    output_scalar(graph, &output_name);
-                }
-            }
-        }
+        data.add_to_graph(graph, Some(node_id));
     }
 }
 
@@ -301,7 +317,19 @@ impl Editor {
         let file_contents = std::fs::read_to_string(path)?;
         let controller: Controller = serde_json::from_str(&file_contents)?;
 
-        // self.state.graph.add_node(label, user_data, f)
+        for (name, calc) in controller.calcs() {
+            // let kind = type_name_of_val({calc as &dyn Any}.downcast_ref().unwrap());
+            let kind = calc.kind();
+            let node = MyNodeData {
+                template: MyNodeTemplate::Calc {
+                    kind,
+                    name: name.to_owned(),
+                    calc: calc.clone(),
+                },
+            };
+
+            node.add_to_graph(&mut self.state.graph, None);
+        }
 
         Ok(())
     }

@@ -6,7 +6,7 @@ Implement clone workaround for `Box<dyn Calc>` via typetag's enum vtable.
 
 ### Added
 
-* impl Clone for `Box<dyn Calc>` by sending for a roundtrip loop through serde_json
+* impl Clone for `Box<dyn Calc>` and `Box<dyn Peripheral>` by sending for a roundtrip loop through serde_json
   * Supports construction from prototype in GUI editor
 * Add `deimos_editor` node editor GUI for calc graph
 

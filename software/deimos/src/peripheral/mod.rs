@@ -30,6 +30,17 @@ pub type PluginFn = dyn Fn(&BindingOutput) -> Box<dyn Peripheral>;
 /// the approriate initialization function.
 pub type PluginMap<'a> = BTreeMap<ModelNumber, &'a PluginFn>;
 
+/// Clone isn't inherently object-safe, so to be able to clone dyn trait objects,
+/// we send it for a loop through the serde typetag system, which provides an
+/// automatically-assembled vtable to determine the downcasted type and clone into it.
+impl Clone for Box<dyn Peripheral> {
+    fn clone(&self) -> Box<dyn Peripheral> {
+        let new: Box<dyn Peripheral> =
+            serde_json::from_str(&serde_json::to_string(&self).unwrap()).unwrap();
+        new
+    }
+}
+
 /// Object-safe outer device trait
 /// from the perspective of the controller,
 /// serializable and deserializable as `Box<dyn Peripheral>`.
