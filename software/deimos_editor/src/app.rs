@@ -1,9 +1,14 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, default, path::PathBuf};
 
 use eframe::egui::{self, DragValue, TextStyle};
 use egui_node_graph2::*;
 
-use deimos::calc::{Calc, PROTOTYPES};
+use anyhow::Result;
+
+use deimos::{
+    calc::{Calc, PROTOTYPES},
+    Controller,
+};
 
 // ========= First, define your user data types =============
 
@@ -51,7 +56,11 @@ impl Default for MyValueType {
 #[derive(Clone)]
 #[cfg_attr(feature = "persistence", derive(serde::Serialize, serde::Deserialize))]
 pub enum MyNodeTemplate {
-    Calc(String),
+    Calc {
+        kind: String,
+        name: String,
+        calc: Box<dyn Calc>,
+    },
 }
 
 /// The response type is used to encode side-effects produced when drawing a
@@ -101,7 +110,7 @@ impl NodeTemplateTrait for MyNodeTemplate {
 
     fn node_finder_label(&self, _user_state: &mut Self::UserState) -> Cow<'_, str> {
         Cow::Borrowed(match self {
-            MyNodeTemplate::Calc(x) => x,
+            MyNodeTemplate::Calc { kind: x, .. } => x,
             _ => panic!(),
         })
     }
@@ -109,7 +118,7 @@ impl NodeTemplateTrait for MyNodeTemplate {
     // this is what allows the library to show collapsible lists in the node finder.
     fn node_finder_categories(&self, _user_state: &mut Self::UserState) -> Vec<&'static str> {
         match self {
-            MyNodeTemplate::Calc(_) => vec!["Calc"],
+            MyNodeTemplate::Calc { .. } => vec!["Calc"],
         }
     }
 
@@ -158,7 +167,7 @@ impl NodeTemplateTrait for MyNodeTemplate {
         };
 
         match self {
-            MyNodeTemplate::Calc(kind) => {
+            MyNodeTemplate::Calc { kind, .. } => {
                 for config_name in PROTOTYPES[kind].get_config().keys() {
                     config_scalar(graph, &config_name);
                 }
@@ -182,8 +191,12 @@ impl NodeTemplateIter for AllMyNodeTemplates {
     fn all_kinds(&self) -> Vec<Self::Item> {
         // List of node kinds for dropdown menu
         let mut kinds = vec![];
-        for k in PROTOTYPES.keys() {
-            kinds.push(MyNodeTemplate::Calc(k.clone()));
+        for (k, v) in PROTOTYPES.iter() {
+            kinds.push(MyNodeTemplate::Calc {
+                kind: k.clone(),
+                name: "".into(),
+                calc: v.clone(),
+            });
         }
 
         kinds
@@ -208,14 +221,13 @@ impl WidgetValueTrait for MyValueType {
             MyValueType::Scalar { value } => {
                 ui.horizontal(|ui| {
                     ui.label(param_name);
-                    ui.add(DragValue::new(value).custom_formatter(|x, _| 
-                        if x.abs() >= 1000.0 {
+                    ui.add(DragValue::new(value).custom_formatter(|x, _| {
+                        if x.abs() >= 1e4 || x.abs() < 1e-3 {
                             format!("{x:.6e}")
-                        }
-                        else {
+                        } else {
                             format!("{x:.6}")
                         }
-                    ))
+                    }))
                 });
             }
         }
@@ -281,6 +293,18 @@ impl Editor {
             user_state: MyGraphState::default(),
         }
     }
+
+    pub fn load_file(&mut self, path: PathBuf) -> Result<()> {
+        use std::any::Any;
+
+        // Add calcs
+        let file_contents = std::fs::read_to_string(path)?;
+        let controller: Controller = serde_json::from_str(&file_contents)?;
+
+        // self.state.graph.add_node(label, user_data, f)
+
+        Ok(())
+    }
 }
 
 impl eframe::App for Editor {
@@ -294,13 +318,35 @@ impl eframe::App for Editor {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // TOP PANEL
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
+            // MENU BAR
             egui::menu::bar(ui, |ui| {
+                // Light/dark mode selector
                 egui::widgets::global_theme_preference_switch(ui);
+
+                // File menu
+                if ui
+                    .button("Load")
+                    .on_hover_text("Load a json file representing a deimos Controller")
+                    .clicked()
+                {
+                    if let Some(path) = rfd::FileDialog::new()
+                        .set_directory(std::env::current_dir().unwrap_or("./".into()))
+                        .add_filter("json", &["json"])
+                        .pick_file()
+                    {
+                        // self.picked_path = Some(path.display().to_string());
+                        self.load_file(path).unwrap();
+                    }
+                }
             });
         });
+
+        // CENTER PANEL
         let _graph_response = egui::CentralPanel::default()
             .show(ctx, |ui| {
+                // NODE EDITOR
                 self.state.draw_graph_editor(
                     ui,
                     AllMyNodeTemplates,
@@ -310,6 +356,7 @@ impl eframe::App for Editor {
             })
             .inner;
 
+        // Node selection callback
         if let Some(node) = self.user_state.active_node {
             if self.state.graph.nodes.contains_key(node) {
                 let text = "";

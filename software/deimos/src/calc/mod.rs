@@ -84,6 +84,17 @@ pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Calc>>> = Lazy::new(|| {
     ])
 });
 
+/// Clone isn't inherently object-safe, so to be able to clone dyn trait objects,
+/// we send it for a loop through the serde typetag system, which provides an
+/// automatically-assembled vtable to determine the downcasted type and clone into it.
+impl Clone for Box<dyn Calc> {
+    fn clone(&self) -> Box<dyn Calc> {
+        let new: Box<dyn Calc> =
+            serde_json::from_str(&serde_json::to_string(&self).unwrap()).unwrap();
+        new
+    }
+}
+
 /// A calculation that takes some inputs and produces some outputs
 /// at each timestep, and may have some persistent internal state.
 #[cfg_attr(feature = "ser", typetag::serde(tag = "type"))]
