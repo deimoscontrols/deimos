@@ -193,10 +193,20 @@ impl SequenceLookup {
             return Err("Sequence time entries must be monotonically increasing".to_owned());
         }
 
-        match self.eval_checked(0.0) {
+        // Run the interpolator at the first and last times
+        let first_time = self.time_s.first().ok_or("Empty sequence".to_string())?;
+        match self.eval_checked(*first_time) {
             Ok(_) => Ok(()),
             Err(x) => Err(x),
-        }
+        }?;
+
+        let last_time = self.time_s.last().ok_or("Empty sequence".to_string())?;
+        match self.eval_checked(*last_time) {
+            Ok(_) => Ok(()),
+            Err(x) => Err(x),
+        }?;
+
+        Ok(())
     }
 
     /// Sample the lookup, propagating any errors encountered while assembling or evaluating the interpolator.

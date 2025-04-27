@@ -22,7 +22,7 @@ pub struct MyNodeData {
 }
 
 impl MyNodeData {
-    pub fn add_to_graph(&self, graph: &mut MyGraph, node_id: Option<NodeId>) {
+    pub fn add_to_graph(&self, graph: &mut MyGraph, node_id: Option<NodeId>) -> NodeId {
         let input_scalar = |graph: &mut MyGraph, name: &str, node_id: NodeId| {
             graph.add_input_param(
                 node_id,
@@ -67,6 +67,8 @@ impl MyNodeData {
                         }
                     })
                 });
+
+                node_id
             }
         }
     }
@@ -295,23 +297,24 @@ pub struct Editor {
 #[cfg(feature = "persistence")]
 const PERSISTENCE_KEY: &str = "deimos_editor";
 
-#[cfg(feature = "persistence")]
+// #[cfg(feature = "persistence")]
 impl Editor {
     /// If the persistence feature is enabled, Called once before the first frame.
     /// Load previous app state (if any).
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let state = cc
-            .storage
-            .and_then(|storage| eframe::get_value(storage, PERSISTENCE_KEY))
-            .unwrap_or_default();
-        Self {
-            state,
-            user_state: MyGraphState::default(),
-        }
+    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+        // let state = cc
+        //     .storage
+        //     .and_then(|storage| eframe::get_value(storage, PERSISTENCE_KEY))
+        //     .unwrap_or_default();
+        // Self {
+        //     state,
+        //     user_state: MyGraphState::default(),
+        // }
+        Self::default()
     }
 
     pub fn load_file(&mut self, path: PathBuf) -> Result<()> {
-        use std::any::Any;
+        // use std::any::Any;
 
         // Add calcs
         let file_contents = std::fs::read_to_string(path)?;
@@ -328,7 +331,13 @@ impl Editor {
                 },
             };
 
-            node.add_to_graph(&mut self.state.graph, None);
+            let node_id = node.add_to_graph(&mut self.state.graph, None);
+
+            self.state.node_positions.insert(
+                node_id,
+                egui::pos2(0.0, 0.0),
+            );
+            self.state.node_order.push(node_id);
         }
 
         Ok(())
@@ -336,12 +345,6 @@ impl Editor {
 }
 
 impl eframe::App for Editor {
-    #[cfg(feature = "persistence")]
-    /// If the persistence function is enabled,
-    /// Called by the frame work to save state before shutdown.
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, PERSISTENCE_KEY, &self.state);
-    }
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.

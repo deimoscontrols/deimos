@@ -14,12 +14,7 @@ fn main() {
         eframe::NativeOptions::default(),
         Box::new(|cc| {
             cc.egui_ctx.set_visuals(Visuals::dark());
-            #[cfg(feature = "persistence")]
-            {
-                Ok(Box::new(Editor::new(cc)))
-            }
-            #[cfg(not(feature = "persistence"))]
-            Box::<Editor>::default()
+            Ok(Box::<Editor>::default())
         }),
     )
     .expect("Failed to run native example");
