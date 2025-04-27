@@ -12,8 +12,8 @@ use egui_node_graph2::*;
 use anyhow::Result;
 
 use deimos::{
-    calc::{Calc, self},
-    peripheral::{Peripheral, self},
+    calc::{self, Calc},
+    peripheral::{self, Peripheral},
     Controller,
 };
 
@@ -107,7 +107,12 @@ impl MyNodeData {
 
                 // Input/output fields have to be registered after the new node ID is registered with the graph,
                 // otherwise they don't get added properly
-                config_scalar(graph, "serial_number", node_id, peripheral.id().serial_number as f64);
+                config_scalar(
+                    graph,
+                    "serial_number",
+                    node_id,
+                    peripheral.id().serial_number as f64,
+                );
 
                 for input_name in peripheral.input_names() {
                     input_scalar(graph, &input_name, node_id);
@@ -376,6 +381,12 @@ impl Editor {
     pub fn load_file(&mut self, path: PathBuf) -> Result<()> {
         // use std::any::Any;
 
+        let split_fieldname = |field: &str| -> Option<(String, String)> {
+            field
+                .split_once(".")
+                .and_then(|v| Some((v.0.to_owned(), v.1.to_owned())))
+        };
+
         // Add calcs
         let file_contents = std::fs::read_to_string(path)?;
         let controller: Controller = serde_json::from_str(&file_contents)?;
@@ -398,22 +409,50 @@ impl Editor {
             self.state.node_order.push(node_id);
         }
 
-        for (name, per) in controller.peripherals() {
-            let kind = per.kind();
+        // Add peripherals
+        let peripheral_input_sources = controller.peripheral_input_sources();
+        let mut peripheral_maps: BTreeMap<String, BTreeMap<String, String>> = controller
+            .peripherals()
+            .keys()
+            .map(|name| (name.clone(), BTreeMap::new()))
+            .collect();
+        for (to, from) in peripheral_input_sources {
+            if let Some((name, field)) = split_fieldname(&to) {
+                peripheral_maps.get_mut(&name).unwrap().insert(field, from.clone());
+            }
+        }
+        for (name, peripheral) in controller.peripherals() {
+            let kind = peripheral.kind();
+            let name = name.clone();
+            let peripheral = peripheral.clone();
+            let input_name_map = peripheral_maps[&name].clone();
+
+            let node = MyNodeData {
+                template: MyNodeTemplate::Peripheral {
+                    kind,
+                    name,
+                    peripheral,
+                    input_name_map,
+                },
+            };
+
+            let node_id = node.add_to_graph(&mut self.state.graph, None);
+
+            self.state
+                .node_positions
+                .insert(node_id, egui::pos2(0.0, 0.0));
+            self.state.node_order.push(node_id);
         }
 
-        // Build map for referring to nodes by name
+        // Add connections
+
+        //   Build map for referring to nodes by name
         let node_name_id_map: BTreeMap<String, NodeId> = (&self.state.graph.nodes)
             .iter()
             .map(|(id, node)| (node.user_data.name(), id.clone()))
             .collect();
 
         let get_node_id = |name: &str| -> Option<NodeId> { node_name_id_map.get(name).cloned() };
-        let split_fieldname = |field: &str| -> Option<(String, String)> {
-            field
-                .split_once(".")
-                .and_then(|v| Some((v.0.to_owned(), v.1.to_owned())))
-        };
 
         let mut connections: Vec<(OutputId, InputId)> = Vec::with_capacity(node_name_id_map.len());
 
@@ -424,10 +463,8 @@ impl Editor {
                     kind,
                     name,
                     peripheral,
-                    input_name_map
-                } => {
-                    input_name_map.clone()
-                }
+                    input_name_map,
+                } => input_name_map.clone(),
             };
 
             for (input_field, source_field) in input_sources {
