@@ -1,4 +1,10 @@
-use std::{any::type_name_of_val, borrow::Cow, collections::HashMap, default, path::PathBuf};
+use std::{
+    any::type_name_of_val,
+    borrow::Cow,
+    collections::{BTreeMap, HashMap},
+    default,
+    path::PathBuf,
+};
 
 use eframe::egui::{self, DragValue, TextStyle};
 use egui_node_graph2::*;
@@ -22,6 +28,12 @@ pub struct MyNodeData {
 }
 
 impl MyNodeData {
+    pub fn name(&self) -> String {
+        match &self.template {
+            MyNodeTemplate::Calc { name, .. } => name.to_owned(),
+        }
+    }
+
     pub fn add_to_graph(&self, graph: &mut MyGraph, node_id: Option<NodeId>) -> NodeId {
         let input_scalar = |graph: &mut MyGraph, name: &str, node_id: NodeId| {
             graph.add_input_param(
@@ -53,20 +65,26 @@ impl MyNodeData {
             MyNodeTemplate::Calc { kind, name, calc } => {
                 // Use the node id if it was provided; overwise, make a new one
                 let node_id = node_id.unwrap_or_else(|| {
-                    graph.add_node(kind.to_owned(), self.clone(), |graph, node_id| {
-                        for config_name in calc.get_config().keys() {
-                            config_scalar(graph, &config_name, node_id);
-                        }
-
-                        for input_name in calc.get_input_names() {
-                            input_scalar(graph, &input_name, node_id);
-                        }
-
-                        for output_name in calc.get_output_names() {
-                            output_scalar(graph, &output_name, node_id);
-                        }
-                    })
+                    graph.add_node(
+                        format!("{name}\n[{kind}]"),
+                        self.clone(),
+                        |graph, node_id| {},
+                    )
                 });
+
+                // Input/output fields have to be registered after the new node ID is registered with the graph,
+                // otherwise the
+                for config_name in calc.get_config().keys() {
+                    config_scalar(graph, &config_name, node_id);
+                }
+
+                for input_name in calc.get_input_names() {
+                    input_scalar(graph, &input_name, node_id);
+                }
+
+                for output_name in calc.get_output_names() {
+                    output_scalar(graph, &output_name, node_id);
+                }
 
                 node_id
             }
@@ -142,7 +160,7 @@ pub struct MyGraphState {
 impl DataTypeTrait<MyGraphState> for MyDataType {
     fn data_type_color(&self, _user_state: &mut MyGraphState) -> egui::Color32 {
         match self {
-            MyDataType::Scalar => egui::Color32::from_rgb(38, 109, 211),
+            MyDataType::Scalar => egui::Color32::from_hex("#68009c").unwrap(),
         }
     }
 
@@ -210,7 +228,7 @@ impl NodeTemplateIter for AllMyNodeTemplates {
         for (k, v) in PROTOTYPES.iter() {
             kinds.push(MyNodeTemplate::Calc {
                 kind: k.clone(),
-                name: "".into(),
+                name: "Prototype".into(),
                 calc: v.clone(),
             });
         }
@@ -327,6 +345,58 @@ impl Editor {
                 .insert(node_id, egui::pos2(0.0, 0.0));
             self.state.node_order.push(node_id);
         }
+
+        // Build map for referring to nodes by name
+        let node_name_id_map: BTreeMap<String, NodeId> = (&self.state.graph.nodes)
+            .iter()
+            .map(|(id, node)| (node.user_data.name(), id.clone()))
+            .collect();
+
+        let get_node_id = |name: &str| -> Option<NodeId> { node_name_id_map.get(name).cloned() };
+        let split_fieldname = |field: &str| -> Option<(String, String)> {
+            field
+                .split_once(".")
+                .and_then(|v| Some((v.0.to_owned(), v.1.to_owned())))
+        };
+
+        let mut connections: Vec<(OutputId, InputId)> = Vec::with_capacity(node_name_id_map.len());
+
+        for (id, node) in &self.state.graph.nodes {
+
+            match &node.user_data.template {
+                MyNodeTemplate::Calc { kind, name, calc } => {
+                    let input_sources = calc.get_input_map();
+
+                    for (input_field, source_field) in input_sources {
+                        if let Some((source_node_name, source_output_field)) =
+                            split_fieldname(&source_field)
+                        {
+                            // Add a connection from the source field to this input
+                            let source_node_id = get_node_id(&source_node_name);
+
+                            if let Some(source_node_id) = source_node_id {
+                                let source_output_id = *&self.state.graph.nodes[source_node_id]
+                                    .get_output(&source_output_field)
+                                    .unwrap();
+                                let target_input_id =
+                                    *&self.state.graph.nodes[id].get_input(&input_field).unwrap();
+                                connections.push((source_output_id, target_input_id))
+                            } else {
+                                println!("Missing node `{source_node_name}` for source field `{source_field}`");
+                            }
+                        } else {
+                            println!("Malformed source field name: `{source_field}`");
+                        }
+                    }
+                }
+            };
+        }
+
+        for (from, to) in connections {
+            self.state.graph.add_connection(from, to, 0);
+        }
+
+        // for (from, to) in &self.state.graph.connections {}
 
         Ok(())
     }
