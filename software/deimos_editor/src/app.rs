@@ -30,7 +30,7 @@ impl MyNodeData {
                 MyDataType::Scalar,
                 MyValueType::Scalar { value: 0.0 },
                 InputParamKind::ConnectionOnly,
-                false,
+                true,
             );
         };
 
@@ -192,13 +192,11 @@ impl NodeTemplateTrait for MyNodeTemplate {
     fn build_node(
         &self,
         graph: &mut Graph<Self::NodeData, Self::DataType, Self::ValueType>,
-        _user_state: &mut Self::UserState,
+        user_state: &mut Self::UserState,
         node_id: NodeId,
     ) {
-        let data = MyNodeData {
-            template: self.clone(),
-        };
-        data.add_to_graph(graph, Some(node_id));
+        self.user_data(user_state)
+            .add_to_graph(graph, Some(node_id));
     }
 }
 
@@ -239,13 +237,7 @@ impl WidgetValueTrait for MyValueType {
             MyValueType::Scalar { value } => {
                 ui.horizontal(|ui| {
                     ui.label(param_name);
-                    ui.add(DragValue::new(value).custom_formatter(|x, _| {
-                        if x.abs() >= 1e4 || x.abs() < 1e-3 {
-                            format!("{x:.6e}")
-                        } else {
-                            format!("{x:.6}")
-                        }
-                    }))
+                    ui.add(DragValue::new(value))
                 });
             }
         }
@@ -262,10 +254,7 @@ impl NodeDataTrait for MyNodeData {
     type ValueType = MyValueType;
 
     // This method will be called when drawing each node. This allows adding
-    // extra ui elements inside the nodes. In this case, we create an "active"
-    // button which introduces the concept of having an active node in the
-    // graph. This is done entirely from user code with no modifications to the
-    // node graph library.
+    // extra ui elements inside the nodes.
     fn bottom_ui(
         &self,
         ui: &mut egui::Ui,
@@ -333,10 +322,9 @@ impl Editor {
 
             let node_id = node.add_to_graph(&mut self.state.graph, None);
 
-            self.state.node_positions.insert(
-                node_id,
-                egui::pos2(0.0, 0.0),
-            );
+            self.state
+                .node_positions
+                .insert(node_id, egui::pos2(0.0, 0.0));
             self.state.node_order.push(node_id);
         }
 
@@ -345,7 +333,6 @@ impl Editor {
 }
 
 impl eframe::App for Editor {
-
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {

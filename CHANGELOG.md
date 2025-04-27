@@ -10,6 +10,10 @@ Implement clone workaround for `Box<dyn Calc>` via typetag's enum vtable.
   * Supports construction from prototype in GUI editor
 * Add `deimos_editor` node editor GUI for calc graph
 
+### Changed
+
+* Improve validation of `Sequence`
+* Add non-empty default for `SequenceMachine`
 
 ## 2025-03-23 deimos 0.8.0
 

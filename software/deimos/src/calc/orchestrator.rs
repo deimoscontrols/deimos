@@ -160,10 +160,12 @@ impl Orchestrator {
         self.calcs.insert(name, calc);
     }
 
+    /// Read-only access to calc nodes
     pub fn calcs(&self) -> &BTreeMap<String, Box<dyn Calc>> {
         &self.calcs
     }
 
+    /// Read-only access to edges from calcs to peripherals
     pub fn peripheral_input_sources(&self) -> &BTreeMap<PeripheralInputName, FieldName> {
         &self.peripheral_input_sources
     }
