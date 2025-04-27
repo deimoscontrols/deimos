@@ -46,12 +46,12 @@ impl MyNodeData {
             );
         };
 
-        let config_scalar = |graph: &mut MyGraph, name: &str, node_id: NodeId| {
+        let config_scalar = |graph: &mut MyGraph, name: &str, node_id: NodeId, value: f64| {
             graph.add_input_param(
                 node_id,
                 name.to_string(),
                 MyDataType::Scalar,
-                MyValueType::Scalar { value: 0.0 },
+                MyValueType::Scalar { value },
                 InputParamKind::ConstantOnly,
                 true,
             );
@@ -74,8 +74,8 @@ impl MyNodeData {
 
                 // Input/output fields have to be registered after the new node ID is registered with the graph,
                 // otherwise the
-                for config_name in calc.get_config().keys() {
-                    config_scalar(graph, &config_name, node_id);
+                for (config_name, val) in calc.get_config() {
+                    config_scalar(graph, &config_name, node_id, val);
                 }
 
                 for input_name in calc.get_input_names() {
@@ -255,7 +255,13 @@ impl WidgetValueTrait for MyValueType {
             MyValueType::Scalar { value } => {
                 ui.horizontal(|ui| {
                     ui.label(param_name);
-                    ui.add(DragValue::new(value))
+                    ui.add(DragValue::new(value).custom_formatter(|x, _| {
+                        if x.abs() >= 1e4 || x.abs() < 1e-3 {
+                            format!("{x:.6e}")
+                        } else {
+                            format!("{x:.6}")
+                        }
+                    }))
                 });
             }
         }
@@ -362,7 +368,6 @@ impl Editor {
         let mut connections: Vec<(OutputId, InputId)> = Vec::with_capacity(node_name_id_map.len());
 
         for (id, node) in &self.state.graph.nodes {
-
             match &node.user_data.template {
                 MyNodeTemplate::Calc { kind, name, calc } => {
                     let input_sources = calc.get_input_map();
