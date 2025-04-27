@@ -11,7 +11,7 @@ use deimos_shared::peripherals::{analog_i_rev_2::*, model_numbers};
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AnalogIRev2 {
     pub serial_number: u64,
 }

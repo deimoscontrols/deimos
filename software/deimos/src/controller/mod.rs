@@ -81,6 +81,10 @@ impl Controller {
         self.orchestrator.calcs()
     }
 
+    pub fn peripherals(&self) -> &BTreeMap<String, Box<dyn Peripheral>> {
+        &self.peripherals
+    }
+
     /// Read-only access to edges from calcs to peripherals
     pub fn peripheral_input_sources(&self) -> &BTreeMap<PeripheralInputName, FieldName> {
         self.orchestrator.peripheral_input_sources()

@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AnalogIRev3 {
     pub serial_number: u64,
 }

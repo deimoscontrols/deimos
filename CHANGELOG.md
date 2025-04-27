@@ -8,12 +8,16 @@ Implement clone workaround for `Box<dyn Calc>` via typetag's enum vtable.
 
 * impl Clone for `Box<dyn Calc>` and `Box<dyn Peripheral>` by sending for a roundtrip loop through serde_json
   * Supports construction from prototype in GUI editor
+* Add `kind` methods with default implementation to `Calc` and `Peripheral` to retrieve type name
+* Add more methods for immutable access to calcs and peripherals via `Controller`
+* Add `PeripheralProto` trait for prototyping `Peripheral` like `Calc`
 * Add `deimos_editor` node editor GUI for calc graph
 
 ### Changed
 
 * Improve validation of `Sequence`
 * Add non-empty default for `SequenceMachine`
+* Derive `Default` on existing `Peripheral` types to allow blanket impl of `PeripheralProto`
 
 ## 2025-03-23 deimos 0.8.0
 

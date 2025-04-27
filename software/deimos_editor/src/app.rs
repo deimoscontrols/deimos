@@ -12,7 +12,8 @@ use egui_node_graph2::*;
 use anyhow::Result;
 
 use deimos::{
-    calc::{Calc, PROTOTYPES},
+    calc::{Calc, self},
+    peripheral::{Peripheral, self},
     Controller,
 };
 
@@ -31,6 +32,7 @@ impl MyNodeData {
     pub fn name(&self) -> String {
         match &self.template {
             MyNodeTemplate::Calc { name, .. } => name.to_owned(),
+            MyNodeTemplate::Peripheral { name, .. } => name.to_owned(),
         }
     }
 
@@ -73,7 +75,7 @@ impl MyNodeData {
                 });
 
                 // Input/output fields have to be registered after the new node ID is registered with the graph,
-                // otherwise the
+                // otherwise they don't get added properly
                 for (config_name, val) in calc.get_config() {
                     config_scalar(graph, &config_name, node_id, val);
                 }
@@ -83,6 +85,35 @@ impl MyNodeData {
                 }
 
                 for output_name in calc.get_output_names() {
+                    output_scalar(graph, &output_name, node_id);
+                }
+
+                node_id
+            }
+            MyNodeTemplate::Peripheral {
+                kind,
+                name,
+                peripheral,
+                input_name_map,
+            } => {
+                // Use the node id if it was provided; overwise, make a new one
+                let node_id = node_id.unwrap_or_else(|| {
+                    graph.add_node(
+                        format!("{name}\n[{kind}]"),
+                        self.clone(),
+                        |graph, node_id| {},
+                    )
+                });
+
+                // Input/output fields have to be registered after the new node ID is registered with the graph,
+                // otherwise they don't get added properly
+                config_scalar(graph, "serial_number", node_id, peripheral.id().serial_number as f64);
+
+                for input_name in peripheral.input_names() {
+                    input_scalar(graph, &input_name, node_id);
+                }
+
+                for output_name in peripheral.output_names() {
                     output_scalar(graph, &output_name, node_id);
                 }
 
@@ -133,6 +164,12 @@ pub enum MyNodeTemplate {
         name: String,
         calc: Box<dyn Calc>,
     },
+    Peripheral {
+        kind: String,
+        name: String,
+        peripheral: Box<dyn Peripheral>,
+        input_name_map: BTreeMap<String, String>,
+    },
 }
 
 /// The response type is used to encode side-effects produced when drawing a
@@ -182,8 +219,8 @@ impl NodeTemplateTrait for MyNodeTemplate {
 
     fn node_finder_label(&self, _user_state: &mut Self::UserState) -> Cow<'_, str> {
         Cow::Borrowed(match self {
-            MyNodeTemplate::Calc { kind: x, .. } => x,
-            _ => panic!(),
+            MyNodeTemplate::Calc { kind, .. } => kind,
+            MyNodeTemplate::Peripheral { kind, .. } => kind,
         })
     }
 
@@ -191,6 +228,7 @@ impl NodeTemplateTrait for MyNodeTemplate {
     fn node_finder_categories(&self, _user_state: &mut Self::UserState) -> Vec<&'static str> {
         match self {
             MyNodeTemplate::Calc { .. } => vec!["Calc"],
+            MyNodeTemplate::Peripheral { .. } => vec!["Peripheral"],
         }
     }
 
@@ -225,11 +263,20 @@ impl NodeTemplateIter for AllMyNodeTemplates {
     fn all_kinds(&self) -> Vec<Self::Item> {
         // List of node kinds for dropdown menu
         let mut kinds = vec![];
-        for (k, v) in PROTOTYPES.iter() {
+        for (k, v) in calc::PROTOTYPES.iter() {
             kinds.push(MyNodeTemplate::Calc {
                 kind: k.clone(),
                 name: "Prototype".into(),
                 calc: v.clone(),
+            });
+        }
+
+        for (k, v) in peripheral::PROTOTYPES.iter() {
+            kinds.push(MyNodeTemplate::Peripheral {
+                kind: k.clone(),
+                name: "Prototype".into(),
+                peripheral: v.clone(),
+                input_name_map: BTreeMap::new(),
             });
         }
 
@@ -334,7 +381,6 @@ impl Editor {
         let controller: Controller = serde_json::from_str(&file_contents)?;
 
         for (name, calc) in controller.calcs() {
-            // let kind = type_name_of_val({calc as &dyn Any}.downcast_ref().unwrap());
             let kind = calc.kind();
             let node = MyNodeData {
                 template: MyNodeTemplate::Calc {
@@ -350,6 +396,10 @@ impl Editor {
                 .node_positions
                 .insert(node_id, egui::pos2(0.0, 0.0));
             self.state.node_order.push(node_id);
+        }
+
+        for (name, per) in controller.peripherals() {
+            let kind = per.kind();
         }
 
         // Build map for referring to nodes by name
@@ -368,33 +418,41 @@ impl Editor {
         let mut connections: Vec<(OutputId, InputId)> = Vec::with_capacity(node_name_id_map.len());
 
         for (id, node) in &self.state.graph.nodes {
-            match &node.user_data.template {
-                MyNodeTemplate::Calc { kind, name, calc } => {
-                    let input_sources = calc.get_input_map();
-
-                    for (input_field, source_field) in input_sources {
-                        if let Some((source_node_name, source_output_field)) =
-                            split_fieldname(&source_field)
-                        {
-                            // Add a connection from the source field to this input
-                            let source_node_id = get_node_id(&source_node_name);
-
-                            if let Some(source_node_id) = source_node_id {
-                                let source_output_id = *&self.state.graph.nodes[source_node_id]
-                                    .get_output(&source_output_field)
-                                    .unwrap();
-                                let target_input_id =
-                                    *&self.state.graph.nodes[id].get_input(&input_field).unwrap();
-                                connections.push((source_output_id, target_input_id))
-                            } else {
-                                println!("Missing node `{source_node_name}` for source field `{source_field}`");
-                            }
-                        } else {
-                            println!("Malformed source field name: `{source_field}`");
-                        }
-                    }
+            let input_sources = match &node.user_data.template {
+                MyNodeTemplate::Calc { kind, name, calc } => calc.get_input_map(),
+                MyNodeTemplate::Peripheral {
+                    kind,
+                    name,
+                    peripheral,
+                    input_name_map
+                } => {
+                    input_name_map.clone()
                 }
             };
+
+            for (input_field, source_field) in input_sources {
+                if let Some((source_node_name, source_output_field)) =
+                    split_fieldname(&source_field)
+                {
+                    // Add a connection from the source field to this input
+                    let source_node_id = get_node_id(&source_node_name);
+
+                    if let Some(source_node_id) = source_node_id {
+                        let source_output_id = *&self.state.graph.nodes[source_node_id]
+                            .get_output(&source_output_field)
+                            .unwrap();
+                        let target_input_id =
+                            *&self.state.graph.nodes[id].get_input(&input_field).unwrap();
+                        connections.push((source_output_id, target_input_id))
+                    } else {
+                        println!(
+                            "Missing node `{source_node_name}` for source field `{source_field}`"
+                        );
+                    }
+                } else {
+                    println!("Malformed source field name: `{source_field}`");
+                }
+            }
         }
 
         for (from, to) in connections {
