@@ -1,5 +1,23 @@
 # Changelog
 
+## 2025-05-03 deimos 0.8.1
+
+Edits to prep for implementation of a calc node editor GUI.
+
+### Added
+
+* impl Clone for `Box<dyn Calc>` and `Box<dyn Peripheral>` by sending for a roundtrip loop through serde_json
+  * Supports construction from prototype in GUI editor
+* Add `kind` methods with default implementation to `Calc` and `Peripheral` to retrieve type name
+* Add more methods for immutable access to calcs and peripherals via `Controller`
+* Add `PeripheralProto` trait for prototyping `Peripheral` like `Calc`
+
+### Changed
+
+* Improve validation of `Sequence`
+* Add non-empty default for `SequenceMachine`
+* Derive `Default` on existing `Peripheral` types to allow blanket impl of `PeripheralProto`
+
 ## 2025-03-23 deimos 0.8.0
 
 Implement `SequenceMachine` calc, which provides arbitrary lookup-table state machines in order to support

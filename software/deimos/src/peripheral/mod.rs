@@ -1,6 +1,6 @@
 //! Peripherals are timing-controlled external I/O modules, usually a DAQ
 
-use std::collections::BTreeMap;
+use std::{any::type_name, collections::BTreeMap};
 
 use core::fmt::Debug;
 
@@ -20,6 +20,7 @@ pub mod analog_i_rev_4;
 pub use analog_i_rev_4::AnalogIRev4;
 
 pub use deimos_shared::peripherals::PeripheralId;
+use once_cell::sync::Lazy;
 
 /// Plugin system for handling custom device models
 /// Takes the model number and serial number from a bind result
@@ -29,6 +30,48 @@ pub type PluginFn = dyn Fn(&BindingOutput) -> Box<dyn Peripheral>;
 /// Map of model numbers to initialization functions so that the controller can find
 /// the approriate initialization function.
 pub type PluginMap<'a> = BTreeMap<ModelNumber, &'a PluginFn>;
+
+/// Peripherals that can be prototyped
+pub trait PeripheralProto {
+    fn prototype() -> (String, Box<dyn Peripheral>);
+}
+
+impl<T> PeripheralProto for T
+where
+    T: Peripheral + Default + 'static,
+{
+    fn prototype() -> (String, Box<dyn Peripheral>) {
+        let name = std::any::type_name::<T>()
+            .split("::")
+            .last()
+            .unwrap()
+            .to_owned();
+        let proto: Box<dyn Peripheral> = Box::new(T::default());
+
+        (name, proto)
+    }
+}
+
+/// Prototypes of each
+pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Peripheral>>> = Lazy::new(|| {
+    BTreeMap::<String, Box<dyn Peripheral>>::from([
+        AnalogIRev2::prototype(),
+        AnalogIRev3::prototype(),
+        AnalogIRev4::prototype(),
+    ])
+});
+
+/// Clone isn't inherently object-safe, so to be able to clone dyn trait objects,
+/// we send it for a loop through the serde typetag system, which provides an
+/// automatically-assembled vtable to determine the downcasted type and clone into it.
+#[cfg(feature = "ser")]
+impl Clone for Box<dyn Peripheral> {
+    fn clone(&self) -> Box<dyn Peripheral> {
+        let new: Box<dyn Peripheral> =
+            serde_json::from_str(&serde_json::to_string(&self).unwrap()).unwrap();
+        new
+    }
+}
 
 /// Object-safe outer device trait
 /// from the perspective of the controller,
@@ -96,6 +139,13 @@ pub trait Peripheral: Send + Sync + Debug {
 
     /// Get a standard set of calcs that convert the raw outputs into a useable format
     fn standard_calcs(&self, name: String) -> BTreeMap<String, Box<dyn Calc>>;
+
+    /// Get the type name, which is guaranteed to be unique among implementations of the trait
+    /// because of the use of a global vtable for serialization, and guaranteed not to include
+    /// non-'static lifetimes due to trait bounds.
+    fn kind(&self) -> String {
+        type_name::<Self>().split(":").last().unwrap().into()
+    }
 }
 
 /// Parse a binding response to the corresponding peripheral type

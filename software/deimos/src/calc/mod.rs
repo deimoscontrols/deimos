@@ -2,6 +2,7 @@
 //!
 //! `Calc` objects are registered with the `Orchestrator` and serialized with the controller.
 //! Each calc is a function consuming any number of inputs and producing any number of outputs.
+use std::any::type_name;
 use std::iter::Iterator;
 use std::{collections::BTreeMap, ops::Range};
 
@@ -81,8 +82,21 @@ pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Calc>>> = Lazy::new(|| {
         RtdPt100::prototype(),
         TcKtype::prototype(),
         Sin::prototype(),
+        SequenceMachine::prototype(),
     ])
 });
+
+/// Clone isn't inherently object-safe, so to be able to clone dyn trait objects,
+/// we send it for a loop through the serde typetag system, which provides an
+/// automatically-assembled vtable to determine the downcasted type and clone into it.
+#[cfg(feature = "ser")]
+impl Clone for Box<dyn Calc> {
+    fn clone(&self) -> Box<dyn Calc> {
+        let new: Box<dyn Calc> =
+            serde_json::from_str(&serde_json::to_string(&self).unwrap()).unwrap();
+        new
+    }
+}
 
 /// A calculation that takes some inputs and produces some outputs
 /// at each timestep, and may have some persistent internal state.
@@ -127,6 +141,13 @@ pub trait Calc: Send + Sync {
 
     /// List of output field names in the order that they will be written out
     fn get_output_names(&self) -> Vec<CalcOutputName>;
+
+    /// Get the type name, which is guaranteed to be unique among implementations of the trait
+    /// because of the use of a global vtable for serialization, and guaranteed not to include
+    /// non-'static lifetimes due to trait bounds.
+    fn kind(&self) -> String {
+        type_name::<Self>().split(":").last().unwrap().into()
+    }
 }
 
 /// Build functions for getting and setting calc config fields

@@ -23,7 +23,7 @@ use crate::{
 };
 use deimos_shared::states::*;
 
-use crate::calc::Orchestrator;
+use crate::calc::{FieldName, Orchestrator, PeripheralInputName};
 use crate::dispatcher::Dispatcher;
 use crate::socket::udp::UdpSocket;
 use crate::socket::{Socket, SocketAddr};
@@ -76,6 +76,40 @@ impl Controller {
         }
     }
 
+    /// Read-only access to calc nodes
+    pub fn calcs(&self) -> &BTreeMap<String, Box<dyn Calc>> {
+        self.orchestrator.calcs()
+    }
+
+    pub fn peripherals(&self) -> &BTreeMap<String, Box<dyn Peripheral>> {
+        &self.peripherals
+    }
+
+    /// Read-only access to edges from calcs to peripherals
+    pub fn peripheral_input_sources(&self) -> &BTreeMap<PeripheralInputName, FieldName> {
+        self.orchestrator.peripheral_input_sources()
+    }
+
+    /// Register a calc function
+    pub fn add_calc(&mut self, name: &str, calc: Box<dyn Calc>) {
+        self.orchestrator.add_calc(name, calc);
+    }
+
+    /// Add multiple calcs
+    ///
+    /// # Panics
+    /// * If, for any calc to add, a calc with this name already exists
+    pub fn add_calcs(&mut self, mut calcs: BTreeMap<String, Box<dyn Calc>>) {
+        while let Some((name, calc)) = calcs.pop_first() {
+            self.orchestrator.add_calc(&name, calc);
+        }
+    }
+
+    /// Remove all calcs and peripheral input sources
+    pub fn clear_calcs(&mut self) {
+        self.orchestrator.clear_calcs();
+    }
+
     /// Register a hardware module
     pub fn add_peripheral(&mut self, name: &str, p: Box<dyn Peripheral>) {
         assert!(
@@ -92,11 +126,6 @@ impl Controller {
     /// Register a data pipeline dispatcher
     pub fn add_dispatcher(&mut self, dispatcher: Box<dyn Dispatcher>) {
         self.dispatchers.push(dispatcher);
-    }
-
-    /// Register a calc function
-    pub fn add_calc(&mut self, name: &str, calc: Box<dyn Calc>) {
-        self.orchestrator.add_calc(name, calc);
     }
 
     /// Register a socket
@@ -117,11 +146,6 @@ impl Controller {
     /// Remove all sockets
     pub fn clear_sockets(&mut self) {
         self.sockets.clear();
-    }
-
-    /// Remove all calcs and peripheral input sources
-    pub fn clear_calcs(&mut self) {
-        self.orchestrator.clear_calcs();
     }
 
     /// Connect an entry in the calc graph to a command to be sent to the peripheral

@@ -160,6 +160,16 @@ impl Orchestrator {
         self.calcs.insert(name, calc);
     }
 
+    /// Read-only access to calc nodes
+    pub fn calcs(&self) -> &BTreeMap<String, Box<dyn Calc>> {
+        &self.calcs
+    }
+
+    /// Read-only access to edges from calcs to peripherals
+    pub fn peripheral_input_sources(&self) -> &BTreeMap<PeripheralInputName, FieldName> {
+        &self.peripheral_input_sources
+    }
+
     /// Set a peripheral input to draw from a source field
     pub fn set_peripheral_input_source(&mut self, input_field: &str, source_field: &str) {
         self.peripheral_input_sources
