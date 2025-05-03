@@ -305,6 +305,10 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                     }
                 }
             }
+            Event::Mouse(iced::mouse::Event::ButtonPressed(iced::mouse::Button::Right)) => {
+                state.connecting_from = None;
+                return (canvas::event::Status::Captured, None);
+            }
             Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
                 state.last_cursor_position = Some(position);
             }
