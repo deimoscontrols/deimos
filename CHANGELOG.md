@@ -1,8 +1,8 @@
 # Changelog
 
-## 2025-04-26 deimos 0.8.1, deimos_editor 0.1.0
+## 2025-05-03 deimos 0.8.1
 
-Implement clone workaround for `Box<dyn Calc>` via typetag's enum vtable.
+Edits to prep for implementation of a calc node editor GUI.
 
 ### Added
 
@@ -11,7 +11,6 @@ Implement clone workaround for `Box<dyn Calc>` via typetag's enum vtable.
 * Add `kind` methods with default implementation to `Calc` and `Peripheral` to retrieve type name
 * Add more methods for immutable access to calcs and peripherals via `Controller`
 * Add `PeripheralProto` trait for prototyping `Peripheral` like `Calc`
-* Add `deimos_editor` node editor GUI for calc graph
 
 ### Changed
 
