@@ -23,6 +23,8 @@ jobs:
       run: cargo fmt --check --verbose
     - name: Lint
       run: cargo clippy --all-features
+    - name: Check semver
+      uses: obi1kenobi/cargo-semver-checks-action@v2
     - name: Run tests
       run: |
         cargo test --verbose --no-default-features
