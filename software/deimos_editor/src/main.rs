@@ -27,7 +27,10 @@ struct EdgeData {
 }
 
 pub fn main() -> iced::Result {
-    NodeEditor::run(Settings::default())
+    NodeEditor::run(Settings {
+        antialiasing: true,
+        ..Default::default()
+    })
 }
 
 struct NodeEditor {
