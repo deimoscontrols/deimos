@@ -1,4 +1,7 @@
+use std::process::Output;
+
 use canvas::Event;
+use iced::Pixels;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
 use iced::mouse::{Button, Cursor};
@@ -12,12 +15,70 @@ use iced::{
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::EdgeRef;
 
+use bimap::BiBTreeMap;
+
+#[derive(Debug)]
+struct Port {
+    /// Relative to top of node frame
+    offset_px: f32,
+}
+
 #[derive(Debug)]
 struct NodeData {
     name: String,
-    inputs: Vec<String>,
-    outputs: Vec<String>,
+    inputs: BiBTreeMap<String, usize>,
+    outputs: BiBTreeMap<String, usize>,
     position: Point,
+    input_ports: Vec<Port>,
+    output_ports: Vec<Port>,
+}
+
+impl NodeData {
+    pub fn new(
+        name: String,
+        inputs: Vec<String>,
+        outputs: Vec<String>,
+        position: Point,
+    ) -> NodeData {
+        let mut input_map = BiBTreeMap::new();
+        let mut output_map = BiBTreeMap::new();
+
+        let mut input_ports = Vec::with_capacity(inputs.len());
+        let mut output_ports = Vec::with_capacity(outputs.len());
+
+        let mut offs = 0.0_f32;
+        inputs.iter().enumerate().for_each(|(i, n)| {
+            offs += 20.0;
+            input_map.insert(n.clone(), i);
+            input_ports.push(Port{ offset_px: offs.into() })
+        });
+
+        let mut offs = 0.0_f32;
+        outputs.iter().enumerate().for_each(|(i, n)| {
+            offs += 20.0;
+            output_map.insert(n.clone(), i);
+            output_ports.push(Port{ offset_px: offs.into() })
+        });
+
+        Self {
+            name,
+            inputs: input_map,
+            outputs: output_map,
+            position,
+            input_ports,
+            output_ports
+        }
+    }
+
+    pub fn get_input_port(&self, name: &str) -> &Port {
+        let ind = self.inputs.get_by_left(name).unwrap();
+        &self.input_ports[*ind]
+    }
+
+    pub fn get_output_port(&self, name: &str) -> &Port {
+        let ind = self.outputs.get_by_left(name).unwrap();
+        &self.output_ports[*ind]
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -62,19 +123,19 @@ impl Application for NodeEditor {
     fn new(_: ()) -> (Self, Command<Message>) {
         let mut graph = Graph::<NodeData, EdgeData>::new();
 
-        let a = graph.add_node(NodeData {
-            name: "Add".into(),
-            inputs: vec!["a".into(), "b".into()],
-            outputs: vec!["sum".into()],
-            position: Point::new(100.0, 100.0),
-        });
+        let a = graph.add_node(NodeData::new(
+            "Add".into(),
+            vec!["a".into(), "b".into()],
+            vec!["sum".into()],
+            Point::new(100.0, 100.0),
+        ));
 
-        let b = graph.add_node(NodeData {
-            name: "Display".into(),
-            inputs: vec!["input".into()],
-            outputs: vec![],
-            position: Point::new(400.0, 200.0),
-        });
+        let b = graph.add_node(NodeData::new(
+            "Display".into(),
+            vec!["input".into()],
+            vec![],
+            Point::new(400.0, 200.0),
+        ));
 
         graph.add_edge(
             a,
@@ -147,6 +208,38 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             iced::Color::from_rgb(0.1, 0.1, 0.1),
         );
 
+
+        for edge in state.graph.edge_references() {
+            let from = &state.graph[edge.source()];
+            let to = &state.graph[edge.target()];
+            let from_port_name = &edge.weight().from_port;
+            let to_port_name = &edge.weight().to_port;
+            let from_port = from.get_output_port(from_port_name);
+            let to_port = to.get_input_port(to_port_name);
+
+            let from_pos = Point::new(from.position.x + 100.0, from.position.y + from_port.offset_px);
+            let to_pos = Point::new(to.position.x, to.position.y + to_port.offset_px);
+            let ctrl1 = Point::new(from_pos.x + 50.0, from_pos.y);
+            let ctrl2 = Point::new(to_pos.x - 50.0, to_pos.y);
+
+            let path = Path::new(|builder| {
+                builder.move_to(from_pos);
+                builder.bezier_curve_to(ctrl1, ctrl2, to_pos);
+            });
+
+            let is_selected = Some((edge.source(), edge.target())) == state.selected_edge;
+            let color = if is_selected {
+                iced::Color::from_rgb(1.0, 0.2, 0.2)
+            } else {
+                iced::Color::from_rgb(0.6, 0.6, 0.6)
+            };
+
+            frame.stroke(
+                &path,
+                canvas::Stroke::default().with_color(color).with_width(2.0),
+            );
+        }
+
         for node_idx in state.graph.node_indices() {
             let node = &state.graph[node_idx];
             let rect = Path::rectangle(node.position, iced::Size::new(100.0, 60.0));
@@ -164,32 +257,34 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 ..Default::default()
             });
 
-            for (i, port) in node.outputs.iter().enumerate() {
+            for (i, port_name) in node.outputs.left_values().enumerate() {
+                let port = node.get_output_port(port_name);
                 let port_pos = Point::new(
                     node.position.x + 100.0,
-                    node.position.y + 20.0 + i as f32 * 15.0,
+                    node.position.y + port.offset_px,
                 );
                 let port_circle = Path::circle(port_pos, 4.0);
                 frame.fill(&port_circle, iced::Color::WHITE);
                 frame.fill_text(Text {
-                    content: port.clone(),
-                    position: Point::new(port_pos.x + 6.0, port_pos.y + 4.0),
+                    content: port_name.clone(),
+                    position: Point::new(port_pos.x + 6.0, port_pos.y - 8.0),
                     color: iced::Color::WHITE,
                     size: 12.0.into(),
                     ..Default::default()
                 });
             }
 
-            for (i, port) in node.inputs.iter().enumerate() {
+            for (i, port_name) in node.inputs.left_values().enumerate() {
+                let port = node.get_input_port(port_name);
                 let port_pos =
-                    Point::new(node.position.x, node.position.y + 20.0 + i as f32 * 15.0);
+                    Point::new(node.position.x, node.position.y + port.offset_px);
                 let port_circle = Path::circle(port_pos, 4.0);
                 frame.fill(&port_circle, iced::Color::WHITE);
                 frame.fill_text(Text {
-                    content: port.clone(),
+                    content: port_name.clone(),
                     position: Point::new(
-                        port_pos.x - (port.len() as f32 * 6.0) - 8.0,
-                        port_pos.y + 4.0,
+                        port_pos.x - (port_name.len() as f32 * 6.0) - 8.0,
+                        port_pos.y - 8.0,
                     ),
                     color: iced::Color::WHITE,
                     size: 12.0.into(),
@@ -222,31 +317,6 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             );
         }
 
-        for edge in state.graph.edge_references() {
-            let from = &state.graph[edge.source()];
-            let to = &state.graph[edge.target()];
-            let from_pos = Point::new(from.position.x + 100.0, from.position.y + 30.0);
-            let to_pos = Point::new(to.position.x, to.position.y + 30.0);
-            let ctrl1 = Point::new(from_pos.x + 50.0, from_pos.y);
-            let ctrl2 = Point::new(to_pos.x - 50.0, to_pos.y);
-
-            let path = Path::new(|builder| {
-                builder.move_to(from_pos);
-                builder.bezier_curve_to(ctrl1, ctrl2, to_pos);
-            });
-
-            let is_selected = Some((edge.source(), edge.target())) == state.selected_edge;
-            let color = if is_selected {
-                iced::Color::from_rgb(1.0, 0.2, 0.2)
-            } else {
-                iced::Color::WHITE
-            };
-
-            frame.stroke(
-                &path,
-                canvas::Stroke::default().with_color(color).with_width(2.0),
-            );
-        }
 
         vec![frame.into_geometry()]
     }
@@ -264,19 +334,19 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
 
         // Example data
         if state.graph.node_indices().len() == 0 {
-            let a = state.graph.add_node(NodeData {
-                name: "Add".into(),
-                inputs: vec!["a".into(), "b".into()],
-                outputs: vec!["sum".into()],
-                position: Point::new(100.0, 100.0),
-            });
+            let a = state.graph.add_node(NodeData::new(
+                "Add".into(),
+                vec!["a".into(), "b".into()],
+                vec!["sum".into()],
+                Point::new(100.0, 100.0),
+            ));
 
-            let b = state.graph.add_node(NodeData {
-                name: "Display".into(),
-                inputs: vec!["input".into()],
-                outputs: vec![],
-                position: Point::new(400.0, 200.0),
-            });
+            let b = state.graph.add_node(NodeData::new(
+                "Display".into(),
+                vec!["input".into()],
+                vec![],
+                Point::new(400.0, 200.0),
+            ));
 
             state.graph.add_edge(
                 a,
@@ -317,8 +387,16 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                             let dy = pos.y - port_pos.y;
                             if dx * dx + dy * dy <= 36.0 {
                                 if let Some((src_idx, out_idx)) = state.connecting_from.take() {
-                                    let from_port = state.graph[src_idx].outputs[out_idx].clone();
-                                    let to_port = state.graph[node_idx].inputs[i].clone();
+                                    let from_port = state.graph[src_idx]
+                                        .outputs
+                                        .get_by_right(&out_idx)
+                                        .unwrap()
+                                        .clone();
+                                    let to_port = state.graph[node_idx]
+                                        .inputs
+                                        .get_by_right(&i)
+                                        .unwrap()
+                                        .clone();
                                     state.graph.add_edge(
                                         src_idx,
                                         node_idx,
