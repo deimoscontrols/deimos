@@ -23,7 +23,7 @@ use crate::{
 };
 use deimos_shared::states::*;
 
-use crate::calc::{Orchestrator, FieldName, PeripheralInputName};
+use crate::calc::{FieldName, Orchestrator, PeripheralInputName};
 use crate::dispatcher::Dispatcher;
 use crate::socket::udp::UdpSocket;
 use crate::socket::{Socket, SocketAddr};
@@ -147,8 +147,6 @@ impl Controller {
     pub fn clear_sockets(&mut self) {
         self.sockets.clear();
     }
-
-
 
     /// Connect an entry in the calc graph to a command to be sent to the peripheral
     pub fn set_peripheral_input_source(&mut self, input_field: &str, source_field: &str) {
