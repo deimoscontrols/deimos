@@ -1,7 +1,4 @@
-use std::process::Output;
-
 use canvas::Event;
-use iced::Pixels;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
 use iced::mouse::{Button, Cursor};
@@ -50,14 +47,18 @@ impl NodeData {
         inputs.iter().enumerate().for_each(|(i, n)| {
             offs += 20.0;
             input_map.insert(n.clone(), i);
-            input_ports.push(Port{ offset_px: offs.into() })
+            input_ports.push(Port {
+                offset_px: offs.into(),
+            })
         });
 
         let mut offs = 0.0_f32;
         outputs.iter().enumerate().for_each(|(i, n)| {
             offs += 20.0;
             output_map.insert(n.clone(), i);
-            output_ports.push(Port{ offset_px: offs.into() })
+            output_ports.push(Port {
+                offset_px: offs.into(),
+            })
         });
 
         Self {
@@ -66,7 +67,7 @@ impl NodeData {
             outputs: output_map,
             position,
             input_ports,
-            output_ports
+            output_ports,
         }
     }
 
@@ -202,13 +203,14 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         frame.translate(state.pan);
         frame.scale(state.zoom);
 
+        // Background
         frame.fill_rectangle(
             Point::ORIGIN,
             frame.size(),
             iced::Color::from_rgb(0.1, 0.1, 0.1),
         );
 
-
+        // Draw edges
         for edge in state.graph.edge_references() {
             let from = &state.graph[edge.source()];
             let to = &state.graph[edge.target()];
@@ -217,7 +219,10 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             let from_port = from.get_output_port(from_port_name);
             let to_port = to.get_input_port(to_port_name);
 
-            let from_pos = Point::new(from.position.x + 100.0, from.position.y + from_port.offset_px);
+            let from_pos = Point::new(
+                from.position.x + 100.0,
+                from.position.y + from_port.offset_px,
+            );
             let to_pos = Point::new(to.position.x, to.position.y + to_port.offset_px);
             let ctrl1 = Point::new(from_pos.x + 50.0, from_pos.y);
             let ctrl2 = Point::new(to_pos.x - 50.0, to_pos.y);
@@ -240,9 +245,11 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             );
         }
 
+        // Draw nodes
         for node_idx in state.graph.node_indices() {
             let node = &state.graph[node_idx];
             let rect = Path::rectangle(node.position, iced::Size::new(100.0, 60.0));
+            
             frame.fill(&rect, iced::Color::from_rgb(0.3, 0.3, 0.5));
             frame.stroke(
                 &rect,
@@ -257,12 +264,11 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 ..Default::default()
             });
 
+            // Output ports
             for (i, port_name) in node.outputs.left_values().enumerate() {
-                let port = node.get_output_port(port_name);
-                let port_pos = Point::new(
-                    node.position.x + 100.0,
-                    node.position.y + port.offset_px,
-                );
+                let port = &node.output_ports[i];
+                let port_pos =
+                    Point::new(node.position.x + 100.0, node.position.y + port.offset_px);
                 let port_circle = Path::circle(port_pos, 4.0);
                 frame.fill(&port_circle, iced::Color::WHITE);
                 frame.fill_text(Text {
@@ -274,10 +280,10 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 });
             }
 
+            // Input ports
             for (i, port_name) in node.inputs.left_values().enumerate() {
-                let port = node.get_input_port(port_name);
-                let port_pos =
-                    Point::new(node.position.x, node.position.y + port.offset_px);
+                let port = &node.input_ports[i];
+                let port_pos = Point::new(node.position.x, node.position.y + port.offset_px);
                 let port_circle = Path::circle(port_pos, 4.0);
                 frame.fill(&port_circle, iced::Color::WHITE);
                 frame.fill_text(Text {
@@ -293,6 +299,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             }
         }
 
+        // Draw in-progress connection
         if let (Some((from_idx, port_idx)), Some(cursor_pos)) =
             (state.connecting_from, state.last_cursor_position)
         {
@@ -317,7 +324,6 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             );
         }
 
-
         vec![frame.into_geometry()]
     }
 
@@ -328,6 +334,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         _bounds: Rectangle,
         cursor: Cursor,
     ) -> (canvas::event::Status, Option<Message>) {
+        // Make sure we don't divide by zero later when we calculate the zoom scaling
         if state.zoom == 0.0 {
             state.zoom = 1.0;
         }
@@ -363,6 +370,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 if let Some(cursor_pos) = cursor.position() {
                     let pos =
                         (cursor_pos - state.pan) * iced::Transformation::scale(1.0 / state.zoom);
+
+                    // Port selection
                     for node_idx in state.graph.node_indices() {
                         let node = &state.graph[node_idx];
                         for (i, _port) in node.outputs.iter().enumerate() {
@@ -408,6 +417,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                         }
                     }
 
+                    // Edge selection
                     for edge in state.graph.edge_references() {
                         let from = &state.graph[edge.source()];
                         let to = &state.graph[edge.target()];
@@ -423,6 +433,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                         }
                     }
 
+                    // Node selection
                     for node_idx in state.graph.node_indices().rev() {
                         let node = &state.graph[node_idx];
                         let node_rect = Rectangle {
@@ -449,6 +460,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 state.panning = false;
             }
             Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
+                // Node drag
                 if let Some(dragged) = state.dragged_node {
                     if let Some(last_pos) = state.last_cursor_position {
                         let delta =
@@ -459,6 +471,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                         }
                     }
                 }
+
+                // Pan
                 if state.panning {
                     if let Some(prev) = state.last_cursor_position {
                         let dx = position.x - prev.x;
@@ -469,6 +483,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 state.last_cursor_position = Some(position);
             }
             Event::Mouse(iced::mouse::Event::WheelScrolled { delta }) => {
+                // Zoom
                 let scroll_y = match delta {
                     iced::mouse::ScrollDelta::Lines { y, .. }
                     | iced::mouse::ScrollDelta::Pixels { y, .. } => y,
