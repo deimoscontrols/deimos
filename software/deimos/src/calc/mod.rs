@@ -89,6 +89,7 @@ pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Calc>>> = Lazy::new(|| {
 /// Clone isn't inherently object-safe, so to be able to clone dyn trait objects,
 /// we send it for a loop through the serde typetag system, which provides an
 /// automatically-assembled vtable to determine the downcasted type and clone into it.
+#[cfg(feature = "ser")]
 impl Clone for Box<dyn Calc> {
     fn clone(&self) -> Box<dyn Calc> {
         let new: Box<dyn Calc> =
