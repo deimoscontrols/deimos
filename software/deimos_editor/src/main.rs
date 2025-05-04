@@ -1,4 +1,5 @@
 use canvas::Event;
+use iced::border::Radius;
 use iced::Font;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
@@ -203,7 +204,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             let node = &state.graph[node_idx];
 
             // Border
-            let rect = Path::rectangle(node.position, node.size);
+            let rect = Path::rounded_rectangle(node.position, node.size, Radius::new(5.0));
             frame.fill(&rect, iced::Color::from_rgb(0.3, 0.3, 0.5));
             frame.stroke(
                 &rect,
