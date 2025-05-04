@@ -105,8 +105,25 @@ struct EdgeData {
     to_port: String,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum Message {}
+
 #[derive(Default)]
 struct NodeEditor {}
+
+impl NodeEditor {
+    fn update(_state: &mut Self, _message: Message) {}
+
+    fn view(_state: &Self) -> Element<Message> {
+        let canvas = Canvas::new(EditorCanvas {
+            _v: core::marker::PhantomData,
+        })
+        .width(Length::Fill)
+        .height(Length::Fill);
+
+        Column::new().push(canvas).into()
+    }
+}
 
 #[derive(Default)]
 struct EditorState {
@@ -120,24 +137,8 @@ struct EditorState {
     graph: Graph<NodeData, EdgeData>,
 }
 
-#[derive(Debug, Clone, Copy)]
-enum Message {}
-
-impl NodeEditor {
-
-    fn update(_state: &mut Self, _message: Message) {}
-
-    fn view(_state: &Self) -> Element<Message> {
-        let canvas = Canvas::new(EditorCanvas { _v: core::marker::PhantomData})
-        .width(Length::Fill)
-        .height(Length::Fill);
-
-        Column::new().push(canvas).into()
-    }
-}
-
 struct EditorCanvas<'a> {
-    _v: core::marker::PhantomData<&'a usize>
+    _v: core::marker::PhantomData<&'a usize>,
 }
 
 impl<'a> Program<Message> for EditorCanvas<'a> {
