@@ -473,6 +473,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 key: Key::Named(Named::Delete),
                 ..
             }) => {
+                // Delete
                 if let ExclusiveActionCtx::EdgeSelected((src, dst)) = state.action_ctx {
                     if let Some(edge_idx) = state.graph.find_edge(src, dst) {
                         state.graph.remove_edge(edge_idx);
@@ -486,6 +487,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 }
             }
             Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Right)) => {
+                // Cancel
                 state.action_ctx = ExclusiveActionCtx::None;
                 return (canvas::event::Status::Captured, None);
             }
