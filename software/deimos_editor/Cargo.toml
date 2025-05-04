@@ -7,6 +7,6 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-iced = { version="0.12", features=["canvas"] }
+iced = { version="0.13.1", features=["canvas"] }
 petgraph = "0.8.1"
 bimap = "0.6.3"

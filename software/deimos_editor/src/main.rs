@@ -1,10 +1,10 @@
 use canvas::Event;
+use iced::Font;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
 use iced::mouse::{Button, Cursor};
-use iced::Font;
 use iced::{
-    Application, Command, Element, Length, Point, Rectangle, Renderer, Settings, Theme, Vector,
+    Element, Length, Point, Rectangle, Renderer, Theme, Vector,
     widget::{
         Column,
         canvas::{self, Canvas, Frame, Geometry, Path, Program, Text},
@@ -16,10 +16,11 @@ use petgraph::visit::EdgeRef;
 use bimap::BiBTreeMap;
 
 pub fn main() -> iced::Result {
-    NodeEditor::run(Settings {
-        antialiasing: true,
-        ..Default::default()
-    })
+    iced::application("Deimos Editor", NodeEditor::update, NodeEditor::view)
+        .theme(|_| Theme::Dark)
+        .centered()
+        .antialiasing(true)
+        .run()
 }
 
 #[derive(Debug)]
@@ -104,9 +105,8 @@ struct EdgeData {
     to_port: String,
 }
 
-struct NodeEditor {
-    editor_state: EditorState,
-}
+#[derive(Default)]
+struct NodeEditor {}
 
 #[derive(Default)]
 struct EditorState {
@@ -115,7 +115,6 @@ struct EditorState {
     panning: bool,
     dragged_node: Option<NodeIndex>,
     last_cursor_position: Option<Point>,
-    geometry: Option<Geometry>,
     connecting_from: Option<(NodeIndex, usize)>,
     selected_edge: Option<(NodeIndex, NodeIndex)>,
     graph: Graph<NodeData, EdgeData>,
@@ -124,68 +123,12 @@ struct EditorState {
 #[derive(Debug, Clone, Copy)]
 enum Message {}
 
-impl Application for NodeEditor {
-    type Executor = iced::executor::Default;
-    type Message = Message;
-    type Theme = Theme;
-    type Flags = ();
+impl NodeEditor {
 
-    fn new(_: ()) -> (Self, Command<Message>) {
-        let mut graph = Graph::<NodeData, EdgeData>::new();
+    fn update(_state: &mut Self, _message: Message) {}
 
-        let a = graph.add_node(NodeData::new(
-            "Add".into(),
-            vec!["a".into(), "b".into()],
-            vec!["sum".into()],
-            Point::new(100.0, 100.0),
-        ));
-
-        let b = graph.add_node(NodeData::new(
-            "Display".into(),
-            vec!["input".into()],
-            vec![],
-            Point::new(400.0, 200.0),
-        ));
-
-        graph.add_edge(
-            a,
-            b,
-            EdgeData {
-                from_port: "sum".into(),
-                to_port: "input".into(),
-            },
-        );
-
-        (
-            Self {
-                editor_state: EditorState {
-                    pan: Vector::new(0.0, 0.0),
-                    zoom: 1.0,
-                    panning: false,
-                    dragged_node: None,
-                    last_cursor_position: None,
-                    geometry: None,
-                    connecting_from: None,
-                    selected_edge: None,
-                    graph,
-                },
-            },
-            Command::none(),
-        )
-    }
-
-    fn title(&self) -> String {
-        String::from("Node Editor Example")
-    }
-
-    fn update(&mut self, _message: Message) -> Command<Message> {
-        Command::none()
-    }
-
-    fn view(&self) -> Element<Message> {
-        let canvas = Canvas::new(EditorCanvas {
-            editor_state: &self.editor_state,
-        })
+    fn view(_state: &Self) -> Element<Message> {
+        let canvas = Canvas::new(EditorCanvas { _v: core::marker::PhantomData})
         .width(Length::Fill)
         .height(Length::Fill);
 
@@ -194,7 +137,7 @@ impl Application for NodeEditor {
 }
 
 struct EditorCanvas<'a> {
-    editor_state: &'a EditorState,
+    _v: core::marker::PhantomData<&'a usize>
 }
 
 impl<'a> Program<Message> for EditorCanvas<'a> {
@@ -206,7 +149,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         renderer: &Renderer,
         _theme: &Theme,
         bounds: Rectangle,
-        cursor: Cursor,
+        _cursor: Cursor,
     ) -> Vec<Geometry> {
         let mut frame = Frame::new(renderer, bounds.size());
         frame.translate(state.pan);
@@ -277,8 +220,10 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             // Output ports
             for (i, port_name) in node.outputs.left_values().enumerate() {
                 let port = &node.output_ports[i];
-                let port_pos =
-                    Point::new(node.position.x + node.size.width, node.position.y + port.offset_px);
+                let port_pos = Point::new(
+                    node.position.x + node.size.width,
+                    node.position.y + port.offset_px,
+                );
                 let port_circle = Path::circle(port_pos, 4.0);
                 frame.fill(&port_circle, iced::Color::WHITE);
                 frame.fill_text(Text {
