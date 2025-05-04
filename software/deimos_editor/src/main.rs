@@ -257,14 +257,14 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         // Draw nodes
         for node_idx in state.graph.node_indices() {
             let node = &state.graph[node_idx];
+
+            // Border
             let rect = Path::rectangle(node.position, node.size);
-            
             frame.fill(&rect, iced::Color::from_rgb(0.3, 0.3, 0.5));
             frame.stroke(
                 &rect,
                 canvas::Stroke::default().with_color(iced::Color::WHITE),
             );
-
             frame.fill_text(Text {
                 content: node.name.clone(),
                 position: Point::new(node.position.x + 6.0, node.position.y + 8.0),
