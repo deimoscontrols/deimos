@@ -215,15 +215,19 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
 
             // Border
             let rect = Path::rounded_rectangle(node.position, node.size, Radius::new(5.0));
+            let color = if ExclusiveActionCtx::NodeSelected(node_idx) == state.action_ctx {
+                iced::Color::from_rgb(1.0, 0.2, 0.2) // Highlight selected
+            } else {
+                iced::Color::WHITE
+            };
             frame.fill(&rect, iced::Color::from_rgb(0.3, 0.3, 0.5));
-            frame.stroke(
-                &rect,
-                canvas::Stroke::default().with_color(iced::Color::WHITE),
-            );
+            frame.stroke(&rect, canvas::Stroke::default().with_color(color));
+
+            // Label
             frame.fill_text(Text {
                 content: node.name.clone(),
                 position: Point::new(node.position.x + 6.0, node.position.y + 8.0),
-                color: iced::Color::WHITE,
+                color,
                 size: 16.0.into(),
                 font: Font::MONOSPACE,
                 ..Default::default()
