@@ -28,6 +28,7 @@ struct NodeData {
     position: Point,
     input_ports: Vec<Port>,
     output_ports: Vec<Port>,
+    size: iced::Size<f32>,
 }
 
 impl NodeData {
@@ -43,23 +44,27 @@ impl NodeData {
         let mut input_ports = Vec::with_capacity(inputs.len());
         let mut output_ports = Vec::with_capacity(outputs.len());
 
-        let mut offs = 0.0_f32;
+        let mut inp_offs = 0.0_f32;
         inputs.iter().enumerate().for_each(|(i, n)| {
-            offs += 20.0;
+            inp_offs += 20.0;
             input_map.insert(n.clone(), i);
             input_ports.push(Port {
-                offset_px: offs.into(),
+                offset_px: inp_offs.into(),
             })
         });
 
-        let mut offs = 0.0_f32;
+        let mut out_offs = 0.0_f32;
         outputs.iter().enumerate().for_each(|(i, n)| {
-            offs += 20.0;
+            out_offs += 20.0;
             output_map.insert(n.clone(), i);
             output_ports.push(Port {
-                offset_px: offs.into(),
+                offset_px: out_offs.into(),
             })
         });
+
+        let width = 100.0;
+        let height = inp_offs.max(out_offs) + 20.0;
+        let size = iced::Size::new(width, height);
 
         Self {
             name,
@@ -68,6 +73,7 @@ impl NodeData {
             position,
             input_ports,
             output_ports,
+            size,
         }
     }
 
@@ -220,7 +226,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             let to_port = to.get_input_port(to_port_name);
 
             let from_pos = Point::new(
-                from.position.x + 100.0,
+                from.position.x + from.size.width,
                 from.position.y + from_port.offset_px,
             );
             let to_pos = Point::new(to.position.x, to.position.y + to_port.offset_px);
@@ -248,7 +254,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         // Draw nodes
         for node_idx in state.graph.node_indices() {
             let node = &state.graph[node_idx];
-            let rect = Path::rectangle(node.position, iced::Size::new(100.0, 60.0));
+            let rect = Path::rectangle(node.position, node.size);
             
             frame.fill(&rect, iced::Color::from_rgb(0.3, 0.3, 0.5));
             frame.stroke(
@@ -268,7 +274,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             for (i, port_name) in node.outputs.left_values().enumerate() {
                 let port = &node.output_ports[i];
                 let port_pos =
-                    Point::new(node.position.x + 100.0, node.position.y + port.offset_px);
+                    Point::new(node.position.x + node.size.width, node.position.y + port.offset_px);
                 let port_circle = Path::circle(port_pos, 4.0);
                 frame.fill(&port_circle, iced::Color::WHITE);
                 frame.fill_text(Text {
@@ -305,7 +311,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         {
             let node = &state.graph[from_idx];
             let start = Point::new(
-                node.position.x + 100.0,
+                node.position.x + node.size.width,
                 node.position.y + 20.0 + port_idx as f32 * 15.0,
             );
             let ctrl1 = Point::new(start.x + 50.0, start.y);
