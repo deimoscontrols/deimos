@@ -1,6 +1,6 @@
 use canvas::Event;
-use iced::border::Radius;
 use iced::Font;
+use iced::border::Radius;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
 use iced::mouse::{Button, Cursor};
@@ -126,15 +126,24 @@ impl NodeEditor {
     }
 }
 
+/// Ongoing actions that are mutually exclusive
+#[derive(Default, PartialEq, Eq)]
+enum ExclusiveActionCtx {
+    #[default]
+    None,
+    NodeSelected(NodeIndex),
+    EdgeSelected((NodeIndex, NodeIndex)),
+    ConnectingFromPort((NodeIndex, usize)),
+}
+
 #[derive(Default)]
 struct EditorState {
     pan: Vector,
     zoom: f32,
     panning: bool,
-    dragged_node: Option<NodeIndex>,
+    dragging_node: Option<NodeIndex>,
     last_cursor_position: Option<Point>,
-    connecting_from: Option<(NodeIndex, usize)>,
-    selected_edge: Option<(NodeIndex, NodeIndex)>,
+    action_ctx: ExclusiveActionCtx,
     graph: Graph<NodeData, EdgeData>,
 }
 
@@ -186,7 +195,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 builder.bezier_curve_to(ctrl1, ctrl2, to_pos);
             });
 
-            let is_selected = Some((edge.source(), edge.target())) == state.selected_edge;
+            let is_selected = ExclusiveActionCtx::EdgeSelected((edge.source(), edge.target()))
+                == state.action_ctx;
             let color = if is_selected {
                 iced::Color::from_rgb(1.0, 0.2, 0.2)
             } else {
@@ -259,13 +269,13 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         }
 
         // Draw in-progress connection
-        if let (Some((from_idx, port_idx)), Some(cursor_pos)) =
-            (state.connecting_from, state.last_cursor_position)
+        if let (ExclusiveActionCtx::ConnectingFromPort((from_idx, port_idx)), Some(cursor_pos)) =
+            (&state.action_ctx, state.last_cursor_position)
         {
-            let node = &state.graph[from_idx];
+            let node = &state.graph[*from_idx];
             let start = Point::new(
                 node.position.x + node.size.width,
-                node.position.y + 20.0 + port_idx as f32 * 15.0,
+                node.position.y + 20.0 + *port_idx as f32 * 15.0,
             );
             let ctrl1 = Point::new(start.x + 50.0, start.y);
             let ctrl2 = Point::new(cursor_pos.x - 50.0, cursor_pos.y);
@@ -341,7 +351,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                             let dx = pos.x - port_pos.x;
                             let dy = pos.y - port_pos.y;
                             if dx * dx + dy * dy <= 36.0 {
-                                state.connecting_from = Some((node_idx, i));
+                                state.action_ctx =
+                                    ExclusiveActionCtx::ConnectingFromPort((node_idx, i));
                                 state.last_cursor_position = Some(cursor_pos);
                                 return (canvas::event::Status::Captured, None);
                             }
@@ -354,7 +365,9 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                             let dx = pos.x - port_pos.x;
                             let dy = pos.y - port_pos.y;
                             if dx * dx + dy * dy <= 36.0 {
-                                if let Some((src_idx, out_idx)) = state.connecting_from.take() {
+                                if let ExclusiveActionCtx::ConnectingFromPort((src_idx, out_idx)) =
+                                    state.action_ctx
+                                {
                                     let from_port = state.graph[src_idx]
                                         .outputs
                                         .get_by_right(&out_idx)
@@ -387,7 +400,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                         let dx = pos.x - mid_x;
                         let dy = pos.y - mid_y;
                         if dx * dx + dy * dy < 100.0 {
-                            state.selected_edge = Some((edge.source(), edge.target()));
+                            state.action_ctx =
+                                ExclusiveActionCtx::EdgeSelected((edge.source(), edge.target()));
                             return (canvas::event::Status::Captured, None);
                         }
                     }
@@ -402,7 +416,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                             height: 60.0,
                         };
                         if node_rect.contains(pos) {
-                            state.dragged_node = Some(node_idx);
+                            state.action_ctx = ExclusiveActionCtx::NodeSelected(node_idx);
+                            state.dragging_node = Some(node_idx);
                             state.last_cursor_position = Some(cursor_pos);
                             return (canvas::event::Status::Captured, None);
                         }
@@ -410,7 +425,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 }
             }
             Event::Mouse(iced::mouse::Event::ButtonReleased(Button::Left)) => {
-                state.dragged_node = None;
+                state.dragging_node = None;
             }
             Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Middle)) => {
                 state.panning = true;
@@ -420,7 +435,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             }
             Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
                 // Node drag
-                if let Some(dragged) = state.dragged_node {
+                if let Some(dragged) = state.dragging_node {
                     if let Some(last_pos) = state.last_cursor_position {
                         let delta =
                             (position - last_pos) * iced::Transformation::scale(1.0 / state.zoom);
@@ -454,14 +469,18 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 key: Key::Named(Named::Delete),
                 ..
             }) => {
-                if let Some((src, dst)) = state.selected_edge.take() {
+                if let ExclusiveActionCtx::EdgeSelected((src, dst)) = state.action_ctx {
                     if let Some(edge_idx) = state.graph.find_edge(src, dst) {
                         state.graph.remove_edge(edge_idx);
                     }
                 }
+
+                if let ExclusiveActionCtx::NodeSelected(idx) = state.action_ctx {
+                    state.graph.remove_node(idx);
+                }
             }
             Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Right)) => {
-                state.connecting_from = None;
+                state.action_ctx = ExclusiveActionCtx::None;
                 return (canvas::event::Status::Captured, None);
             }
             _ => {}
