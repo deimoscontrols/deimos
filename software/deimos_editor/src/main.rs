@@ -15,6 +15,13 @@ use petgraph::visit::EdgeRef;
 
 use bimap::BiBTreeMap;
 
+pub fn main() -> iced::Result {
+    NodeEditor::run(Settings {
+        antialiasing: true,
+        ..Default::default()
+    })
+}
+
 #[derive(Debug)]
 struct Port {
     /// Relative to top of node frame
@@ -95,13 +102,6 @@ impl NodeData {
 struct EdgeData {
     from_port: String,
     to_port: String,
-}
-
-pub fn main() -> iced::Result {
-    NodeEditor::run(Settings {
-        antialiasing: true,
-        ..Default::default()
-    })
 }
 
 struct NodeEditor {
