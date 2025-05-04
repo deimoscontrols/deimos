@@ -2,6 +2,7 @@ use canvas::Event;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
 use iced::mouse::{Button, Cursor};
+use iced::Font;
 use iced::{
     Application, Command, Element, Length, Point, Rectangle, Renderer, Settings, Theme, Vector,
     widget::{
@@ -44,7 +45,7 @@ impl NodeData {
         let mut input_ports = Vec::with_capacity(inputs.len());
         let mut output_ports = Vec::with_capacity(outputs.len());
 
-        // Determine where to put each port
+        // Determine y-position of each port within the node widget
         let mut inp_offs = 0.0_f32;
         inputs.iter().enumerate().for_each(|(i, n)| {
             inp_offs += 20.0;
@@ -269,6 +270,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 position: Point::new(node.position.x + 6.0, node.position.y + 8.0),
                 color: iced::Color::WHITE,
                 size: 16.0.into(),
+                font: Font::MONOSPACE,
                 ..Default::default()
             });
 
@@ -284,6 +286,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                     position: Point::new(port_pos.x + 6.0, port_pos.y - 8.0),
                     color: iced::Color::WHITE,
                     size: 12.0.into(),
+                    font: Font::MONOSPACE,
                     ..Default::default()
                 });
             }
@@ -302,6 +305,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                     ),
                     color: iced::Color::WHITE,
                     size: 12.0.into(),
+                    font: Font::MONOSPACE,
                     ..Default::default()
                 });
             }
