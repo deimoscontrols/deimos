@@ -44,6 +44,7 @@ impl NodeData {
         let mut input_ports = Vec::with_capacity(inputs.len());
         let mut output_ports = Vec::with_capacity(outputs.len());
 
+        // Determine where to put each port
         let mut inp_offs = 0.0_f32;
         inputs.iter().enumerate().for_each(|(i, n)| {
             inp_offs += 20.0;
@@ -62,6 +63,7 @@ impl NodeData {
             })
         });
 
+        // Determine width and height of node widget
         let width = 100.0;
         let height = inp_offs.max(out_offs) + 20.0;
         let size = iced::Size::new(width, height);
