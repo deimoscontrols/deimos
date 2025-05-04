@@ -476,11 +476,13 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 if let ExclusiveActionCtx::EdgeSelected((src, dst)) = state.action_ctx {
                     if let Some(edge_idx) = state.graph.find_edge(src, dst) {
                         state.graph.remove_edge(edge_idx);
+                        state.action_ctx = ExclusiveActionCtx::None;
                     }
                 }
 
                 if let ExclusiveActionCtx::NodeSelected(idx) = state.action_ctx {
                     state.graph.remove_node(idx);
+                    state.action_ctx = ExclusiveActionCtx::None;
                 }
             }
             Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Right)) => {
