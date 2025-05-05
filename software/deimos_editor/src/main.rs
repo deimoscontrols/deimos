@@ -14,6 +14,9 @@ use iced::{
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::EdgeRef;
 
+use serde::{Serialize, Deserialize};
+use serde_json;
+
 use bimap::BiBTreeMap;
 
 pub fn main() -> iced::Result {
@@ -25,20 +28,22 @@ pub fn main() -> iced::Result {
 }
 
 #[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 struct Port {
     /// Relative to top of node frame
     offset_px: f32,
 }
 
 #[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 struct NodeData {
     name: String,
     inputs: BiBTreeMap<String, usize>,
     outputs: BiBTreeMap<String, usize>,
-    position: Point,
+    position: (f32, f32),
     input_ports: Vec<Port>,
     output_ports: Vec<Port>,
-    size: iced::Size<f32>,
+    size: (f32, f32),
 }
 
 impl NodeData {
@@ -46,7 +51,7 @@ impl NodeData {
         name: String,
         inputs: Vec<String>,
         outputs: Vec<String>,
-        position: Point,
+        position: (f32, f32),
     ) -> NodeData {
         let mut input_map = BiBTreeMap::new();
         let mut output_map = BiBTreeMap::new();
@@ -76,7 +81,7 @@ impl NodeData {
         // Determine width and height of node widget
         let width = 100.0;
         let height = inp_offs.max(out_offs) + 20.0;
-        let size = iced::Size::new(width, height);
+        let size = (width, height);
 
         Self {
             name,
@@ -87,6 +92,14 @@ impl NodeData {
             output_ports,
             size,
         }
+    }
+
+    pub fn size(&self) -> iced::Size {
+        iced::Size::new(self.size.0, self.size.1)
+    }
+
+    pub fn position(&self) -> Point {
+        Point { x: self.position.0, y: self.position.1 }
     }
 
     pub fn get_input_port(&self, name: &str) -> &Port {
@@ -101,6 +114,7 @@ impl NodeData {
 }
 
 #[derive(Debug, PartialEq)]
+#[derive(Serialize, Deserialize)]
 struct EdgeData {
     from_port: String,
     to_port: String,
@@ -145,6 +159,8 @@ struct EditorState {
     last_cursor_position: Option<Point>,
     action_ctx: ExclusiveActionCtx,
     graph: Graph<NodeData, EdgeData>,
+    edit_log: Vec<String>,
+    redo_log: Vec<String>,
 }
 
 struct EditorCanvas<'a> {
@@ -183,10 +199,10 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             let to_port = to.get_input_port(to_port_name);
 
             let from_pos = Point::new(
-                from.position.x + from.size.width,
-                from.position.y + from_port.offset_px,
+                from.position.0 + from.size().width,
+                from.position.1 + from_port.offset_px,
             );
-            let to_pos = Point::new(to.position.x, to.position.y + to_port.offset_px);
+            let to_pos = Point::new(to.position.0, to.position.1 + to_port.offset_px);
             let ctrl1 = Point::new(from_pos.x + 50.0, from_pos.y);
             let ctrl2 = Point::new(to_pos.x - 50.0, to_pos.y);
 
@@ -214,7 +230,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             let node = &state.graph[node_idx];
 
             // Border
-            let rect = Path::rounded_rectangle(node.position, node.size, Radius::new(5.0));
+            let rect = Path::rounded_rectangle(node.position(), node.size(), Radius::new(5.0));
             let color = if ExclusiveActionCtx::NodeSelected(node_idx) == state.action_ctx {
                 iced::Color::from_rgb(1.0, 0.2, 0.2) // Highlight selected
             } else {
@@ -226,7 +242,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             // Label
             frame.fill_text(Text {
                 content: node.name.clone(),
-                position: Point::new(node.position.x + 6.0, node.position.y + 8.0),
+                position: Point::new(node.position.0 + 6.0, node.position.1 + 8.0),
                 color,
                 size: 16.0.into(),
                 font: Font::MONOSPACE,
@@ -237,8 +253,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             for (i, port_name) in node.outputs.left_values().enumerate() {
                 let port = &node.output_ports[i];
                 let port_pos = Point::new(
-                    node.position.x + node.size.width,
-                    node.position.y + port.offset_px,
+                    node.position.0 + node.size().width,
+                    node.position.1 + port.offset_px,
                 );
                 let port_circle = Path::circle(port_pos, 4.0);
                 frame.fill(&port_circle, iced::Color::WHITE);
@@ -255,7 +271,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             // Input ports
             for (i, port_name) in node.inputs.left_values().enumerate() {
                 let port = &node.input_ports[i];
-                let port_pos = Point::new(node.position.x, node.position.y + port.offset_px);
+                let port_pos = Point::new(node.position.0, node.position.1 + port.offset_px);
                 let port_circle = Path::circle(port_pos, 4.0);
                 frame.fill(&port_circle, iced::Color::WHITE);
                 frame.fill_text(Text {
@@ -278,8 +294,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         {
             let node = &state.graph[*from_idx];
             let start = Point::new(
-                node.position.x + node.size.width,
-                node.position.y + 20.0 + *port_idx as f32 * 15.0,
+                node.position.0 + node.size().width,
+                node.position.1 + 20.0 + *port_idx as f32 * 15.0,
             );
             let ctrl1 = Point::new(start.x + 50.0, start.y);
             let ctrl2 = Point::new(cursor_pos.x - 50.0, cursor_pos.y);
@@ -318,14 +334,14 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 "Add".into(),
                 vec!["a".into(), "b".into()],
                 vec!["sum".into()],
-                Point::new(100.0, 100.0),
+                (100.0, 100.0),
             ));
 
             let b = state.graph.add_node(NodeData::new(
                 "Display".into(),
                 vec!["input".into()],
                 vec![],
-                Point::new(400.0, 200.0),
+                (400.0, 200.0),
             ));
 
             state.graph.add_edge(
@@ -349,8 +365,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                         let node = &state.graph[node_idx];
                         for (i, _port) in node.outputs.iter().enumerate() {
                             let port_pos = Point::new(
-                                node.position.x + 100.0,
-                                node.position.y + 20.0 + i as f32 * 15.0,
+                                node.position.0 + 100.0,
+                                node.position.1 + 20.0 + i as f32 * 15.0,
                             );
                             let dx = pos.x - port_pos.x;
                             let dy = pos.y - port_pos.y;
@@ -363,8 +379,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                         }
                         for (i, _port) in node.inputs.iter().enumerate() {
                             let port_pos = Point::new(
-                                node.position.x,
-                                node.position.y + 20.0 + i as f32 * 15.0,
+                                node.position.0,
+                                node.position.1 + 20.0 + i as f32 * 15.0,
                             );
                             let dx = pos.x - port_pos.x;
                             let dy = pos.y - port_pos.y;
@@ -397,8 +413,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                     for edge in state.graph.edge_references() {
                         let from = &state.graph[edge.source()];
                         let to = &state.graph[edge.target()];
-                        let from_pos = Point::new(from.position.x + 100.0, from.position.y + 30.0);
-                        let to_pos = Point::new(to.position.x, to.position.y + 30.0);
+                        let from_pos = Point::new(from.position.0 + 100.0, from.position.1 + 30.0);
+                        let to_pos = Point::new(to.position.0, to.position.1 + 30.0);
                         let mid_x = (from_pos.x + to_pos.x) / 2.0;
                         let mid_y = (from_pos.y + to_pos.y) / 2.0;
                         let dx = pos.x - mid_x;
@@ -414,8 +430,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                     for node_idx in state.graph.node_indices().rev() {
                         let node = &state.graph[node_idx];
                         let node_rect = Rectangle {
-                            x: node.position.x,
-                            y: node.position.y,
+                            x: node.position.0,
+                            y: node.position.1,
                             width: 100.0,
                             height: 60.0,
                         };
@@ -444,8 +460,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                         let delta =
                             (position - last_pos) * iced::Transformation::scale(1.0 / state.zoom);
                         if let Some(node) = state.graph.node_weight_mut(dragged) {
-                            node.position.x += delta.x;
-                            node.position.y += delta.y;
+                            node.position.0 += delta.x;
+                            node.position.1 += delta.y;
                         }
                     }
                 }
