@@ -3,8 +3,8 @@ use std::collections::VecDeque;
 use canvas::Event;
 use iced::Font;
 use iced::border::Radius;
-use iced::keyboard::Key;
-use iced::keyboard::key::Named;
+use iced::keyboard::key::{Code, Named, Physical};
+use iced::keyboard::{Key, Modifiers};
 use iced::mouse::{Button, Cursor};
 use iced::{
     Element, Length, Point, Rectangle, Renderer, Theme, Vector,
@@ -16,7 +16,7 @@ use iced::{
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::EdgeRef;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_json;
 
 use bimap::BiBTreeMap;
@@ -29,15 +29,13 @@ pub fn main() -> iced::Result {
         .run()
 }
 
-#[derive(Debug)]
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Port {
     /// Relative to top of node frame
     offset_px: f32,
 }
 
-#[derive(Debug)]
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct NodeData {
     name: String,
     inputs: BiBTreeMap<String, usize>,
@@ -101,7 +99,10 @@ impl NodeData {
     }
 
     pub fn position(&self) -> Point {
-        Point { x: self.position.0, y: self.position.1 }
+        Point {
+            x: self.position.0,
+            y: self.position.1,
+        }
     }
 
     pub fn get_input_port(&self, name: &str) -> &Port {
@@ -115,8 +116,7 @@ impl NodeData {
     }
 }
 
-#[derive(Debug, PartialEq)]
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct EdgeData {
     from_port: String,
     to_port: String,
@@ -191,13 +191,22 @@ impl EditorState {
         } else {
             self.graph.clear();
         }
+
+        // Clear selections and ongoing actions, which may no longer be valid
+        self.action_ctx = ExclusiveActionCtx::None;
+        self.dragging_node = None;
     }
 
     fn redo(&mut self) {
+        // Reset to next state and move that checkpoint back to the edit log
         if let Some(next) = self.redo_log.pop() {
             self.graph = serde_json::from_str(&next).unwrap();
             self.edit_log.push_front(next);
         }
+
+        // Clear selections and ongoing actions, which may no longer be valid
+        self.action_ctx = ExclusiveActionCtx::None;
+        self.dragging_node = None;
     }
 }
 
@@ -537,12 +546,29 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                         state.action_ctx = ExclusiveActionCtx::None;
                         state.checkpoint();
                     }
-                }
-
-                else if let ExclusiveActionCtx::NodeSelected(idx) = state.action_ctx {
+                } else if let ExclusiveActionCtx::NodeSelected(idx) = state.action_ctx {
                     state.graph.remove_node(idx);
                     state.action_ctx = ExclusiveActionCtx::None;
                     state.checkpoint();
+                }
+            }
+            Event::Keyboard(iced::keyboard::Event::KeyPressed {
+                physical_key: Physical::Code(Code::KeyZ),
+                modifiers: Modifiers::CTRL,
+                ..
+            }) => {
+                // Undo
+                state.undo();
+            }
+            Event::Keyboard(iced::keyboard::Event::KeyPressed {
+                physical_key: Physical::Code(Code::KeyZ),
+                modifiers,
+                ..
+            }) => {
+                // Redo
+                if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                    // Non-const pattern -> can't use in destructing pattern
+                    state.redo();
                 }
             }
             Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Right)) => {
