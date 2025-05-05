@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use canvas::Event;
 use iced::Font;
 use iced::border::Radius;
@@ -159,8 +161,44 @@ struct EditorState {
     last_cursor_position: Option<Point>,
     action_ctx: ExclusiveActionCtx,
     graph: Graph<NodeData, EdgeData>,
-    edit_log: Vec<String>,
+    edit_log: VecDeque<String>,
     redo_log: Vec<String>,
+}
+
+impl EditorState {
+    fn checkpoint(&mut self) {
+        // Save checkpoint
+        let entry = serde_json::to_string(&self.graph).unwrap();
+        self.edit_log.push_back(entry);
+        if self.edit_log.len() > 30 {
+            let _ = self.edit_log.pop_front();
+        }
+
+        // Clear redo, which will no longer be valid after other edits
+        self.redo_log.clear();
+    }
+
+    fn undo(&mut self) {
+        // Move the latest state to the redo log
+        if let Some(latest) = self.edit_log.pop_back() {
+            self.redo_log.push(latest);
+        }
+
+        // Reset to the previous state, or if there is no previous state,
+        // clear the graph.
+        if let Some(previous) = self.edit_log.front() {
+            self.graph = serde_json::from_str(previous).unwrap();
+        } else {
+            self.graph.clear();
+        }
+    }
+
+    fn redo(&mut self) {
+        if let Some(next) = self.redo_log.pop() {
+            self.graph = serde_json::from_str(&next).unwrap();
+            self.edit_log.push_front(next);
+        }
+    }
 }
 
 struct EditorCanvas<'a> {
@@ -445,7 +483,10 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 }
             }
             Event::Mouse(iced::mouse::Event::ButtonReleased(Button::Left)) => {
-                state.dragging_node = None;
+                if state.dragging_node.is_some() {
+                    state.dragging_node = None;
+                    state.checkpoint();
+                }
             }
             Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Middle)) => {
                 state.panning = true;
@@ -494,12 +535,14 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                     if let Some(edge_idx) = state.graph.find_edge(src, dst) {
                         state.graph.remove_edge(edge_idx);
                         state.action_ctx = ExclusiveActionCtx::None;
+                        state.checkpoint();
                     }
                 }
 
-                if let ExclusiveActionCtx::NodeSelected(idx) = state.action_ctx {
+                else if let ExclusiveActionCtx::NodeSelected(idx) = state.action_ctx {
                     state.graph.remove_node(idx);
                     state.action_ctx = ExclusiveActionCtx::None;
+                    state.checkpoint();
                 }
             }
             Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Right)) => {
