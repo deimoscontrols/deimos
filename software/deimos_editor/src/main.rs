@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::collections::VecDeque;
 use std::rc::Rc;
 
 use canvas::Event;
@@ -131,6 +130,7 @@ enum CanvasMessage {
     RemoveEdge(NodeIndex, NodeIndex, EdgeData),
     AddNode(NodeData),
     RemoveNode(NodeIndex),
+    Checkpoint,
     Undo,
     Redo,
 }
@@ -143,7 +143,7 @@ enum Message {
 #[derive(Default)]
 struct NodeEditor {
     graph: Rc<RefCell<Graph<NodeData, EdgeData>>>,
-    edit_log: VecDeque<String>,
+    edit_log: Vec<String>,
     redo_log: Vec<String>,
 }
 
@@ -156,7 +156,6 @@ impl NodeEditor {
                         node.position.0 += delta.0;
                         node.position.1 += delta.1;
                     }
-                    state.checkpoint();
                 }
                 CanvasMessage::AddEdge(from, to, data) => {
                     state.graph.borrow_mut().add_edge(from, to, data);
@@ -183,6 +182,7 @@ impl NodeEditor {
                     state.graph.borrow_mut().remove_node(node_id);
                     state.checkpoint();
                 }
+                CanvasMessage::Checkpoint => state.checkpoint(),
                 CanvasMessage::Undo => state.undo(),
                 CanvasMessage::Redo => state.redo(),
             },
@@ -201,8 +201,8 @@ impl NodeEditor {
 
             let b = state.graph.borrow_mut().add_node(NodeData::new(
                 "Display".into(),
-                vec!["input".into()],
-                vec![],
+                vec!["c".into(), "d".into()],
+                vec!["z".into(), "w".into()],
                 (400.0, 200.0),
             ));
 
@@ -211,7 +211,7 @@ impl NodeEditor {
                 b,
                 EdgeData {
                     from_port: "sum".into(),
-                    to_port: "input".into(),
+                    to_port: "c".into(),
                 },
             );
 
@@ -231,9 +231,9 @@ impl NodeEditor {
     fn checkpoint(&mut self) {
         // Save checkpoint
         let entry = serde_json::to_string(&self.graph).unwrap();
-        self.edit_log.push_back(entry);
+        self.edit_log.push(entry);
         if self.edit_log.len() > 30 {
-            let _ = self.edit_log.pop_front();
+            let _ = self.edit_log.pop();
         }
 
         // Clear redo, which will no longer be valid after other edits
@@ -242,12 +242,14 @@ impl NodeEditor {
 
     fn undo(&mut self) {
         // Move the latest state to the redo log
-        if let Some(latest) = self.edit_log.pop_back() {
-            self.redo_log.push(latest);
+        if self.edit_log.len() > 1 {
+            if let Some(latest) = self.edit_log.pop() {
+                self.redo_log.push(latest);
+            }
         }
 
         // Reset to the previous state
-        if let Some(previous) = self.edit_log.front() {
+        if let Some(previous) = self.edit_log.last() {
             self.graph = serde_json::from_str(previous).unwrap();
         }
     }
@@ -256,7 +258,7 @@ impl NodeEditor {
         // Reset to next state and move that checkpoint back to the edit log
         if let Some(next) = self.redo_log.pop() {
             self.graph = serde_json::from_str(&next).unwrap();
-            self.edit_log.push_front(next);
+            self.edit_log.push(next);
         }
     }
 }
@@ -273,6 +275,7 @@ enum ExclusiveActionCtx {
 
 #[derive(Default)]
 struct EditorState {
+    initialized: bool,
     pan: Vector,
     zoom: f32,
     panning: bool,
@@ -447,6 +450,13 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         _bounds: Rectangle,
         cursor: Cursor,
     ) -> (canvas::event::Status, Option<Message>) {
+        // Make initial checkpoint
+        if !state.initialized {
+            state.initialized = true;
+            let msg = Some(Message::Canvas(CanvasMessage::Checkpoint));
+            return (canvas::event::Status::Captured, msg);
+        }
+
         // Make sure we don't divide by zero later when we calculate the zoom scaling
         if state.zoom <= 0.0 {
             state.zoom = 1.0;
@@ -500,6 +510,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                                         node_idx,
                                         EdgeData { from_port, to_port },
                                     )));
+                                    state.action_ctx = ExclusiveActionCtx::None;
                                     return (canvas::event::Status::Captured, msg);
                                 }
                             }
@@ -545,7 +556,11 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 }
             }
             Event::Mouse(iced::mouse::Event::ButtonReleased(Button::Left)) => {
-                state.dragging_node = None;
+                if state.dragging_node.is_some() {
+                    state.dragging_node = None;
+                    let msg = Some(Message::Canvas(CanvasMessage::Checkpoint));
+                    return (canvas::event::Status::Captured, msg);
+                }
             }
             Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Middle)) => {
                 state.panning = true;
