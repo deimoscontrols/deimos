@@ -246,15 +246,10 @@ impl NodeEditor {
             self.redo_log.push(latest);
         }
 
-        // Reset to the previous state, or if there is no previous state,
-        // clear the graph.
+        // Reset to the previous state
         if let Some(previous) = self.edit_log.front() {
             self.graph = serde_json::from_str(previous).unwrap();
         }
-
-        // Clear selections and ongoing actions, which may no longer be valid
-        // self.action_ctx = ExclusiveActionCtx::None;
-        // self.dragging_node = None;
     }
 
     fn redo(&mut self) {
@@ -263,10 +258,6 @@ impl NodeEditor {
             self.graph = serde_json::from_str(&next).unwrap();
             self.edit_log.push_front(next);
         }
-
-        // Clear selections and ongoing actions, which may no longer be valid
-        // self.action_ctx = ExclusiveActionCtx::None;
-        // self.dragging_node = None;
     }
 }
 
@@ -572,6 +563,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                             dragged,
                             (delta.x, delta.y),
                         )));
+                        state.last_cursor_position = Some(position);
                         return (canvas::event::Status::Captured, msg);
                     }
                 }
@@ -623,6 +615,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             }) => {
                 // Undo
                 state.action_ctx = ExclusiveActionCtx::None;
+                state.dragging_node = None;
                 let msg = Some(Message::Canvas(CanvasMessage::Undo));
                 return (canvas::event::Status::Captured, msg);
             }
@@ -635,6 +628,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
                     // Non-const pattern -> can't use in destructing pattern
                     state.action_ctx = ExclusiveActionCtx::None;
+                    state.dragging_node = None;
                     let msg = Some(Message::Canvas(CanvasMessage::Redo));
                     return (canvas::event::Status::Captured, msg);
                 }
