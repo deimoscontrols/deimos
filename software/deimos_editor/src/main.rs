@@ -171,17 +171,20 @@ impl NodeEditor {
                             NodeKind::Calc => {
                                 // Calc nodes can move anywhere
                                 node.position.0 += delta.0;
-                                node.position.1 += delta.1; 
+                                node.position.1 += delta.1;
                                 None
                             }
-                            NodeKind::Peripheral { partner, is_input_side } => {
+                            NodeKind::Peripheral {
+                                partner,
+                                is_input_side,
+                            } => {
                                 if !is_input_side {
                                     // Pin peripheral outputs to left side to enforce left-to-right flow
                                     node.position.0 = 0.0;
                                 } else {
                                     node.position.0 += delta.0;
                                 }
-                                
+
                                 node.position.1 += delta.1;
 
                                 Some((partner, node.position.1))
@@ -248,6 +251,33 @@ impl NodeEditor {
                 vec!["z".into(), "w".into()],
                 (400.0, 200.0),
             ));
+
+            let c = state.graph.borrow_mut().add_node(NodeData::new(
+                "p0 (input)".into(),
+                NodeKind::Peripheral {
+                    partner: NodeIndex::default(),
+                    is_input_side: true,
+                },
+                vec!["pwm0".into(), "pwm1".into()],
+                vec![],
+                (600.0, 200.0),
+            ));
+
+            let d = state.graph.borrow_mut().add_node(NodeData::new(
+                "p0 (output)".into(),
+                NodeKind::Peripheral {
+                    partner: c,
+                    is_input_side: false,
+                },
+                vec![],
+                vec!["ain0".into(), "freq0".into()],
+                (0.0, 200.0),
+            ));
+
+            state.graph.borrow_mut().node_weight_mut(c).unwrap().kind = NodeKind::Peripheral {
+                partner: d,
+                is_input_side: true,
+            };
 
             state.graph.borrow_mut().add_edge(
                 a,
