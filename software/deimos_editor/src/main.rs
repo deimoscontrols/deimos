@@ -1,4 +1,6 @@
+use std::cell::RefCell;
 use std::collections::VecDeque;
+use std::rc::Rc;
 
 use canvas::Event;
 use iced::Font;
@@ -116,56 +118,116 @@ impl NodeData {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct EdgeData {
     from_port: String,
     to_port: String,
 }
 
-#[derive(Debug, Clone, Copy)]
-enum Message {}
+#[derive(Debug)]
+enum CanvasMessage {
+    MoveNode(NodeIndex, (f32, f32)),
+    AddEdge(NodeIndex, NodeIndex, EdgeData),
+    RemoveEdge(NodeIndex, NodeIndex, EdgeData),
+    AddNode(NodeData),
+    RemoveNode(NodeIndex),
+    Undo,
+    Redo,
+}
+
+#[derive(Debug)]
+enum Message {
+    Canvas(CanvasMessage),
+}
 
 #[derive(Default)]
-struct NodeEditor {}
+struct NodeEditor {
+    graph: Rc<RefCell<Graph<NodeData, EdgeData>>>,
+    edit_log: VecDeque<String>,
+    redo_log: Vec<String>,
+}
 
 impl NodeEditor {
-    fn update(_state: &mut Self, _message: Message) {}
+    fn update(state: &mut Self, message: Message) {
+        match message {
+            Message::Canvas(msg) => match msg {
+                CanvasMessage::MoveNode(node_id, delta) => {
+                    if let Some(node) = state.graph.borrow_mut().node_weight_mut(node_id) {
+                        node.position.0 += delta.0;
+                        node.position.1 += delta.1;
+                    }
+                    state.checkpoint();
+                }
+                CanvasMessage::AddEdge(from, to, data) => {
+                    state.graph.borrow_mut().add_edge(from, to, data);
+                    state.checkpoint();
+                }
+                CanvasMessage::RemoveEdge(from, to, data) => {
+                    let mut index = None;
+                    for edge in state.graph.borrow().edges_connecting(from, to) {
+                        if edge.weight() == &data {
+                            index = Some(edge.id());
+                        }
+                    }
 
-    fn view(_state: &Self) -> Element<Message> {
+                    if let Some(edge_index) = index {
+                        state.graph.borrow_mut().remove_edge(edge_index);
+                        state.checkpoint();
+                    }
+                }
+                CanvasMessage::AddNode(data) => {
+                    state.graph.borrow_mut().add_node(data);
+                    state.checkpoint();
+                }
+                CanvasMessage::RemoveNode(node_id) => {
+                    state.graph.borrow_mut().remove_node(node_id);
+                    state.checkpoint();
+                }
+                CanvasMessage::Undo => state.undo(),
+                CanvasMessage::Redo => state.redo(),
+            },
+        };
+    }
+
+    fn view(state: &Self) -> Element<Message> {
+        // Example data
+        if state.graph.borrow().node_indices().len() == 0 {
+            let a = state.graph.borrow_mut().add_node(NodeData::new(
+                "Add".into(),
+                vec!["a".into(), "b".into()],
+                vec!["sum".into()],
+                (100.0, 100.0),
+            ));
+
+            let b = state.graph.borrow_mut().add_node(NodeData::new(
+                "Display".into(),
+                vec!["input".into()],
+                vec![],
+                (400.0, 200.0),
+            ));
+
+            state.graph.borrow_mut().add_edge(
+                a,
+                b,
+                EdgeData {
+                    from_port: "sum".into(),
+                    to_port: "input".into(),
+                },
+            );
+
+            println!("Added defaults");
+        }
+
         let canvas = Canvas::new(EditorCanvas {
             _v: core::marker::PhantomData,
+            graph: state.graph.clone(),
         })
         .width(Length::Fill)
         .height(Length::Fill);
 
         Column::new().push(canvas).into()
     }
-}
 
-/// Ongoing actions that are mutually exclusive
-#[derive(Default, PartialEq, Eq)]
-enum ExclusiveActionCtx {
-    #[default]
-    None,
-    NodeSelected(NodeIndex),
-    EdgeSelected((NodeIndex, NodeIndex)),
-    ConnectingFromPort((NodeIndex, usize)),
-}
-
-#[derive(Default)]
-struct EditorState {
-    pan: Vector,
-    zoom: f32,
-    panning: bool,
-    dragging_node: Option<NodeIndex>,
-    last_cursor_position: Option<Point>,
-    action_ctx: ExclusiveActionCtx,
-    graph: Graph<NodeData, EdgeData>,
-    edit_log: VecDeque<String>,
-    redo_log: Vec<String>,
-}
-
-impl EditorState {
     fn checkpoint(&mut self) {
         // Save checkpoint
         let entry = serde_json::to_string(&self.graph).unwrap();
@@ -188,13 +250,11 @@ impl EditorState {
         // clear the graph.
         if let Some(previous) = self.edit_log.front() {
             self.graph = serde_json::from_str(previous).unwrap();
-        } else {
-            self.graph.clear();
         }
 
         // Clear selections and ongoing actions, which may no longer be valid
-        self.action_ctx = ExclusiveActionCtx::None;
-        self.dragging_node = None;
+        // self.action_ctx = ExclusiveActionCtx::None;
+        // self.dragging_node = None;
     }
 
     fn redo(&mut self) {
@@ -205,13 +265,34 @@ impl EditorState {
         }
 
         // Clear selections and ongoing actions, which may no longer be valid
-        self.action_ctx = ExclusiveActionCtx::None;
-        self.dragging_node = None;
+        // self.action_ctx = ExclusiveActionCtx::None;
+        // self.dragging_node = None;
     }
+}
+
+/// Ongoing actions that are mutually exclusive
+#[derive(Default, PartialEq, Eq)]
+enum ExclusiveActionCtx {
+    #[default]
+    None,
+    NodeSelected(NodeIndex),
+    EdgeSelected(NodeIndex, NodeIndex, EdgeData),
+    ConnectingFromPort((NodeIndex, usize)),
+}
+
+#[derive(Default)]
+struct EditorState {
+    pan: Vector,
+    zoom: f32,
+    panning: bool,
+    dragging_node: Option<NodeIndex>,
+    last_cursor_position: Option<Point>,
+    action_ctx: ExclusiveActionCtx,
 }
 
 struct EditorCanvas<'a> {
     _v: core::marker::PhantomData<&'a usize>,
+    graph: Rc<RefCell<Graph<NodeData, EdgeData>>>,
 }
 
 impl<'a> Program<Message> for EditorCanvas<'a> {
@@ -236,10 +317,12 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             iced::Color::from_rgb(0.1, 0.1, 0.1),
         );
 
+        let graph = self.graph.borrow();
+
         // Draw edges
-        for edge in state.graph.edge_references() {
-            let from = &state.graph[edge.source()];
-            let to = &state.graph[edge.target()];
+        for edge in graph.edge_references() {
+            let from = &graph[edge.source()];
+            let to = &graph[edge.target()];
             let from_port_name = &edge.weight().from_port;
             let to_port_name = &edge.weight().to_port;
             let from_port = from.get_output_port(from_port_name);
@@ -258,8 +341,11 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 builder.bezier_curve_to(ctrl1, ctrl2, to_pos);
             });
 
-            let is_selected = ExclusiveActionCtx::EdgeSelected((edge.source(), edge.target()))
-                == state.action_ctx;
+            let is_selected = ExclusiveActionCtx::EdgeSelected(
+                edge.source(),
+                edge.target(),
+                edge.weight().clone(),
+            ) == state.action_ctx;
             let color = if is_selected {
                 iced::Color::from_rgb(1.0, 0.2, 0.2)
             } else {
@@ -273,8 +359,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         }
 
         // Draw nodes
-        for node_idx in state.graph.node_indices() {
-            let node = &state.graph[node_idx];
+        for node_idx in graph.node_indices() {
+            let node = &graph[node_idx];
 
             // Border
             let rect = Path::rounded_rectangle(node.position(), node.size(), Radius::new(5.0));
@@ -339,7 +425,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         if let (ExclusiveActionCtx::ConnectingFromPort((from_idx, port_idx)), Some(cursor_pos)) =
             (&state.action_ctx, state.last_cursor_position)
         {
-            let node = &state.graph[*from_idx];
+            let node = &graph[*from_idx];
             let start = Point::new(
                 node.position.0 + node.size().width,
                 node.position.1 + 20.0 + *port_idx as f32 * 15.0,
@@ -371,35 +457,11 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         cursor: Cursor,
     ) -> (canvas::event::Status, Option<Message>) {
         // Make sure we don't divide by zero later when we calculate the zoom scaling
-        if state.zoom == 0.0 {
+        if state.zoom <= 0.0 {
             state.zoom = 1.0;
         }
 
-        // Example data
-        if state.graph.node_indices().len() == 0 {
-            let a = state.graph.add_node(NodeData::new(
-                "Add".into(),
-                vec!["a".into(), "b".into()],
-                vec!["sum".into()],
-                (100.0, 100.0),
-            ));
-
-            let b = state.graph.add_node(NodeData::new(
-                "Display".into(),
-                vec!["input".into()],
-                vec![],
-                (400.0, 200.0),
-            ));
-
-            state.graph.add_edge(
-                a,
-                b,
-                EdgeData {
-                    from_port: "sum".into(),
-                    to_port: "input".into(),
-                },
-            );
-        }
+        let graph = self.graph.borrow();
 
         match event {
             Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Left)) => {
@@ -408,8 +470,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                         (cursor_pos - state.pan) * iced::Transformation::scale(1.0 / state.zoom);
 
                     // Port selection
-                    for node_idx in state.graph.node_indices() {
-                        let node = &state.graph[node_idx];
+                    for node_idx in graph.node_indices() {
+                        let node = &graph[node_idx];
                         for (i, _port) in node.outputs.iter().enumerate() {
                             let port_pos = Point::new(
                                 node.position.0 + 100.0,
@@ -435,31 +497,28 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                                 if let ExclusiveActionCtx::ConnectingFromPort((src_idx, out_idx)) =
                                     state.action_ctx
                                 {
-                                    let from_port = state.graph[src_idx]
+                                    let from_port = graph[src_idx]
                                         .outputs
                                         .get_by_right(&out_idx)
                                         .unwrap()
                                         .clone();
-                                    let to_port = state.graph[node_idx]
-                                        .inputs
-                                        .get_by_right(&i)
-                                        .unwrap()
-                                        .clone();
-                                    state.graph.add_edge(
+                                    let to_port =
+                                        graph[node_idx].inputs.get_by_right(&i).unwrap().clone();
+                                    let msg = Some(Message::Canvas(CanvasMessage::AddEdge(
                                         src_idx,
                                         node_idx,
                                         EdgeData { from_port, to_port },
-                                    );
-                                    return (canvas::event::Status::Captured, None);
+                                    )));
+                                    return (canvas::event::Status::Captured, msg);
                                 }
                             }
                         }
                     }
 
                     // Edge selection
-                    for edge in state.graph.edge_references() {
-                        let from = &state.graph[edge.source()];
-                        let to = &state.graph[edge.target()];
+                    for edge in graph.edge_references() {
+                        let from = &graph[edge.source()];
+                        let to = &graph[edge.target()];
                         let from_pos = Point::new(from.position.0 + 100.0, from.position.1 + 30.0);
                         let to_pos = Point::new(to.position.0, to.position.1 + 30.0);
                         let mid_x = (from_pos.x + to_pos.x) / 2.0;
@@ -467,15 +526,18 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                         let dx = pos.x - mid_x;
                         let dy = pos.y - mid_y;
                         if dx * dx + dy * dy < 100.0 {
-                            state.action_ctx =
-                                ExclusiveActionCtx::EdgeSelected((edge.source(), edge.target()));
+                            state.action_ctx = ExclusiveActionCtx::EdgeSelected(
+                                edge.source(),
+                                edge.target(),
+                                edge.weight().clone(),
+                            );
                             return (canvas::event::Status::Captured, None);
                         }
                     }
 
                     // Node selection
-                    for node_idx in state.graph.node_indices().rev() {
-                        let node = &state.graph[node_idx];
+                    for node_idx in graph.node_indices().rev() {
+                        let node = &graph[node_idx];
                         let node_rect = Rectangle {
                             x: node.position.0,
                             y: node.position.1,
@@ -492,10 +554,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 }
             }
             Event::Mouse(iced::mouse::Event::ButtonReleased(Button::Left)) => {
-                if state.dragging_node.is_some() {
-                    state.dragging_node = None;
-                    state.checkpoint();
-                }
+                state.dragging_node = None;
             }
             Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Middle)) => {
                 state.panning = true;
@@ -509,10 +568,11 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                     if let Some(last_pos) = state.last_cursor_position {
                         let delta =
                             (position - last_pos) * iced::Transformation::scale(1.0 / state.zoom);
-                        if let Some(node) = state.graph.node_weight_mut(dragged) {
-                            node.position.0 += delta.x;
-                            node.position.1 += delta.y;
-                        }
+                        let msg = Some(Message::Canvas(CanvasMessage::MoveNode(
+                            dragged,
+                            (delta.x, delta.y),
+                        )));
+                        return (canvas::event::Status::Captured, msg);
                     }
                 }
 
@@ -540,16 +600,20 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 ..
             }) => {
                 // Delete
-                if let ExclusiveActionCtx::EdgeSelected((src, dst)) = state.action_ctx {
-                    if let Some(edge_idx) = state.graph.find_edge(src, dst) {
-                        state.graph.remove_edge(edge_idx);
-                        state.action_ctx = ExclusiveActionCtx::None;
-                        state.checkpoint();
-                    }
-                } else if let ExclusiveActionCtx::NodeSelected(idx) = state.action_ctx {
-                    state.graph.remove_node(idx);
+                if let ExclusiveActionCtx::EdgeSelected(src, dst, data) = &mut state.action_ctx {
+                    let msg = Some(Message::Canvas(CanvasMessage::RemoveEdge(
+                        *src,
+                        *dst,
+                        data.clone(),
+                    )));
+
                     state.action_ctx = ExclusiveActionCtx::None;
-                    state.checkpoint();
+
+                    return (canvas::event::Status::Captured, msg);
+                } else if let ExclusiveActionCtx::NodeSelected(idx) = state.action_ctx {
+                    state.action_ctx = ExclusiveActionCtx::None;
+                    let msg = Some(Message::Canvas(CanvasMessage::RemoveNode(idx)));
+                    return (canvas::event::Status::Captured, msg);
                 }
             }
             Event::Keyboard(iced::keyboard::Event::KeyPressed {
@@ -558,7 +622,9 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 ..
             }) => {
                 // Undo
-                state.undo();
+                state.action_ctx = ExclusiveActionCtx::None;
+                let msg = Some(Message::Canvas(CanvasMessage::Undo));
+                return (canvas::event::Status::Captured, msg);
             }
             Event::Keyboard(iced::keyboard::Event::KeyPressed {
                 physical_key: Physical::Code(Code::KeyZ),
@@ -568,7 +634,9 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 // Redo
                 if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
                     // Non-const pattern -> can't use in destructing pattern
-                    state.redo();
+                    state.action_ctx = ExclusiveActionCtx::None;
+                    let msg = Some(Message::Canvas(CanvasMessage::Redo));
+                    return (canvas::event::Status::Captured, msg);
                 }
             }
             Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Right)) => {
