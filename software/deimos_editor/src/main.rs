@@ -37,8 +37,18 @@ struct Port {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+enum NodeKind {
+    Calc,
+    Peripheral {
+        partner: NodeIndex,
+        is_input_side: bool,
+    },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct NodeData {
     name: String,
+    kind: NodeKind,
     inputs: BiBTreeMap<String, usize>,
     outputs: BiBTreeMap<String, usize>,
     position: (f32, f32),
@@ -50,6 +60,7 @@ struct NodeData {
 impl NodeData {
     pub fn new(
         name: String,
+        kind: NodeKind,
         inputs: Vec<String>,
         outputs: Vec<String>,
         position: (f32, f32),
@@ -86,6 +97,7 @@ impl NodeData {
 
         Self {
             name,
+            kind,
             inputs: input_map,
             outputs: output_map,
             position,
@@ -152,9 +164,38 @@ impl NodeEditor {
         match message {
             Message::Canvas(msg) => match msg {
                 CanvasMessage::MoveNode(node_id, delta) => {
-                    if let Some(node) = state.graph.borrow_mut().node_weight_mut(node_id) {
-                        node.position.0 += delta.0;
-                        node.position.1 += delta.1;
+                    let mut graph = state.graph.borrow_mut();
+
+                    let partner_to_move = if let Some(node) = graph.node_weight_mut(node_id) {
+                        match node.kind {
+                            NodeKind::Calc => {
+                                // Calc nodes can move anywhere
+                                node.position.0 += delta.0;
+                                node.position.1 += delta.1; 
+                                None
+                            }
+                            NodeKind::Peripheral { partner, is_input_side } => {
+                                if !is_input_side {
+                                    // Pin peripheral outputs to left side to enforce left-to-right flow
+                                    node.position.0 = 0.0;
+                                } else {
+                                    node.position.0 += delta.0;
+                                }
+                                
+                                node.position.1 += delta.1;
+
+                                Some((partner, node.position.1))
+                            }
+                        }
+                    } else {
+                        None
+                    };
+
+                    // Maintain y-alignment for peripheral partner nodes
+                    if let Some((partner, y)) = partner_to_move {
+                        if let Some(partner_node) = graph.node_weight_mut(partner) {
+                            partner_node.position.1 = y;
+                        }
                     }
                 }
                 CanvasMessage::AddEdge(from, to, data) => {
@@ -194,6 +235,7 @@ impl NodeEditor {
         if state.graph.borrow().node_indices().len() == 0 {
             let a = state.graph.borrow_mut().add_node(NodeData::new(
                 "Add".into(),
+                NodeKind::Calc,
                 vec!["a".into(), "b".into()],
                 vec!["sum".into()],
                 (100.0, 100.0),
@@ -201,6 +243,7 @@ impl NodeEditor {
 
             let b = state.graph.borrow_mut().add_node(NodeData::new(
                 "Display".into(),
+                NodeKind::Calc,
                 vec!["c".into(), "d".into()],
                 vec!["z".into(), "w".into()],
                 (400.0, 200.0),
