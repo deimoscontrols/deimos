@@ -14,8 +14,12 @@ use iced::{
         canvas::{self, Canvas, Frame, Geometry, Path, Program, Text},
     },
 };
-use petgraph::graph::{Graph, NodeIndex};
-use petgraph::visit::EdgeRef;
+
+// We need StableGraph, which preserves indices through deletions,
+// in order to handle links between composite nodes' subnodes
+// (the input and output nodes of a Peripheral).
+use petgraph::stable_graph::{StableGraph, NodeIndex};
+use petgraph::visit::{EdgeRef, IntoEdgeReferences};
 
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -91,9 +95,18 @@ impl NodeData {
         });
 
         // Determine width and height of node widget
-        let width = 100.0;
+        let width = 150.0;
         let height = inp_offs.max(out_offs) + 20.0;
         let size = (width, height);
+
+        // Pin peripheral output nodes to the left side
+        let mut position = position;
+        match kind {
+            NodeKind::Peripheral { partner, is_input_side: false } => {
+                position.0 = 10.0;
+            },
+            _ => {}
+        }
 
         Self {
             name,
@@ -154,7 +167,7 @@ enum Message {
 
 #[derive(Default)]
 struct NodeEditor {
-    graph: Rc<RefCell<Graph<NodeData, EdgeData>>>,
+    graph: Rc<RefCell<StableGraph<NodeData, EdgeData>>>,
     edit_log: Vec<String>,
     redo_log: Vec<String>,
 }
@@ -180,7 +193,7 @@ impl NodeEditor {
                             } => {
                                 if !is_input_side {
                                     // Pin peripheral outputs to left side to enforce left-to-right flow
-                                    node.position.0 = 0.0;
+                                    node.position.0 = 10.0;
                                 } else {
                                     node.position.0 += delta.0;
                                 }
@@ -235,7 +248,7 @@ impl NodeEditor {
 
     fn view(state: &Self) -> Element<Message> {
         // Example data
-        if state.graph.borrow().node_indices().len() == 0 {
+        if state.graph.borrow().node_count() == 0 {
             let a = state.graph.borrow_mut().add_node(NodeData::new(
                 "Add".into(),
                 NodeKind::Calc,
@@ -301,8 +314,8 @@ impl NodeEditor {
         Column::new().push(canvas).into()
     }
 
+    /// Save the full state of the graph
     fn checkpoint(&mut self) {
-        // Save checkpoint
         let entry = serde_json::to_string(&self.graph).unwrap();
         self.edit_log.push(entry);
         if self.edit_log.len() > 30 {
@@ -313,6 +326,7 @@ impl NodeEditor {
         self.redo_log.clear();
     }
 
+    /// Move graph to previous checkpoint and place this state in the redo log
     fn undo(&mut self) {
         // Move the latest state to the redo log
         if self.edit_log.len() > 1 {
@@ -327,8 +341,9 @@ impl NodeEditor {
         }
     }
 
+    /// Reset graph to next state in redo log 
+    /// and move that checkpoint back to the edit log
     fn redo(&mut self) {
-        // Reset to next state and move that checkpoint back to the edit log
         if let Some(next) = self.redo_log.pop() {
             self.graph = serde_json::from_str(&next).unwrap();
             self.edit_log.push(next);
@@ -359,7 +374,7 @@ struct EditorState {
 
 struct EditorCanvas<'a> {
     _v: core::marker::PhantomData<&'a usize>,
-    graph: Rc<RefCell<Graph<NodeData, EdgeData>>>,
+    graph: Rc<RefCell<StableGraph<NodeData, EdgeData>>>,
 }
 
 impl<'a> Program<Message> for EditorCanvas<'a> {
