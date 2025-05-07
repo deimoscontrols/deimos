@@ -7,7 +7,7 @@ use crate::{calc_config, calc_input_names, calc_output_names};
 ///
 /// First subtracts the output offset, then divides by the slope.
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct InverseAffine {
     // User inputs
     input_name: String,

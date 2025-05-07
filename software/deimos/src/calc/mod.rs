@@ -3,6 +3,7 @@
 //! `Calc` objects are registered with the `Orchestrator` and serialized with the controller.
 //! Each calc is a function consuming any number of inputs and producing any number of outputs.
 use std::any::type_name;
+use std::fmt::Debug;
 use std::iter::Iterator;
 use std::{collections::BTreeMap, ops::Range};
 
@@ -101,7 +102,7 @@ impl Clone for Box<dyn Calc> {
 /// A calculation that takes some inputs and produces some outputs
 /// at each timestep, and may have some persistent internal state.
 #[cfg_attr(feature = "ser", typetag::serde(tag = "type"))]
-pub trait Calc: Send + Sync {
+pub trait Calc: Send + Sync + Debug {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>);
 

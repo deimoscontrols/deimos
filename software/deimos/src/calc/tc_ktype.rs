@@ -47,7 +47,7 @@ pub static INTERPOLATOR: Lazy<MulticubicRegular<'static, f64, 2>> = Lazy::new(||
 /// Calculate a K-type thermocouple's temperature reading in (K) from voltage,
 /// using the ITS-90 method for cold-junction correction.
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct TcKtype {
     // User inputs
     voltage_name: String,

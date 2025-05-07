@@ -1,8 +1,10 @@
 use std::cell::RefCell;
+use std::fmt::Debug;
 use std::rc::Rc;
 
 use canvas::Event;
-use iced::Font;
+use iced::alignment::Horizontal;
+use iced::{Alignment, Font};
 use iced::border::Radius;
 use iced::keyboard::key::{Code, Named, Physical};
 use iced::keyboard::{Key, Modifiers};
@@ -26,11 +28,14 @@ use serde_json;
 
 use bimap::BiBTreeMap;
 
+use deimos::{self, calc::Calc, peripheral::Peripheral};
+
 pub fn main() -> iced::Result {
     iced::application("Deimos Editor", NodeEditor::update, NodeEditor::view)
         .theme(|_| Theme::Dark)
         .centered()
         .antialiasing(true)
+        .default_font(iced::Font::MONOSPACE)
         .run()
 }
 
@@ -42,8 +47,11 @@ struct Port {
 
 #[derive(Debug, Serialize, Deserialize)]
 enum NodeKind {
-    Calc,
+    Calc {
+        inner: Box<dyn Calc>,
+    },
     Peripheral {
+        inner: Box<dyn Peripheral>,
         partner: NodeIndex,
         is_input_side: bool,
     },
@@ -65,10 +73,24 @@ impl NodeData {
     pub fn new(
         name: String,
         kind: NodeKind,
-        inputs: Vec<String>,
-        outputs: Vec<String>,
+        // inputs: Vec<String>,
+        // outputs: Vec<String>,
         position: (f32, f32),
     ) -> NodeData {
+        let (inputs, outputs) = match &kind {
+            NodeKind::Calc { inner } => (inner.get_input_names(), inner.get_output_names()),
+            NodeKind::Peripheral {
+                inner,
+                partner,
+                is_input_side: false,
+            } => (vec![], inner.output_names()),
+            NodeKind::Peripheral {
+                inner,
+                partner,
+                is_input_side: true,
+            } => (inner.input_names(), vec![]),
+        };
+
         let mut input_map = BiBTreeMap::new();
         let mut output_map = BiBTreeMap::new();
 
@@ -102,9 +124,10 @@ impl NodeData {
         // Pin peripheral output nodes to the left side
         let mut position = position;
         if let NodeKind::Peripheral {
+            inner,
             partner,
             is_input_side: false,
-        } = kind
+        } = &kind
         {
             position.0 = 10.0;
         };
@@ -181,14 +204,15 @@ impl NodeEditor {
                     let mut graph = state.graph.borrow_mut();
 
                     let partner_to_move = if let Some(node) = graph.node_weight_mut(node_id) {
-                        match node.kind {
-                            NodeKind::Calc => {
+                        match &node.kind {
+                            NodeKind::Calc { inner } => {
                                 // Calc nodes can move anywhere
                                 node.position.0 += delta.0;
                                 node.position.1 += delta.1;
                                 None
                             }
                             NodeKind::Peripheral {
+                                inner,
                                 partner,
                                 is_input_side,
                             } => {
@@ -201,7 +225,7 @@ impl NodeEditor {
 
                                 node.position.1 += delta.1;
 
-                                Some((partner, node.position.1))
+                                Some((partner.clone(), node.position.1))
                             }
                         }
                     } else {
@@ -252,43 +276,47 @@ impl NodeEditor {
         if state.graph.borrow().node_count() == 0 {
             let a = state.graph.borrow_mut().add_node(NodeData::new(
                 "Add".into(),
-                NodeKind::Calc,
-                vec!["a".into(), "b".into()],
-                vec!["sum".into()],
+                NodeKind::Calc { inner: Box::new(deimos::calc::Affine::default()) },
+                // vec!["a".into(), "b".into()],
+                // vec!["sum".into()],
                 (100.0, 100.0),
             ));
 
             let b = state.graph.borrow_mut().add_node(NodeData::new(
                 "Display".into(),
-                NodeKind::Calc,
-                vec!["c".into(), "d".into()],
-                vec!["z".into(), "w".into()],
+                NodeKind::Calc { inner: Box::new(deimos::calc::TcKtype::default()) },
+                // vec!["c".into(), "d".into()],
+                // vec!["z".into(), "w".into()],
                 (400.0, 200.0),
             ));
 
             let c = state.graph.borrow_mut().add_node(NodeData::new(
                 "p0 (input)".into(),
                 NodeKind::Peripheral {
+                    inner: Box::new(deimos::peripheral::AnalogIRev4::default()),
                     partner: NodeIndex::default(),
                     is_input_side: true,
                 },
-                vec!["pwm0".into(), "pwm1".into()],
-                vec![],
+                // vec!["pwm0".into(), "pwm1".into()],
+                // vec![],
                 (600.0, 200.0),
             ));
 
             let d = state.graph.borrow_mut().add_node(NodeData::new(
                 "p0 (output)".into(),
                 NodeKind::Peripheral {
+                    inner: Box::new(deimos::peripheral::AnalogIRev4::default()),
                     partner: c,
                     is_input_side: false,
                 },
-                vec![],
-                vec!["ain0".into(), "freq0".into()],
+                // vec![],
+                // vec!["ain0".into(), "freq0".into()],
                 (0.0, 200.0),
             ));
 
+            //   Link input and output parts of peripheral
             state.graph.borrow_mut().node_weight_mut(c).unwrap().kind = NodeKind::Peripheral {
+                inner: Box::new(deimos::peripheral::AnalogIRev4::default()),
                 partner: d,
                 is_input_side: true,
             };
@@ -297,8 +325,8 @@ impl NodeEditor {
                 a,
                 b,
                 EdgeData {
-                    from_port: "sum".into(),
-                    to_port: "c".into(),
+                    from_port: "y".into(),
+                    to_port: "cold_junction_temperature_K".into(),
                 },
             );
 
@@ -493,12 +521,13 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 frame.fill_text(Text {
                     content: port_name.clone(),
                     position: Point::new(
-                        port_pos.x - (port_name.len() as f32 * 6.0) - 8.0,
+                        port_pos.x - 8.0,
                         port_pos.y - 8.0,
                     ),
                     color: iced::Color::WHITE,
                     size: 12.0.into(),
                     font: Font::MONOSPACE,
+                    horizontal_alignment: Horizontal::Right,
                     ..Default::default()
                 });
             }
@@ -564,7 +593,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                         let node = &graph[node_idx];
                         for (i, _port) in node.outputs.iter().enumerate() {
                             let port_pos = Point::new(
-                                node.position.0 + 100.0,
+                                node.position.0 + 150.0,
                                 node.position.1 + 20.0 + i as f32 * 15.0,
                             );
                             let dx = pos.x - port_pos.x;

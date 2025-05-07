@@ -4,7 +4,7 @@ use super::*;
 use crate::{calc_config, calc_input_names, calc_output_names};
 
 /// A slope and offset, y = ax + b
-#[derive(Default)]
+#[derive(Default, Debug)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 pub struct Affine {
     // User inputs

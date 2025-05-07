@@ -17,7 +17,7 @@ pub type StateName = String;
 use super::*;
 
 /// Choice of behavior when a given sequence reaches the end of its lookup table
-#[derive(Default)]
+#[derive(Default, Debug)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 #[non_exhaustive]
 pub enum Timeout {
@@ -34,6 +34,7 @@ pub enum Timeout {
 
 /// A logical operator used to evaluate whether a transition should occur.
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub enum ThreshOp {
     /// Greater than
     Gt { by: f64 },
@@ -75,6 +76,7 @@ impl ThreshOp {
 
 /// Methods for checking whether a sequence transition should occur
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 #[non_exhaustive]
 pub enum Transition {
     /// Transition if a value of some input exceeds a threshold value
@@ -161,6 +163,7 @@ impl InterpMethod {
 
 /// A lookup table defining one sequenced output from a Sequence
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct SequenceLookup {
     /// Interpolation method
     method: InterpMethod,
@@ -237,7 +240,7 @@ impl SequenceLookup {
 
 /// A state in a SequenceMachine, defined by a set of time-dependent
 /// sequence lookups.
-#[derive(Default)]
+#[derive(Default, Debug)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 pub struct Sequence {
     /// Sequence interpolation data
@@ -416,7 +419,7 @@ impl Sequence {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct ExecutionState {
     /// Time in current sequence's sequence.
     /// Starts at the first time in the sequence's lookup table.
@@ -441,7 +444,7 @@ struct ExecutionState {
 }
 
 /// Sequence entrypoint and transition criteria for the SequenceMachine.
-#[derive(Default)]
+#[derive(Default, Debug)]
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
 pub struct MachineCfg {
     // User inputs
@@ -468,6 +471,7 @@ pub struct MachineCfg {
 /// Unlike most calcs, the names of the inputs and outputs of this calc
 /// are not known at compile-time, and are assembled from inputs instead.
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct SequenceMachine {
     /// State transition criteria and other configuration
     cfg: MachineCfg,
