@@ -18,7 +18,7 @@ use iced::{
 // We need StableGraph, which preserves indices through deletions,
 // in order to handle links between composite nodes' subnodes
 // (the input and output nodes of a Peripheral).
-use petgraph::stable_graph::{StableGraph, NodeIndex};
+use petgraph::stable_graph::{NodeIndex, StableGraph};
 use petgraph::visit::{EdgeRef, IntoEdgeReferences};
 
 use serde::{Deserialize, Serialize};
@@ -101,12 +101,13 @@ impl NodeData {
 
         // Pin peripheral output nodes to the left side
         let mut position = position;
-        match kind {
-            NodeKind::Peripheral { partner, is_input_side: false } => {
-                position.0 = 10.0;
-            },
-            _ => {}
-        }
+        if let NodeKind::Peripheral {
+            partner,
+            is_input_side: false,
+        } = kind
+        {
+            position.0 = 10.0;
+        };
 
         Self {
             name,
@@ -341,7 +342,7 @@ impl NodeEditor {
         }
     }
 
-    /// Reset graph to next state in redo log 
+    /// Reset graph to next state in redo log
     /// and move that checkpoint back to the edit log
     fn redo(&mut self) {
         if let Some(next) = self.redo_log.pop() {
