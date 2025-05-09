@@ -4,11 +4,13 @@ use std::rc::Rc;
 
 use canvas::Event;
 use iced::alignment::Horizontal;
-use iced::{Alignment, Font};
 use iced::border::Radius;
 use iced::keyboard::key::{Code, Named, Physical};
 use iced::keyboard::{Key, Modifiers};
 use iced::mouse::{Button, Cursor};
+use iced::widget::{Row, button, horizontal_rule, text};
+use iced::window::Settings;
+use iced::{Alignment, Font};
 use iced::{
     Element, Length, Point, Rectangle, Renderer, Theme, Vector,
     widget::{
@@ -30,22 +32,27 @@ use bimap::BiBTreeMap;
 
 use deimos::{self, calc::Calc, peripheral::Peripheral};
 
+const NODE_WIDTH_PX: f32 = 150.0;
+const PORT_STRIDE_PX: f32 = 20.0;
+const LEFT_PAD_PX: f32 = 10.0;
+
 pub fn main() -> iced::Result {
     iced::application("Deimos Editor", NodeEditor::update, NodeEditor::view)
         .theme(|_| Theme::Dark)
         .centered()
         .antialiasing(true)
         .default_font(iced::Font::MONOSPACE)
+        .resizable(true)
         .run()
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct Port {
     /// Relative to top of node frame
     offset_px: f32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 enum NodeKind {
     Calc {
         inner: Box<dyn Calc>,
@@ -57,7 +64,7 @@ enum NodeKind {
     },
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct NodeData {
     name: String,
     kind: NodeKind,
@@ -100,7 +107,7 @@ impl NodeData {
         // Determine y-position of each port within the node widget
         let mut inp_offs = 0.0_f32;
         inputs.iter().enumerate().for_each(|(i, n)| {
-            inp_offs += 20.0;
+            inp_offs += PORT_STRIDE_PX;
             input_map.insert(n.clone(), i);
             input_ports.push(Port {
                 offset_px: inp_offs.into(),
@@ -109,7 +116,7 @@ impl NodeData {
 
         let mut out_offs = 0.0_f32;
         outputs.iter().enumerate().for_each(|(i, n)| {
-            out_offs += 20.0;
+            out_offs += PORT_STRIDE_PX;
             output_map.insert(n.clone(), i);
             output_ports.push(Port {
                 offset_px: out_offs.into(),
@@ -117,8 +124,8 @@ impl NodeData {
         });
 
         // Determine width and height of node widget
-        let width = 150.0;
-        let height = inp_offs.max(out_offs) + 20.0;
+        let width = NODE_WIDTH_PX;
+        let height = inp_offs.max(out_offs) + PORT_STRIDE_PX;
         let size = (width, height);
 
         // Pin peripheral output nodes to the left side
@@ -129,7 +136,7 @@ impl NodeData {
             is_input_side: false,
         } = &kind
         {
-            position.0 = 10.0;
+            position.0 = LEFT_PAD_PX;
         };
 
         Self {
@@ -172,7 +179,7 @@ struct EdgeData {
     to_port: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum CanvasMessage {
     MoveNode(NodeIndex, (f32, f32)),
     AddEdge(NodeIndex, NodeIndex, EdgeData),
@@ -184,9 +191,15 @@ enum CanvasMessage {
     Redo,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
+enum MenuMessage {
+    None,
+}
+
+#[derive(Clone, Debug)]
 enum Message {
     Canvas(CanvasMessage),
+    Menu(MenuMessage),
 }
 
 #[derive(Default)]
@@ -218,7 +231,7 @@ impl NodeEditor {
                             } => {
                                 if !is_input_side {
                                     // Pin peripheral outputs to left side to enforce left-to-right flow
-                                    node.position.0 = 10.0;
+                                    node.position.0 = LEFT_PAD_PX;
                                 } else {
                                     node.position.0 += delta.0;
                                 }
@@ -268,6 +281,7 @@ impl NodeEditor {
                 CanvasMessage::Undo => state.undo(),
                 CanvasMessage::Redo => state.redo(),
             },
+            x => println!("Unhandled message: {x:?}"),
         };
     }
 
@@ -276,7 +290,9 @@ impl NodeEditor {
         if state.graph.borrow().node_count() == 0 {
             let a = state.graph.borrow_mut().add_node(NodeData::new(
                 "Add".into(),
-                NodeKind::Calc { inner: Box::new(deimos::calc::Affine::default()) },
+                NodeKind::Calc {
+                    inner: Box::new(deimos::calc::Affine::default()),
+                },
                 // vec!["a".into(), "b".into()],
                 // vec!["sum".into()],
                 (100.0, 100.0),
@@ -284,7 +300,9 @@ impl NodeEditor {
 
             let b = state.graph.borrow_mut().add_node(NodeData::new(
                 "Display".into(),
-                NodeKind::Calc { inner: Box::new(deimos::calc::TcKtype::default()) },
+                NodeKind::Calc {
+                    inner: Box::new(deimos::calc::TcKtype::default()),
+                },
                 // vec!["c".into(), "d".into()],
                 // vec!["z".into(), "w".into()],
                 (400.0, 200.0),
@@ -340,7 +358,18 @@ impl NodeEditor {
         .width(Length::Fill)
         .height(Length::Fill);
 
-        Column::new().push(canvas).into()
+        Column::new()
+            // Top bar
+            .push(
+                Row::new()
+                    .push(button("Load").on_press(Message::Menu(MenuMessage::None)))
+                    .push(button("Save").on_press(Message::Menu(MenuMessage::None)))
+                    .push(button("Autolayout").on_press(Message::Menu(MenuMessage::None))),
+            )
+            .push(horizontal_rule(0.0))
+            // Node editor
+            .push(canvas)
+            .into()
     }
 
     /// Save the full state of the graph
@@ -418,8 +447,6 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         _cursor: Cursor,
     ) -> Vec<Geometry> {
         let mut frame = Frame::new(renderer, bounds.size());
-        frame.translate(state.pan);
-        frame.scale(state.zoom);
 
         // Background
         frame.fill_rectangle(
@@ -427,6 +454,9 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             frame.size(),
             iced::Color::from_rgb(0.1, 0.1, 0.1),
         );
+
+        frame.translate(state.pan);
+        frame.scale(state.zoom);
 
         let graph = self.graph.borrow();
 
@@ -520,10 +550,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 frame.fill(&port_circle, iced::Color::WHITE);
                 frame.fill_text(Text {
                     content: port_name.clone(),
-                    position: Point::new(
-                        port_pos.x - 8.0,
-                        port_pos.y - 8.0,
-                    ),
+                    position: Point::new(port_pos.x - 8.0, port_pos.y - 8.0),
                     color: iced::Color::WHITE,
                     size: 12.0.into(),
                     font: Font::MONOSPACE,
@@ -593,7 +620,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                         let node = &graph[node_idx];
                         for (i, _port) in node.outputs.iter().enumerate() {
                             let port_pos = Point::new(
-                                node.position.0 + 150.0,
+                                node.position.0 + NODE_WIDTH_PX,
                                 node.position.1 + 20.0 + i as f32 * 15.0,
                             );
                             let dx = pos.x - port_pos.x;
