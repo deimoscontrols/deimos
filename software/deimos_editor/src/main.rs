@@ -8,7 +8,7 @@ use iced::border::Radius;
 use iced::keyboard::key::{Code, Named, Physical};
 use iced::keyboard::{Key, Modifiers};
 use iced::mouse::{Button, Cursor};
-use iced::widget::{Row, button, horizontal_rule, text};
+use iced::widget::{Row, button, horizontal_rule, text, text_editor};
 use iced::window::Settings;
 use iced::{Alignment, Font};
 use iced::{
@@ -200,6 +200,7 @@ enum MenuMessage {
 enum Message {
     Canvas(CanvasMessage),
     Menu(MenuMessage),
+    TextEditor(text_editor::Action),
 }
 
 #[derive(Default)]
@@ -207,6 +208,8 @@ struct NodeEditor {
     graph: Rc<RefCell<StableGraph<NodeData, EdgeData>>>,
     edit_log: Vec<String>,
     redo_log: Vec<String>,
+
+    editor_content: text_editor::Content,
 }
 
 impl NodeEditor {
@@ -281,6 +284,7 @@ impl NodeEditor {
                 CanvasMessage::Undo => state.undo(),
                 CanvasMessage::Redo => state.redo(),
             },
+            Message::TextEditor(action) => state.editor_content.perform(action),
             x => println!("Unhandled message: {x:?}"),
         };
     }
@@ -364,6 +368,7 @@ impl NodeEditor {
                 Row::new()
                     .push(button("Load").on_press(Message::Menu(MenuMessage::None)))
                     .push(button("Save").on_press(Message::Menu(MenuMessage::None)))
+                    .push(button("Save As").on_press(Message::Menu(MenuMessage::None)))
                     .push(button("Autolayout").on_press(Message::Menu(MenuMessage::None))),
             )
             .push(horizontal_rule(0.0))
