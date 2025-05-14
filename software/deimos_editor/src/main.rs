@@ -3,21 +3,19 @@ use std::fmt::Debug;
 use std::rc::Rc;
 
 use canvas::Event;
+use deimos::Controller;
 use iced::alignment::Horizontal;
 use iced::border::Radius;
 use iced::keyboard::key::{Code, Named, Physical};
 use iced::keyboard::{Key, Modifiers};
 use iced::mouse::{Button, Cursor};
-use iced::widget::{Row, button, horizontal_rule, text, text_editor};
-use iced::window::Settings;
-use iced::{Alignment, Font};
-use iced::{
-    Element, Length, Point, Rectangle, Renderer, Theme, Vector,
-    widget::{
-        Column,
-        canvas::{self, Canvas, Frame, Geometry, Path, Program, Text},
-    },
+use iced::widget::{
+    Column, Row, button,
+    canvas::{self, Canvas, Frame, Geometry, Path, Program, Text},
+    horizontal_rule,
 };
+// use iced::window::Settings;
+use iced::{Element, Font, Length, Point, Rectangle, Renderer, Task, Theme, Vector};
 
 // We need StableGraph, which preserves indices through deletions,
 // in order to handle links between composite nodes' subnodes
@@ -193,23 +191,24 @@ enum CanvasMessage {
 
 #[derive(Clone, Debug)]
 enum MenuMessage {
-    None,
+    Load,
+    Save,
+    SaveAs,
+    AutoLayout,
 }
 
 #[derive(Clone, Debug)]
 enum Message {
     Canvas(CanvasMessage),
     Menu(MenuMessage),
-    TextEditor(text_editor::Action),
 }
 
 #[derive(Default)]
 struct NodeEditor {
+    controller: Option<Controller>,
     graph: Rc<RefCell<StableGraph<NodeData, EdgeData>>>,
     edit_log: Vec<String>,
     redo_log: Vec<String>,
-
-    editor_content: text_editor::Content,
 }
 
 impl NodeEditor {
@@ -284,8 +283,27 @@ impl NodeEditor {
                 CanvasMessage::Undo => state.undo(),
                 CanvasMessage::Redo => state.redo(),
             },
-            Message::TextEditor(action) => state.editor_content.perform(action),
-            x => println!("Unhandled message: {x:?}"),
+            Message::Menu(menu_msg) => match menu_msg {
+                MenuMessage::Load => {
+                    let f = rfd::FileDialog::new()
+                        .add_filter("JSON Files", &["json"])
+                        .set_title("Choose a file")
+                        .pick_file()
+                        .map(|path| path.display().to_string());
+
+                    if let Some(path) = f {
+                        let res = state.load(&std::path::PathBuf::from(path));
+                        match res {
+                            Err(x) => println!("{x}"),
+                            Ok(_) => ()
+                        }
+                    }
+                }
+                MenuMessage::Save => {}
+                MenuMessage::SaveAs => {}
+                MenuMessage::AutoLayout => {}
+            },
+            // x => println!("Unhandled message: {x:?}"),
         };
     }
 
@@ -366,10 +384,10 @@ impl NodeEditor {
             // Top bar
             .push(
                 Row::new()
-                    .push(button("Load").on_press(Message::Menu(MenuMessage::None)))
-                    .push(button("Save").on_press(Message::Menu(MenuMessage::None)))
-                    .push(button("Save As").on_press(Message::Menu(MenuMessage::None)))
-                    .push(button("Autolayout").on_press(Message::Menu(MenuMessage::None))),
+                    .push(button("Load").on_press(Message::Menu(MenuMessage::Load)))
+                    .push(button("Save").on_press(Message::Menu(MenuMessage::Save)))
+                    .push(button("Save As").on_press(Message::Menu(MenuMessage::SaveAs)))
+                    .push(button("Autolayout").on_press(Message::Menu(MenuMessage::AutoLayout))),
             )
             .push(horizontal_rule(0.0))
             // Node editor
@@ -411,6 +429,69 @@ impl NodeEditor {
             self.graph = serde_json::from_str(&next).unwrap();
             self.edit_log.push(next);
         }
+    }
+
+    /// Load a controller from disk
+    fn load(&mut self, path: &std::path::Path) -> Result<(), String> {
+        // Load from disk
+        let s = std::fs::read_to_string(path)
+            .map_err(|e| format!("Failed to load file from {path:?}: {e}"))?;
+        let c: Controller = serde_json::from_str(&s)
+            .map_err(|e| format!("Failed to load file from {path:?}: {e}"))?;
+
+        // Update graph
+        self.graph.borrow_mut().clear();
+
+        for (name, p) in c.peripherals().iter() {
+            self.add_peripheral(name, p);
+        }
+
+        for name in c.orchestrator().eval_order() {
+            self.add_calc(&name, &c.calcs()[&name]);
+        }
+
+        self.controller = Some(c);
+
+        Ok(())
+    }
+
+    fn add_peripheral(&mut self, name: &str, p: &Box<dyn Peripheral>) -> (NodeIndex, NodeIndex) {
+        let a = self.graph.borrow_mut().add_node(NodeData::new(
+            format!("{name} (input)"),
+            NodeKind::Peripheral {
+                inner: p.clone(),
+                partner: NodeIndex::default(),
+                is_input_side: true,
+            },
+            (100.0, 0.0),
+        ));
+
+        let b = self.graph.borrow_mut().add_node(NodeData::new(
+            format!("{name} (output)"),
+            NodeKind::Peripheral {
+                inner: p.clone(),
+                partner: a,
+                is_input_side: false,
+            },
+            (0.0, 0.0),
+        ));
+
+        //   Link input and output parts of peripheral
+        self.graph.borrow_mut().node_weight_mut(a).unwrap().kind = NodeKind::Peripheral {
+            inner: p.clone(),
+            partner: b,
+            is_input_side: true,
+        };
+
+        (a, b)
+    }
+
+    fn add_calc(&mut self, name: &str, c: &Box<dyn Calc>) -> NodeIndex {
+        self.graph.borrow_mut().add_node(NodeData::new(
+            name.into(),
+            NodeKind::Calc { inner: c.clone() },
+            (0.0, 0.0),
+        ))
     }
 }
 

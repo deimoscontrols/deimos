@@ -81,8 +81,14 @@ impl Controller {
         self.orchestrator.calcs()
     }
 
+    /// Read-only access to peripherals
     pub fn peripherals(&self) -> &BTreeMap<String, Box<dyn Peripheral>> {
         &self.peripherals
+    }
+
+    /// The order in which the calcs will be evaluated at each cycle
+    pub fn orchestrator(&self) -> &Orchestrator {
+        &self.orchestrator
     }
 
     /// Read-only access to edges from calcs to peripherals

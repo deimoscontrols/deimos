@@ -5,6 +5,7 @@
 ### Changed
 
 * !Add bound on Debug for Calc and Peripheral to support use as part of state objects in iced gui
+* Extract determination of calc eval order to `Orchestrator::eval_order()`
 
 ## 2025-05-03 deimos 0.8.1
 
