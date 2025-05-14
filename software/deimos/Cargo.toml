@@ -45,6 +45,7 @@ postgres-types = { version = "0.2.8", optional = true }
 
 [features]
 default = ["ser"]
+all = ["ser", "tsdb", "df", "affinity", "sideloading"]
 tsdb = ["postgres", "postgres-types"]
 df = ["polars"]
 ser = ["serde", "typetag", "serde_json"]

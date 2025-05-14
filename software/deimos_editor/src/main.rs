@@ -288,6 +288,7 @@ impl NodeEditor {
                     let f = rfd::FileDialog::new()
                         .add_filter("JSON Files", &["json"])
                         .set_title("Choose a file")
+                        .set_directory("./")
                         .pick_file()
                         .map(|path| path.display().to_string());
 

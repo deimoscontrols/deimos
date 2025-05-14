@@ -128,6 +128,7 @@ fn main() {
     // Serialize and deserialize the controller (for demonstration purposes)
     let serialized_controller = serde_json::to_string_pretty(&controller).unwrap();
     let _: Controller = serde_json::from_str(&serialized_controller).unwrap();
+    std::fs::write("./multi_daq.json", &serialized_controller);
 
     // Run the control program
     println!("Starting controller");

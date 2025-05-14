@@ -14,4 +14,4 @@ serde = { version = "^1", features = ["derive", "rc"]}
 serde_json = { version = "^1", features = ["preserve_order"] }
 bimap = { version = "0.6.3", features = ["serde"] }
 
-deimos = { version = "0.9.0", path =  "../deimos",  features = ["ser"] }
+deimos = { version = "0.9.0", path =  "../deimos",  features = ["all"] }
