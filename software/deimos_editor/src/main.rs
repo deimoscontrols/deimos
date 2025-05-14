@@ -456,6 +456,7 @@ impl NodeEditor {
         Ok(())
     }
 
+    /// Add a peripheral node (input and output node pair) to the graph. Does not add edges.
     fn add_peripheral(&mut self, name: &str, p: &Box<dyn Peripheral>) -> (NodeIndex, NodeIndex) {
         let a = self.graph.borrow_mut().add_node(NodeData::new(
             format!("{name} (input)"),
@@ -487,6 +488,7 @@ impl NodeEditor {
         (a, b)
     }
 
+    /// Add a calc node to the graph. Does not add edges.
     fn add_calc(&mut self, name: &str, c: &Box<dyn Calc>) -> NodeIndex {
         self.graph.borrow_mut().add_node(NodeData::new(
             name.into(),
