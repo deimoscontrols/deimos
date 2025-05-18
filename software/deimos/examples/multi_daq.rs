@@ -1,4 +1,4 @@
-//! A 200Hz control program with two DAQ modules connected via UDP and time-synchronized.
+//! A 200Hz control program with several DAQ modules connected via UDP and time-synchronized.
 //!
 //! Demonstrated here:
 //!   * Setting up a simple control program and connecting to hardware
@@ -128,7 +128,7 @@ fn main() {
     // Serialize and deserialize the controller (for demonstration purposes)
     let serialized_controller = serde_json::to_string_pretty(&controller).unwrap();
     let _: Controller = serde_json::from_str(&serialized_controller).unwrap();
-    std::fs::write("./multi_daq.json", &serialized_controller);
+    // std::fs::write("./multi_daq.json", &serialized_controller);
 
     // Run the control program
     println!("Starting controller");
