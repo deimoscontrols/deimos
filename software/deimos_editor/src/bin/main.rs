@@ -316,8 +316,6 @@ impl NodeEditor {
                 NodeKind::Calc {
                     inner: Box::new(deimos::calc::Affine::default()),
                 },
-                // vec!["a".into(), "b".into()],
-                // vec!["sum".into()],
                 (100.0, 100.0),
             ));
 
@@ -326,8 +324,6 @@ impl NodeEditor {
                 NodeKind::Calc {
                     inner: Box::new(deimos::calc::TcKtype::default()),
                 },
-                // vec!["c".into(), "d".into()],
-                // vec!["z".into(), "w".into()],
                 (400.0, 200.0),
             ));
 
@@ -338,8 +334,6 @@ impl NodeEditor {
                     partner: NodeIndex::default(),
                     is_input_side: true,
                 },
-                // vec!["pwm0".into(), "pwm1".into()],
-                // vec![],
                 (600.0, 200.0),
             ));
 
@@ -350,8 +344,6 @@ impl NodeEditor {
                     partner: c,
                     is_input_side: false,
                 },
-                // vec![],
-                // vec!["ain0".into(), "freq0".into()],
                 (0.0, 200.0),
             ));
 
@@ -838,12 +830,12 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 if let Some(dragged) = state.dragging_node {
                     if let Some(last_pos) = state.last_cursor_position {
                         let delta =
-                            (position - last_pos) * iced::Transformation::scale(1.0 / state.zoom);
+                            (cursor_pos - last_pos) * iced::Transformation::scale(1.0 / state.zoom);
                         let msg = Some(Message::Canvas(CanvasMessage::MoveNode(
                             dragged,
                             (delta.x, delta.y),
                         )));
-                        state.last_cursor_position = Some(position);
+                        state.last_cursor_position = Some(cursor_pos);
                         return (canvas::event::Status::Captured, msg);
                     }
                 }
@@ -856,7 +848,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                         state.pan = state.pan + Vector::new(dx, dy);
                     }
                 }
-                state.last_cursor_position = Some(position);
+                state.last_cursor_position = Some(cursor_pos);
             }
             Event::Mouse(iced::mouse::Event::WheelScrolled { delta }) => {
                 // Zoom
