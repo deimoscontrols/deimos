@@ -578,8 +578,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 from.position.1 + from_port.offset_px,
             );
             let to_pos = Point::new(to.position.0, to.position.1 + to_port.offset_px);
-            let ctrl1 = Point::new(from_pos.x + 50.0 / zoom, from_pos.y);
-            let ctrl2 = Point::new(to_pos.x - 50.0 / zoom, to_pos.y);
+            let ctrl1 = Point::new(from_pos.x + 150.0 / zoom, from_pos.y);
+            let ctrl2 = Point::new(to_pos.x - 150.0 / zoom, to_pos.y);
 
             let path = Path::new(|builder| {
                 builder.move_to(from_pos);
@@ -673,8 +673,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 node.position.0 + node.size().width,
                 node.position.1 + &node.output_ports[*port_idx].offset_px,
             );
-            let ctrl1 = Point::new(start.x + 50.0 / zoom, start.y);
-            let ctrl2 = Point::new(cursor_pos.x - 50.0 / zoom, cursor_pos.y);
+            let ctrl1 = Point::new(start.x + 150.0 / zoom, start.y);
+            let ctrl2 = Point::new(cursor_pos.x - 150.0 / zoom, cursor_pos.y);
 
             let preview_path = Path::new(|builder| {
                 builder.move_to(start);
