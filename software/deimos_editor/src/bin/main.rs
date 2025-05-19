@@ -515,11 +515,11 @@ impl Default for EditorState {
         Self {
             initialized: false,
             pan: Vector::default(),
-            zoom: 1.0,  // This is why we need a default
+            zoom: 1.0, // This is why we need a default
             panning: false,
             dragging_node: None,
             last_cursor_position: None,
-            action_ctx: ExclusiveActionCtx::None
+            action_ctx: ExclusiveActionCtx::None,
         }
     }
 }
@@ -558,7 +558,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         let t = |p: Point| (p - state.pan) * iced::Transformation::scale(1.0 / zoom);
         let cursor_pos = match cursor.position_in(bounds) {
             Some(p) => p,
-            None => Point::default()
+            None => Point::default(),
         };
         let cursor_pos = t(cursor_pos);
 
@@ -578,8 +578,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 from.position.1 + from_port.offset_px,
             );
             let to_pos = Point::new(to.position.0, to.position.1 + to_port.offset_px);
-            let ctrl1 = Point::new(from_pos.x + 150.0 / zoom, from_pos.y);
-            let ctrl2 = Point::new(to_pos.x - 150.0 / zoom, to_pos.y);
+            let ctrl1 = Point::new(from_pos.x + 75.0 / zoom, from_pos.y);
+            let ctrl2 = Point::new(to_pos.x - 75.0 / zoom, to_pos.y);
 
             let path = Path::new(|builder| {
                 builder.move_to(from_pos);
@@ -665,16 +665,14 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         }
 
         // Draw in-progress connection
-        if let ExclusiveActionCtx::ConnectingFromPort((from_idx, port_idx)) =
-            &state.action_ctx
-        { 
+        if let ExclusiveActionCtx::ConnectingFromPort((from_idx, port_idx)) = &state.action_ctx {
             let node = &graph[*from_idx];
             let start = Point::new(
                 node.position.0 + node.size().width,
                 node.position.1 + &node.output_ports[*port_idx].offset_px,
             );
-            let ctrl1 = Point::new(start.x + 150.0 / zoom, start.y);
-            let ctrl2 = Point::new(cursor_pos.x - 150.0 / zoom, cursor_pos.y);
+            let ctrl1 = Point::new(start.x + 75.0 / zoom, start.y);
+            let ctrl2 = Point::new(cursor_pos.x - 75.0 / zoom, cursor_pos.y);
 
             let preview_path = Path::new(|builder| {
                 builder.move_to(start);
@@ -715,7 +713,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         let t = |p: Point| (p - state.pan) * iced::Transformation::scale(1.0 / state.zoom);
         let cursor_pos = match cursor.position_in(bounds) {
             Some(p) => p,
-            None => Point::default()
+            None => Point::default(),
         };
         let cursor_pos = t(cursor_pos);
 
@@ -829,8 +827,7 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 // Node drag
                 if let Some(dragged) = state.dragging_node {
                     if let Some(last_pos) = state.last_cursor_position {
-                        let delta =
-                            (cursor_pos - last_pos) * iced::Transformation::scale(1.0 / state.zoom);
+                        let delta = cursor_pos - last_pos;
                         let msg = Some(Message::Canvas(CanvasMessage::MoveNode(
                             dragged,
                             (delta.x, delta.y),
@@ -916,4 +913,3 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         (canvas::event::Status::Captured, None)
     }
 }
-
