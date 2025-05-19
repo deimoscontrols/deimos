@@ -839,10 +839,9 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
 
                 // Pan
                 if state.panning {
-                    if let Some(prev) = state.last_cursor_position {
-                        let dx = position.x - prev.x;
-                        let dy = position.y - prev.y;
-                        state.pan = state.pan + Vector::new(dx, dy);
+                    if let Some(last_pos) = state.last_cursor_position {
+                        let delta = cursor_pos - last_pos;
+                        state.pan = state.pan + delta;
                     }
                 }
                 state.last_cursor_position = Some(cursor_pos);
