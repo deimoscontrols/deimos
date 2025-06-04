@@ -578,12 +578,17 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 from.position.1 + from_port.offset_px,
             );
             let to_pos = Point::new(to.position.0, to.position.1 + to_port.offset_px);
-            let ctrl1 = Point::new(from_pos.x + 75.0 / zoom, from_pos.y);
-            let ctrl2 = Point::new(to_pos.x - 75.0 / zoom, to_pos.y);
+            let ctrl1 = Point::new(from_pos.x + 30.0 / zoom, from_pos.y);
+            let ctrl2 = Point::new(to_pos.x - 30.0 / zoom, to_pos.y);
+
+            // Set a control point at the midpoint so that simple midpoint selection logic can work
+            let delta = to_pos - from_pos;
+            let mid = Point::new(from_pos.x + delta.x / 2.0, from_pos.y + delta.y / 2.0);
 
             let path = Path::new(|builder| {
                 builder.move_to(from_pos);
-                builder.bezier_curve_to(ctrl1, ctrl2, to_pos);
+                builder.bezier_curve_to(from_pos, ctrl1, mid);
+                builder.bezier_curve_to(mid, ctrl2, to_pos);
             });
 
             let is_selected = ExclusiveActionCtx::EdgeSelected(
@@ -667,20 +672,27 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
         // Draw in-progress connection
         if let ExclusiveActionCtx::ConnectingFromPort((from_idx, port_idx)) = &state.action_ctx {
             let node = &graph[*from_idx];
-            let start = Point::new(
+            let from_pos = Point::new(
                 node.position.0 + node.size().width,
                 node.position.1 + &node.output_ports[*port_idx].offset_px,
             );
-            let ctrl1 = Point::new(start.x + 75.0 / zoom, start.y);
-            let ctrl2 = Point::new(cursor_pos.x - 75.0 / zoom, cursor_pos.y);
+            let to_pos = cursor_pos;
 
-            let preview_path = Path::new(|builder| {
-                builder.move_to(start);
-                builder.bezier_curve_to(ctrl1, ctrl2, cursor_pos);
+            // Set a control point at the midpoint so that simple midpoint selection logic can work
+            let ctrl1 = Point::new(from_pos.x + 30.0 / zoom, from_pos.y);
+            let ctrl2 = Point::new(to_pos.x - 30.0 / zoom, to_pos.y);
+
+            // Set a control point at the midpoint so that simple midpoint selection logic can work
+            let delta = to_pos - from_pos;
+            let mid = Point::new(from_pos.x + delta.x / 2.0, from_pos.y + delta.y / 2.0);
+
+            let path = Path::new(|builder| {
+                builder.move_to(from_pos);
+                builder.bezier_curve_to(from_pos, ctrl1, mid);
+                builder.bezier_curve_to(mid, ctrl2, to_pos);
             });
-
             frame.stroke(
-                &preview_path,
+                &path,
                 canvas::Stroke::default()
                     .with_color(iced::Color::from_rgb(0.8, 0.8, 0.2))
                     .with_width(2.0),
