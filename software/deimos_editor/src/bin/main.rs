@@ -15,7 +15,7 @@ use iced::widget::{
     horizontal_rule,
 };
 // use iced::window::Settings;
-use iced::{Element, Font, Length, Point, Rectangle, Renderer, Task, Theme, Vector};
+use iced::{Element, Font, Length, Point, Rectangle, Renderer, Theme, Vector};
 
 // We need StableGraph, which preserves indices through deletions,
 // in order to handle links between composite nodes' subnodes
@@ -203,10 +203,17 @@ enum Message {
     Menu(MenuMessage),
 }
 
+
 #[derive(Default)]
 struct NodeEditor {
     controller: Option<Controller>,
+
+    /// Graph that never reuses an index
     graph: Rc<RefCell<StableGraph<NodeData, EdgeData>>>,
+
+    /// Support getting nodes by name
+    name_index_map: BiBTreeMap<String, NodeIndex>,
+
     edit_log: Vec<String>,
     redo_log: Vec<String>,
 }
@@ -451,7 +458,7 @@ impl NodeEditor {
     /// Add a peripheral node (input and output node pair) to the graph. Does not add edges.
     fn add_peripheral(&mut self, name: &str, p: &Box<dyn Peripheral>) -> (NodeIndex, NodeIndex) {
         let a = self.graph.borrow_mut().add_node(NodeData::new(
-            format!("{name} (input)"),
+            name.to_string(),
             NodeKind::Peripheral {
                 inner: p.clone(),
                 partner: NodeIndex::default(),
@@ -461,7 +468,7 @@ impl NodeEditor {
         ));
 
         let b = self.graph.borrow_mut().add_node(NodeData::new(
-            format!("{name} (output)"),
+            name.to_string(),
             NodeKind::Peripheral {
                 inner: p.clone(),
                 partner: a,
@@ -477,16 +484,25 @@ impl NodeEditor {
             is_input_side: true,
         };
 
+        //   Store just the input side in the index map
+        self.name_index_map.insert(name.to_string(), a);
+
         (a, b)
     }
 
     /// Add a calc node to the graph. Does not add edges.
     fn add_calc(&mut self, name: &str, c: &Box<dyn Calc>) -> NodeIndex {
-        self.graph.borrow_mut().add_node(NodeData::new(
+        // Update graph
+        let a = self.graph.borrow_mut().add_node(NodeData::new(
             name.into(),
             NodeKind::Calc { inner: c.clone() },
             (0.0, 0.0),
-        ))
+        ));
+
+        // Update index map
+        self.name_index_map.insert(name.into(), a);
+
+        a
     }
 }
 
