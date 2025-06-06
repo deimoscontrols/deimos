@@ -203,7 +203,6 @@ enum Message {
     Menu(MenuMessage),
 }
 
-
 #[derive(Default)]
 struct NodeEditor {
     controller: Option<Controller>,
@@ -442,12 +441,22 @@ impl NodeEditor {
         // Update graph
         self.graph.borrow_mut().clear();
 
+        //   Add peripheral nodes without edges
         for (name, p) in c.peripherals().iter() {
             self.add_peripheral(name, p);
         }
 
+        //   Add calc nodes with edges
         for name in c.orchestrator().eval_order() {
             self.add_calc(&name, &c.calcs()[&name]);
+        }
+
+        //   Add peripheral edges
+        for (from, to) in c.peripheral_input_sources() {
+            let (from_node, from_port) = self.get_output_port_by_name(from).ok_or(format!("Did not find peripheral input source `{from}`"))?;
+            let (to_node, to_port) = self.get_input_port_by_name(to).ok_or(format!("Did not find peripheral input `{to}`"))?;
+            let data = EdgeData { from_port: from_port.into(), to_port: to_port.into() };
+            self.graph.borrow_mut().add_edge(from_node, to_node, data);
         }
 
         self.controller = Some(c);
@@ -493,16 +502,105 @@ impl NodeEditor {
     /// Add a calc node to the graph. Does not add edges.
     fn add_calc(&mut self, name: &str, c: &Box<dyn Calc>) -> NodeIndex {
         // Update graph
+        //   Add calc node
         let a = self.graph.borrow_mut().add_node(NodeData::new(
             name.into(),
             NodeKind::Calc { inner: c.clone() },
             (0.0, 0.0),
         ));
+        //   Add input edges
+        for (inp, src) in c.get_input_map().iter() {
+            let (snode, sport) = self.get_output_port_by_name(src).unwrap();
+            let data = EdgeData {from_port: sport, to_port: inp.clone()};
+            self.graph.borrow_mut().add_edge(snode, a, data);
+        }
 
         // Update index map
         self.name_index_map.insert(name.into(), a);
 
         a
+    }
+
+    /// Get a port and its node by full name (like `node.port`)
+    fn get_input_port_by_name(&mut self, name: &str) -> Option<(NodeIndex, String)> {
+        let (node_name, port_name) = name.split_once(".")?;
+        let node_index = self.name_index_map.get_by_left(node_name)?.clone();
+
+        // This might be a composite node - check the partner node
+        match &self.graph.borrow().node_weight(node_index)?.kind {
+            NodeKind::Peripheral {
+                inner,
+                partner,
+                is_input_side,
+            } => {
+                let node_index = if *is_input_side { node_index } else { *partner };
+                return Some((node_index, port_name.to_string()))
+                // if let Some(port_index) = self
+                //     .graph
+                //     .borrow()
+                //     .node_weight(node_index)?
+                //     .inputs
+                //     .get_by_left(port_name)
+                // {
+                //     return Some((node_index, *port_index));
+                // }
+            }
+            NodeKind::Calc { inner } => {
+                // if let Some(port_index) = self
+                //     .graph
+                //     .borrow()
+                //     .node_weight(node_index)?
+                //     .inputs
+                //     .get_by_left(port_name)
+                // {
+                //     return Some((node_index, *port_index));
+                // }
+                return Some((node_index, port_name.to_string()))
+            }
+        }
+
+        None
+    }
+
+    /// Get a port and its node by full name (like `node.port`)
+    fn get_output_port_by_name(&mut self, name: &str) -> Option<(NodeIndex, String)> {
+        let (node_name, port_name) = name.split_once(".")?;
+        let node_index = self.name_index_map.get_by_left(node_name)?.clone();
+
+        // This might be a composite node - check the partner node
+        match &self.graph.borrow().node_weight(node_index)?.kind {
+            NodeKind::Peripheral {
+                inner,
+                partner,
+                is_input_side,
+            } => {
+                let node_index = if !*is_input_side { node_index } else { *partner };
+                return Some((node_index, port_name.to_string()))
+                // if let Some(port_index) = self
+                //     .graph
+                //     .borrow()
+                //     .node_weight(node_index)?
+                //     .inputs
+                //     .get_by_left(port_name)
+                // {
+                //     return Some((node_index, *port_index));
+                // }
+            }
+            NodeKind::Calc { inner } => {
+                // if let Some(port_index) = self
+                //     .graph
+                //     .borrow()
+                //     .node_weight(node_index)?
+                //     .inputs
+                //     .get_by_left(port_name)
+                // {
+                //     return Some((node_index, *port_index));
+                // }
+                return Some((node_index, port_name.to_string()))
+            }
+        }
+
+        None
     }
 }
 
