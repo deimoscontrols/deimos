@@ -535,31 +535,11 @@ impl NodeEditor {
             } => {
                 let node_index = if *is_input_side { node_index } else { *partner };
                 return Some((node_index, port_name.to_string()))
-                // if let Some(port_index) = self
-                //     .graph
-                //     .borrow()
-                //     .node_weight(node_index)?
-                //     .inputs
-                //     .get_by_left(port_name)
-                // {
-                //     return Some((node_index, *port_index));
-                // }
             }
             NodeKind::Calc { inner } => {
-                // if let Some(port_index) = self
-                //     .graph
-                //     .borrow()
-                //     .node_weight(node_index)?
-                //     .inputs
-                //     .get_by_left(port_name)
-                // {
-                //     return Some((node_index, *port_index));
-                // }
                 return Some((node_index, port_name.to_string()))
             }
         }
-
-        None
     }
 
     /// Get a port and its node by full name (like `node.port`)
@@ -576,31 +556,11 @@ impl NodeEditor {
             } => {
                 let node_index = if !*is_input_side { node_index } else { *partner };
                 return Some((node_index, port_name.to_string()))
-                // if let Some(port_index) = self
-                //     .graph
-                //     .borrow()
-                //     .node_weight(node_index)?
-                //     .inputs
-                //     .get_by_left(port_name)
-                // {
-                //     return Some((node_index, *port_index));
-                // }
             }
             NodeKind::Calc { inner } => {
-                // if let Some(port_index) = self
-                //     .graph
-                //     .borrow()
-                //     .node_weight(node_index)?
-                //     .inputs
-                //     .get_by_left(port_name)
-                // {
-                //     return Some((node_index, *port_index));
-                // }
                 return Some((node_index, port_name.to_string()))
             }
         }
-
-        None
     }
 }
 
