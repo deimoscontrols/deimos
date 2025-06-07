@@ -23,6 +23,7 @@ use iced::{Element, Font, Length, Point, Rectangle, Renderer, Theme, Vector};
 use petgraph::stable_graph::{NodeIndex, StableGraph};
 use petgraph::visit::{EdgeRef, IntoEdgeReferences};
 
+use petgraph::Direction;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
@@ -482,6 +483,33 @@ impl NodeEditor {
         self.autolayout()?;
 
         Ok(())
+    }
+
+    /// Get the calc node indices downstream of this peripheral
+    fn get_peripheral_descendants(&self, name: &str) -> Result<Vec<NodeIndex>, String> {
+        let mut nodes = Vec::<NodeIndex>::new();
+
+        // Find the peripheral output node
+        let &index = self.name_index_map.get_by_left(name).unwrap();
+        let node = &self.graph.borrow()[index];
+        let index = match &node.kind {
+            NodeKind::Peripheral { inner, partner, is_input_side } => match is_input_side {
+                true => *partner,
+                false => index
+            },
+            _ => return Err(format!("Expected a Peripheral named `{name}`, found a Calc"))
+        };
+
+        // Get its descendants
+        let mut new: Vec<NodeIndex> = self.graph.borrow().neighbors_directed(index, Direction::Outgoing).collect();
+        while new.len() > 0 {
+            nodes.extend(new.iter());
+            let n = new.len();
+            new.clear();
+            nodes[nodes.len() - n..].iter().for_each(|&i| new.extend(self.graph.borrow().neighbors_directed(i, Direction::Outgoing)) );
+        }
+
+        Ok(nodes)
     }
 
     /// Set node layout based on associated Controller
