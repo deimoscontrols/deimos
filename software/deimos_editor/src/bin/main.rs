@@ -460,8 +460,8 @@ impl NodeEditor {
             self.add_calc(&name, &c.calcs()[name]);
         }
 
-        //   Add peripheral edges
-        for (from, to) in c.peripheral_input_sources() {
+        //   Add peripheral input edges
+        for (to, from) in c.peripheral_input_sources() {
             let (from_node, from_port) = self
                 .get_output_port_by_name(from)
                 .ok_or(format!("Did not find peripheral input source `{from}`"))?;
