@@ -438,6 +438,9 @@ impl NodeEditor {
         let c: Controller = serde_json::from_str(&s)
             .map_err(|e| format!("Failed to load file from {path:?}: {e}"))?;
 
+        // Extract order and depth of evaluation of calcs
+        let (eval_order, _eval_depth_groups) = c.orchestrator().eval_order();
+
         // Update graph
         self.graph.borrow_mut().clear();
 
@@ -447,21 +450,123 @@ impl NodeEditor {
         }
 
         //   Add calc nodes with edges
-        for name in c.orchestrator().eval_order() {
-            self.add_calc(&name, &c.calcs()[&name]);
+        for name in &eval_order {
+            self.add_calc(&name, &c.calcs()[name]);
         }
 
         //   Add peripheral edges
         for (from, to) in c.peripheral_input_sources() {
-            let (from_node, from_port) = self.get_output_port_by_name(from).ok_or(format!("Did not find peripheral input source `{from}`"))?;
-            let (to_node, to_port) = self.get_input_port_by_name(to).ok_or(format!("Did not find peripheral input `{to}`"))?;
-            let data = EdgeData { from_port: from_port.into(), to_port: to_port.into() };
+            let (from_node, from_port) = self
+                .get_output_port_by_name(from)
+                .ok_or(format!("Did not find peripheral input source `{from}`"))?;
+            let (to_node, to_port) = self
+                .get_input_port_by_name(to)
+                .ok_or(format!("Did not find peripheral input `{to}`"))?;
+            let data = EdgeData {
+                from_port: from_port.into(),
+                to_port: to_port.into(),
+            };
             self.graph.borrow_mut().add_edge(from_node, to_node, data);
         }
 
+        //   Associate Controller
         self.controller = Some(c);
 
+        //   Set node layout
+        self.autolayout()?;
+
         Ok(())
+    }
+
+    /// Set node layout based on associated Controller
+    fn autolayout(&mut self) -> Result<(), String> {
+        if let Some(c) = &self.controller {
+            let hpad = 50.0;
+            let wpad = 100.0;
+
+            // Get the evaluation depth of each calc
+            let (_eval_order, eval_depth_groups) = c.orchestrator().eval_order();
+
+            // Set calc node positions
+            let mut x = wpad + NODE_WIDTH_PX;
+            let mut y = hpad;
+            for group in &eval_depth_groups {
+                for name in group {
+                    let index = self
+                        .name_index_map
+                        .get_by_left(name)
+                        .ok_or(format!("Missing node `{name}` for layout"))?;
+                    let height = self
+                        .graph
+                        .borrow()
+                        .node_weight(*index)
+                        .unwrap()
+                        .size()
+                        .height;
+                    self.graph
+                        .borrow_mut()
+                        .node_weight_mut(*index)
+                        .unwrap()
+                        .position = (x, y);
+                    y += hpad + height;
+                }
+                x += wpad + NODE_WIDTH_PX;
+            }
+
+            // Set peripheral positions
+            let mut y = 0.0;
+            for name in c.peripherals().keys() {
+                let &index = self
+                    .name_index_map
+                    .get_by_left(name)
+                    .ok_or(format!("Missing node `{name}` for layout"))?;
+                let (&partner_index, &is_input_side) =
+                    match &self.graph.borrow().node_weight(index).unwrap().kind {
+                        NodeKind::Peripheral {
+                            inner,
+                            partner,
+                            is_input_side,
+                        } => (partner, is_input_side),
+                        _ => {
+                            return Err(format!(
+                                "Node `{name}` expected to be a Peripheral, but is a Calc."
+                            ));
+                        }
+                    };
+
+                // Height allotted for this peripheral is the max of the input or output height
+                let h1 = self
+                    .graph
+                    .borrow()
+                    .node_weight(index)
+                    .unwrap()
+                    .size()
+                    .height;
+                let h2 = self
+                    .graph
+                    .borrow()
+                    .node_weight(partner_index)
+                    .unwrap()
+                    .size()
+                    .height;
+                let h = h1.max(h2);
+
+                for (i, side) in [(index, !is_input_side), (partner_index, is_input_side)] {
+                    let x_this_side = match side {
+                        true => 0.0,
+                        false => x,
+                    };
+
+                    self.graph.borrow_mut().node_weight_mut(i).unwrap().position = (x_this_side, y)
+                }
+
+                y += hpad + h;
+            }
+
+            Ok(())
+        } else {
+            Err("Unable to perform autolayout without associated Controller.".into())
+        }
     }
 
     /// Add a peripheral node (input and output node pair) to the graph. Does not add edges.
@@ -499,7 +604,7 @@ impl NodeEditor {
         (a, b)
     }
 
-    /// Add a calc node to the graph. Does not add edges.
+    /// Add a calc node to the graph along with its incoming edges.
     fn add_calc(&mut self, name: &str, c: &Box<dyn Calc>) -> NodeIndex {
         // Update graph
         //   Add calc node
@@ -511,7 +616,10 @@ impl NodeEditor {
         //   Add input edges
         for (inp, src) in c.get_input_map().iter() {
             let (snode, sport) = self.get_output_port_by_name(src).unwrap();
-            let data = EdgeData {from_port: sport, to_port: inp.clone()};
+            let data = EdgeData {
+                from_port: sport,
+                to_port: inp.clone(),
+            };
             self.graph.borrow_mut().add_edge(snode, a, data);
         }
 
@@ -534,11 +642,9 @@ impl NodeEditor {
                 is_input_side,
             } => {
                 let node_index = if *is_input_side { node_index } else { *partner };
-                return Some((node_index, port_name.to_string()))
+                return Some((node_index, port_name.to_string()));
             }
-            NodeKind::Calc { inner } => {
-                return Some((node_index, port_name.to_string()))
-            }
+            NodeKind::Calc { inner } => return Some((node_index, port_name.to_string())),
         }
     }
 
@@ -554,12 +660,14 @@ impl NodeEditor {
                 partner,
                 is_input_side,
             } => {
-                let node_index = if !*is_input_side { node_index } else { *partner };
-                return Some((node_index, port_name.to_string()))
+                let node_index = if !*is_input_side {
+                    node_index
+                } else {
+                    *partner
+                };
+                return Some((node_index, port_name.to_string()));
             }
-            NodeKind::Calc { inner } => {
-                return Some((node_index, port_name.to_string()))
-            }
+            NodeKind::Calc { inner } => return Some((node_index, port_name.to_string())),
         }
     }
 }

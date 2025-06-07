@@ -176,18 +176,21 @@ impl Orchestrator {
             .insert(input_field.to_owned(), source_field.to_owned());
     }
 
-    /// Determine the order to evaluate the calcs by traversing the calc graph.
-    pub fn eval_order(&self) -> Vec<String> {
+    /// Determine the order to evaluate the calcs by traversing the calc graph
+    /// and the evaluation depth of each calc. Eval depth is returned as a sequential
+    /// grouping of calc names.
+    pub fn eval_order(&self) -> (Vec<CalcName>, Vec<Vec<CalcName>>) {
         let mut eval_order: Vec<CalcName> = Vec::with_capacity(self.calcs.len());
+        let mut eval_depth_groups: Vec<Vec<CalcName>> = Vec::new();
 
         // The node name is always the first element of the name,
         // and any other `.` is not for our usage
-        fn get_node_name(field_name: &str) -> String {
+        fn get_node_name(field_name: &str) -> CalcName {
             field_name.split(".").collect::<Vec<&str>>()[0].to_owned()
         }
         let calc_names = self.calcs.keys().cloned().collect::<Vec<CalcName>>();
 
-        // Collate parent _calcs_ of each calc (parents), not including the peripherals
+        // Collate parent _calcs_ of each calc, not including the peripherals
         let mut calc_node_parents = BTreeMap::new();
         for (name, calc) in self.calcs.iter() {
             let mut calc_parents = Vec::new();
@@ -205,8 +208,10 @@ impl Orchestrator {
         // Traverse the calcs, developing the evaluation order
         let mut evaluated = BTreeMap::new();
         for name in self.calcs.keys().cloned() {
-            evaluated.insert(name, false);
+            evaluated.insert(name.clone(), false);
         }
+        
+
         //   While there are any calcs that have not been evaluated,
         //   evaluate any that are ready.
         let max_depth = calc_names.len() + 1;
@@ -222,6 +227,7 @@ impl Orchestrator {
 
             // Loop over calcs and find the ones that are ready to evaluate next
             let mut any_new_evaluated = false;
+            let mut eval_group = Vec::new();
             for name in self.calcs.keys().cloned() {
                 // Find calcs which have not been evaluated
                 if !evaluated[&name] {
@@ -234,11 +240,15 @@ impl Orchestrator {
                     if all_parents_ready {
                         // Mark those nodes to evaluate next
                         eval_order.push(name.clone());
+                        eval_group.push(name.clone());
                         evaluated.insert(name, true);
                         any_new_evaluated = true;
                     }
                 }
             }
+
+            // Add this depth group
+            eval_depth_groups.push(eval_group);
 
             // Check if we are stuck on a loop.
             //
@@ -250,7 +260,7 @@ impl Orchestrator {
             }
         }
 
-        eval_order
+        (eval_order, eval_depth_groups)
     }
 
     /// Set up calc tape and (re-)initialize individual calcs
@@ -290,7 +300,7 @@ impl Orchestrator {
         );
 
         // Determine order to evaluate calcs
-        let eval_order = self.eval_order();
+        let eval_order = self.eval_order().0;
 
         // Build the calc and dispatch index maps using the calc order
         let mut fields_order = Vec::new();
