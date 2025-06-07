@@ -161,12 +161,18 @@ impl NodeData {
     }
 
     pub fn get_input_port(&self, name: &str) -> &Port {
-        let ind = self.inputs.get_by_left(name).unwrap();
+        let ind = self.inputs.get_by_left(name).expect(&format!(
+            "Node `{}` missing input port `{}`",
+            self.name, name
+        ));
         &self.input_ports[*ind]
     }
 
     pub fn get_output_port(&self, name: &str) -> &Port {
-        let ind = self.outputs.get_by_left(name).unwrap();
+        let ind = self.outputs.get_by_left(name).expect(&format!(
+            "Node `{:?}` missing output port `{}`",
+            self, name
+        ));
         &self.output_ports[*ind]
     }
 }
@@ -481,8 +487,8 @@ impl NodeEditor {
     /// Set node layout based on associated Controller
     fn autolayout(&mut self) -> Result<(), String> {
         if let Some(c) = &self.controller {
-            let hpad = 50.0;
-            let wpad = 100.0;
+            let hpad = 25.0;
+            let wpad = 200.0;
 
             // Get the evaluation depth of each calc
             let (_eval_order, eval_depth_groups) = c.orchestrator().eval_order();
@@ -760,8 +766,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
                 from.position.1 + from_port.offset_px,
             );
             let to_pos = Point::new(to.position.0, to.position.1 + to_port.offset_px);
-            let ctrl1 = Point::new(from_pos.x + 30.0 / zoom, from_pos.y);
-            let ctrl2 = Point::new(to_pos.x - 30.0 / zoom, to_pos.y);
+            let ctrl1 = Point::new(from_pos.x + 30.0, from_pos.y);
+            let ctrl2 = Point::new(to_pos.x - 30.0, to_pos.y);
 
             // Set a control point at the midpoint so that simple midpoint selection logic can work
             let delta = to_pos - from_pos;
@@ -861,8 +867,8 @@ impl<'a> Program<Message> for EditorCanvas<'a> {
             let to_pos = cursor_pos;
 
             // Set a control point at the midpoint so that simple midpoint selection logic can work
-            let ctrl1 = Point::new(from_pos.x + 30.0 / zoom, from_pos.y);
-            let ctrl2 = Point::new(to_pos.x - 30.0 / zoom, to_pos.y);
+            let ctrl1 = Point::new(from_pos.x + 30.0, from_pos.y);
+            let ctrl2 = Point::new(to_pos.x - 30.0, to_pos.y);
 
             // Set a control point at the midpoint so that simple midpoint selection logic can work
             let delta = to_pos - from_pos;

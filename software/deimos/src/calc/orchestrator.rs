@@ -210,7 +210,6 @@ impl Orchestrator {
         for name in self.calcs.keys().cloned() {
             evaluated.insert(name.clone(), false);
         }
-        
 
         //   While there are any calcs that have not been evaluated,
         //   evaluate any that are ready.
@@ -219,11 +218,7 @@ impl Orchestrator {
         while evaluated.values().any(|x| !x) {
             // Check depth
             traversal_iterations += 1;
-            if traversal_iterations > max_depth {
-                panic!(
-                    "Exceeded maximum number of iterations while building calc graph evaluation order"
-                );
-            }
+            assert!(traversal_iterations <= max_depth, "Calc graph contains a dependency cycle.");
 
             // Loop over calcs and find the ones that are ready to evaluate next
             let mut any_new_evaluated = false;
@@ -241,13 +236,16 @@ impl Orchestrator {
                         // Mark those nodes to evaluate next
                         eval_order.push(name.clone());
                         eval_group.push(name.clone());
-                        evaluated.insert(name, true);
                         any_new_evaluated = true;
                     }
                 }
             }
 
             // Add this depth group
+            for name in &eval_group {
+                // Mark evaluated after finishing group so that we don't flatten any groups with sequential dependencies
+                evaluated.insert(name.clone(), true);
+            }
             eval_depth_groups.push(eval_group);
 
             // Check if we are stuck on a loop.
