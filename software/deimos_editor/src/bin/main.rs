@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::rc::Rc;
 
@@ -21,7 +22,7 @@ use iced::{Element, Font, Length, Point, Rectangle, Renderer, Theme, Vector};
 // in order to handle links between composite nodes' subnodes
 // (the input and output nodes of a Peripheral).
 use petgraph::stable_graph::{NodeIndex, StableGraph};
-use petgraph::visit::{EdgeRef, IntoEdgeReferences};
+use petgraph::visit::{self, EdgeRef, IntoEdgeReferences};
 
 use petgraph::Direction;
 use serde::{Deserialize, Serialize};
@@ -170,10 +171,10 @@ impl NodeData {
     }
 
     pub fn get_output_port(&self, name: &str) -> &Port {
-        let ind = self.outputs.get_by_left(name).expect(&format!(
-            "Node `{:?}` missing output port `{}`",
-            self, name
-        ));
+        let ind = self
+            .outputs
+            .get_by_left(name)
+            .expect(&format!("Node `{:?}` missing output port `{}`", self, name));
         &self.output_ports[*ind]
     }
 }
@@ -485,28 +486,58 @@ impl NodeEditor {
         Ok(())
     }
 
-    /// Get the calc node indices downstream of this peripheral
-    fn get_peripheral_descendants(&self, name: &str) -> Result<Vec<NodeIndex>, String> {
+    /// Get the calc node indices that are connected to this peripheral
+    fn get_peripheral_connected(&self, name: &str) -> Result<Vec<NodeIndex>, String> {
         let mut nodes = Vec::<NodeIndex>::new();
 
         // Find the peripheral output node
         let &index = self.name_index_map.get_by_left(name).unwrap();
         let node = &self.graph.borrow()[index];
-        let index = match &node.kind {
-            NodeKind::Peripheral { inner, partner, is_input_side } => match is_input_side {
-                true => *partner,
-                false => index
-            },
-            _ => return Err(format!("Expected a Peripheral named `{name}`, found a Calc"))
+        let partner_index = match &node.kind {
+            NodeKind::Peripheral {
+                inner,
+                partner,
+                is_input_side,
+            } => partner,
+            _ => {
+                return Err(format!(
+                    "Expected a Peripheral named `{name}`, found a Calc"
+                ));
+            }
         };
 
-        // Get its descendants
-        let mut new: Vec<NodeIndex> = self.graph.borrow().neighbors_directed(index, Direction::Outgoing).collect();
-        while new.len() > 0 {
-            nodes.extend(new.iter());
-            let n = new.len();
-            new.clear();
-            nodes[nodes.len() - n..].iter().for_each(|&i| new.extend(self.graph.borrow().neighbors_directed(i, Direction::Outgoing)) );
+        // Get everything connected both to the input and output nodes of this peripheral
+        for index in [index, *partner_index] {
+            // Get connected nodes, ignoring peripheral nodes
+            let mut new: HashSet<NodeIndex> = HashSet::from_iter(
+                self.graph
+                    .borrow()
+                    .neighbors_undirected(index)
+                    .filter(|&x| match &self.graph.borrow()[x].kind {
+                        NodeKind::Calc { inner } => true,
+                        _ => false,
+                    }),
+            );
+            let mut visited: HashSet<NodeIndex> = HashSet::new();
+
+            while new.len() > 0 {
+                nodes.extend(new.iter());
+                let n = new.len();
+                new.clear();
+                nodes[nodes.len() - n..].iter().for_each(|&i| {
+                    new.extend(
+                        self.graph
+                            .borrow()
+                            .neighbors_undirected(i)
+                            .filter(|&x| match &self.graph.borrow()[x].kind {
+                                NodeKind::Calc { inner } => true,
+                                _ => false,
+                            })
+                            .filter(|x| !visited.contains(x)),
+                    );
+                });
+                visited.extend(new.iter());
+            }
         }
 
         Ok(nodes)
@@ -522,38 +553,53 @@ impl NodeEditor {
             let (_eval_order, eval_depth_groups) = c.orchestrator().eval_order();
 
             // Set calc node positions
-            let mut x = wpad + NODE_WIDTH_PX;
-            let mut y = hpad;
-            for group in &eval_depth_groups {
-                for name in group {
-                    let index = self
-                        .name_index_map
-                        .get_by_left(name)
-                        .ok_or(format!("Missing node `{name}` for layout"))?;
-                    let height = self
-                        .graph
-                        .borrow()
-                        .node_weight(*index)
-                        .unwrap()
-                        .size()
-                        .height;
-                    self.graph
-                        .borrow_mut()
-                        .node_weight_mut(*index)
-                        .unwrap()
-                        .position = (x, y);
-                    y += hpad + height;
-                }
-                x += wpad + NODE_WIDTH_PX;
-            }
+            let xbase = wpad + NODE_WIDTH_PX;
+            let mut ybase = hpad;
+            let mut y = ybase;
+            let mut ymax = ybase; // Maximum y-value seen so far
+            let mut visited = HashSet::new();
 
-            // Set peripheral positions
-            let mut y = 0.0;
-            for name in c.peripherals().keys() {
+            for pname in c.peripherals().keys() {
+                let connected: HashSet<NodeIndex> =
+                    HashSet::from_iter(self.get_peripheral_connected(pname)?);
+                let mut x = xbase;
+                for group in &eval_depth_groups {
+                    y = ybase;
+                    for name in group {
+                        let index = self
+                            .name_index_map
+                            .get_by_left(name)
+                            .ok_or(format!("Missing node `{name}` for layout"))?;
+
+                        if !connected.contains(index) || visited.contains(index) {
+                            continue;
+                        }
+
+                        let height = self
+                            .graph
+                            .borrow()
+                            .node_weight(*index)
+                            .unwrap()
+                            .size()
+                            .height;
+                        self.graph
+                            .borrow_mut()
+                            .node_weight_mut(*index)
+                            .unwrap()
+                            .position = (x, y);
+                        visited.insert(index);
+
+                        y += hpad + height;
+                        ymax = ymax.max(y);
+                    }
+                    x += wpad + NODE_WIDTH_PX;
+                }
+
+                // Set peripheral positions
                 let &index = self
                     .name_index_map
-                    .get_by_left(name)
-                    .ok_or(format!("Missing node `{name}` for layout"))?;
+                    .get_by_left(pname)
+                    .ok_or(format!("Missing node `{pname}` for layout"))?;
                 let (&partner_index, &is_input_side) =
                     match &self.graph.borrow().node_weight(index).unwrap().kind {
                         NodeKind::Peripheral {
@@ -563,7 +609,7 @@ impl NodeEditor {
                         } => (partner, is_input_side),
                         _ => {
                             return Err(format!(
-                                "Node `{name}` expected to be a Peripheral, but is a Calc."
+                                "Node `{pname}` expected to be a Peripheral, but is a Calc."
                             ));
                         }
                     };
@@ -591,10 +637,14 @@ impl NodeEditor {
                         false => x,
                     };
 
-                    self.graph.borrow_mut().node_weight_mut(i).unwrap().position = (x_this_side, y)
+                    self.graph.borrow_mut().node_weight_mut(i).unwrap().position =
+                        (x_this_side, ybase)
                 }
 
                 y += hpad + h;
+                ymax = ymax.max(y);
+
+                ybase = ymax;
             }
 
             Ok(())
