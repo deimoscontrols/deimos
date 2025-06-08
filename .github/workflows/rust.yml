@@ -36,3 +36,5 @@ jobs:
         cargo test --verbose --all-features
         cargo run --example ipc_plugin --features=df,ser
         cargo run --example sideloading --features=sideloading,ser
+        cargo build --example multi_daq --features=tsdb,ser
+        cargo build --example basic --features=ser
