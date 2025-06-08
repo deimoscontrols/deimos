@@ -22,9 +22,8 @@ use iced::{Element, Font, Length, Point, Rectangle, Renderer, Theme, Vector};
 // in order to handle links between composite nodes' subnodes
 // (the input and output nodes of a Peripheral).
 use petgraph::stable_graph::{NodeIndex, StableGraph};
-use petgraph::visit::{self, EdgeRef, IntoEdgeReferences};
+use petgraph::visit::{EdgeRef, IntoEdgeReferences};
 
-use petgraph::Direction;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
@@ -32,12 +31,12 @@ use bimap::BiBTreeMap;
 
 use deimos::{self, calc::Calc, peripheral::Peripheral};
 
-const NODE_WIDTH_PX: f32 = 150.0;
+const NODE_WIDTH_PX: f32 = 200.0;
 const PORT_STRIDE_PX: f32 = 20.0;
 const LEFT_PAD_PX: f32 = 10.0;
 
 pub fn main() -> iced::Result {
-    iced::application("Deimos Editor", NodeEditor::update, NodeEditor::view)
+    iced::application("🚧Deimos Editor🚧", NodeEditor::update, NodeEditor::view)
         .theme(|_| Theme::Dark)
         .centered()
         .antialiasing(true)
@@ -80,8 +79,6 @@ impl NodeData {
     pub fn new(
         name: String,
         kind: NodeKind,
-        // inputs: Vec<String>,
-        // outputs: Vec<String>,
         position: (f32, f32),
     ) -> NodeData {
         let (inputs, outputs) = match &kind {
@@ -323,63 +320,6 @@ impl NodeEditor {
     }
 
     fn view(state: &Self) -> Element<Message> {
-        // Example data
-        if state.graph.borrow().node_count() == 0 {
-            let a = state.graph.borrow_mut().add_node(NodeData::new(
-                "Add".into(),
-                NodeKind::Calc {
-                    inner: Box::new(deimos::calc::Affine::default()),
-                },
-                (100.0, 100.0),
-            ));
-
-            let b = state.graph.borrow_mut().add_node(NodeData::new(
-                "Display".into(),
-                NodeKind::Calc {
-                    inner: Box::new(deimos::calc::TcKtype::default()),
-                },
-                (400.0, 200.0),
-            ));
-
-            let c = state.graph.borrow_mut().add_node(NodeData::new(
-                "p0 (input)".into(),
-                NodeKind::Peripheral {
-                    inner: Box::new(deimos::peripheral::AnalogIRev4::default()),
-                    partner: NodeIndex::default(),
-                    is_input_side: true,
-                },
-                (600.0, 200.0),
-            ));
-
-            let d = state.graph.borrow_mut().add_node(NodeData::new(
-                "p0 (output)".into(),
-                NodeKind::Peripheral {
-                    inner: Box::new(deimos::peripheral::AnalogIRev4::default()),
-                    partner: c,
-                    is_input_side: false,
-                },
-                (0.0, 200.0),
-            ));
-
-            //   Link input and output parts of peripheral
-            state.graph.borrow_mut().node_weight_mut(c).unwrap().kind = NodeKind::Peripheral {
-                inner: Box::new(deimos::peripheral::AnalogIRev4::default()),
-                partner: d,
-                is_input_side: true,
-            };
-
-            state.graph.borrow_mut().add_edge(
-                a,
-                b,
-                EdgeData {
-                    from_port: "y".into(),
-                    to_port: "cold_junction_temperature_K".into(),
-                },
-            );
-
-            println!("Added defaults");
-        }
-
         let canvas = Canvas::new(EditorCanvas {
             _v: core::marker::PhantomData,
             graph: state.graph.clone(),
@@ -392,9 +332,9 @@ impl NodeEditor {
             .push(
                 Row::new()
                     .push(button("Load").on_press(Message::Menu(MenuMessage::Load)))
-                    .push(button("Save").on_press(Message::Menu(MenuMessage::Save)))
-                    .push(button("Save As").on_press(Message::Menu(MenuMessage::SaveAs)))
-                    .push(button("Autolayout").on_press(Message::Menu(MenuMessage::AutoLayout))),
+                    // .push(button("Save").on_press(Message::Menu(MenuMessage::Save)))
+                    // .push(button("Save As").on_press(Message::Menu(MenuMessage::SaveAs)))
+                    // .push(button("Autolayout").on_press(Message::Menu(MenuMessage::AutoLayout))),
             )
             .push(horizontal_rule(0.0))
             // Node editor
