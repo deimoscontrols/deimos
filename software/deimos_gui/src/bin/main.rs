@@ -39,7 +39,10 @@ const EDGECOLOR: Color = Color::BLACK;
 const SELECTION_COLOR: Color = iced::Color::from_rgb(0.2, 0.8, 0.2);
 const TEXT_COLOR: Color = Color::BLACK;
 
-const FONT: Font = Font { weight: iced::font::Weight::Bold, ..Font::MONOSPACE};
+const FONT: Font = Font {
+    weight: iced::font::Weight::Bold,
+    ..Font::MONOSPACE
+};
 
 pub fn main() -> iced::Result {
     iced::application("Deimos Editor", NodeEditor::update, NodeEditor::view)
@@ -82,11 +85,7 @@ struct NodeData {
 }
 
 impl NodeData {
-    pub fn new(
-        name: String,
-        kind: NodeKind,
-        position: (f32, f32),
-    ) -> NodeData {
+    pub fn new(name: String, kind: NodeKind, position: (f32, f32)) -> NodeData {
         let (inputs, outputs) = match &kind {
             NodeKind::Calc { inner } => (inner.get_input_names(), inner.get_output_names()),
             NodeKind::Peripheral {
@@ -166,8 +165,10 @@ impl NodeData {
     }
 
     pub fn get_input_port(&self, name: &str) -> &Port {
-        let ind = self.inputs.get_by_left(name).unwrap_or_else(|| panic!("Node `{}` missing input port `{}`",
-            self.name, name));
+        let ind = self
+            .inputs
+            .get_by_left(name)
+            .unwrap_or_else(|| panic!("Node `{}` missing input port `{}`", self.name, name));
         &self.input_ports[*ind]
     }
 
@@ -273,9 +274,14 @@ impl NodeEditor {
                 CanvasMessage::AddEdge(from, to, data) => {
                     // Check if the target port already has an input
                     let to_port = data.to_port.clone();
-                    if !state.graph.borrow().edges_directed(to, Direction::Incoming).any(|x| x.weight().to_port == to_port) {
+                    if !state
+                        .graph
+                        .borrow()
+                        .edges_directed(to, Direction::Incoming)
+                        .any(|x| x.weight().to_port == to_port)
+                    {
                         state.graph.borrow_mut().add_edge(from, to, data);
-                        state.checkpoint();   
+                        state.checkpoint();
                     }
                 }
                 CanvasMessage::RemoveEdge(from, to, data) => {
@@ -314,12 +320,13 @@ impl NodeEditor {
 
                     if let Some(path) = f {
                         let res = state.load(&std::path::PathBuf::from(path));
-                        if let Err(x) = res { println!("{x}") }
+                        if let Err(x) = res {
+                            println!("{x}")
+                        }
                     }
-                }
-                // MenuMessage::Save => {}
-                // MenuMessage::SaveAs => {}
-                // MenuMessage::AutoLayout => {}
+                } // MenuMessage::Save => {}
+                  // MenuMessage::SaveAs => {}
+                  // MenuMessage::AutoLayout => {}
             },
             // x => println!("Unhandled message: {x:?}"),
         };
@@ -336,11 +343,9 @@ impl NodeEditor {
         Column::new()
             // Top bar
             .push(
-                Row::new()
-                    .push(button("Load").on_press(Message::Menu(MenuMessage::Load)))
-                    // .push(button("Save").on_press(Message::Menu(MenuMessage::Save)))
-                    // .push(button("Save As").on_press(Message::Menu(MenuMessage::SaveAs)))
-                    // .push(button("Autolayout").on_press(Message::Menu(MenuMessage::AutoLayout))),
+                Row::new().push(button("Load").on_press(Message::Menu(MenuMessage::Load))), // .push(button("Save").on_press(Message::Menu(MenuMessage::Save)))
+                                                                                            // .push(button("Save As").on_press(Message::Menu(MenuMessage::SaveAs)))
+                                                                                            // .push(button("Autolayout").on_press(Message::Menu(MenuMessage::AutoLayout))),
             )
             .push(horizontal_rule(0.0))
             // Node editor
@@ -416,10 +421,7 @@ impl NodeEditor {
             let (to_node, to_port) = self
                 .get_input_port_by_name(to)
                 .ok_or(format!("Did not find peripheral input `{to}`"))?;
-            let data = EdgeData {
-                from_port,
-                to_port,
-            };
+            let data = EdgeData { from_port, to_port };
             self.graph.borrow_mut().add_edge(from_node, to_node, data);
         }
 
@@ -540,7 +542,7 @@ impl NodeEditor {
                     }
                     x += wpad + NODE_WIDTH_PX;
                     y += hpad * 5.0;
-                    ymax = ymax.max(y); 
+                    ymax = ymax.max(y);
                 }
 
                 // Set peripheral positions
@@ -757,11 +759,7 @@ impl Program<Message> for EditorCanvas<'_> {
         let mut frame = Frame::new(renderer, bounds.size());
 
         // Background
-        frame.fill_rectangle(
-            Point::ORIGIN,
-            frame.size(),
-            BGCOLOR,
-        );
+        frame.fill_rectangle(Point::ORIGIN, frame.size(), BGCOLOR);
 
         let zoom = state.zoom.max(0.01);
 
