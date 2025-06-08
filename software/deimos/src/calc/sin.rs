@@ -7,7 +7,7 @@ use crate::{calc_config, calc_input_names, calc_output_names};
 
 /// Sin wave between `low` and `high` with a period of `period_s` and phase offset of `offset_s`
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Sin {
     // User inputs
     period_s: f64,

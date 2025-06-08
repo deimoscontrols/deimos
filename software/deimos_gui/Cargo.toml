@@ -1,0 +1,17 @@
+[package]
+name = "deimos_gui"
+version = "0.1.0"
+edition = "2024"
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+iced = { version="0.13.1", features=["canvas"] }
+rfd = "0.15.3"
+petgraph = { version = "0.8.1", features = ["serde-1", "stable_graph"] }
+serde = { version = "^1", features = ["derive", "rc"]}
+serde_json = { version = "^1", features = ["preserve_order"] }
+bimap = { version = "0.6.3", features = ["serde"] }
+
+deimos = { version = "0.9.0", path =  "../deimos",  features = ["all"] }

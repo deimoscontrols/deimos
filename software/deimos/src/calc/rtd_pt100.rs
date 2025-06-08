@@ -30,7 +30,7 @@ pub static INTERPOLATOR: Lazy<MulticubicRegular<'static, f64, 1>> = Lazy::new(||
 
 /// Derive input voltage from amplifier output
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct RtdPt100 {
     // User inputs
     resistance_name: String,

@@ -1,0 +1,212 @@
+{
+  "ctx": {
+    "op_name": "basic_example",
+    "op_dir": "./software/deimos/examples",
+    "dt_ns": 1000000,
+    "timeout_to_operating_ns": 100000000,
+    "binding_timeout_ms": 10,
+    "configuring_timeout_ms": 20,
+    "peripheral_loss_of_contact_limit": 10,
+    "controller_loss_of_contact_limit": 10,
+    "termination_criteria": [],
+    "loss_of_contact_policy": "Terminate",
+    "user_ctx": {},
+    "user_channels": {}
+  },
+  "sockets": [
+    {
+      "type": "UdpSocket"
+    }
+  ],
+  "dispatchers": [
+    {
+      "type": "CsvDispatcher",
+      "chunk_size_megabytes": 50,
+      "overflow_behavior": "Wrap"
+    }
+  ],
+  "peripherals": {
+    "p1": {
+      "type": "AnalogIRev4",
+      "serial_number": 1
+    }
+  },
+  "orchestrator": {
+    "calcs": {
+      "p1_4_20_mA_1_A": {
+        "type": "InverseAffine",
+        "input_name": "p1.ain3",
+        "slope": 75.0,
+        "offset": 0.0,
+        "save_outputs": true
+      },
+      "p1_4_20_mA_2_A": {
+        "type": "InverseAffine",
+        "input_name": "p1.ain4",
+        "slope": 75.0,
+        "offset": 0.0,
+        "save_outputs": true
+      },
+      "p1_4_20_mA_3_A": {
+        "type": "InverseAffine",
+        "input_name": "p1.ain5",
+        "slope": 75.0,
+        "offset": 0.0,
+        "save_outputs": true
+      },
+      "p1_4_20_mA_4_A": {
+        "type": "InverseAffine",
+        "input_name": "p1.ain6",
+        "slope": 75.0,
+        "offset": 0.0,
+        "save_outputs": true
+      },
+      "p1_4_20_mA_5_A": {
+        "type": "InverseAffine",
+        "input_name": "p1.ain7",
+        "slope": 75.0,
+        "offset": 0.0,
+        "save_outputs": true
+      },
+      "p1_board_temp": {
+        "type": "RtdPt100",
+        "resistance_name": "p1_board_temp_resistance_ohm.y",
+        "save_outputs": true
+      },
+      "p1_board_temp_resistance_ohm": {
+        "type": "InverseAffine",
+        "input_name": "p1.ain2",
+        "slope": 0.006425,
+        "offset": 0.0,
+        "save_outputs": false
+      },
+      "p1_bus_current_A": {
+        "type": "Affine",
+        "input_name": "p1.ain0",
+        "slope": 2.6666666666666665,
+        "offset": 0.0,
+        "save_outputs": true
+      },
+      "p1_bus_voltage_V": {
+        "type": "Affine",
+        "input_name": "p1.ain1",
+        "slope": 14.333333333333334,
+        "offset": 0.0,
+        "save_outputs": true
+      },
+      "p1_rtd_1": {
+        "type": "RtdPt100",
+        "resistance_name": "p1_rtd_1_resistance_ohm.y",
+        "save_outputs": true
+      },
+      "p1_rtd_1_resistance_ohm": {
+        "type": "InverseAffine",
+        "input_name": "p1.ain8",
+        "slope": 0.006425,
+        "offset": 0.0,
+        "save_outputs": true
+      },
+      "p1_rtd_2": {
+        "type": "RtdPt100",
+        "resistance_name": "p1_rtd_2_resistance_ohm.y",
+        "save_outputs": true
+      },
+      "p1_rtd_2_resistance_ohm": {
+        "type": "InverseAffine",
+        "input_name": "p1.ain9",
+        "slope": 0.006425,
+        "offset": 0.0,
+        "save_outputs": true
+      },
+      "p1_rtd_3": {
+        "type": "RtdPt100",
+        "resistance_name": "p1_rtd_3_resistance_ohm.y",
+        "save_outputs": true
+      },
+      "p1_rtd_3_resistance_ohm": {
+        "type": "InverseAffine",
+        "input_name": "p1.ain10",
+        "slope": 0.006425,
+        "offset": 0.0,
+        "save_outputs": true
+      },
+      "p1_rtd_4": {
+        "type": "RtdPt100",
+        "resistance_name": "p1_rtd_4_resistance_ohm.y",
+        "save_outputs": true
+      },
+      "p1_rtd_4_resistance_ohm": {
+        "type": "InverseAffine",
+        "input_name": "p1.ain11",
+        "slope": 0.006425,
+        "offset": 0.0,
+        "save_outputs": true
+      },
+      "p1_rtd_5": {
+        "type": "RtdPt100",
+        "resistance_name": "p1_rtd_5_resistance_ohm.y",
+        "save_outputs": true
+      },
+      "p1_rtd_5_resistance_ohm": {
+        "type": "InverseAffine",
+        "input_name": "p1.ain12",
+        "slope": 0.006425,
+        "offset": 0.0,
+        "save_outputs": true
+      },
+      "p1_tc_1_temp_K": {
+        "type": "TcKtype",
+        "voltage_name": "p1_tc_1_voltage_V.y",
+        "cold_junction_temperature_name": "p1_board_temp.temperature_K",
+        "save_outputs": true
+      },
+      "p1_tc_1_voltage_V": {
+        "type": "InverseAffine",
+        "input_name": "p1.ain13",
+        "slope": 25.7,
+        "offset": 1.024,
+        "save_outputs": false
+      },
+      "p1_tc_2_temp_K": {
+        "type": "TcKtype",
+        "voltage_name": "p1_tc_2_voltage_V.y",
+        "cold_junction_temperature_name": "p1_board_temp.temperature_K",
+        "save_outputs": true
+      },
+      "p1_tc_2_voltage_V": {
+        "type": "InverseAffine",
+        "input_name": "p1.ain14",
+        "slope": 25.7,
+        "offset": 1.024,
+        "save_outputs": false
+      },
+      "p1_tc_3_temp_K": {
+        "type": "TcKtype",
+        "voltage_name": "p1_tc_3_voltage_V.y",
+        "cold_junction_temperature_name": "p1_board_temp.temperature_K",
+        "save_outputs": true
+      },
+      "p1_tc_3_voltage_V": {
+        "type": "InverseAffine",
+        "input_name": "p1.ain15",
+        "slope": 25.7,
+        "offset": 1.024,
+        "save_outputs": false
+      },
+      "p1_tc_4_temp_K": {
+        "type": "TcKtype",
+        "voltage_name": "p1_tc_4_voltage_V.y",
+        "cold_junction_temperature_name": "p1_board_temp.temperature_K",
+        "save_outputs": true
+      },
+      "p1_tc_4_voltage_V": {
+        "type": "InverseAffine",
+        "input_name": "p1.ain16",
+        "slope": 25.7,
+        "offset": 1.024,
+        "save_outputs": false
+      }
+    },
+    "peripheral_input_sources": {}
+  }
+}

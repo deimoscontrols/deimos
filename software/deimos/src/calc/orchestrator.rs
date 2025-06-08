@@ -176,49 +176,21 @@ impl Orchestrator {
             .insert(input_field.to_owned(), source_field.to_owned());
     }
 
-    /// Set up calc tape and (re-)initialize individual calcs
-    pub fn init(
-        &mut self,
-        ctx: ControllerCtx,
-        peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
-    ) {
-        // These will be stored
-        let mut peripheral_output_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
-        let mut peripheral_input_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
-        let mut peripheral_input_source_indices: Vec<(usize, usize)> = Vec::new();
-
+    /// Determine the order to evaluate the calcs by traversing the calc graph
+    /// and the evaluation depth of each calc. Eval depth is returned as a sequential
+    /// grouping of calc names.
+    pub fn eval_order(&self) -> (Vec<CalcName>, Vec<Vec<CalcName>>) {
         let mut eval_order: Vec<CalcName> = Vec::with_capacity(self.calcs.len());
-        let mut dispatch_names: Vec<FieldName> = Vec::new();
-        let mut dispatch_indices: Vec<usize> = Vec::new();
+        let mut eval_depth_groups: Vec<Vec<CalcName>> = Vec::new();
 
         // The node name is always the first element of the name,
         // and any other `.` is not for our usage
-        fn get_node_name(field_name: &str) -> String {
+        fn get_node_name(field_name: &str) -> CalcName {
             field_name.split(".").collect::<Vec<&str>>()[0].to_owned()
         }
-
-        // Collate names of peripherals and calcs
-        let peripheral_names = peripherals.keys().cloned().collect::<Vec<PeripheralName>>();
         let calc_names = self.calcs.keys().cloned().collect::<Vec<CalcName>>();
-        let mut node_names = Vec::new();
-        node_names.extend_from_slice(&peripheral_names);
-        node_names.extend_from_slice(&calc_names);
-        let node_names = node_names; // No longer mutable
 
-        // Make sure no calc or peripheral names contain `.`
-        assert!(
-            !node_names.iter().any(|x| x.contains(".")),
-            "Calc and peripheral names must on contain `.` characters"
-        );
-
-        // Make sure there aren't any duplicate names
-        assert_eq!(
-            HashSet::<String>::from_iter(node_names.iter().cloned()).len(),
-            node_names.len(),
-            "Peripheral names must not overlap with calc names"
-        );
-
-        // Collate parent _calcs_ of each calc (parents), not including the peripherals
+        // Collate parent _calcs_ of each calc, not including the peripherals
         let mut calc_node_parents = BTreeMap::new();
         for (name, calc) in self.calcs.iter() {
             let mut calc_parents = Vec::new();
@@ -236,8 +208,9 @@ impl Orchestrator {
         // Traverse the calcs, developing the evaluation order
         let mut evaluated = BTreeMap::new();
         for name in self.calcs.keys().cloned() {
-            evaluated.insert(name, false);
+            evaluated.insert(name.clone(), false);
         }
+
         //   While there are any calcs that have not been evaluated,
         //   evaluate any that are ready.
         let max_depth = calc_names.len() + 1;
@@ -245,14 +218,14 @@ impl Orchestrator {
         while evaluated.values().any(|x| !x) {
             // Check depth
             traversal_iterations += 1;
-            if traversal_iterations > max_depth {
-                panic!(
-                    "Exceeded maximum number of iterations while building calc graph evaluation order"
-                );
-            }
+            assert!(
+                traversal_iterations <= max_depth,
+                "Calc graph contains a dependency cycle."
+            );
 
             // Loop over calcs and find the ones that are ready to evaluate next
             let mut any_new_evaluated = false;
+            let mut eval_group = Vec::new();
             for name in self.calcs.keys().cloned() {
                 // Find calcs which have not been evaluated
                 if !evaluated[&name] {
@@ -265,11 +238,18 @@ impl Orchestrator {
                     if all_parents_ready {
                         // Mark those nodes to evaluate next
                         eval_order.push(name.clone());
-                        evaluated.insert(name, true);
+                        eval_group.push(name.clone());
                         any_new_evaluated = true;
                     }
                 }
             }
+
+            // Add this depth group
+            for name in &eval_group {
+                // Mark evaluated after finishing group so that we don't flatten any groups with sequential dependencies
+                evaluated.insert(name.clone(), true);
+            }
+            eval_depth_groups.push(eval_group);
 
             // Check if we are stuck on a loop.
             //
@@ -280,6 +260,48 @@ impl Orchestrator {
                 panic!("Calc graph contains cyclic dependencies");
             }
         }
+
+        (eval_order, eval_depth_groups)
+    }
+
+    /// Set up calc tape and (re-)initialize individual calcs
+    pub fn init(
+        &mut self,
+        ctx: ControllerCtx,
+        peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
+    ) {
+        // These will be stored
+        let mut peripheral_output_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
+        let mut peripheral_input_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
+        let mut peripheral_input_source_indices: Vec<(usize, usize)> = Vec::new();
+
+        let mut dispatch_names: Vec<FieldName> = Vec::new();
+        let mut dispatch_indices: Vec<usize> = Vec::new();
+
+        // Check names for collisions and formatting
+        //   Collate names of peripherals and calcs
+        let peripheral_names = peripherals.keys().cloned().collect::<Vec<PeripheralName>>();
+        let calc_names = self.calcs.keys().cloned().collect::<Vec<CalcName>>();
+        let mut node_names = Vec::new();
+        node_names.extend_from_slice(&peripheral_names);
+        node_names.extend_from_slice(&calc_names);
+        let node_names = node_names; // No longer mutable
+
+        //   Make sure no calc or peripheral names contain `.`
+        assert!(
+            !node_names.iter().any(|x| x.contains(".")),
+            "Calc and peripheral names must not contain `.` characters"
+        );
+
+        //   Make sure there aren't any duplicate names
+        assert_eq!(
+            HashSet::<String>::from_iter(node_names.iter().cloned()).len(),
+            node_names.len(),
+            "Peripheral names must not overlap with calc names"
+        );
+
+        // Determine order to evaluate calcs
+        let eval_order = self.eval_order().0;
 
         // Build the calc and dispatch index maps using the calc order
         let mut fields_order = Vec::new();
@@ -392,7 +414,7 @@ impl Orchestrator {
             peripheral_output_slices,
             peripheral_input_slices,
             peripheral_input_source_indices,
-        }
+        };
     }
 
     /// Clear state to reset for another run

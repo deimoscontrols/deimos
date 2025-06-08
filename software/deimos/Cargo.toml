@@ -1,6 +1,6 @@
 [package]
 name = "deimos"
-version = "0.8.1"
+version = "0.9.0"
 edition = "2024"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "MIT OR Apache-2.0"
@@ -45,6 +45,7 @@ postgres-types = { version = "0.2.8", optional = true }
 
 [features]
 default = ["ser"]
+all = ["ser", "tsdb", "df", "affinity", "sideloading"]
 tsdb = ["postgres", "postgres-types"]
 df = ["polars"]
 ser = ["serde", "typetag", "serde_json"]

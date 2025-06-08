@@ -5,7 +5,7 @@ use crate::{calc_config, calc_input_names, calc_output_names};
 
 /// Simplest calc that does anything at all
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Constant {
     // User inputs
     y: f64,

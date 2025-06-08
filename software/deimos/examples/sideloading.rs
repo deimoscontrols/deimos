@@ -70,7 +70,7 @@ fn main() {
 
 /// A dummy calc that calls out the time on a channel each cycle
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Speaker {
     // User inputs
     channel_name: String,
@@ -147,7 +147,7 @@ impl Calc for Speaker {
 
 /// A dummy calc that receives time from a listener and prints it to the terminal
 #[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Listener {
     // User inputs
     // input_name: String,

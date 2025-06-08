@@ -1,5 +1,16 @@
 # Changelog
 
+## 2025-05-06 deimos 0.9.0, deimos_gui 0.1.0
+
+### Added
+
+* !Add bound on Debug for Calc and Peripheral to support use as part of state objects in iced gui
+* Extract determination of calc eval order to `Orchestrator::eval_order()` and include evaluation depth
+* Add read-only access to orchestrator via controller
+* Add `all` feature
+* Add `basic.rs` example
+
+
 ## 2025-05-03 deimos 0.8.1
 
 Edits to prep for implementation of a calc node editor GUI.
