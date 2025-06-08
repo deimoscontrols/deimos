@@ -4,7 +4,6 @@ use std::fmt::Debug;
 use std::rc::Rc;
 
 use canvas::Event;
-use deimos::Controller;
 use iced::alignment::Horizontal;
 use iced::border::Radius;
 use iced::keyboard::key::{Code, Named, Physical};
@@ -15,8 +14,7 @@ use iced::widget::{
     canvas::{self, Canvas, Frame, Geometry, Path, Program, Text},
     horizontal_rule,
 };
-// use iced::window::Settings;
-use iced::{Element, Font, Length, Point, Rectangle, Renderer, Theme, Vector};
+use iced::{Color, Element, Font, Length, Point, Rectangle, Renderer, Theme, Vector};
 
 // We need StableGraph, which preserves indices through deletions,
 // in order to handle links between composite nodes' subnodes
@@ -24,19 +22,28 @@ use iced::{Element, Font, Length, Point, Rectangle, Renderer, Theme, Vector};
 use petgraph::stable_graph::{NodeIndex, StableGraph};
 use petgraph::visit::{EdgeRef, IntoEdgeReferences};
 
+use petgraph::Direction;
 use serde::{Deserialize, Serialize};
 
 use bimap::BiBTreeMap;
 
-use deimos::{self, calc::Calc, peripheral::Peripheral};
+use deimos::{self, Controller, calc::Calc, peripheral::Peripheral};
 
-const NODE_WIDTH_PX: f32 = 200.0;
+const NODE_WIDTH_PX: f32 = 250.0;
 const PORT_STRIDE_PX: f32 = 20.0;
 const LEFT_PAD_PX: f32 = 10.0;
 
+const BGCOLOR: Color = iced::Color::WHITE;
+const NODECOLOR: Color = iced::Color::from_rgb(0.9, 0.9, 0.9);
+const EDGECOLOR: Color = Color::BLACK;
+const SELECTION_COLOR: Color = iced::Color::from_rgb(0.2, 0.8, 0.2);
+const TEXT_COLOR: Color = Color::BLACK;
+
+const FONT: Font = Font { weight: iced::font::Weight::Bold, ..Font::MONOSPACE};
+
 pub fn main() -> iced::Result {
-    iced::application("🚧Deimos Editor🚧", NodeEditor::update, NodeEditor::view)
-        .theme(|_| Theme::Dark)
+    iced::application("Deimos Editor", NodeEditor::update, NodeEditor::view)
+        .theme(|_| Theme::Light)
         .centered()
         .antialiasing(true)
         .default_font(iced::Font::MONOSPACE)
@@ -264,8 +271,12 @@ impl NodeEditor {
                     }
                 }
                 CanvasMessage::AddEdge(from, to, data) => {
-                    state.graph.borrow_mut().add_edge(from, to, data);
-                    state.checkpoint();
+                    // Check if the target port already has an input
+                    let to_port = data.to_port.clone();
+                    if !state.graph.borrow().edges_directed(to, Direction::Incoming).any(|x| x.weight().to_port == to_port) {
+                        state.graph.borrow_mut().add_edge(from, to, data);
+                        state.checkpoint();   
+                    }
                 }
                 CanvasMessage::RemoveEdge(from, to, data) => {
                     let mut index = None;
@@ -481,14 +492,14 @@ impl NodeEditor {
     /// Set node layout based on associated Controller
     fn autolayout(&mut self) -> Result<(), String> {
         if let Some(c) = &self.controller {
-            let hpad = 25.0;
+            let hpad = 10.0;
             let wpad = 200.0;
 
             // Get the evaluation depth of each calc
             let (_eval_order, eval_depth_groups) = c.orchestrator().eval_order();
 
             // Set calc node positions
-            let xbase = wpad + NODE_WIDTH_PX;
+            let xbase = wpad + NODE_WIDTH_PX + LEFT_PAD_PX;
             let mut ybase = hpad;
             let mut y = ybase;
             let mut ymax = ybase; // Maximum y-value seen so far
@@ -528,6 +539,8 @@ impl NodeEditor {
                         ymax = ymax.max(y);
                     }
                     x += wpad + NODE_WIDTH_PX;
+                    y += hpad * 5.0;
+                    ymax = ymax.max(y); 
                 }
 
                 // Set peripheral positions
@@ -568,7 +581,7 @@ impl NodeEditor {
 
                 for (i, side) in [(index, !is_input_side), (partner_index, is_input_side)] {
                     let x_this_side = match side {
-                        true => 0.0,
+                        true => LEFT_PAD_PX,
                         false => x,
                     };
 
@@ -747,7 +760,7 @@ impl Program<Message> for EditorCanvas<'_> {
         frame.fill_rectangle(
             Point::ORIGIN,
             frame.size(),
-            iced::Color::from_rgb(0.1, 0.1, 0.1),
+            BGCOLOR,
         );
 
         let zoom = state.zoom.max(0.01);
@@ -795,9 +808,9 @@ impl Program<Message> for EditorCanvas<'_> {
                 edge.weight().clone(),
             ) == state.action_ctx;
             let color = if is_selected {
-                iced::Color::from_rgb(1.0, 0.2, 0.2)
+                SELECTION_COLOR
             } else {
-                iced::Color::from_rgb(0.6, 0.6, 0.6)
+                EDGECOLOR
             };
 
             frame.stroke(
@@ -813,20 +826,20 @@ impl Program<Message> for EditorCanvas<'_> {
             // Border
             let rect = Path::rounded_rectangle(node.position(), node.size(), Radius::new(5.0));
             let color = if ExclusiveActionCtx::NodeSelected(node_idx) == state.action_ctx {
-                iced::Color::from_rgb(1.0, 0.2, 0.2) // Highlight selected
+                SELECTION_COLOR // Highlight selected
             } else {
-                iced::Color::WHITE
+                EDGECOLOR
             };
-            frame.fill(&rect, iced::Color::from_rgb(0.3, 0.3, 0.5));
+            frame.fill(&rect, NODECOLOR);
             frame.stroke(&rect, canvas::Stroke::default().with_color(color));
 
             // Label
             frame.fill_text(Text {
                 content: node.name.clone(),
                 position: Point::new(node.position.0 + 6.0, node.position.1 + 8.0),
-                color,
+                color: TEXT_COLOR,
                 size: 16.0.into(),
-                font: Font::MONOSPACE,
+                font: FONT,
                 ..Default::default()
             });
 
@@ -838,13 +851,13 @@ impl Program<Message> for EditorCanvas<'_> {
                     node.position.1 + port.offset_px,
                 );
                 let port_circle = Path::circle(port_pos, 4.0);
-                frame.fill(&port_circle, iced::Color::WHITE);
+                frame.fill(&port_circle, EDGECOLOR);
                 frame.fill_text(Text {
                     content: port_name.clone(),
                     position: Point::new(port_pos.x + 6.0, port_pos.y - 8.0),
-                    color: iced::Color::WHITE,
+                    color: TEXT_COLOR,
                     size: 12.0.into(),
-                    font: Font::MONOSPACE,
+                    font: FONT,
                     ..Default::default()
                 });
             }
@@ -854,13 +867,13 @@ impl Program<Message> for EditorCanvas<'_> {
                 let port = &node.input_ports[i];
                 let port_pos = Point::new(node.position.0, node.position.1 + port.offset_px);
                 let port_circle = Path::circle(port_pos, 4.0);
-                frame.fill(&port_circle, iced::Color::WHITE);
+                frame.fill(&port_circle, EDGECOLOR);
                 frame.fill_text(Text {
                     content: port_name.clone(),
                     position: Point::new(port_pos.x - 8.0, port_pos.y - 8.0),
-                    color: iced::Color::WHITE,
+                    color: TEXT_COLOR,
                     size: 12.0.into(),
-                    font: Font::MONOSPACE,
+                    font: FONT,
                     horizontal_alignment: Horizontal::Right,
                     ..Default::default()
                 });
@@ -892,7 +905,7 @@ impl Program<Message> for EditorCanvas<'_> {
             frame.stroke(
                 &path,
                 canvas::Stroke::default()
-                    .with_color(iced::Color::from_rgb(0.8, 0.8, 0.2))
+                    .with_color(SELECTION_COLOR)
                     .with_width(2.0),
             );
         }
