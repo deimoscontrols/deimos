@@ -218,7 +218,10 @@ impl Orchestrator {
         while evaluated.values().any(|x| !x) {
             // Check depth
             traversal_iterations += 1;
-            assert!(traversal_iterations <= max_depth, "Calc graph contains a dependency cycle.");
+            assert!(
+                traversal_iterations <= max_depth,
+                "Calc graph contains a dependency cycle."
+            );
 
             // Loop over calcs and find the ones that are ready to evaluate next
             let mut any_new_evaluated = false;

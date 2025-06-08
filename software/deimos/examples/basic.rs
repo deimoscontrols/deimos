@@ -23,9 +23,7 @@ fn main() {
 
     // Set up data targets
     let csv_dispatcher: Box<dyn Dispatcher> =
-        Box::new(CsvDispatcher::new(
-            50,
-             dispatcher::Overflow::Wrap));
+        Box::new(CsvDispatcher::new(50, dispatcher::Overflow::Wrap));
     controller.add_dispatcher(csv_dispatcher);
 
     // Serialize and deserialize the controller (for demonstration purposes)
