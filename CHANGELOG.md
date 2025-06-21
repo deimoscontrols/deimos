@@ -1,5 +1,16 @@
 # Changelog
 
+## 2025-06-21 analog_i_rev4 firmware 0.2.0
+
+### Added
+
+* Add second (butter1) filter bank for low reporting rate to Sampler struct
+* Add record of target cutoff ratio to Sampler struct
+* Use second butter1 filter bank if target cutoff ratio is below stable range for nominal butter2 filter bank
+  * This will activate below a reporting rate of 40Hz, allowing proper (though less performant) filtering at the very low end of viable reporting rate
+  * Minimum tabulated cutoff ratio for the butter1 filter extends to a reporting rate of 4Hz, just below the system timing minimum freq of 5Hz
+* Incidentally add SVG version of logo
+
 ## 2025-05-06 deimos 0.9.0, deimos_gui 0.1.0
 
 ### Added
