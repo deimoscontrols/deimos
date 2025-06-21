@@ -15,7 +15,6 @@
 use std::{
     collections::BTreeMap,
     os::unix::net,
-    sync::{Arc, RwLock},
     thread::{self, JoinHandle},
     time::{Duration, Instant, SystemTime},
 };
@@ -32,9 +31,7 @@ use deimos_shared::{
         BindingInput, BindingOutput, ByteStruct, ByteStructLen, ConfiguringInput, ConfiguringOutput,
     },
 };
-use polars::frame::DataFrame;
 
-#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 // For using the controller
@@ -70,13 +67,8 @@ fn main() {
     controller.add_socket(Box::new(UnixSocket::new("ipc_ex")));
 
     // Add an in-memory data target
-    let df_handle = Arc::new(RwLock::new(DataFrame::empty()));
-    let df_dispatcher = Box::new(DataFrameDispatcher::new(
-        df_handle.clone(),
-        1,
-        Overflow::Error,
-    ));
-    controller.add_dispatcher(df_dispatcher);
+    let (df_dispatcher, df_handle) = DataFrameDispatcher::new(1, Overflow::Error, None);
+    controller.add_dispatcher(Box::new(df_dispatcher));
 
     // Register the mockup as a plugin
     let mut pmap: PluginMap = BTreeMap::new();
@@ -112,7 +104,6 @@ fn main() {
     println!("Scan found:\n{:?}", scan_result.values());
 
     // Serialize and deserialize the controller (for demonstration purposes)
-    #[cfg(feature = "ser")]
     {
         let serialized_controller = serde_json::to_string_pretty(&controller).unwrap();
         let _: Controller = serde_json::from_str(&serialized_controller).unwrap();
@@ -127,7 +118,10 @@ fn main() {
 
     // Get collected dataframe
     let df = df_handle.try_read().unwrap();
-    println!("Collected data: \n{}", df);
+    println!("Collected data: \n{:?}", df.headers());
+    for row in df.rows() {
+        println!("{row:?}");
+    }
 
     // Clear sockets
     let _ = std::fs::remove_dir_all("./sock");
@@ -135,13 +129,12 @@ fn main() {
 
 /// The controller's representation of the in-memory peripheral mockup,
 /// reusing the AnalogIRev3's packet formats for convenience.
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub struct IpcMockup {
     pub serial_number: u64,
 }
 
-#[cfg_attr(feature = "ser", typetag::serde)]
+#[typetag::serde]
 impl Peripheral for IpcMockup {
     fn id(&self) -> PeripheralId {
         PeripheralId {

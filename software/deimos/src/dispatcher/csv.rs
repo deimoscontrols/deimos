@@ -6,11 +6,9 @@ use std::path::PathBuf;
 use std::fs::File;
 use std::time::SystemTime;
 
+use serde::{Deserialize, Serialize};
 use std::sync::mpsc::{Sender, channel};
 use std::thread::{self, JoinHandle, spawn};
-
-#[cfg(feature = "ser")]
-use serde::{Deserialize, Serialize};
 
 use crate::controller::context::ControllerCtx;
 
@@ -33,8 +31,7 @@ use super::{Dispatcher, Overflow, csv_header, csv_row_fixed_width};
 /// and so on, or if non-finite values are encountered in measurements, calcs, or metrics.
 ///
 /// Writes to disk on a separate thread to avoid blocking the control loop.
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct CsvDispatcher {
     /// Size per file
     chunk_size_megabytes: usize,
@@ -42,7 +39,7 @@ pub struct CsvDispatcher {
     /// Choice of behavior when the current file is full
     overflow_behavior: Overflow,
 
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     worker: Option<WorkerHandle>,
 }
 
@@ -57,13 +54,13 @@ impl CsvDispatcher {
     }
 }
 
-#[cfg_attr(feature = "ser", typetag::serde)]
+#[typetag::serde]
 impl Dispatcher for CsvDispatcher {
     fn init(
         &mut self,
         ctx: &ControllerCtx,
         channel_names: &[String],
-        #[cfg(feature = "affinity")] core_assignment: usize,
+        core_assignment: usize,
     ) -> Result<(), String> {
         // Shut down any existing workers by dropping their tx handle
         self.worker = None;
@@ -81,7 +78,6 @@ impl Dispatcher for CsvDispatcher {
             header,
             total_len,
             self.overflow_behavior,
-            #[cfg(feature = "affinity")]
             core_assignment,
         ));
 
@@ -124,7 +120,7 @@ impl WorkerHandle {
         header: String,
         total_size: usize,
         overflow_behavior: Overflow,
-        #[cfg(feature = "affinity")] core_assignment: usize,
+        core_assignment: usize,
     ) -> Self {
         let (tx, rx) = channel::<(SystemTime, i64, Vec<f64>)>();
 
@@ -139,7 +135,6 @@ impl WorkerHandle {
 
         let _thread = spawn(move || {
             // Bind to assigned core, and set priority only if the core is not shared with the control loop
-            #[cfg(feature = "affinity")]
             {
                 core_affinity::set_for_current(core_affinity::CoreId {
                     id: core_assignment,

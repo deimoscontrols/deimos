@@ -13,7 +13,6 @@ use deimos::{
     dispatcher::fmt_time,
 };
 
-#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 use std::{
@@ -58,7 +57,6 @@ fn main() {
     );
 
     // Serialize and deserialize the controller (for demonstration purposes)
-    #[cfg(feature = "ser")]
     {
         let serialized_controller = serde_json::to_string_pretty(&controller).unwrap();
         let _: Controller = serde_json::from_str(&serialized_controller).unwrap();
@@ -69,20 +67,19 @@ fn main() {
 }
 
 /// A dummy calc that calls out the time on a channel each cycle
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Speaker {
     // User inputs
     channel_name: String,
     save_outputs: bool,
 
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     endpoint: Endpoint,
 
     prefix: String,
 
     // Values provided by calc orchestrator during init
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     output_index: usize,
 }
 
@@ -102,7 +99,7 @@ impl Speaker {
     }
 }
 
-#[cfg_attr(feature = "ser", typetag::serde)]
+#[typetag::serde]
 impl Calc for Speaker {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, ctx: ControllerCtx, _input_indices: Vec<usize>, output_range: Range<usize>) {
@@ -146,19 +143,18 @@ impl Calc for Speaker {
 }
 
 /// A dummy calc that receives time from a listener and prints it to the terminal
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Listener {
     // User inputs
     // input_name: String,
     channel_name: String,
     save_outputs: bool,
 
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     endpoint: Endpoint,
 
     // Values provided by calc orchestrator during init
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     output_index: usize,
 }
 
@@ -178,7 +174,7 @@ impl Listener {
     }
 }
 
-#[cfg_attr(feature = "ser", typetag::serde)]
+#[typetag::serde]
 impl Calc for Listener {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, ctx: ControllerCtx, _input_indices: Vec<usize>, output_range: Range<usize>) {

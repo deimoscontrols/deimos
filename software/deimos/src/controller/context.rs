@@ -5,23 +5,14 @@ use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 use std::{collections::BTreeMap, default::Default};
 
+use super::channel::{Channel, Endpoint};
 use chrono::{DateTime, Utc};
-
-#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
-
-#[cfg(feature = "sideloading")]
 use std::ops::Deref;
-
-#[cfg(feature = "sideloading")]
 use std::sync::{Arc, RwLock};
 
-#[cfg(feature = "sideloading")]
-use super::channel::{Channel, Endpoint};
-
 /// Criteria for exiting the control program
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub enum Termination {
     /// A duration after which the control program should terminate.
@@ -39,8 +30,7 @@ pub enum Termination {
 }
 
 /// Response to losing contact with a peripheral
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub enum LossOfContactPolicy {
     /// Terminate the control program
@@ -56,8 +46,7 @@ pub enum LossOfContactPolicy {
 }
 
 /// Operation context, provided to appendages during init
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub struct ControllerCtx {
     /// A name for this controller op,
@@ -108,14 +97,12 @@ pub struct ControllerCtx {
     /// on its own, the status of these channels should not be used to indicate
     /// when a freerunning thread should terminate, as this will often result in
     /// a resource leak.
-    #[cfg(feature = "sideloading")]
     pub user_channels: Arc<RwLock<BTreeMap<String, Channel>>>,
 }
 
 impl ControllerCtx {
     /// Get a handle to a source endpoint tx/rx pair for the channel,
     /// creating the channel if it does not exist.
-    #[cfg(feature = "sideloading")]
     pub fn source_endpoint(&self, channel_name: &str) -> Endpoint {
         let map = &self.user_channels;
         let inner = map.deref();
@@ -126,7 +113,6 @@ impl ControllerCtx {
 
     /// Get a handle to a sink endpoint tx/rx pair for the channel,
     /// creating the channel if it does not exist.
-    #[cfg(feature = "sideloading")]
     pub fn sink_endpoint(&self, channel_name: &str) -> Endpoint {
         let map = &self.user_channels;
         let inner = map.deref();
@@ -155,7 +141,6 @@ impl Default for ControllerCtx {
             termination_criteria: Vec::new(),
             loss_of_contact_policy: LossOfContactPolicy::Terminate,
             user_ctx: BTreeMap::new(),
-            #[cfg(feature = "sideloading")]
             user_channels: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }

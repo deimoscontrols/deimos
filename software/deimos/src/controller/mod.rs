@@ -1,19 +1,15 @@
 //! Control loop and integration with data pipeline and calc orchestrator
 
-#[cfg(feature = "sideloading")]
 pub mod channel;
-
 pub mod context;
 mod controller_state;
 mod peripheral_state;
 mod timing;
 
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
-
-#[cfg(feature = "ser")]
-use serde::{Deserialize, Serialize};
 
 use flaw::MedianFilter;
 
@@ -34,7 +30,7 @@ use timing::TimingPID;
 /// The controller implements the control loop,
 /// synchronizes sample reporting time between the peripherals,
 /// and dispatches measured data, calculations, and metrics to the data pipeline.
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct Controller {
     // Input config, which is passed to appendages during their init
     ctx: ControllerCtx,
@@ -307,10 +303,7 @@ impl Controller {
         let err_rollup = self
             .dispatchers
             .iter_mut()
-            .filter_map(|d| match d.terminate() {
-                Ok(_) => None,
-                Err(x) => Some(x),
-            })
+            .filter_map(|d| d.terminate().err())
             .collect::<Vec<String>>();
 
         // Reset calc orchestrator
@@ -327,10 +320,7 @@ impl Controller {
     }
 
     pub fn run(&mut self, plugins: &Option<PluginMap>) -> Result<String, String> {
-        #[cfg(feature = "affinity")]
         let core_ids = core_affinity::get_core_ids().unwrap_or_default();
-
-        #[cfg(feature = "affinity")]
         let mut aux_core_cycle = {
             // Set core affinity, if possible
             // This may not be available on every platform, so it should not break if not available
@@ -414,12 +404,7 @@ impl Controller {
         let mut channel_values = vec![0.0; n_channels];
         for dispatcher in self.dispatchers.iter_mut() {
             dispatcher
-                .init(
-                    &self.ctx,
-                    &channel_names,
-                    #[cfg(feature = "affinity")]
-                    aux_core_cycle.next().unwrap().id,
-                )
+                .init(&self.ctx, &channel_names, aux_core_cycle.next().unwrap().id)
                 .unwrap();
         }
         println!("Dispatching data for {n_channels} channels.");
@@ -819,7 +804,6 @@ mod test {
     /// It is possible to produce a system where a serialized output is not able to be
     /// deserialized without error due to type ambiguity in `dyn Trait` collections,
     /// which is resolved via type tagging here.
-    #[cfg(feature = "ser")]
     #[test]
     fn test_ser_roundtrip() {
         use super::*;

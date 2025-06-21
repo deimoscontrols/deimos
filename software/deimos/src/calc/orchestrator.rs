@@ -4,7 +4,6 @@ use std::collections::HashSet;
 use std::iter::Iterator;
 use std::{collections::BTreeMap, ops::Range};
 
-#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 use crate::ControllerCtx;
@@ -55,13 +54,12 @@ struct OrchestratorState {
 /// evaluation order. During init, each calc is provided with the indices of the tape
 /// where its inputs and outputs will be placed. During evaluation, each calc is responsible
 /// for using those indices to read its inputs and write its outputs.
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct Orchestrator {
     calcs: BTreeMap<CalcName, Box<dyn Calc>>,
     peripheral_input_sources: BTreeMap<PeripheralInputName, FieldName>,
 
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     state: OrchestratorState,
 }
 
@@ -207,7 +205,7 @@ impl Orchestrator {
 
         // Traverse the calcs, developing the evaluation order
         let mut evaluated = BTreeMap::new();
-        for name in self.calcs.keys().cloned() {
+        for name in self.calcs.keys() {
             evaluated.insert(name.clone(), false);
         }
 
@@ -226,12 +224,12 @@ impl Orchestrator {
             // Loop over calcs and find the ones that are ready to evaluate next
             let mut any_new_evaluated = false;
             let mut eval_group = Vec::new();
-            for name in self.calcs.keys().cloned() {
+            for name in self.calcs.keys() {
                 // Find calcs which have not been evaluated
-                if !evaluated[&name] {
+                if !evaluated[name] {
                     // Find calcs which have no parents that have not been evaluated
                     // (which will also be true if they have no parents at all)
-                    let all_parents_ready = !calc_node_parents[&name]
+                    let all_parents_ready = !calc_node_parents[name]
                         .iter()
                         .any(|parent| !evaluated[parent]);
 

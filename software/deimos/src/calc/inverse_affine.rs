@@ -6,8 +6,7 @@ use crate::{calc_config, calc_input_names, calc_output_names};
 /// Derive input voltage from linear amplifier reading
 ///
 /// First subtracts the output offset, then divides by the slope.
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub struct InverseAffine {
     // User inputs
     input_name: String,
@@ -16,10 +15,10 @@ pub struct InverseAffine {
     save_outputs: bool,
 
     // Values provided by calc orchestrator during init
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     input_index: usize,
 
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     output_index: usize,
 }
 
@@ -42,7 +41,7 @@ impl InverseAffine {
     }
 }
 
-#[cfg_attr(feature = "ser", typetag::serde)]
+#[typetag::serde]
 impl Calc for InverseAffine {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, _: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {

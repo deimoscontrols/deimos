@@ -8,8 +8,6 @@ use std::iter::Iterator;
 use std::{collections::BTreeMap, ops::Range};
 
 use once_cell::sync::Lazy;
-
-#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 mod orchestrator;
@@ -90,7 +88,6 @@ pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Calc>>> = Lazy::new(|| {
 /// Clone isn't inherently object-safe, so to be able to clone dyn trait objects,
 /// we send it for a loop through the serde typetag system, which provides an
 /// automatically-assembled vtable to determine the downcasted type and clone into it.
-#[cfg(feature = "ser")]
 impl Clone for Box<dyn Calc> {
     fn clone(&self) -> Box<dyn Calc> {
         let new: Box<dyn Calc> =
@@ -101,7 +98,7 @@ impl Clone for Box<dyn Calc> {
 
 /// A calculation that takes some inputs and produces some outputs
 /// at each timestep, and may have some persistent internal state.
-#[cfg_attr(feature = "ser", typetag::serde(tag = "type"))]
+#[typetag::serde(tag = "type")]
 pub trait Calc: Send + Sync + Debug {
     /// Reset internal state and register calc tape indices
     fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>);

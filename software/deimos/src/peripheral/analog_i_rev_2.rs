@@ -6,17 +6,14 @@ use crate::calc::{Affine, Calc, Constant, InverseAffine, RtdPt100, TcKtype};
 use deimos_shared::states::OperatingMetrics;
 
 use deimos_shared::peripherals::{analog_i_rev_2::*, model_numbers};
-
-#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct AnalogIRev2 {
     pub serial_number: u64,
 }
 
-#[cfg_attr(feature = "ser", typetag::serde)]
+#[typetag::serde]
 impl Peripheral for AnalogIRev2 {
     fn id(&self) -> PeripheralId {
         PeripheralId {

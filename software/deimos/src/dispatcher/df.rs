@@ -1,40 +1,100 @@
-//! Dataframe dispatcher for in-memory data collection
+//! Dataframe dispatcher for in-memory data collection.
+//! Stores data in a simple library-agnostic in-memory format.
 
-use polars::prelude::*;
-
+use serde::{Deserialize, Serialize};
 use std::{
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, RwLock, RwLockWriteGuard},
     time::SystemTime,
 };
-
-#[cfg(feature = "ser")]
-use serde::{Deserialize, Serialize};
 
 use crate::controller::context::ControllerCtx;
 
 use super::{Dispatcher, Overflow, fmt_time, header_columns};
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+pub struct Row {
+    pub system_time: String,
+    pub timestamp: i64,
+    pub channel_values: Vec<f64>,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+pub struct SimpleDataFrame {
+    channel_names: Vec<String>,
+    rows: Vec<Row>,
+}
+
+impl SimpleDataFrame {
+    /// Make an empty dataframe that can hold `capacity` rows without reallocating.
+    pub fn new(channel_names: Vec<String>, capacity: usize) -> Self {
+        Self {
+            channel_names,
+            rows: Vec::with_capacity(capacity),
+        }
+    }
+
+    /// Push a new row to the end of the list.
+    pub fn push(&mut self, row: Row) {
+        debug_assert!({
+            if !self.rows.is_empty() {
+                row.channel_values.len() == self.rows[0].channel_values.len()
+            } else {
+                true
+            }
+        });
+
+        self.rows.push(row);
+    }
+
+    /// Place a new value at the target index, overwriting existing data.
+    /// If the new index is out of bounds, pushes the new value to the end instead of crashing.
+    pub fn put(&mut self, row: Row, loc: usize) {
+        debug_assert!({
+            if !self.rows.is_empty() {
+                row.channel_values.len() == self.rows[0].channel_values.len()
+            } else {
+                true
+            }
+        });
+
+        if loc >= self.len() {
+            self.push(row);
+        } else {
+            self.rows[loc] = row;
+        }
+    }
+
+    /// The current number of rows stored
+    pub fn len(&self) -> usize {
+        self.rows.len()
+    }
+
+    /// Get column header names including the two time columns
+    pub fn headers(&self) -> Vec<String> {
+        header_columns(&self.channel_names)
+    }
+
+    /// Read-only access to stored row data
+    pub fn rows(&self) -> &[Row] {
+        &self.rows
+    }
+}
 
 /// Store collected data in in-memory columns, moving columns into
 /// a dataframe behind a shared reference at termination.
 ///
 /// To avoid deadlocks, the dataframe is not updated until after
 /// the run is complete. The dataframe is cleared at the start of each run.
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct DataFrameDispatcher {
     max_size_megabytes: usize,
     overflow_behavior: Overflow,
-
-    #[cfg_attr(feature = "ser", serde(skip))]
-    df: Arc<RwLock<DataFrame>>,
-    #[cfg_attr(feature = "ser", serde(skip))]
-    channel_names: Vec<String>,
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     nrows: usize,
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     row_index: usize,
-    #[cfg_attr(feature = "ser", serde(skip))]
-    cols: (Vec<String>, Vec<i64>, Vec<Vec<f64>>),
+    #[serde(skip)]
+    df: Arc<RwLock<SimpleDataFrame>>,
 }
 
 impl DataFrameDispatcher {
@@ -47,10 +107,10 @@ impl DataFrameDispatcher {
     /// data starting with the oldest) or produce an error. Producing a new chunk
     /// is not a valid overflow behavior for this dispatcher.
     pub fn new(
-        df: Arc<RwLock<DataFrame>>,
         max_size_megabytes: usize,
         overflow_behavior: Overflow,
-    ) -> Self {
+        df: Option<Arc<RwLock<SimpleDataFrame>>>,
+    ) -> (Self, Arc<RwLock<SimpleDataFrame>>) {
         // Check if the overflow behavior is valid
         match overflow_behavior {
             Overflow::Wrap => (),
@@ -58,58 +118,51 @@ impl DataFrameDispatcher {
             x => unimplemented!("Overflow behavior {x:?} is not available for DataFrameDispatcher"),
         }
 
-        Self {
-            max_size_megabytes,
-            overflow_behavior,
-            df,
-            ..Default::default()
-        }
+        // Either use an existing dataframe handle, if it is provided,
+        // or create a new empty one.
+        let df = df.unwrap_or_default();
+        let df_handle = df.clone();
+
+        (
+            Self {
+                max_size_megabytes,
+                overflow_behavior,
+                df,
+                ..Default::default()
+            },
+            df_handle,
+        )
     }
 
     /// Get a write handle to the dataframe, if possible
-    fn write(&self) -> Result<RwLockWriteGuard<'_, DataFrame>, String> {
+    fn write(&self) -> Result<RwLockWriteGuard<'_, SimpleDataFrame>, String> {
         self.df
             .try_write()
             .map_err(|_| "Unable to lock dataframe".to_string())
     }
-
-    /// Get a read handle to the dataframe, if possible
-    fn read(&self) -> Result<RwLockReadGuard<'_, DataFrame>, String> {
-        self.df
-            .try_read()
-            .map_err(|_| "Unable to lock dataframe".to_string())
-    }
 }
 
-#[cfg_attr(feature = "ser", typetag::serde)]
+#[typetag::serde]
 impl Dispatcher for DataFrameDispatcher {
     fn init(
         &mut self,
         _ctx: &ControllerCtx,
         channel_names: &[String],
-        #[cfg(feature = "affinity")] _core_assignment: usize,
+        _core_assignment: usize,
     ) -> Result<(), String> {
-        // Store channel names for
-        self.channel_names = channel_names.to_vec();
-
-        // Clear dataframe
-        *self.write()? = DataFrame::empty();
-        assert!(self.read()?.is_empty());
+        // Store channel names
+        let channel_names = channel_names.to_vec();
 
         // Reset current row
         self.row_index = 0;
 
         // Determine number of rows to store
-        let time_size = fmt_time(SystemTime::now()).bytes().len();
+        let time_size = fmt_time(SystemTime::now()).len();
         let row_size = time_size + (1 + channel_names.len()) * 8;
         self.nrows = (self.max_size_megabytes * 1024 * 1024) / row_size;
 
-        // Set column sizes
-        self.cols = (
-            Vec::with_capacity(self.nrows),
-            Vec::with_capacity(self.nrows),
-            vec![Vec::with_capacity(self.nrows); channel_names.len()],
-        );
+        // Make a fresh dataframe
+        *self.write()? = SimpleDataFrame::new(channel_names, self.nrows);
 
         Ok(())
     }
@@ -122,11 +175,15 @@ impl Dispatcher for DataFrameDispatcher {
     ) -> Result<(), String> {
         // Store data
         let i = self.row_index;
-        put(&mut self.cols.0, fmt_time(time), i);
-        put(&mut self.cols.1, timestamp, i);
-        for j in 0..self.channel_names.len() {
-            put(&mut self.cols.2[j], channel_values[j], i);
-        }
+        let row = Row {
+            system_time: fmt_time(time),
+            timestamp,
+            channel_values,
+        };
+        self.df
+            .write()
+            .map_err(|e| format!("Failed to write dataframe row: {e}"))?
+            .put(row, i);
 
         // Increment
         self.row_index += 1;
@@ -146,37 +203,15 @@ impl Dispatcher for DataFrameDispatcher {
     }
 
     fn terminate(&mut self) -> Result<(), String> {
-        // Store columns in dataframe
-        {
-            let headers = header_columns(&self.channel_names);
-            let mut w = self.write()?;
-            let mut cols = Vec::new();
-            cols.push(Column::new((&headers[0]).into(), &self.cols.0));
-            cols.push(Column::new((&headers[1]).into(), &self.cols.1));
-            for (h, data) in headers[2..].iter().zip(self.cols.2.iter()) {
-                cols.push(Column::new(h.into(), data));
-            }
-            *w = DataFrame::new(cols)
-                .map_err(|e| format!("Unable to store data in dataframe: {e}"))?;
-        }
-
         // Clear state, keeping a handle to the same dataframe
         // so that we can run again if needed
-        *self = Self::new(
-            self.df.clone(),
+        let (dispatcher, _df_handle) = Self::new(
             self.max_size_megabytes,
             self.overflow_behavior,
+            Some(self.df.clone()),
         );
+        (*self) = dispatcher;
 
         Ok(())
-    }
-}
-
-/// Put a value at an index, or, if the index is out of bounds, push the value
-fn put<T>(x: &mut Vec<T>, v: T, i: usize) {
-    if i >= x.len() {
-        x.push(v);
-    } else {
-        x[i] = v;
     }
 }

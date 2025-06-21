@@ -1,6 +1,6 @@
 [package]
 name = "deimos_gui"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors.workspace = true
 license.workspace = true
@@ -14,4 +14,4 @@ serde = { version = "^1", features = ["derive", "rc"]}
 serde_json = { version = "^1", features = ["preserve_order"] }
 bimap = { version = "0.6.3", features = ["serde"] }
 
-deimos = { version = "0.9.0", path =  "../deimos",  features = ["all"] }
+deimos = { version = "0.10.0", path =  "../deimos" }

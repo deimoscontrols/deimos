@@ -1,5 +1,17 @@
 # Changelog
 
+## 2025-06-21 deimos 0.10.0, deimos_gui 0.1.1
+
+### Changed
+
+* Refactor to eliminate all conditional compilation features from control program
+  * All features now enabled by default
+* Remove polars dep due to excessive build time
+* Refactor dataframe dispatcher module to use a lightweight internal dataframe target instead of a polars dataframe
+* Update gui dep on control program to not reference features that no longer exist
+
+### Added
+
 ## 2025-06-21 analog_i_rev4 firmware 0.2.0
 
 ### Added

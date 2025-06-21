@@ -64,7 +64,6 @@ pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Peripheral>>> = Lazy::new(|
 /// Clone isn't inherently object-safe, so to be able to clone dyn trait objects,
 /// we send it for a loop through the serde typetag system, which provides an
 /// automatically-assembled vtable to determine the downcasted type and clone into it.
-#[cfg(feature = "ser")]
 impl Clone for Box<dyn Peripheral> {
     fn clone(&self) -> Box<dyn Peripheral> {
         let new: Box<dyn Peripheral> =
@@ -79,7 +78,7 @@ impl Clone for Box<dyn Peripheral> {
 ///
 /// This is a representation from the perspective of
 /// the application-side controller.
-#[cfg_attr(feature = "ser", typetag::serde(tag = "type"))]
+#[typetag::serde(tag = "type")]
 pub trait Peripheral: Send + Sync + Debug {
     /// Unique device ID combining model number and serial number
     fn id(&self) -> PeripheralId;
