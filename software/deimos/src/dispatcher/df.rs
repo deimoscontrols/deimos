@@ -89,8 +89,11 @@ impl SimpleDataFrame {
 pub struct DataFrameDispatcher {
     max_size_megabytes: usize,
     overflow_behavior: Overflow,
+    #[serde(skip)]
     nrows: usize,
+    #[serde(skip)]
     row_index: usize,
+    #[serde(skip)]
     df: Arc<RwLock<SimpleDataFrame>>,
 }
 
