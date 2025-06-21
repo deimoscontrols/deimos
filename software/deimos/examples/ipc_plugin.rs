@@ -15,7 +15,6 @@
 use std::{
     collections::BTreeMap,
     os::unix::net,
-    // sync::{Arc, RwLock},
     thread::{self, JoinHandle},
     time::{Duration, Instant, SystemTime},
 };
@@ -32,7 +31,6 @@ use deimos_shared::{
         BindingInput, BindingOutput, ByteStruct, ByteStructLen, ConfiguringInput, ConfiguringOutput,
     },
 };
-// use polars::frame::DataFrame;
 
 use serde::{Deserialize, Serialize};
 
@@ -40,7 +38,7 @@ use serde::{Deserialize, Serialize};
 use deimos::{
     calc::Calc,
     controller::context::{ControllerCtx, Termination},
-    dispatcher::fmt_time,
+    dispatcher::{DataFrameDispatcher, Overflow, fmt_time},
     peripheral::{Peripheral, PluginMap},
     socket::unix::UnixSocket,
     *,
@@ -69,13 +67,8 @@ fn main() {
     controller.add_socket(Box::new(UnixSocket::new("ipc_ex")));
 
     // Add an in-memory data target
-    // let df_handle = Arc::new(RwLock::new(DataFrame::empty()));
-    // let df_dispatcher = Box::new(DataFrameDispatcher::new(
-    //     df_handle.clone(),
-    //     1,
-    //     Overflow::Error,
-    // ));
-    // controller.add_dispatcher(df_dispatcher);
+    let (df_dispatcher, df_handle) = DataFrameDispatcher::new(1, Overflow::Error, None);
+    controller.add_dispatcher(Box::new(df_dispatcher));
 
     // Register the mockup as a plugin
     let mut pmap: PluginMap = BTreeMap::new();
@@ -124,8 +117,11 @@ fn main() {
     mockup_thread.join().unwrap();
 
     // Get collected dataframe
-    // let df = df_handle.try_read().unwrap();
-    // println!("Collected data: \n{}", df);
+    let df = df_handle.try_read().unwrap();
+    println!("Collected data: \n{:?}", df.headers());
+    for row in df.rows() {
+        println!("{row:?}");
+    }
 
     // Clear sockets
     let _ = std::fs::remove_dir_all("./sock");

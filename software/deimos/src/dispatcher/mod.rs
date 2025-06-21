@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 mod tsdb;
 pub use tsdb::TimescaleDbDispatcher;
-// mod df;
-// pub use df::DataFrameDispatcher;
+mod df;
+pub use df::DataFrameDispatcher;
 
 mod csv;
 pub use csv::CsvDispatcher;
