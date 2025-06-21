@@ -27,14 +27,8 @@ jobs:
       uses: obi1kenobi/cargo-semver-checks-action@v2
     - name: Run tests
       run: |
-        cargo test --verbose --no-default-features
-        cargo test --verbose --features=tsdb
-        cargo test --verbose --features=df
-        cargo test --verbose --features=ser
-        cargo test --verbose --features=affinity
-        cargo test --verbose --features=sideloading
-        cargo test --verbose --all-features
-        cargo run --example ipc_plugin --features=df,ser
-        cargo run --example sideloading --features=sideloading,ser
-        cargo build --example multi_daq --features=tsdb,ser
-        cargo build --example basic --features=ser
+        cargo test --verbose
+        cargo run --example ipc_plugin
+        cargo run --example sideloading
+        cargo build --example multi_daq
+        cargo build --example basic
