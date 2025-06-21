@@ -1,5 +1,11 @@
 # Changelog
 
+## 2025-06-21 analog_i_rev4 firmware 0.3.0
+
+### Added
+
+* Implement fractional delay FIR filters on scanned ADC samples to produce synthetic simultaneous sampling
+
 ## 2025-06-21 deimos 0.10.0, deimos_gui 0.1.1
 
 ### Changed

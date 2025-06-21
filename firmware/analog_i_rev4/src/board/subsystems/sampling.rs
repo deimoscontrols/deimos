@@ -9,11 +9,14 @@ use stm32h7xx_hal::{
     timer::{GetClk, Timer},
 };
 
-use flaw::{butter1, butter2, generated::butter, MedianFilter, SisoIirFilter};
+use flaw::{
+    butter1, butter2, generated::butter, polynomial_fractional_delay, MedianFilter, SisoFirFilter,
+    SisoIirFilter,
+};
 
 use crate::board::{
-    ADC_CUTOFF_RATIO, ADC_SAMPLES, COUNTER_SAMPLES, COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF,
-    VREF,
+    ADC_CUTOFF_RATIO, ADC_SAMPLES, ADC_SAMPLE_FREQ_HZ, COUNTER_SAMPLES, COUNTER_WRAPS,
+    FREQ_SAMPLES, NEW_ADC_CUTOFF, VREF,
 };
 
 /// Above this size of change, 16-bit counters are assumed to have wrapped.
@@ -138,6 +141,7 @@ pub struct Sampler {
     pub adc_scalings: [f32; 20],
     pub adc_filters: [SisoIirFilter<2>; 20],
     pub adc_filters_low_rate: [SisoIirFilter<1>; 20],
+    pub adc_filters_fractional_delay: [SisoFirFilter<3, f32>; 20],
     pub adc_filter_cutoff_ratio: f64,
     pub adc_values: [f32; 20],
 
@@ -199,10 +203,60 @@ impl Sampler {
             adc1_scaling, // 19
         ];
 
+        // Low-pass filters
         let cutoff_ratio = ADC_CUTOFF_RATIO.load(Ordering::Relaxed) as f64;
         let adc_filters = [butter2(cutoff_ratio).unwrap(); 20];
         let adc_filters_low_rate = [butter1(cutoff_ratio).unwrap(); 20];
         let adc_values = [0.0_f32; 20];
+
+        // Fractional delay filters for synthetic simultaneous sampling
+
+        // Timing components
+        let internal_sample_period = 1.0 / ADC_SAMPLE_FREQ_HZ as f64; // [s]
+        let adc_clock_speed = 50e6; // [Hz]
+        let adc_clock_period = 1.0 / adc_clock_speed; // [s]
+        let adc_sample_hold_cycles = 16.5; // [dimensionless]
+        let adc_sample_hold = adc_sample_hold_cycles * adc_clock_period; // [s]
+        let adc_conversion_time = 7.5 * adc_clock_speed; // [s] RM0433 25.4.13
+
+        // Calculate fractional delay needed for each channel to align with the first sample group
+        //   Each group starts as soon as the previous one is done
+        let delay_per_group = adc_sample_hold + adc_conversion_time; // [s]
+
+        let groups = (
+            [8, 9, 0],
+            [10, 12, 1],
+            [11, 13, 2],
+            [14, 15, 3],
+            [16, 17, 4],
+            [18, 5],
+            [19, 6],
+            [7],
+        );
+        let mut delays = [0_f64; 20];
+
+        let apply_delay = |delays: &mut [f64], group: &[usize], i: usize| {
+            let delay = i as f64 * delay_per_group;
+            for j in group {
+                delays[*j] = delay;
+            }
+        };
+
+        apply_delay(&mut delays, &groups.0, 0);
+        apply_delay(&mut delays, &groups.1, 1);
+        apply_delay(&mut delays, &groups.2, 2);
+        apply_delay(&mut delays, &groups.3, 3);
+        apply_delay(&mut delays, &groups.4, 4);
+        apply_delay(&mut delays, &groups.5, 5);
+        apply_delay(&mut delays, &groups.6, 6);
+        apply_delay(&mut delays, &groups.7, 7);
+
+        let mut adc_filters_fractional_delay: [SisoFirFilter<3, f32>; 20] =
+            [SisoFirFilter::<3, f32>::new(&[0.0, 0.0, 0.0]); 20];
+        for (i, filter) in adc_filters_fractional_delay.iter_mut().enumerate() {
+            let delay_frac = (delays[i] / internal_sample_period) as f32;
+            *filter = polynomial_fractional_delay(delay_frac);
+        }
 
         //
         // Set up frequency input adc_scalings
@@ -219,6 +273,7 @@ impl Sampler {
             adc_scalings,
             adc_filters,
             adc_filters_low_rate,
+            adc_filters_fractional_delay,
             adc_filter_cutoff_ratio: cutoff_ratio,
             adc_values,
             timer,
@@ -323,7 +378,7 @@ impl Sampler {
             self.timer.pause();
 
             // Load new cutoff
-            let mut new_cutoff = ADC_CUTOFF_RATIO.load(Ordering::Relaxed) as f64;
+            let new_cutoff = ADC_CUTOFF_RATIO.load(Ordering::Relaxed) as f64;
 
             // Build new interpolated filter
             self.update_cutoff(new_cutoff);
@@ -395,21 +450,23 @@ impl Sampler {
         // selected cutoff ratio is below the table bounds for the order2 filter.
         if self.adc_filter_cutoff_ratio >= butter::butter2::MIN_CUTOFF_RATIO {
             // Nominal filter for higher reporting rate (above about 40Hz)
-            self.adc_filters
+            self.adc_filters_fractional_delay
                 .iter_mut()
+                .zip(self.adc_filters.iter_mut())
                 .enumerate()
                 .zip(self.adc_scalings.iter())
-                .for_each(|((i, f), s)| {
-                    self.adc_values[i] = f.update(b[i] as f32 * s);
+                .for_each(|((i, (f1, f2)), s)| {
+                    self.adc_values[i] = f2.update(f1.update(b[i] as f32 * s));
                 });
         } else {
             // Alternate filter for low data rate
-            self.adc_filters_low_rate
+            self.adc_filters_fractional_delay
                 .iter_mut()
+                .zip(self.adc_filters_low_rate.iter_mut())
                 .enumerate()
                 .zip(self.adc_scalings.iter())
-                .for_each(|((i, f), s)| {
-                    self.adc_values[i] = f.update(b[i] as f32 * s);
+                .for_each(|((i, (f1, f2)), s)| {
+                    self.adc_values[i] = f2.update(f1.update(b[i] as f32 * s));
                 });
         }
 
