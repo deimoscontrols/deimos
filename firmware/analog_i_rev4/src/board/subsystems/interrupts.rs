@@ -1,6 +1,5 @@
 /// The systick interrupt is handled separately from the peripheral interrupts,
 /// so we have to use two different scoped interrupt systems to control both
-
 pub use systick::Interrupt::SysTick;
 pub use timer::Interrupt::TIM2;
 
@@ -17,7 +16,7 @@ mod systick {
         pub enum Interrupt {
             SysTick,
         }
-    
+
         use #[exception];
     }
 }
@@ -36,7 +35,7 @@ mod timer {
         pub enum Interrupt {
             TIM2,
         }
-    
+
         use #[interrupt];
-    }  
+    }
 }
