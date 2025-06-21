@@ -20,14 +20,14 @@ jobs:
     - name: Get latest rustc
       run: rustup update
     - name: Format
-      run: cargo fmt --check --verbose
+      run: cargo fmt --check
     - name: Lint
       run: cargo clippy --all-features
     - name: Check semver
       uses: obi1kenobi/cargo-semver-checks-action@v2
     - name: Run tests
       run: |
-        cargo test --verbose
+        cargo test
         cargo run --example ipc_plugin
         cargo run --example sideloading
         cargo build --example multi_daq
