@@ -36,7 +36,7 @@ impl SimpleDataFrame {
     /// Push a new row to the end of the list.
     pub fn push(&mut self, row: Row) {
         debug_assert!({
-            if self.rows.len() > 0 {
+            if !self.rows.is_empty() {
                 row.channel_values.len() == self.rows[0].channel_values.len()
             } else {
                 true
@@ -50,7 +50,7 @@ impl SimpleDataFrame {
     /// If the new index is out of bounds, pushes the new value to the end instead of crashing.
     pub fn put(&mut self, row: Row, loc: usize) {
         debug_assert!({
-            if self.rows.len() > 0 {
+            if !self.rows.is_empty() {
                 row.channel_values.len() == self.rows[0].channel_values.len()
             } else {
                 true
@@ -157,7 +157,7 @@ impl Dispatcher for DataFrameDispatcher {
         self.row_index = 0;
 
         // Determine number of rows to store
-        let time_size = fmt_time(SystemTime::now()).bytes().len();
+        let time_size = fmt_time(SystemTime::now()).len();
         let row_size = time_size + (1 + channel_names.len()) * 8;
         self.nrows = (self.max_size_megabytes * 1024 * 1024) / row_size;
 

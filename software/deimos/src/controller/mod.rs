@@ -303,10 +303,7 @@ impl Controller {
         let err_rollup = self
             .dispatchers
             .iter_mut()
-            .filter_map(|d| match d.terminate() {
-                Ok(_) => None,
-                Err(x) => Some(x),
-            })
+            .filter_map(|d| d.terminate().err())
             .collect::<Vec<String>>();
 
         // Reset calc orchestrator

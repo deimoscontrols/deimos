@@ -205,7 +205,7 @@ impl Orchestrator {
 
         // Traverse the calcs, developing the evaluation order
         let mut evaluated = BTreeMap::new();
-        for name in self.calcs.keys().cloned() {
+        for name in self.calcs.keys() {
             evaluated.insert(name.clone(), false);
         }
 
@@ -224,12 +224,12 @@ impl Orchestrator {
             // Loop over calcs and find the ones that are ready to evaluate next
             let mut any_new_evaluated = false;
             let mut eval_group = Vec::new();
-            for name in self.calcs.keys().cloned() {
+            for name in self.calcs.keys() {
                 // Find calcs which have not been evaluated
-                if !evaluated[&name] {
+                if !evaluated[name] {
                     // Find calcs which have no parents that have not been evaluated
                     // (which will also be true if they have no parents at all)
-                    let all_parents_ready = !calc_node_parents[&name]
+                    let all_parents_ready = !calc_node_parents[name]
                         .iter()
                         .any(|parent| !evaluated[parent]);
 
