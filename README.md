@@ -37,7 +37,7 @@ Data integration implementations perform I/O and database transactions on a sepa
 | Target | I/O Medium | Notes |
 |--------|--------|-------|
 | CSV    | Disk | Fixed-width row format.<br>Wrap, split, or terminate at end of pre-sized file. |
-| Polars<br>DataFrame | RAM | Wrap or terminate at end of preallocated columns.<br>Convert to dataframe at the end of run. |
+| DataFrame | RAM | Wrap or terminate at end of preallocated in-memory storage. |
 | TimescaleDB (postgres) | TCP or unix socket | Create table & schema or reuse existing.<br>Insert individual rows or write buffered batches for increased total ingestion rate.<br>Set fixed retention duration. |
 
 # Calculation Functions
