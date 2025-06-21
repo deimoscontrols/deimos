@@ -4,11 +4,8 @@
 use core::f64;
 use std::{collections::HashSet, path::Path};
 
-#[cfg(feature = "ser")]
-use serde_json;
-
-#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
+use serde_json;
 
 use interpn::one_dim::{Interp1D, RectilinearGrid1D};
 
@@ -17,8 +14,7 @@ pub type StateName = String;
 use super::*;
 
 /// Choice of behavior when a given sequence reaches the end of its lookup table
-#[derive(Default, Debug)]
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default, Debug, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum Timeout {
     /// Transition to the next sequence
@@ -33,8 +29,7 @@ pub enum Timeout {
 }
 
 /// A logical operator used to evaluate whether a transition should occur.
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ThreshOp {
     /// Greater than
     Gt { by: f64 },
@@ -75,8 +70,7 @@ impl ThreshOp {
 }
 
 /// Methods for checking whether a sequence transition should occur
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[non_exhaustive]
 pub enum Transition {
     /// Transition if a value of some input exceeds a threshold value
@@ -122,8 +116,7 @@ impl Transition {
 }
 
 /// Interpolation method for sequence lookups
-#[derive(Default, Debug)]
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default, Debug, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum InterpMethod {
     /// Linear interpolation inside the grid. Outside the grid,
@@ -162,8 +155,7 @@ impl InterpMethod {
 }
 
 /// A lookup table defining one sequenced output from a Sequence
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SequenceLookup {
     /// Interpolation method
     method: InterpMethod,
@@ -240,8 +232,7 @@ impl SequenceLookup {
 
 /// A state in a SequenceMachine, defined by a set of time-dependent
 /// sequence lookups.
-#[derive(Default, Debug)]
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct Sequence {
     /// Sequence interpolation data
     data: BTreeMap<CalcOutputName, SequenceLookup>,
@@ -444,8 +435,7 @@ struct ExecutionState {
 }
 
 /// Sequence entrypoint and transition criteria for the SequenceMachine.
-#[derive(Default, Debug)]
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct MachineCfg {
     // User inputs
     /// Whether to dispatch outputs
@@ -455,7 +445,6 @@ pub struct MachineCfg {
     pub entry: String,
 
     /// Whether to reload from a folder at this relative path from the op dir during init
-    #[cfg(feature = "ser")]
     pub link_folder: Option<String>,
 
     /// Timeout behavior for each sequence
@@ -470,8 +459,7 @@ pub struct MachineCfg {
 ///
 /// Unlike most calcs, the names of the inputs and outputs of this calc
 /// are not known at compile-time, and are assembled from inputs instead.
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SequenceMachine {
     /// State transition criteria and other configuration
     cfg: MachineCfg,
@@ -489,7 +477,7 @@ pub struct SequenceMachine {
 
     /// Current execution state of the SequenceMachine
     /// including sequence time and per-run configuration.
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     execution_state: ExecutionState,
 }
 
@@ -658,7 +646,6 @@ impl SequenceMachine {
     /// Read a configuration json and sequence CSV files from a folder.
     /// The folder must contain one json representing a [MachineCfg] and
     /// some number of CSV files each representing a [Sequence].
-    #[cfg(feature = "ser")]
     pub fn load_folder(path: &dyn AsRef<Path>) -> Result<Self, String> {
         let dir = std::fs::read_dir(path)
             .map_err(|e| format!("Unable to read items in folder {:?}: {e}", path.as_ref()))?;
@@ -709,12 +696,11 @@ impl SequenceMachine {
     }
 }
 
-#[cfg_attr(feature = "ser", typetag::serde)]
+#[typetag::serde]
 impl Calc for SequenceMachine {
     /// Reset internal sequence and register calc tape indices
     fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
         // Reload from folder, if linked
-        #[cfg(feature = "ser")]
         if let Some(rel_path) = &self.cfg.link_folder {
             let folder = ctx.op_dir.join(rel_path);
             *self = Self::load_folder(&folder).unwrap();

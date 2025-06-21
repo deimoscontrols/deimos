@@ -4,16 +4,14 @@ use deimos_shared::OperatingMetrics;
 use deimos_shared::peripherals::{PeripheralId, analog_i_rev_3::*, model_numbers};
 use std::collections::BTreeMap;
 
-#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct AnalogIRev3 {
     pub serial_number: u64,
 }
 
-#[cfg_attr(feature = "ser", typetag::serde)]
+#[typetag::serde]
 impl Peripheral for AnalogIRev3 {
     fn id(&self) -> PeripheralId {
         PeripheralId {

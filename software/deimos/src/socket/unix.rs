@@ -7,15 +7,13 @@ use std::os::unix::net; //{SocketAddr, UnixDatagram};
 use std::path::PathBuf;
 use std::time::Instant;
 
-#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 use super::*;
 use deimos_shared::peripherals::PeripheralId;
 
 /// Implementation of Socket trait for stdlib UDP socket on IPV4
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct UnixSocket {
     /// The name of the socket will be combined with the op directory
     /// to make a socket address like {op_dir}/sock/{name} .
@@ -27,17 +25,17 @@ pub struct UnixSocket {
     /// the controller in different folder structures.
     name: String,
 
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     socket: Option<net::UnixDatagram>,
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     rxbuf: Vec<u8>,
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     addrs: BTreeMap<PeripheralId, PathBuf>,
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     pids: BTreeMap<PathBuf, PeripheralId>,
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     last_received_addr: Option<PathBuf>,
-    #[cfg_attr(feature = "ser", serde(skip))]
+    #[serde(skip)]
     ctx: ControllerCtx,
 }
 
@@ -81,7 +79,7 @@ impl UnixSocket {
     }
 }
 
-#[cfg_attr(feature = "ser", typetag::serde)]
+#[typetag::serde]
 impl Socket for UnixSocket {
     fn is_open(&self) -> bool {
         self.socket.is_some()

@@ -14,8 +14,6 @@ pub use controller::{
 pub use dispatcher::{CsvDispatcher, Dispatcher};
 pub use socket::{Socket, SocketAddr, SocketId, udp::UdpSocket, unix::UnixSocket};
 
-#[cfg(feature = "tsdb")]
 pub use dispatcher::TimescaleDbDispatcher;
 
-#[cfg(feature = "df")]
-pub use dispatcher::DataFrameDispatcher;
+// pub use dispatcher::DataFrameDispatcher;

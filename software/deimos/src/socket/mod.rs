@@ -17,7 +17,7 @@ pub type SocketAddr = (usize, PeripheralId);
 
 /// Packetized socket interface for message-passing
 /// to/from peripherals on different I/O media.
-#[cfg_attr(feature = "ser", typetag::serde(tag = "type"))]
+#[typetag::serde(tag = "type")]
 pub trait Socket: Send + Sync {
     /// Check whether the socket is already open
     fn is_open(&self) -> bool;

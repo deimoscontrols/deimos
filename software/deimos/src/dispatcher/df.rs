@@ -6,8 +6,6 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     time::SystemTime,
 };
-
-#[cfg(feature = "ser")]
 use serde::{Deserialize, Serialize};
 
 use crate::controller::context::ControllerCtx;
@@ -19,21 +17,14 @@ use super::{Dispatcher, Overflow, fmt_time, header_columns};
 ///
 /// To avoid deadlocks, the dataframe is not updated until after
 /// the run is complete. The dataframe is cleared at the start of each run.
-#[cfg_attr(feature = "ser", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Default)]
 pub struct DataFrameDispatcher {
     max_size_megabytes: usize,
     overflow_behavior: Overflow,
-
-    #[cfg_attr(feature = "ser", serde(skip))]
-    df: Arc<RwLock<DataFrame>>,
-    #[cfg_attr(feature = "ser", serde(skip))]
     channel_names: Vec<String>,
-    #[cfg_attr(feature = "ser", serde(skip))]
     nrows: usize,
-    #[cfg_attr(feature = "ser", serde(skip))]
     row_index: usize,
-    #[cfg_attr(feature = "ser", serde(skip))]
     cols: (Vec<String>, Vec<i64>, Vec<Vec<f64>>),
 }
 
@@ -81,13 +72,13 @@ impl DataFrameDispatcher {
     }
 }
 
-#[cfg_attr(feature = "ser", typetag::serde)]
+#[typetag::serde]
 impl Dispatcher for DataFrameDispatcher {
     fn init(
         &mut self,
         _ctx: &ControllerCtx,
         channel_names: &[String],
-        #[cfg(feature = "affinity")] _core_assignment: usize,
+        _core_assignment: usize,
     ) -> Result<(), String> {
         // Store channel names for
         self.channel_names = channel_names.to_vec();
@@ -146,24 +137,9 @@ impl Dispatcher for DataFrameDispatcher {
     }
 
     fn terminate(&mut self) -> Result<(), String> {
-        // Store columns in dataframe
-        {
-            let headers = header_columns(&self.channel_names);
-            let mut w = self.write()?;
-            let mut cols = Vec::new();
-            cols.push(Column::new((&headers[0]).into(), &self.cols.0));
-            cols.push(Column::new((&headers[1]).into(), &self.cols.1));
-            for (h, data) in headers[2..].iter().zip(self.cols.2.iter()) {
-                cols.push(Column::new(h.into(), data));
-            }
-            *w = DataFrame::new(cols)
-                .map_err(|e| format!("Unable to store data in dataframe: {e}"))?;
-        }
-
         // Clear state, keeping a handle to the same dataframe
         // so that we can run again if needed
         *self = Self::new(
-            self.df.clone(),
             self.max_size_megabytes,
             self.overflow_behavior,
         );
