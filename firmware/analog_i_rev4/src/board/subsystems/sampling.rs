@@ -3,18 +3,13 @@ use core::sync::atomic::Ordering;
 use nb::block;
 use stm32h7xx_hal::{
     adc,
-    timer::{GetClk, Timer},
     gpio::Pin,
     rcc::CoreClocks,
     stm32::*,
+    timer::{GetClk, Timer},
 };
 
-use flaw::{
-    butter2,
-    MedianFilter,
-    generated::butter::butter2::{MAX_CUTOFF_RATIO, MIN_CUTOFF_RATIO},
-    SisoIirFilter,
-};
+use flaw::{butter1, butter2, generated::butter, MedianFilter, SisoIirFilter};
 
 use crate::board::{
     ADC_CUTOFF_RATIO, ADC_SAMPLES, COUNTER_SAMPLES, COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF,
@@ -29,7 +24,7 @@ use crate::board::{
 /// which is much higher than the timer peripheral capability.
 const WRAPPING_LIM_U16: i32 = (u16::MAX / 2) as i32;
 
-const WRAPPING_LIM_I32: i64 = i32::MAX as i64;  // Max value is half-span for signed int
+const WRAPPING_LIM_I32: i64 = i32::MAX as i64; // Max value is half-span for signed int
 
 /// Undo wrapping of U16 values and store in an I32 (which is also allowed to wrap).
 /// This allows integer wrapping events to happen rarely enough to be handled in a larger
@@ -142,6 +137,8 @@ pub struct Sampler {
     pub adc_pins: AdcPins,
     pub adc_scalings: [f32; 20],
     pub adc_filters: [SisoIirFilter<2>; 20],
+    pub adc_filters_low_rate: [SisoIirFilter<1>; 20],
+    pub adc_filter_cutoff_ratio: f64,
     pub adc_values: [f32; 20],
 
     // Timing
@@ -204,6 +201,7 @@ impl Sampler {
 
         let cutoff_ratio = ADC_CUTOFF_RATIO.load(Ordering::Relaxed) as f64;
         let adc_filters = [butter2(cutoff_ratio).unwrap(); 20];
+        let adc_filters_low_rate = [butter1(cutoff_ratio).unwrap(); 20];
         let adc_values = [0.0_f32; 20];
 
         //
@@ -220,11 +218,17 @@ impl Sampler {
             adc_pins,
             adc_scalings,
             adc_filters,
+            adc_filters_low_rate,
+            adc_filter_cutoff_ratio: cutoff_ratio,
             adc_values,
             timer,
             encoder: (encoder, Unroller::new(0)),
             pulse_counter: (pulse_counter, Unroller::new(0)),
-            pwmi0: (pwmi0, MedianFilter::<u16, 3>::new(0), MedianFilter::<u16, 3>::new(0)),
+            pwmi0: (
+                pwmi0,
+                MedianFilter::<u16, 3>::new(0),
+                MedianFilter::<u16, 3>::new(0),
+            ),
             pwmi1: (pwmi1, MedianFilter::<u16, 3>::new(0)),
             frequency_scaling,
         }
@@ -234,28 +238,68 @@ impl Sampler {
     /// This should be done with the sample timer paused to avoid interruptions.
     /// Also clears the encoder and pulse counter.
     pub fn update_cutoff(&mut self, cutoff_ratio: f64) {
-        // Prototype of the new filter, initialized to zero internal state.
-        // Copying the filter is much faster than constructing a new one.
-        let filter_proto = butter2(cutoff_ratio).unwrap();
+        // Store un-clipped cutoff so that we can check it later to decide which filter to use
+        self.adc_filter_cutoff_ratio = cutoff_ratio;
 
-        self.adc_filters
-            .iter_mut()
-            .enumerate()
-            .for_each(|(i, old_filter)| {
-                // Get the most recent existing sample to initialize the filter
-                // and, if it is in an error state, reset it to zero
-                let mut init_val = ADC_SAMPLES[i].load(Ordering::Relaxed);
-                if !init_val.is_finite() {
-                    init_val = 0.0;
-                }
+        {
+            // Clip to table bounds for init
+            let cutoff_ratio = cutoff_ratio
+                .min(butter::butter2::MAX_CUTOFF_RATIO)
+                .max(butter::butter2::MIN_CUTOFF_RATIO);
 
-                // Construct and initialize the new filter
-                let mut new_filter = filter_proto;
-                new_filter.initialize(init_val);
+            // Prototype of the new filter, initialized to zero internal state.
+            // Copying the filter is much faster than constructing a new one.
+            let filter_proto = butter2(cutoff_ratio).unwrap();
 
-                // Swap the old and new adc_filters
-                *old_filter = new_filter;
-            });
+            self.adc_filters
+                .iter_mut()
+                .enumerate()
+                .for_each(|(i, old_filter)| {
+                    // Get the most recent existing sample to initialize the filter
+                    // and, if it is in an error state, reset it to zero
+                    let mut init_val = ADC_SAMPLES[i].load(Ordering::Relaxed);
+                    if !init_val.is_finite() {
+                        init_val = 0.0;
+                    }
+
+                    // Construct and initialize the new filter
+                    let mut new_filter = filter_proto;
+                    new_filter.initialize(init_val);
+
+                    // Swap the old and new adc_filters
+                    *old_filter = new_filter;
+                });
+        }
+
+        {
+            // Clip to table bounds for init
+            let cutoff_ratio = cutoff_ratio
+                .min(butter::butter1::MAX_CUTOFF_RATIO)
+                .max(butter::butter1::MIN_CUTOFF_RATIO);
+
+            // Prototype of the new filter, initialized to zero internal state.
+            // Copying the filter is much faster than constructing a new one.
+            let filter_proto = butter1(cutoff_ratio).unwrap();
+
+            self.adc_filters_low_rate
+                .iter_mut()
+                .enumerate()
+                .for_each(|(i, old_filter)| {
+                    // Get the most recent existing sample to initialize the filter
+                    // and, if it is in an error state, reset it to zero
+                    let mut init_val = ADC_SAMPLES[i].load(Ordering::Relaxed);
+                    if !init_val.is_finite() {
+                        init_val = 0.0;
+                    }
+
+                    // Construct and initialize the new filter
+                    let mut new_filter = filter_proto;
+                    new_filter.initialize(init_val);
+
+                    // Swap the old and new adc_filters
+                    *old_filter = new_filter;
+                });
+        }
 
         // Reset counters and encoder
         self.pwmi0.0.cnt.reset();
@@ -278,9 +322,8 @@ impl Sampler {
             // Make sure we don't run out of time and trigger another cycle
             self.timer.pause();
 
-            // Clip to filter coeff table limits
+            // Load new cutoff
             let mut new_cutoff = ADC_CUTOFF_RATIO.load(Ordering::Relaxed) as f64;
-            new_cutoff = new_cutoff.min(MAX_CUTOFF_RATIO).max(MIN_CUTOFF_RATIO);
 
             // Build new interpolated filter
             self.update_cutoff(new_cutoff);
@@ -348,21 +391,34 @@ impl Sampler {
         b[7] = block!(self.adc3.read_sample()).unwrap();
 
         // Apply calibration, scaling, and filter
-        self.adc_filters
-            .iter_mut()
-            .enumerate()
-            .zip(self.adc_scalings.iter())
-            .for_each(|((i, f), s)| {
-                self.adc_values[i] = f.update(b[i] as f32 * s);
-            });
+        // Use more stable order1 filter for lower output data rate if our
+        // selected cutoff ratio is below the table bounds for the order2 filter.
+        if self.adc_filter_cutoff_ratio >= butter::butter2::MIN_CUTOFF_RATIO {
+            // Nominal filter for higher reporting rate (above about 40Hz)
+            self.adc_filters
+                .iter_mut()
+                .enumerate()
+                .zip(self.adc_scalings.iter())
+                .for_each(|((i, f), s)| {
+                    self.adc_values[i] = f.update(b[i] as f32 * s);
+                });
+        } else {
+            // Alternate filter for low data rate
+            self.adc_filters_low_rate
+                .iter_mut()
+                .enumerate()
+                .zip(self.adc_scalings.iter())
+                .for_each(|((i, f), s)| {
+                    self.adc_values[i] = f.update(b[i] as f32 * s);
+                });
+        }
 
-        // Send to shared storage
+        // Send measurements to shared storage
         for i in 0..ADC_SAMPLES.len() {
             ADC_SAMPLES[i].store(self.adc_values[i], Ordering::Relaxed);
         }
 
-        // Get latest timer input readings,
-        // unwrapping integer counts
+        // Get latest timer input readings, unwrapping integer counts
         let encoder_val: u16 = self.encoder.0.cnt.read().cnt().bits().into();
         let (encoder_unwrapped, encoder_wraps) = self.encoder.1.update(encoder_val);
         COUNTER_SAMPLES[0].store(encoder_unwrapped, Ordering::Relaxed);
@@ -375,7 +431,7 @@ impl Sampler {
         COUNTER_WRAPS[1].store(pulse_counter_wraps, Ordering::Relaxed);
 
         // PWM input readings use a median filter on the raw counter value
-        // in order to filter out the random values produced when the incoming signal
+        // in order to filter out the semi-random values produced when the incoming signal
         // is at a lower frequency than what the timer can track
 
         // FREQ0
