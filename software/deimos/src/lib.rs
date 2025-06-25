@@ -15,5 +15,4 @@ pub use dispatcher::{CsvDispatcher, Dispatcher};
 pub use socket::{Socket, SocketAddr, SocketId, udp::UdpSocket, unix::UnixSocket};
 
 pub use dispatcher::TimescaleDbDispatcher;
-
-// pub use dispatcher::DataFrameDispatcher;
+pub use dispatcher::DataFrameDispatcher;
