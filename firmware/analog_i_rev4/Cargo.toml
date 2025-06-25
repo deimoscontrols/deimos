@@ -1,6 +1,6 @@
 [package]
 name = "deimos_bare_metal"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -18,7 +18,7 @@ stm32h7xx-hal = { version = "0.16.0", features=["rt", "revision_v", "stm32h743v"
 #stm32h7xx-hal = { path = "../../../../stm32h7xx-hal", features=["rt", "revision_v", "stm32h743v", "ethernet"] }
 nb = "1.1.0"
 irq = "0.2.3"
-flaw = "0.2.4"
+flaw = "0.2.5"
 atomic_float = "1.1.0"
 array-macro = "2.1.8"
 

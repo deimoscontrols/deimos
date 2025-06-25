@@ -1,5 +1,12 @@
 # Changelog
 
+## 2025-06-25 analog_i_rev4 firmware 0.5.0
+
+### Changed
+
+* Update internal samplerate to 33kHz to restore timing margin that was lost to fractional delay filters
+* Add accumulated sampling time per comm cycle to cycle timing margin metric
+
 ## 2025-06-21 analog_i_rev4 firmware 0.3.0
 
 ### Added

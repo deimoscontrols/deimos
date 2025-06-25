@@ -1,4 +1,4 @@
-//! A 200Hz control program with several DAQ modules connected via UDP and time-synchronized.
+//! A control program with several DAQ modules connected via UDP and time-synchronized.
 //!
 //! Demonstrated here:
 //!   * Setting up a simple control program and connecting to hardware
@@ -37,7 +37,7 @@ fn main() {
     let peripheral_plugins = None;
 
     // Set control rate
-    let rate_hz = 100.0;
+    let rate_hz = 25.0;
     let dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
 
     // Define idle controller
@@ -58,7 +58,7 @@ fn main() {
     controller.add_peripheral("p4", Box::new(AnalogIRev4 { serial_number: 2 }));
     controller.add_peripheral("p5", Box::new(AnalogIRev4 { serial_number: 3 }));
     controller.add_peripheral("p6", Box::new(AnalogIRev4 { serial_number: 4 }));
-    controller.add_peripheral("p7", Box::new(AnalogIRev4 { serial_number: 5 }));
+    // controller.add_peripheral("p7", Box::new(AnalogIRev4 { serial_number: 5 }));
     controller.add_peripheral("p8", Box::new(AnalogIRev4 { serial_number: 6 }));
 
     // Set up database dispatchers
