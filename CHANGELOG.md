@@ -1,6 +1,6 @@
 # Changelog
 
-## 2025-06-25 analog_i_rev4 firmware 0.5.0
+## 2025-06-25 analog_i_rev4 firmware 0.4.0
 
 ### Changed
 
