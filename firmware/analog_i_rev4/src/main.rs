@@ -8,7 +8,7 @@ extern crate cortex_m;
 extern crate cortex_m_rt as rt;
 
 use rt::{entry, exception};
-use stm32h7xx_hal::{interrupt, pac, prelude::*, stm32, timer::Event};
+use stm32h7xx_hal::{interrupt, pac, stm32, timer::Event};
 
 use core::mem::MaybeUninit;
 use core::panic::PanicInfo;

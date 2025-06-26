@@ -27,7 +27,8 @@ jobs:
       uses: obi1kenobi/cargo-semver-checks-action@v2
     - name: Run tests
       run: |
-        cargo test
+        cargo build
+        cargo test -p deimos
         cargo run --example ipc_plugin
         cargo run --example sideloading
         cargo build --example multi_daq

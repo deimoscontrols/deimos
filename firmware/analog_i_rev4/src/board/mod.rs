@@ -1,4 +1,4 @@
-use core::sync::atomic::{AtomicBool, AtomicI32};
+use core::sync::atomic::{AtomicBool, AtomicI32, AtomicU32};
 use cortex_m::peripheral::syst::SystClkSource;
 
 use stm32h7xx_hal::{
@@ -37,7 +37,7 @@ use subsystems::pwm::*;
 use subsystems::sampling::*;
 
 /// ADC sample frequency
-pub const ADC_SAMPLE_FREQ_HZ: u32 = 40_000;
+pub const ADC_SAMPLE_FREQ_HZ: u32 = 33_000;
 
 /// ADC voltage reference
 pub const VREF: f32 = 2.5;
@@ -78,6 +78,10 @@ pub static ADC_CUTOFF_RATIO: AtomicF32 = AtomicF32::new(0.1);
 /// Flag for comm loop to indicate to sampling loop
 /// that a new ADC filter cutoff should be incorporated
 pub static NEW_ADC_CUTOFF: AtomicBool = AtomicBool::new(false);
+
+/// Accumulated time spent sampling and filtering since last comm cycle
+pub static ACCUMULATED_SAMPLING_TIME_NS: AtomicU32 = AtomicU32::new(0);
+
 
 #[derive(PartialEq, Eq)]
 pub enum BoardState {

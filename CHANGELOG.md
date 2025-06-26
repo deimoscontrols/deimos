@@ -1,5 +1,16 @@
 # Changelog
 
+## 2025-06-25 analog_i_rev4 firmware 0.4.0, deimos 0.10.1
+
+### Changed
+
+* Firmware
+    * Update internal samplerate to 33kHz to restore timing margin that was lost to fractional delay filters
+    * Add accumulated sampling time per comm cycle to cycle timing margin metric
+* Software
+    * Restore DataFrameDispatcher to top level public API
+    * Remove conditional compilation flags from readme example
+
 ## 2025-06-21 analog_i_rev4 firmware 0.3.0
 
 ### Added

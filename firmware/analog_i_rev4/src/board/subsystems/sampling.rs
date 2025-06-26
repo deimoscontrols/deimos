@@ -15,8 +15,8 @@ use flaw::{
 };
 
 use crate::board::{
-    ADC_CUTOFF_RATIO, ADC_SAMPLES, ADC_SAMPLE_FREQ_HZ, COUNTER_SAMPLES, COUNTER_WRAPS,
-    FREQ_SAMPLES, NEW_ADC_CUTOFF, VREF,
+    ACCUMULATED_SAMPLING_TIME_NS, ADC_CUTOFF_RATIO, ADC_SAMPLES, ADC_SAMPLE_FREQ_HZ,
+    COUNTER_SAMPLES, COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF, VREF,
 };
 
 /// Above this size of change, 16-bit counters are assumed to have wrapped.
@@ -147,6 +147,7 @@ pub struct Sampler {
 
     // Timing
     pub timer: Timer<TIM2>,
+    pub tick_period_ns: u32,
 
     // Counter and frequency
     pub encoder: (TIM1, Unroller),
@@ -217,7 +218,7 @@ impl Sampler {
         let adc_clock_period = 1.0 / adc_clock_speed; // [s]
         let adc_sample_hold_cycles = 16.5; // [dimensionless]
         let adc_sample_hold = adc_sample_hold_cycles * adc_clock_period; // [s]
-        let adc_conversion_time = 7.5 * adc_clock_speed; // [s] RM0433 25.4.13
+        let adc_conversion_time = 7.5 * adc_clock_period; // [s] RM0433 25.4.13
 
         // Calculate fractional delay needed for each channel to align with the first sample group
         //   Each group starts as soon as the previous one is done
@@ -261,9 +262,16 @@ impl Sampler {
         //
         // Set up frequency input adc_scalings
         //
-        let tclk_hz = TIM4::get_clk(clocks).unwrap().to_Hz();
-        let tpsc = pwmi0.psc.read().psc().bits() + 1;
-        let frequency_scaling = ((tclk_hz as f64) / (tpsc as f64)) as f32;
+        let t4clk_hz = TIM4::get_clk(clocks).unwrap().to_Hz();
+        let t4psc = pwmi0.psc.read().psc().bits() + 1;
+        let frequency_scaling = ((t4clk_hz as f64) / (t4psc as f64)) as f32;
+
+        //
+        // Figure out how long each timer tick is in nanoseconds
+        //
+        let t2clk_hz = TIM2::get_clk(clocks).unwrap().to_Hz();
+        let t2psc = timer.inner().psc.read().psc().bits() + 1;
+        let tick_period_ns = ((t2psc as f64) / (t2clk_hz as f64) * 1e9) as u32; // [ns] ADC timer tick period
 
         Self {
             adc1,
@@ -277,6 +285,7 @@ impl Sampler {
             adc_filter_cutoff_ratio: cutoff_ratio,
             adc_values,
             timer,
+            tick_period_ns,
             encoder: (encoder, Unroller::new(0)),
             pulse_counter: (pulse_counter, Unroller::new(0)),
             pwmi0: (
@@ -296,7 +305,7 @@ impl Sampler {
         // Store un-clipped cutoff so that we can check it later to decide which filter to use
         self.adc_filter_cutoff_ratio = cutoff_ratio;
 
-        {
+        if cutoff_ratio >= butter::butter2::MIN_CUTOFF_RATIO {
             // Clip to table bounds for init
             let cutoff_ratio = cutoff_ratio
                 .min(butter::butter2::MAX_CUTOFF_RATIO)
@@ -324,9 +333,7 @@ impl Sampler {
                     // Swap the old and new adc_filters
                     *old_filter = new_filter;
                 });
-        }
-
-        {
+        } else {
             // Clip to table bounds for init
             let cutoff_ratio = cutoff_ratio
                 .min(butter::butter1::MAX_CUTOFF_RATIO)
@@ -372,6 +379,7 @@ impl Sampler {
 
     pub fn sample(&mut self) {
         self.timer.clear_irq();
+        let start_time = self.timer.counter();
 
         if NEW_ADC_CUTOFF.load(Ordering::Relaxed) {
             // Make sure we don't run out of time and trigger another cycle
@@ -512,5 +520,10 @@ impl Sampler {
             pwmi1_val = self.frequency_scaling / fcnt1 as f32;
         }
         FREQ_SAMPLES[1].store(pwmi1_val, Ordering::Relaxed);
+
+        // Log how much time was spent sampling
+        let end_time = self.timer.counter();
+        let scope_time = (end_time - start_time) * self.tick_period_ns;
+        ACCUMULATED_SAMPLING_TIME_NS.fetch_add(scope_time, Ordering::Relaxed);
     }
 }

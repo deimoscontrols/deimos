@@ -11,7 +11,6 @@ use stm32h7xx_hal::{
     gpio::{Output, Pin},
     rcc::rec::AdcClkSel,
     rcc::ResetEnable,
-    stm32::*,
     timer::GetClk,
 };
 
