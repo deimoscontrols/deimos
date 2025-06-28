@@ -121,8 +121,8 @@ pub struct AdcPins {
 
     pub ain11: Pin<'A', 0>,
     pub ain12: Pin<'A', 3>,
-    pub ain13: Pin<'A', 4>,
-    pub ain14: Pin<'A', 5>,
+    // pub ain13: Pin<'A', 4>,
+    // pub ain14: Pin<'A', 5>,
     pub ain15: Pin<'A', 6>,
 
     pub ain16: Pin<'B', 0>,
@@ -227,8 +227,8 @@ impl Sampler {
         let groups = (
             [8, 9, 0],
             [10, 12, 1],
-            [11, 13, 2],
-            [14, 15, 3],
+            [11,  2],
+            [15, 3],
             [16, 17, 4],
             [18, 5],
             [19, 6],
@@ -420,16 +420,16 @@ impl Sampler {
         b[1] = block!(self.adc3.read_sample()).unwrap();
 
         self.adc1.start_conversion(&mut self.adc_pins.ain11);
-        self.adc2.start_conversion(&mut self.adc_pins.ain13);
+        // self.adc2.start_conversion(&mut self.adc_pins.ain13);
         self.adc3.start_conversion(&mut self.adc_pins.ain2);
         b[11] = block!(self.adc1.read_sample()).unwrap();
-        b[13] = block!(self.adc2.read_sample()).unwrap();
+        // b[13] = block!(self.adc2.read_sample()).unwrap();
         b[2] = block!(self.adc3.read_sample()).unwrap();
 
-        self.adc1.start_conversion(&mut self.adc_pins.ain14);
+        // self.adc1.start_conversion(&mut self.adc_pins.ain14);
         self.adc2.start_conversion(&mut self.adc_pins.ain15);
         self.adc3.start_conversion(&mut self.adc_pins.ain3);
-        b[14] = block!(self.adc1.read_sample()).unwrap();
+        // b[14] = block!(self.adc1.read_sample()).unwrap();
         b[15] = block!(self.adc2.read_sample()).unwrap();
         b[3] = block!(self.adc3.read_sample()).unwrap();
 

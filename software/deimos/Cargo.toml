@@ -19,13 +19,13 @@ deimos_shared = { path = "../deimos_shared", version = "0.4.0" }
 
 # Control loop prep
 chrono = { version = "0.4.39", features = ["std"], default-features = false }  # timestamp formatting
-core_affinity = "0.8.1"
+core_affinity = "0.8.3"
 thread-priority = "2.1.0"
 
 # Calcs
 flaw = "0.2.5"
 interpn = { version = "0.4.5", default-features = false }
-once_cell = "1.20.2"
+once_cell = "1.21.3"
 
 # Sideloading support
 crossbeam = "0.8.4"
