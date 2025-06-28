@@ -1,0 +1,5 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "aaa")(type "KiCad")(uri "${KIPRJMOD}/../../../kicad_libs/footprints.pretty")(options "")(descr ""))
+  (lib (name "logo_lib")(type "KiCad")(uri "${KIPRJMOD}/../../../kicad_libs/logo/logo_lib.pretty")(options "")(descr ""))
+)
