@@ -100,3 +100,7 @@ docs/_build/
 *op_name.tmp
 *.csv
 *sock
+*.log
+*.net
+*.raw
+*.plt

@@ -456,8 +456,6 @@ impl Controller {
                 loss_of_contact_limit: self.ctx.peripheral_loss_of_contact_limit,
                 mode: Mode::Roundtrip,
             };
-            // let num_to_write = ConfiguringInput::BYTE_LEN;
-            // config_input.write_bytes(&mut txbuf[..num_to_write]);
 
             for (sid, pid) in addresses.iter() {
                 let p = bound_peripherals.get(&(*sid, *pid)).unwrap();
@@ -654,7 +652,7 @@ impl Controller {
                 let n = p.operating_roundtrip_input_size();
                 let phase_delta_ns = ps.metrics.requested_phase_delta_ns as i64;
                 let period_delta_ns = ps.metrics.requested_period_delta_ns as i64;
-
+                //    Write inputs for this peripheral
                 self.orchestrator
                     .provide_peripheral_inputs(&ps.name, |vals| {
                         peripheral_input_buffer[..n]
@@ -664,8 +662,7 @@ impl Controller {
                                 *old = new;
                             })
                     });
-
-                // TODO: log transmit errors
+                //    Form packet to send to this peripheral
                 let (sid, pid) = addr;
                 p.emit_operating_roundtrip(
                     i,
@@ -674,10 +671,27 @@ impl Controller {
                     &peripheral_input_buffer[..n],
                     &mut txbuf[..n],
                 );
-
-                self.sockets[*sid]
+                //    Transmit the packet
+                match self.sockets[*sid]
                     .send(*pid, &txbuf[..n])
-                    .map_err(|e| format!("Unable to send on socket {sid}: {e}"))?;
+                    .map_err(|e| format!("Unable to send on socket {sid}: {e}"))
+                {
+                    Ok(_) => {}
+                    Err(_e) => {
+                        // TODO: log transmit errors
+                        // and consider a less passive response to transmission failure.
+                        //
+                        // Right now, if transmission fails, the peripheral is responsible for
+                        // registering that contact has been lost and will eventually exit the operating state,
+                        // after which the controller will start its loss of contact counter for that peripheral,
+                        // potentially doubling the number of cycles without active control compared to the loss of contact limit.
+                        //
+                        // That said, some resilience is required here, because transmission will fail a few times per day
+                        // in a typical configuration while the control server's DHCP IP address lease is renewed.
+                        // This can be prevented by setting up indefinite leases on a managed router, but we shouldn't
+                        // expect that level of micromanagement from a typical user.
+                    }
+                }
             }
 
             // Receive packets until the start of the next cycle
@@ -696,6 +710,7 @@ impl Controller {
                             None => continue,
                         };
 
+                        // Check if this peripheral is one we have bound
                         let addr = (sid, pid);
                         if !addresses.contains(&addr) {
                             continue;
@@ -724,7 +739,7 @@ impl Controller {
 
                         // If this packet is in-order, take it
                         if metrics.id > last_packet_id {
-                            // ps.outputs.copy_from_slice(&outputs);
+                            // Process metrics for this peripheral
                             ps.metrics.operating_metrics = metrics;
                             ps.metrics.last_received_time_ns =
                                 (rxtime - start_of_operating).as_nanos() as i64;

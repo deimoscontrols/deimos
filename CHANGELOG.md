@@ -1,5 +1,18 @@
 # Changelog
 
+
+## 2025-06-28 deimos 0.10.2
+
+### Changed
+
+* Do not exit control loop immediately on transmit error
+    * Instead, allow peripherals or controller to register loss of contact & follow established loss of contact procedure
+    * This allows the control loop to bridge brief outages during DHCP IP address lease renewal
+
+### Added
+
+* Add ltspice models of several sizing options for zero-ripple Sallen-Key filters
+
 ## 2025-06-25 analog_i_rev4 firmware 0.4.0, deimos 0.10.1
 
 ### Changed
