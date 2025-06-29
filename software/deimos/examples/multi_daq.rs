@@ -45,6 +45,8 @@ fn main() {
     ctx.op_name = op_name;
     ctx.dt_ns = dt_ns;
     ctx.op_dir = op_dir.clone();
+    ctx.controller_loss_of_contact_limit = 100;
+    ctx.peripheral_loss_of_contact_limit = 100;
     let mut controller = Controller::new(ctx);
 
     // Scan for peripherals on LAN
