@@ -37,7 +37,7 @@ fn main() {
     let peripheral_plugins = None;
 
     // Set control rate
-    let rate_hz = 25.0;
+    let rate_hz = 100.0;
     let dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
 
     // Define idle controller
@@ -45,8 +45,12 @@ fn main() {
     ctx.op_name = op_name;
     ctx.dt_ns = dt_ns;
     ctx.op_dir = op_dir.clone();
-    ctx.controller_loss_of_contact_limit = 100;
-    ctx.peripheral_loss_of_contact_limit = 100;
+    //   For a demo control network, assume that the control server does not have
+    //   a static address and may drop out for a few seconds while renewing its IP address.
+    //   For a real network, the control server and peripherals should be assigned
+    //   static addresses, and this limit can be comfortably set as low as 2-3 cycles.
+    ctx.controller_loss_of_contact_limit = (4.0 * rate_hz).min(1e4) as u16;
+    ctx.peripheral_loss_of_contact_limit = (4.0 * rate_hz).min(1e4) as u16;
     let mut controller = Controller::new(ctx);
 
     // Scan for peripherals on LAN
@@ -66,7 +70,7 @@ fn main() {
     // Set up database dispatchers
     let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(
         "tsdb",
-        "/run/postgresql/", // Unix socket interface
+        "/run/postgresql/", // Unix socket interface; TCP works as well
         "jlogan",
         "POSTGRES_PW",
         Duration::from_nanos(1),

@@ -6307,7 +6307,7 @@
 		)
 		(uuid "1a3e23c3-a64f-44d1-aa76-02b31b6575c7")
 	)
-	(hierarchical_label "AIN14_Filt"
+	(hierarchical_label "AIN14_DAC2_Filt"
 		(shape input)
 		(at 171.196 235.966 270)
 		(effects
@@ -6593,7 +6593,7 @@
 		)
 		(uuid "52741e2c-b3a4-482a-b895-03b1b4fdd20d")
 	)
-	(hierarchical_label "AIN14_Filt"
+	(hierarchical_label "AIN14_DAC2_Filt"
 		(shape input)
 		(at 42.418 227.584 0)
 		(effects
@@ -6714,7 +6714,7 @@
 		)
 		(uuid "786d89e1-108c-4b17-85c9-87e30aab7bdf")
 	)
-	(hierarchical_label "AIN13_Filt"
+	(hierarchical_label "AIN13_DAC1_Filt"
 		(shape input)
 		(at 168.656 235.966 270)
 		(effects
@@ -6857,7 +6857,7 @@
 		)
 		(uuid "954833ee-03fc-4e84-afef-aa113040a5fe")
 	)
-	(hierarchical_label "AIN13"
+	(hierarchical_label "AIN13_DAC1"
 		(shape input)
 		(at 37.338 216.662 180)
 		(effects
@@ -7000,7 +7000,7 @@
 		)
 		(uuid "a52ebdb0-22eb-4d67-b5a4-310e276e263f")
 	)
-	(hierarchical_label "AIN13_Filt"
+	(hierarchical_label "AIN13_DAC1_Filt"
 		(shape input)
 		(at 42.418 216.662 0)
 		(effects
@@ -7297,7 +7297,7 @@
 		)
 		(uuid "e1fa98f0-2042-4a0e-adca-86e1aafa7aee")
 	)
-	(hierarchical_label "AIN14"
+	(hierarchical_label "AIN14_DAC2"
 		(shape input)
 		(at 37.338 227.584 180)
 		(effects
