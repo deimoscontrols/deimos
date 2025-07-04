@@ -881,7 +881,7 @@
 				)
 			)
 		)
-		(property "Value" "3.3k 1%"
+		(property "Value" "10k 1%"
 			(at 82.55 79.6544 90)
 			(effects
 				(font
@@ -889,7 +889,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
+		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
 			(at 82.55 82.55 0)
 			(effects
 				(font
@@ -916,7 +916,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C25890"
+		(property "LCSC" "C25744"
 			(at 82.55 82.55 90)
 			(effects
 				(font
@@ -1357,7 +1357,7 @@
 				)
 			)
 		)
-		(property "Value" "3.3k 1%"
+		(property "Value" "10k 1%"
 			(at 93.98 79.6544 90)
 			(effects
 				(font
@@ -1365,7 +1365,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
+		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
 			(at 93.98 82.55 0)
 			(effects
 				(font
@@ -1392,7 +1392,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C25890"
+		(property "LCSC" "C25744"
 			(at 93.98 82.55 90)
 			(effects
 				(font
