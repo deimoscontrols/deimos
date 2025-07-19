@@ -627,8 +627,8 @@
       "RTD Amp2"
     ],
     [
-      "d0ec53a0-90f8-4c1a-b73a-905a63f7a951",
-      "sallen_key_3kHz1"
+      "59f61450-605e-4295-9b9f-53d8d5df51eb",
+      "sallen_key_1kHz"
     ],
     [
       "15b6c474-02be-417e-bc87-8489b7b45186",
@@ -639,12 +639,12 @@
       "K-Type TC Amp1"
     ],
     [
-      "0a47d814-437c-4fb7-99b9-24ab0ab242bd",
-      "sallen_key_3kHz2"
+      "59f61450-605e-4295-9b9f-53d8d5df51eb",
+      "sallen_key_1kHz"
     ],
     [
-      "10076f8f-acd4-4d92-be26-7bb7648716dd",
-      "sallen_key_1kHz"
+      "e20d7205-bbae-4480-b1ec-aee4d6ee1bcf",
+      "sallen_key_1kHz2"
     ],
     [
       "c99c1b0b-6659-4cec-a152-edd7ebc08576",
@@ -663,56 +663,124 @@
       "4-20mA Frontend3"
     ],
     [
-      "ecc8215c-aa73-4307-9e94-96da0574b4c2",
-      "sallen_key_1kHz1"
+      "63cb4c21-96ec-4930-8398-5e4d00a3dfaf",
+      "sallen_key_100Hz1"
     ],
     [
-      "2d0ece58-41cd-4308-ba37-cf167d06a3bd",
+      "413450a6-23f7-43dd-83b0-93f1b2a57e6d",
       "sallen_key_3kHz"
     ],
     [
-      "469f5481-49a3-40cd-8d85-def815d6ca28",
+      "4b0b4e20-0ae3-4a37-acd3-d6dca880b023",
       "sallen_key_3kHz3"
     ],
     [
-      "e7c27edf-97b2-437b-916c-c0477c7bf8b8",
-      "sallen_key_3kHz4"
+      "413450a6-23f7-43dd-83b0-93f1b2a57e6d",
+      "sallen_key_3kHz"
     ],
     [
-      "cd570c03-295e-44a5-8b27-4c3a273a391d",
-      "sallen_key_3kHz5"
+      "413450a6-23f7-43dd-83b0-93f1b2a57e6d",
+      "sallen_key_3kHz"
     ],
     [
-      "55deb655-3390-4f36-9e32-cbcfbe143a0c",
-      "sallen_key_3kHz6"
+      "2a5a8a5b-3176-4558-a595-780d8191c46b",
+      "pwm_out_buf1"
     ],
     [
       "f31a785a-aa18-4b99-9461-7c34b37be0d7",
       "sallen_key_100Hz"
     ],
     [
-      "69f51b45-bfd5-431f-b836-e123bd2f8971",
+      "0ab125f9-c5b5-4162-87a8-3c0a237e613b",
       "sallen_key_3kHz7"
     ],
     [
-      "27b15e23-f804-4e40-a974-83c25d5c6165",
-      "sallen_key_3kHz8"
+      "3b63f70a-358c-4846-8cdc-f459df41a6c2",
+      "ain_g1_1"
     ],
     [
-      "c466d81f-ebf3-49ec-863d-bb842e5bde02",
-      "sallen_key_3kHz9"
+      "368e72f3-9163-43ab-a3ec-847979828650",
+      "ain_g1_2"
     ],
     [
-      "08f87091-abb0-4bf1-83fb-e59e007fc4a1",
-      "sallen_key_3kHz10"
+      "ce54f78c-a719-439b-ba71-25a5b01d1ee5",
+      "ain_g1_3"
     ],
     [
-      "3222a655-275a-45ec-a7e7-0c882d3cca28",
-      "sallen_key_100Hz1"
+      "0ab125f9-c5b5-4162-87a8-3c0a237e613b",
+      "sallen_key_3kHz7"
     ],
     [
-      "55b2a81f-7c95-46a9-b84c-c73547c2715f",
-      "sallen_key_1kHz2"
+      "fbe215fd-185e-4781-8db8-c963f195ff3e",
+      "pwm_out_buf2"
+    ],
+    [
+      "d8ba479a-a7d9-47f0-902a-0be012b7ebf9",
+      "pwm_out_buf3"
+    ],
+    [
+      "0ab125f9-c5b5-4162-87a8-3c0a237e613b",
+      "sallen_key_3kHz7"
+    ],
+    [
+      "0ab125f9-c5b5-4162-87a8-3c0a237e613b",
+      "sallen_key_3kHz7"
+    ],
+    [
+      "4b0b4e20-0ae3-4a37-acd3-d6dca880b023",
+      "sallen_key_3kHz3"
+    ],
+    [
+      "c0b9347d-9aa2-441c-987f-68119b1d92c1",
+      "ain_g1_"
+    ],
+    [
+      "4b0b4e20-0ae3-4a37-acd3-d6dca880b023",
+      "sallen_key_3kHz3"
+    ],
+    [
+      "4b0b4e20-0ae3-4a37-acd3-d6dca880b023",
+      "sallen_key_3kHz3"
+    ],
+    [
+      "cebae258-d5b5-4a87-b6e3-430d71499c69",
+      "dac_buf1"
+    ],
+    [
+      "a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc",
+      "ain_g25p7_"
+    ],
+    [
+      "ed60502d-2e6d-4293-85f2-5e967a3c42d8",
+      "ain_g666p333_"
+    ],
+    [
+      "3d57a2e8-76a3-4b72-b88d-c02ba9a3137f",
+      "pwm_out_buf"
+    ],
+    [
+      "4793dc8a-9b5b-4e0e-98ad-d18b2e15ba42",
+      "pwm_in_buf1"
+    ],
+    [
+      "29721755-8d58-43bd-a39c-bd4a1e9dfd38",
+      "pwm_in_buf2"
+    ],
+    [
+      "a0c6f2ec-efe6-41c6-a73f-fc59527214d9",
+      "pwm_in_buf3"
+    ],
+    [
+      "13efaa5b-e400-45cc-91a0-978d4e7725f3",
+      "dac_buf"
+    ],
+    [
+      "cab136f8-1a56-4c0d-892a-9614df511e87",
+      "pwm_in_buf4"
+    ],
+    [
+      "926afd70-af22-4794-b800-14fc8a5a0159",
+      "pwm_in_buf"
     ],
     [
       "76bdcc3c-aeb3-45bb-bfec-f68418164bd8",

@@ -1128,6 +1128,16 @@
 	)
 	(wire
 		(pts
+			(xy 219.71 100.33) (xy 252.73 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d2b016fc-921d-4329-a33d-2abd5ad6b33b")
+	)
+	(wire
+		(pts
 			(xy 124.46 100.33) (xy 124.46 104.14)
 		)
 		(stroke
@@ -1188,6 +1198,17 @@
 			(justify left bottom)
 		)
 		(uuid "aba14c2d-4330-4cd4-a9ef-58545e4e5989")
+	)
+	(text "Post-amp active low-pass filter"
+		(exclude_from_sim no)
+		(at 252.222 111.252 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "b4a747a7-6cba-4d62-880a-d49f8216911a")
 	)
 	(text "Frontend & Connector"
 		(exclude_from_sim no)
@@ -1268,7 +1289,7 @@
 	)
 	(hierarchical_label "Vout"
 		(shape input)
-		(at 219.71 100.33 0)
+		(at 270.51 100.33 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3104,6 +3125,66 @@
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83"
 					(reference "#PWR025")
 					(unit 1)
+				)
+			)
+		)
+	)
+	(sheet
+		(at 252.73 93.98)
+		(size 17.78 12.7)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "59f61450-605e-4295-9b9f-53d8d5df51eb")
+		(property "Sheetname" "sallen_key_1kHz"
+			(at 252.984 108.712 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "sk_1kHz.kicad_sch"
+			(at 252.73 91.694 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "VIN" input
+			(at 252.73 100.33 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "1ac399f0-6606-4283-af53-5987270d3cb1")
+		)
+		(pin "VOUT" input
+			(at 270.51 100.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "e91ae31b-b23b-4572-a11f-ca8d1a086c24")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/15b6c474-02be-417e-bc87-8489b7b45186"
+					(page "5")
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83"
+					(page "8")
 				)
 			)
 		)

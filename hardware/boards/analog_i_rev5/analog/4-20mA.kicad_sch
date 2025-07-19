@@ -1587,6 +1587,12 @@
 		(uuid "1cbb6a33-be79-40b7-a62e-bbcdf73f5c89")
 	)
 	(junction
+		(at 182.626 93.98)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "35b46feb-1578-4ece-8dce-5ab57793e20d")
+	)
+	(junction
 		(at 181.61 99.06)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -1748,6 +1754,16 @@
 	)
 	(wire
 		(pts
+			(xy 195.326 112.014) (xy 189.23 112.014)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3e24fcfc-6b1f-466f-9946-e15cdda59dbb")
+	)
+	(wire
+		(pts
 			(xy 82.296 68.58) (xy 82.296 88.9)
 		)
 		(stroke
@@ -1805,6 +1821,16 @@
 			(type default)
 		)
 		(uuid "7aeb65c1-de3b-46b3-9d61-a02748f1bebd")
+	)
+	(wire
+		(pts
+			(xy 189.23 112.014) (xy 189.23 93.98)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "852efc21-6657-4182-9c1d-0434a00ce607")
 	)
 	(wire
 		(pts
@@ -1905,6 +1931,16 @@
 			(type default)
 		)
 		(uuid "c49029ea-c722-4fbe-9b06-f7821668af59")
+	)
+	(wire
+		(pts
+			(xy 189.23 93.98) (xy 182.626 93.98)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c7fbd6f0-d97a-4851-a821-a58ca9d58091")
 	)
 	(wire
 		(pts
@@ -2033,6 +2069,17 @@
 		)
 		(uuid "8c0aa050-872b-4f08-93fc-56642aefe7bd")
 	)
+	(text "Post-amp active low-pass filter"
+		(exclude_from_sim no)
+		(at 195.072 123.444 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "d22e6e78-c10b-4d02-9b8f-82021941f1e2")
+	)
 	(text "Expect 0.4-2.0V output"
 		(exclude_from_sim no)
 		(at 179.07 85.725 0)
@@ -2057,7 +2104,7 @@
 	)
 	(hierarchical_label "Vout"
 		(shape input)
-		(at 182.626 93.98 0)
+		(at 213.106 112.014 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2500,8 +2547,8 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "3845808c-3b00-455d-8412-33dd650cd426")
-		(property "Reference" "D10001"
-			(at 189.738 101.6 0)
+		(property "Reference" "D12001"
+			(at 183.388 101.6 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3214,7 +3261,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "aa65ad79-d96b-4210-a342-4c0230e0e66e")
-		(property "Reference" "#PWR10001"
+		(property "Reference" "#PWR12001"
 			(at 193.04 91.44 0)
 			(effects
 				(font
@@ -4115,6 +4162,72 @@
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed7a0d70-4012-4e50-88a7-aea647708582"
 					(reference "IC8")
 					(unit 1)
+				)
+			)
+		)
+	)
+	(sheet
+		(at 195.326 105.664)
+		(size 17.78 12.7)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "4b0b4e20-0ae3-4a37-acd3-d6dca880b023")
+		(property "Sheetname" "sallen_key_3kHz3"
+			(at 196.088 120.396 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "sk_3kHz.kicad_sch"
+			(at 195.326 103.378 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "VIN" input
+			(at 195.326 112.014 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "222a8b30-4798-4055-b83d-df3b34e99e04")
+		)
+		(pin "VOUT" input
+			(at 213.106 112.014 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "90f0a0b6-17df-45ba-8dda-f1e0410a9492")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/c99c1b0b-6659-4cec-a152-edd7ebc08576"
+					(page "16")
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/b7e73f80-a01f-409c-a1ae-634c4b865833"
+					(page "30")
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/77831b95-4af9-4be7-883d-350d130a19a2"
+					(page "32")
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed7a0d70-4012-4e50-88a7-aea647708582"
+					(page "33")
 				)
 			)
 		)
