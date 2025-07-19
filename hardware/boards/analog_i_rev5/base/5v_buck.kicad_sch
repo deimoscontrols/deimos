@@ -1492,6 +1492,126 @@
 				)
 			)
 		)
+		(symbol "power:+5V"
+			(power)
+			(pin_numbers hide)
+			(pin_names
+				(offset 0) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "#PWR"
+				(at 0 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Value" "+5V"
+				(at 0 3.556 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"+5V\""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "+5V_0_1"
+				(polyline
+					(pts
+						(xy -0.762 1.27) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 2.54) (xy 0.762 1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "+5V_1_1"
+				(pin power_in line
+					(at 0 0 90)
+					(length 0)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
 		(symbol "power:GND"
 			(power)
 			(pin_names
@@ -1594,6 +1714,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "0132e329-24c8-4033-97b8-0d65f7d4f657")
+	)
+	(junction
+		(at 164.338 94.742)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2a343e55-7668-41ee-8746-bad9b6ee2566")
 	)
 	(junction
 		(at 160.782 94.742)
@@ -1876,17 +2002,6 @@
 		)
 		(uuid "913e37f4-6693-4f99-99b6-041ce688cb21")
 	)
-	(hierarchical_label "5V_OUT"
-		(shape input)
-		(at 164.338 94.742 90)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "70886c24-0db5-4dad-8ddb-1030f6ef2036")
-	)
 	(symbol
 		(lib_name "R_Small_1")
 		(lib_id "Device:R_Small")
@@ -1898,7 +2013,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "048de05b-0bff-4dca-89a3-85ed1ce1419f")
-		(property "Reference" "R3003"
+		(property "Reference" "R?"
 			(at 153.67 105.4099 0)
 			(effects
 				(font
@@ -1960,10 +2075,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "R3003")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "R?")
 					(unit 1)
@@ -1981,7 +2092,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "21ab5f10-a2cb-43f2-b60d-0fc1ad99ecdb")
-		(property "Reference" "C3002"
+		(property "Reference" "C?"
 			(at 102.87 88.646 0)
 			(effects
 				(font
@@ -2043,10 +2154,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "C3002")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "C?")
 					(unit 1)
@@ -2063,7 +2170,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "24eb170b-86ec-4719-9d28-595e8536f2ee")
-		(property "Reference" "#PWR3003"
+		(property "Reference" "#PWR?"
 			(at 91.948 100.584 0)
 			(effects
 				(font
@@ -2113,10 +2220,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "#PWR3003")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "#PWR?")
 					(unit 1)
@@ -2133,7 +2236,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "250496c7-aff5-4f8b-a4c6-0db3cdbd61bd")
-		(property "Reference" "IC3001"
+		(property "Reference" "IC8002"
 			(at 146.558 75.438 0)
 			(effects
 				(font
@@ -2270,10 +2373,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "IC3001")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "IC8002")
 					(unit 1)
@@ -2290,7 +2389,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "36e92824-ecff-481e-98d5-6e549e9b160e")
-		(property "Reference" "C3006"
+		(property "Reference" "C8003"
 			(at 175.26 99.314 0)
 			(effects
 				(font
@@ -2352,10 +2451,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "C3006")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "C8003")
 					(unit 1)
@@ -2372,7 +2467,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "3923d64f-5077-4b07-8f9c-f2ab73ec805d")
-		(property "Reference" "#PWR3005"
+		(property "Reference" "#PWR?"
 			(at 151.384 115.57 0)
 			(effects
 				(font
@@ -2422,10 +2517,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "#PWR3005")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "#PWR?")
 					(unit 1)
@@ -2443,7 +2534,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "54736b06-d2a4-46bb-a44c-0ba12a231221")
-		(property "Reference" "#PWR3001"
+		(property "Reference" "#PWR?"
 			(at 85.852 84.074 0)
 			(effects
 				(font
@@ -2493,10 +2584,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "#PWR3001")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "#PWR?")
 					(unit 1)
@@ -2513,7 +2600,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "7099c4d6-f541-410a-9a97-953e98645317")
-		(property "Reference" "C3001"
+		(property "Reference" "C8001"
 			(at 79.502 89.408 90)
 			(effects
 				(font
@@ -2573,12 +2660,74 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "C3001")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "C8001")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+5V")
+		(at 164.338 94.742 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "7193e744-0c96-48a3-bed0-801ea0f48efc")
+		(property "Reference" "#PWR8001"
+			(at 164.338 98.552 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5V"
+			(at 164.338 89.662 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 164.338 94.742 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 164.338 94.742 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 164.338 94.742 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "56d1a240-1a31-4142-ac96-f3c91131585a")
+		)
+		(instances
+			(project "stm32h7_base"
+				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "#PWR8001")
 					(unit 1)
 				)
 			)
@@ -2593,7 +2742,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "737d1734-c47c-4bf5-a2e7-84ff03994c63")
-		(property "Reference" "#PWR3004"
+		(property "Reference" "#PWR?"
 			(at 113.538 95.504 0)
 			(effects
 				(font
@@ -2643,10 +2792,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "#PWR3004")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "#PWR?")
 					(unit 1)
@@ -2664,7 +2809,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "762b457e-dc11-48f7-a8bc-6b3fe3b33ae6")
-		(property "Reference" "R3001"
+		(property "Reference" "R?"
 			(at 93.98 90.4239 0)
 			(effects
 				(font
@@ -2726,10 +2871,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "R3001")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "R?")
 					(unit 1)
@@ -2747,7 +2888,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "954862fd-2f35-43fc-ad01-6ab2103e7e1f")
-		(property "Reference" "C3004"
+		(property "Reference" "C?"
 			(at 141.478 97.282 90)
 			(effects
 				(font
@@ -2807,10 +2948,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "C3004")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "C?")
 					(unit 1)
@@ -2827,7 +2964,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "9bd3459b-f556-43b5-9599-8b43720cdab7")
-		(property "Reference" "#PWR3006"
+		(property "Reference" "#PWR?"
 			(at 157.988 84.074 0)
 			(effects
 				(font
@@ -2877,10 +3014,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "#PWR3006")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "#PWR?")
 					(unit 1)
@@ -2897,7 +3030,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "ab77074c-9aeb-444d-9b96-487b4a78123e")
-		(property "Reference" "L3001"
+		(property "Reference" "L?"
 			(at 130.302 100.33 90)
 			(effects
 				(font
@@ -2957,10 +3090,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "L3001")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "L?")
 					(unit 1)
@@ -2977,7 +3106,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "adb761ab-a75e-4f5a-afcd-1eaf1e952d6e")
-		(property "Reference" "C3005"
+		(property "Reference" "C8002"
 			(at 155.194 100.076 90)
 			(effects
 				(font
@@ -3037,10 +3166,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "C3005")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "C8002")
 					(unit 1)
@@ -3058,7 +3183,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "ae978437-97a1-4f74-9b1f-d2cea4c3075c")
-		(property "Reference" "R3002"
+		(property "Reference" "R?"
 			(at 141.478 101.6 0)
 			(effects
 				(font
@@ -3120,10 +3245,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "R3002")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "R?")
 					(unit 1)
@@ -3140,7 +3261,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "cd9e836c-e143-4a6d-adeb-b45183d04cbd")
-		(property "Reference" "#PWR3007"
+		(property "Reference" "#PWR?"
 			(at 160.782 106.172 0)
 			(effects
 				(font
@@ -3190,10 +3311,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "#PWR3007")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "#PWR?")
 					(unit 1)
@@ -3210,7 +3327,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "d3591e0b-c8b6-4629-aca2-26fdd5f56115")
-		(property "Reference" "#PWR3002"
+		(property "Reference" "#PWR?"
 			(at 85.09 95.504 0)
 			(effects
 				(font
@@ -3260,10 +3377,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "#PWR3002")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "#PWR?")
 					(unit 1)
@@ -3281,7 +3394,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "e1f9aa22-70b6-4a4a-aaba-ea4bb490a831")
-		(property "Reference" "C3003"
+		(property "Reference" "C?"
 			(at 124.46 88.646 0)
 			(effects
 				(font
@@ -3343,10 +3456,6 @@
 		)
 		(instances
 			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/11a00dab-bf8e-438d-beda-d634806e2807"
-					(reference "C3003")
-					(unit 1)
-				)
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "C?")
 					(unit 1)
