@@ -4,248 +4,7 @@
 	(generator_version "8.0")
 	(uuid "be3bc0e4-ba4a-4eef-930e-9fc8c1d9bf47")
 	(paper "A4")
-	(lib_symbols
-		(symbol "Connector:Screw_Terminal_01x03"
-			(pin_names
-				(offset 1.016) hide)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "J"
-				(at 0 5.08 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "Screw_Terminal_01x03"
-				(at 0 -5.08 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "~"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Generic screw terminal, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "screw terminal"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_fp_filters" "TerminalBlock*:*"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "Screw_Terminal_01x03_1_1"
-				(rectangle
-					(start -1.27 3.81)
-					(end 1.27 -3.81)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-				(circle
-					(center 0 -2.54)
-					(radius 0.635)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -0.5334 -2.2098) (xy 0.3302 -3.048)
-					)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -0.5334 0.3302) (xy 0.3302 -0.508)
-					)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -0.5334 2.8702) (xy 0.3302 2.032)
-					)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -0.3556 -2.032) (xy 0.508 -2.8702)
-					)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -0.3556 0.508) (xy 0.508 -0.3302)
-					)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -0.3556 3.048) (xy 0.508 2.2098)
-					)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(circle
-					(center 0 0)
-					(radius 0.635)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(circle
-					(center 0 2.54)
-					(radius 0.635)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(pin passive line
-					(at -5.08 2.54 0)
-					(length 3.81)
-					(name "Pin_1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 0 0)
-					(length 3.81)
-					(name "Pin_2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 -2.54 0)
-					(length 3.81)
-					(name "Pin_3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-		)
-	)
+	(lib_symbols)
 	(wire
 		(pts
 			(xy 121.412 81.788) (xy 130.556 81.788)
@@ -255,36 +14,6 @@
 			(type default)
 		)
 		(uuid "1c2c8a35-8b1a-4759-956c-d28247c918f9")
-	)
-	(wire
-		(pts
-			(xy 74.93 84.328) (xy 92.71 84.328)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "be3e60bc-0c46-4826-9dea-a0585ff52f9d")
-	)
-	(wire
-		(pts
-			(xy 74.93 81.788) (xy 92.71 81.788)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d61ac757-4f1e-488c-8412-22647136dce8")
-	)
-	(wire
-		(pts
-			(xy 74.93 79.248) (xy 92.71 79.248)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d6fb456e-2d7d-42cb-bf4a-88f586e5cea9")
 	)
 	(text "Interfaces decoupled to allow reuse for\nboard temperature without the terminal block"
 		(exclude_from_sim no)
@@ -308,6 +37,17 @@
 		)
 		(uuid "e321d3f3-8b60-4b2d-91d4-24b92d047389")
 	)
+	(hierarchical_label "R+"
+		(shape input)
+		(at 92.71 79.248 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "a6f72ba7-7563-467e-b10d-586819efe0c7")
+	)
 	(hierarchical_label "Vout"
 		(shape input)
 		(at 148.336 81.788 0)
@@ -319,115 +59,27 @@
 		)
 		(uuid "c54c2ff0-bd93-4cc2-9e08-4bc92c2f8f39")
 	)
-	(symbol
-		(lib_id "Connector:Screw_Terminal_01x03")
-		(at 69.85 81.788 180)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "c86e35a5-5079-410e-a465-09b659151c02")
-		(property "Reference" "J12001"
-			(at 69.85 72.263 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
+	(hierarchical_label "R-"
+		(shape input)
+		(at 92.71 81.788 180)
+		(effects
+			(font
+				(size 1.27 1.27)
 			)
+			(justify right)
 		)
-		(property "Value" "Screw_Terminal_01x03"
-			(at 69.85 74.803 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
+		(uuid "cd216726-4e26-4dd4-9a3c-dfca92635227")
+	)
+	(hierarchical_label "W-"
+		(shape input)
+		(at 92.71 84.328 180)
+		(effects
+			(font
+				(size 1.27 1.27)
 			)
+			(justify right)
 		)
-		(property "Footprint" "aaa:Screw_Terminal_3_P5.08mm"
-			(at 69.85 81.788 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 69.85 81.788 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 69.85 81.788 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C8270"
-			(at 69.85 81.788 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "56df38cb-efb2-463f-91b6-8d79c83c087d")
-		)
-		(pin "2"
-			(uuid "794e38f6-5f6d-4ab3-88d5-9abd7124418f")
-		)
-		(pin "3"
-			(uuid "8929e7a9-b362-4d78-b478-ab02ace6c8a1")
-		)
-		(instances
-			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/19141585-7846-417a-91df-f61215fe3233"
-					(reference "J12001")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/1fbd3e63-3701-4f31-b722-16e65c25cea8"
-					(reference "J16001")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/4491b10b-2044-45ea-b186-c518a135ceee"
-					(reference "J24001")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/d6a52a0f-faf0-48a3-a8ea-d9db6b343f24"
-					(reference "J20001")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/fb5bb440-61c9-4bd3-9ab6-a463ad90c8bb"
-					(reference "J10001")
-					(unit 1)
-				)
-			)
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/19141585-7846-417a-91df-f61215fe3233"
-					(reference "J9")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/1fbd3e63-3701-4f31-b722-16e65c25cea8"
-					(reference "J10")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/fb5bb440-61c9-4bd3-9ab6-a463ad90c8bb"
-					(reference "J8")
-					(unit 1)
-				)
-			)
-		)
+		(uuid "e7caa36c-1d83-4479-8296-3139883a8dcf")
 	)
 	(sheet
 		(at 130.556 76.2)
