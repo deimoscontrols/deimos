@@ -1371,22 +1371,10 @@
 		(uuid "53d3d5c4-7e49-4fc0-a109-6650f2c03d6d")
 	)
 	(junction
-		(at 196.85 91.44)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "53dd0bf8-d72e-46ae-9947-9245291e666b")
-	)
-	(junction
 		(at 120.904 76.2)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "66feb51f-a412-4925-bb7e-97d42decf600")
-	)
-	(junction
-		(at 196.85 96.52)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "7869506e-058c-4e0a-8d3f-6830d453003a")
 	)
 	(junction
 		(at 126.238 105.41)
@@ -1621,16 +1609,6 @@
 			(type default)
 		)
 		(uuid "8e9e1a90-a6cb-49f0-9b16-70b522c58870")
-	)
-	(wire
-		(pts
-			(xy 191.77 96.52) (xy 196.85 96.52)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "900a4522-00ad-4ee7-88c6-e2da4773c499")
 	)
 	(wire
 		(pts
@@ -1894,107 +1872,6 @@
 			(justify right)
 		)
 		(uuid "68772071-7d0c-4251-a70a-47e92dc8a2eb")
-	)
-	(symbol
-		(lib_id "Device:C_Small")
-		(at 196.85 93.98 180)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "0ce3e2e9-efee-4102-a180-5ac634025149")
-		(property "Reference" "C26003"
-			(at 196.85 90.17 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "10uF"
-			(at 199.39 93.98 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
-			(at 196.85 93.98 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 196.85 93.98 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 196.85 93.98 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "63790872-12e3-490f-8151-7398f956a4a7")
-		)
-		(pin "2"
-			(uuid "9604de9d-faad-4c7b-a285-07a84fb74d06")
-		)
-		(instances
-			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/6dd858ad-2af2-4b47-aa79-fa644af79f05"
-					(reference "C26003")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2"
-					(reference "C18003")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/b7e73f80-a01f-409c-a1ae-634c4b865833"
-					(reference "C14003")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/c99c1b0b-6659-4cec-a152-edd7ebc08576"
-					(reference "C11003")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/ed7a0d70-4012-4e50-88a7-aea647708582"
-					(reference "C22003")
-					(unit 1)
-				)
-			)
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/77831b95-4af9-4be7-883d-350d130a19a2"
-					(reference "C33")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/b7e73f80-a01f-409c-a1ae-634c4b865833"
-					(reference "C30")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/c99c1b0b-6659-4cec-a152-edd7ebc08576"
-					(reference "C27")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed7a0d70-4012-4e50-88a7-aea647708582"
-					(reference "C36")
-					(unit 1)
-				)
-			)
-		)
 	)
 	(symbol
 		(lib_id "Device:C_Small")
@@ -2418,7 +2295,7 @@
 		(dnp no)
 		(uuid "64bdc94c-fe01-4159-86e4-33839421146c")
 		(property "Reference" "C26002"
-			(at 191.77 90.17 90)
+			(at 192.024 88.9 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2426,7 +2303,7 @@
 			)
 		)
 		(property "Value" "0.1uF"
-			(at 189.23 93.98 90)
+			(at 194.818 94.488 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3000,7 +2877,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 196.85 96.52 0)
+		(at 191.77 96.52 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -3009,7 +2886,7 @@
 		(fields_autoplaced yes)
 		(uuid "c51a5278-d993-4689-8043-80438cd6e94b")
 		(property "Reference" "#PWR026006"
-			(at 196.85 102.87 0)
+			(at 191.77 102.87 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3018,7 +2895,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 196.85 100.965 0)
+			(at 191.77 100.965 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3026,7 +2903,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 196.85 96.52 0)
+			(at 191.77 96.52 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3035,7 +2912,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 196.85 96.52 0)
+			(at 191.77 96.52 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3044,7 +2921,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 196.85 96.52 0)
+			(at 191.77 96.52 0)
 			(effects
 				(font
 					(size 1.27 1.27)
