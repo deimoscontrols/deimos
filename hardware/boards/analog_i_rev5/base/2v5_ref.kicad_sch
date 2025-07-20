@@ -645,11 +645,11 @@
 				)
 			)
 		)
-		(symbol "power:+5V"
+		(symbol "power:+3V3"
 			(power)
+			(pin_numbers hide)
 			(pin_names
-				(offset 0)
-			)
+				(offset 0) hide)
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
@@ -662,7 +662,7 @@
 					(hide yes)
 				)
 			)
-			(property "Value" "+5V"
+			(property "Value" "+3V3"
 				(at 0 3.556 0)
 				(effects
 					(font
@@ -688,7 +688,7 @@
 					(hide yes)
 				)
 			)
-			(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(property "Description" "Power symbol creates a global label with name \"+3V3\""
 				(at 0 0 0)
 				(effects
 					(font
@@ -697,7 +697,7 @@
 					(hide yes)
 				)
 			)
-			(property "ki_keywords" "power-flag"
+			(property "ki_keywords" "global power"
 				(at 0 0 0)
 				(effects
 					(font
@@ -706,7 +706,7 @@
 					(hide yes)
 				)
 			)
-			(symbol "+5V_0_1"
+			(symbol "+3V3_0_1"
 				(polyline
 					(pts
 						(xy -0.762 1.27) (xy 0 2.54)
@@ -744,11 +744,11 @@
 					)
 				)
 			)
-			(symbol "+5V_1_1"
+			(symbol "+3V3_1_1"
 				(pin power_in line
 					(at 0 0 90)
-					(length 0) hide
-					(name "+5V"
+					(length 0)
+					(name "~"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -887,16 +887,16 @@
 		(uuid "9bba1b12-eea0-4185-848d-3f210a927f43")
 	)
 	(junction
-		(at 133.604 85.598)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c1425f75-f7d9-48df-a449-a3ad1ec183d1")
-	)
-	(junction
 		(at 157.734 91.948)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "d971d417-def4-4d83-8817-7353707b3c9d")
+	)
+	(junction
+		(at 133.604 85.598)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "f2c04b09-a2ee-40ca-96da-da73da9d16e1")
 	)
 	(junction
 		(at 141.224 75.438)
@@ -1165,6 +1165,72 @@
 			(project "simplicity_analog_1"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/55a285de-48df-43d5-b6cb-85740c1dbaf3"
 					(reference "C6048")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3V3")
+		(at 133.604 85.598 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "26403098-baaa-4146-a6ed-a61d4400c65a")
+		(property "Reference" "#PWR5002"
+			(at 137.414 85.598 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 129.794 88.138 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 133.604 85.598 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 133.604 85.598 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3V3\""
+			(at 133.604 85.598 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "1f406aa7-4bcb-4423-8894-487f4c2e514e")
+		)
+		(instances
+			(project "stm32h7_base"
+				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/55a285de-48df-43d5-b6cb-85740c1dbaf3"
+					(reference "#PWR5002")
 					(unit 1)
 				)
 			)
@@ -1562,78 +1628,6 @@
 			(project "simplicity_analog_1"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/55a285de-48df-43d5-b6cb-85740c1dbaf3"
 					(reference "C6049")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+5V")
-		(at 133.604 85.598 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "d4a0f05f-712c-4280-8290-2a15e213042a")
-		(property "Reference" "#PWR06008"
-			(at 137.414 85.598 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+5V"
-			(at 128.524 85.598 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 133.604 85.598 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 133.604 85.598 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 133.604 85.598 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "6f163906-5ac2-4f3a-94fc-ab10644e95f8")
-		)
-		(instances
-			(project ""
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/55a285de-48df-43d5-b6cb-85740c1dbaf3"
-					(reference "#PWR06008")
-					(unit 1)
-				)
-			)
-			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/55a285de-48df-43d5-b6cb-85740c1dbaf3"
-					(reference "#PWR06008")
 					(unit 1)
 				)
 			)

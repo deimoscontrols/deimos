@@ -225,7 +225,7 @@
 		)
 		(uuid "e7b1330c-678d-4336-860a-5c07822df2dd")
 	)
-	(text "Status LEDs \n& Testpoints"
+	(text "Testpoints"
 		(exclude_from_sim no)
 		(at 215.9 72.136 0)
 		(effects
@@ -269,7 +269,7 @@
 		)
 		(uuid "10ddb311-9d7a-47e4-9c24-04eda2e82447")
 	)
-	(hierarchical_label "AIN13_DAC1"
+	(hierarchical_label "AIN13_DAC0"
 		(shape input)
 		(at 26.416 46.736 180)
 		(effects
@@ -401,7 +401,7 @@
 		)
 		(uuid "8cd7988c-3b00-4ecb-a0d9-98f4eda222fe")
 	)
-	(hierarchical_label "AIN14_DAC2"
+	(hierarchical_label "AIN14_DAC1"
 		(shape input)
 		(at 26.416 48.514 180)
 		(effects
@@ -894,7 +894,7 @@
 			)
 			(uuid "f146f69c-955d-48d6-a45a-f0a799c5cc50")
 		)
-		(pin "AIN14" input
+		(pin "AIN14_DAC1" input
 			(at 26.416 48.514 180)
 			(effects
 				(font
@@ -914,7 +914,7 @@
 			)
 			(uuid "2777a4c7-be9c-449e-a8c8-2531e583c8d6")
 		)
-		(pin "AIN13" input
+		(pin "AIN13_DAC0" input
 			(at 26.416 46.736 180)
 			(effects
 				(font

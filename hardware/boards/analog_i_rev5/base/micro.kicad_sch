@@ -5267,16 +5267,6 @@
 	)
 	(wire
 		(pts
-			(xy 42.418 216.662) (xy 42.418 219.456)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0e217f20-61a2-4b3c-8b17-f291edb1ab28")
-	)
-	(wire
-		(pts
 			(xy 367.665 191.135) (xy 367.665 193.04)
 		)
 		(stroke
@@ -5304,16 +5294,6 @@
 			(type default)
 		)
 		(uuid "20db640f-0f13-41b2-8d4c-2ff0e76306fe")
-	)
-	(wire
-		(pts
-			(xy 42.418 227.584) (xy 42.418 230.378)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "21756653-c978-465a-9b68-577434631352")
 	)
 	(wire
 		(pts
@@ -6143,7 +6123,7 @@
 		)
 		(uuid "d2a2697c-e088-419f-817a-36bbb5481c13")
 	)
-	(text "TIM4_CH1 and _CH2 are both needed \nin order to capture both frequency\nand pulse width for PWM input,\nbecause one channel can't map to\nmultiple compare-and-capture modules.\n\nNo other timer module that might be\nused as a frequency input has a\nsecond channel pin available, so\nonly one frequency input has pulse\nwidth info."
+	(text "TIM4_CH1 and _CH2 are both needed \nin order to capture both frequency\nand pulse width for PWM input,\nbecause one channel can't map to\nmultiple compare-and-capture modules.\n\nNeither frequency input has pulse width info\nbecause configuring the registers to extract\npulse width causes failures in other timers."
 		(exclude_from_sim no)
 		(at 177.038 63.246 0)
 		(effects
@@ -6306,17 +6286,6 @@
 			(justify right)
 		)
 		(uuid "1a3e23c3-a64f-44d1-aa76-02b31b6575c7")
-	)
-	(hierarchical_label "AIN14_DAC2_Filt"
-		(shape input)
-		(at 171.196 235.966 270)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "1acf8510-b7d3-4a3e-8313-a72791f36703")
 	)
 	(hierarchical_label "AIN15_Filt"
 		(shape input)
@@ -6593,17 +6562,6 @@
 		)
 		(uuid "52741e2c-b3a4-482a-b895-03b1b4fdd20d")
 	)
-	(hierarchical_label "AIN14_DAC2_Filt"
-		(shape input)
-		(at 42.418 227.584 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "5446c78b-678d-4137-b051-e1f234204ecb")
-	)
 	(hierarchical_label "AIN17_Filt"
 		(shape input)
 		(at 186.436 235.966 270)
@@ -6713,17 +6671,6 @@
 			(justify right)
 		)
 		(uuid "786d89e1-108c-4b17-85c9-87e30aab7bdf")
-	)
-	(hierarchical_label "AIN13_DAC1_Filt"
-		(shape input)
-		(at 168.656 235.966 270)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "7c270d16-d571-437f-bb3f-e798fb87fa2c")
 	)
 	(hierarchical_label "RMII_RXD1"
 		(shape input)
@@ -6857,9 +6804,9 @@
 		)
 		(uuid "954833ee-03fc-4e84-afef-aa113040a5fe")
 	)
-	(hierarchical_label "AIN13_DAC1"
+	(hierarchical_label "AIN13_DAC0"
 		(shape input)
-		(at 37.338 216.662 180)
+		(at 168.656 235.966 270)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -6999,17 +6946,6 @@
 			(justify left)
 		)
 		(uuid "a52ebdb0-22eb-4d67-b5a4-310e276e263f")
-	)
-	(hierarchical_label "AIN13_DAC1_Filt"
-		(shape input)
-		(at 42.418 216.662 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "acf2c992-0bb5-4941-a410-5ace2a8fea73")
 	)
 	(hierarchical_label "AIN18_Filt"
 		(shape input)
@@ -7297,9 +7233,9 @@
 		)
 		(uuid "e1fa98f0-2042-4a0e-adca-86e1aafa7aee")
 	)
-	(hierarchical_label "AIN14_DAC2"
+	(hierarchical_label "AIN14_DAC1"
 		(shape input)
-		(at 37.338 227.584 180)
+		(at 171.196 235.966 270)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -11170,88 +11106,6 @@
 			(project "simplicity_analog_1"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
 					(reference "C6034")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R_Small")
-		(at 39.878 216.662 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "5ae52309-3da6-48cf-9962-69ca6fb1daf9")
-		(property "Reference" "R42"
-			(at 41.402 214.122 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "10R 0603"
-			(at 37.084 214.122 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
-			(at 39.878 216.662 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 39.878 216.662 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Resistor, small symbol"
-			(at 39.878 216.662 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C22859"
-			(at 39.878 216.662 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "8e2b5118-592b-44d7-947d-7b86b288c940")
-		)
-		(pin "2"
-			(uuid "c7449f87-5baa-49ed-a7d3-e48fcb545241")
-		)
-		(instances
-			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "R42")
-					(unit 1)
-				)
-			)
-			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "R6014")
 					(unit 1)
 				)
 			)
@@ -15648,77 +15502,6 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 37.338 219.456 270)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "ae78148c-78fd-4bce-8caf-528319d170f4")
-		(property "Reference" "#PWR064"
-			(at 30.988 219.456 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "GND"
-			(at 32.9438 219.583 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 37.338 219.456 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 37.338 219.456 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 37.338 219.456 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "96e0cdde-ae38-4d05-8473-29083fc6b4f5")
-		)
-		(instances
-			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "#PWR064")
-					(unit 1)
-				)
-			)
-			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "#PWR06014")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
 		(at 36.322 108.204 270)
 		(unit 1)
 		(exclude_from_sim no)
@@ -16016,90 +15799,6 @@
 	)
 	(symbol
 		(lib_id "Device:C_Small")
-		(at 39.878 230.378 270)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "b70a952b-9d07-4a3e-8e5b-fd6806b6f47a")
-		(property "Reference" "C58"
-			(at 39.37 233.426 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "1uF 0402"
-			(at 33.274 233.426 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 39.878 230.378 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 39.878 230.378 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 39.878 230.378 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C52923"
-			(at 39.878 230.378 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "afd588f5-840d-4937-809e-d11e5f78c992")
-		)
-		(pin "2"
-			(uuid "f761b7ab-782f-412c-ba03-6d19c557ef1f")
-		)
-		(instances
-			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "C58")
-					(unit 1)
-				)
-			)
-			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "C6015")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C_Small")
 		(at 333.629 255.016 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -16166,88 +15865,6 @@
 			(project "simplicity_analog_1"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
 					(reference "C6043")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R_Small")
-		(at 39.878 227.584 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "b94ba8e4-d624-4ff5-8ab0-c20f08a06e0e")
-		(property "Reference" "R43"
-			(at 41.402 225.044 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "10R 0603"
-			(at 37.084 225.044 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
-			(at 39.878 227.584 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 39.878 227.584 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Resistor, small symbol"
-			(at 39.878 227.584 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C22859"
-			(at 39.878 227.584 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "e3542c73-6c18-462e-88e5-7f8019129748")
-		)
-		(pin "2"
-			(uuid "59231249-8697-4134-8e71-3dfa393b03a7")
-		)
-		(instances
-			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "R43")
-					(unit 1)
-				)
-			)
-			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "R6015")
 					(unit 1)
 				)
 			)
@@ -16641,77 +16258,6 @@
 			(project "simplicity_analog_1"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
 					(reference "C6020")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 37.338 230.378 270)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "c3b33453-183e-4a8b-a689-9f4c22726f1e")
-		(property "Reference" "#PWR065"
-			(at 30.988 230.378 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "GND"
-			(at 32.9438 230.505 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 37.338 230.378 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 37.338 230.378 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 37.338 230.378 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "dcee5908-84c1-4371-882d-e61e6b90a7a3")
-		)
-		(instances
-			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "#PWR065")
-					(unit 1)
-				)
-			)
-			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "#PWR06015")
 					(unit 1)
 				)
 			)
@@ -17485,90 +17031,6 @@
 			(project "simplicity_analog_1"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
 					(reference "#PWR06044")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C_Small")
-		(at 39.878 219.456 270)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "d710c871-e3fc-4b68-be2f-d9ebaa147e13")
-		(property "Reference" "C57"
-			(at 39.37 222.504 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "1uF 0402"
-			(at 33.274 222.504 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 39.878 219.456 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 39.878 219.456 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 39.878 219.456 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C52923"
-			(at 39.878 219.456 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "e0611166-ab10-4a65-b98e-55d69161eb31")
-		)
-		(pin "2"
-			(uuid "13fe8bbb-1317-43e9-a18a-d1fcb15fd98d")
-		)
-		(instances
-			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "C57")
-					(unit 1)
-				)
-			)
-			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "C6014")
 					(unit 1)
 				)
 			)

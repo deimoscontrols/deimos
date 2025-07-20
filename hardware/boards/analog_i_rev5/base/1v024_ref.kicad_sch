@@ -533,11 +533,11 @@
 				)
 			)
 		)
-		(symbol "power:+5V"
+		(symbol "power:+3V3"
 			(power)
+			(pin_numbers hide)
 			(pin_names
-				(offset 0)
-			)
+				(offset 0) hide)
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
@@ -550,7 +550,7 @@
 					(hide yes)
 				)
 			)
-			(property "Value" "+5V"
+			(property "Value" "+3V3"
 				(at 0 3.556 0)
 				(effects
 					(font
@@ -576,7 +576,7 @@
 					(hide yes)
 				)
 			)
-			(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(property "Description" "Power symbol creates a global label with name \"+3V3\""
 				(at 0 0 0)
 				(effects
 					(font
@@ -585,7 +585,7 @@
 					(hide yes)
 				)
 			)
-			(property "ki_keywords" "power-flag"
+			(property "ki_keywords" "global power"
 				(at 0 0 0)
 				(effects
 					(font
@@ -594,7 +594,7 @@
 					(hide yes)
 				)
 			)
-			(symbol "+5V_0_1"
+			(symbol "+3V3_0_1"
 				(polyline
 					(pts
 						(xy -0.762 1.27) (xy 0 2.54)
@@ -632,11 +632,11 @@
 					)
 				)
 			)
-			(symbol "+5V_1_1"
+			(symbol "+3V3_1_1"
 				(pin power_in line
 					(at 0 0 90)
-					(length 0) hide
-					(name "+5V"
+					(length 0)
+					(name "~"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -775,12 +775,6 @@
 		(uuid "a1ab1256-82c0-4ce2-a789-8ec6ada9509f")
 	)
 	(junction
-		(at 153.416 100.076)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c0bd78fb-4694-4201-b3e1-7048537eeac3")
-	)
-	(junction
 		(at 164.084 88.646)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -791,6 +785,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "d032afe8-90b7-4f77-a086-dcba25871065")
+	)
+	(junction
+		(at 153.416 100.076)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "d9bbad7b-066b-40d4-8907-7ece116beb0b")
 	)
 	(wire
 		(pts
@@ -1395,15 +1395,15 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
+		(lib_id "power:+3V3")
 		(at 153.416 100.076 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "826cac94-56d4-40be-8360-6c30894a1d58")
-		(property "Reference" "#PWR05020"
+		(uuid "837df22f-bbd1-4d1a-9830-ff6b43e3a0ba")
+		(property "Reference" "#PWR6001"
 			(at 153.416 103.886 0)
 			(effects
 				(font
@@ -1412,8 +1412,8 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+5V"
-			(at 153.416 96.266 90)
+		(property "Value" "+3V3"
+			(at 150.876 96.266 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1439,7 +1439,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Power symbol creates a global label with name \"+3V3\""
 			(at 153.416 100.076 0)
 			(effects
 				(font
@@ -1449,18 +1449,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "9e0421a3-035a-4dbc-8e94-b98501518e9d")
+			(uuid "74a21bf3-2560-4335-9349-4a9864816a01")
 		)
 		(instances
-			(project ""
+			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a65c6055-0639-4361-905b-5a6b6f014124"
-					(reference "#PWR05020")
-					(unit 1)
-				)
-			)
-			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a65c6055-0639-4361-905b-5a6b6f014124"
-					(reference "#PWR05020")
+					(reference "#PWR6001")
 					(unit 1)
 				)
 			)
