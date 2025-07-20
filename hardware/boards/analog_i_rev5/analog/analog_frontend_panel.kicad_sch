@@ -4954,7 +4954,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "aaa:KFV141-2.54-12P"
 			(at 321.056 40.894 0)
 			(effects
 				(font
@@ -6030,7 +6030,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "aaa:KFV141-2.54-10P"
 			(at 29.21 41.91 0)
 			(effects
 				(font
@@ -6338,7 +6338,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "aaa:KFV141-2.54-10P"
 			(at 375.92 40.64 0)
 			(effects
 				(font
@@ -6430,7 +6430,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "aaa:KFV141-2.54-10P"
 			(at 143.51 43.688 0)
 			(effects
 				(font
@@ -7076,7 +7076,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "aaa:KFV141-2.54-12P"
 			(at 256.794 40.64 0)
 			(effects
 				(font
@@ -7174,7 +7174,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "aaa:KFV141-2.54-12P"
 			(at 204.978 42.291 0)
 			(effects
 				(font
