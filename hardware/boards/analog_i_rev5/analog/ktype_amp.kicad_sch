@@ -2262,6 +2262,76 @@
 		)
 	)
 	(symbol
+		(lib_id "power:GND")
+		(at 248.666 107.95 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "23c687c5-09f8-4829-bfe1-3dec41cc939d")
+		(property "Reference" "#PWR6002"
+			(at 248.666 114.3 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 250.444 112.014 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 248.666 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 248.666 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 248.666 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "5d2eeb84-4f36-411e-a370-b7089c1bcb60")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/15b6c474-02be-417e-bc87-8489b7b45186"
+					(reference "#PWR6002")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83"
+					(reference "#PWR7002")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:C_Small")
 		(at 232.664 105.41 180)
 		(unit 1)
