@@ -1,4 +1,4 @@
-24598507656482865
+24600260699608144
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -98727,6 +98727,13 @@ Through hole pin header THT 1x10 2.54mm single row
 0
 20
 10
+aaa
+KFV141-2.54-12P
+Through hole straight pin header, 1x10, 2.54mm pitch, single row
+Through hole pin header THT 1x10 2.54mm single row
+0
+24
+12
 aaa
 MTJ-88TX1-FSD-PGB
 Shielded, https://www.amphenolcanada.com/ProductSearch/drawings/AC/RJHSE538X.pdf

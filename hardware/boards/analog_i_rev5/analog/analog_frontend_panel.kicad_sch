@@ -4335,7 +4335,7 @@
 	)
 	(hierarchical_label "AIN6"
 		(shape input)
-		(at 196.85 129.286 180)
+		(at 196.596 77.216 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4401,7 +4401,7 @@
 	)
 	(hierarchical_label "AIN5"
 		(shape input)
-		(at 196.85 111.506 180)
+		(at 196.85 93.472 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4423,7 +4423,7 @@
 	)
 	(hierarchical_label "AIN7"
 		(shape input)
-		(at 131.826 73.66 180)
+		(at 131.572 109.982 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4445,7 +4445,7 @@
 	)
 	(hierarchical_label "AIN3"
 		(shape input)
-		(at 196.85 75.946 180)
+		(at 197.104 128.016 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4456,7 +4456,7 @@
 	)
 	(hierarchical_label "AIN4"
 		(shape input)
-		(at 196.85 93.726 180)
+		(at 196.85 111.76 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4478,7 +4478,7 @@
 	)
 	(hierarchical_label "AIN9"
 		(shape input)
-		(at 132.08 109.728 180)
+		(at 132.334 73.406 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -8417,7 +8417,7 @@
 		)
 	)
 	(sheet
-		(at 132.08 102.616)
+		(at 132.334 66.294)
 		(size 21.336 12.7)
 		(fields_autoplaced yes)
 		(stroke
@@ -8429,7 +8429,7 @@
 		)
 		(uuid "1fbd3e63-3701-4f31-b722-16e65c25cea8")
 		(property "Sheetname" "RTD Amp2"
-			(at 132.08 101.9044 0)
+			(at 132.334 65.5824 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8438,7 +8438,7 @@
 			)
 		)
 		(property "Sheetfile" "3wire_amp.kicad_sch"
-			(at 132.08 115.9006 0)
+			(at 132.334 79.5786 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8447,7 +8447,7 @@
 			)
 		)
 		(pin "Vout" input
-			(at 132.08 109.728 180)
+			(at 132.334 73.406 180)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8457,7 +8457,7 @@
 			(uuid "036e9707-8cb1-4db3-9331-a7923baa99ed")
 		)
 		(pin "R+" input
-			(at 153.416 111.252 0)
+			(at 153.67 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8467,7 +8467,7 @@
 			(uuid "a4c42aec-3d9f-4eb7-8c88-171ae091333b")
 		)
 		(pin "R-" input
-			(at 153.416 109.474 0)
+			(at 153.67 73.152 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8477,7 +8477,7 @@
 			(uuid "770d2748-1ec1-48b8-b3ca-93dbdc4fae87")
 		)
 		(pin "W-" input
-			(at 153.416 107.696 0)
+			(at 153.67 71.374 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8832,7 +8832,7 @@
 		)
 	)
 	(sheet
-		(at 196.85 105.41)
+		(at 196.85 87.376)
 		(size 23.368 12.065)
 		(stroke
 			(width 0.1524)
@@ -8843,7 +8843,7 @@
 		)
 		(uuid "77831b95-4af9-4be7-883d-350d130a19a2")
 		(property "Sheetname" "4-20mA Frontend2"
-			(at 196.596 105.029 0)
+			(at 196.596 86.995 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8852,7 +8852,7 @@
 			)
 		)
 		(property "Sheetfile" "4-20mA.kicad_sch"
-			(at 196.85 118.237 0)
+			(at 196.85 100.203 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8861,7 +8861,7 @@
 			)
 		)
 		(pin "Vout" input
-			(at 196.85 111.506 180)
+			(at 196.85 93.472 180)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8871,7 +8871,7 @@
 			(uuid "17649f15-b93b-46c6-95ef-c5496982173a")
 		)
 		(pin "SIGNAL" input
-			(at 220.218 112.014 0)
+			(at 220.218 93.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8881,7 +8881,7 @@
 			(uuid "d78fdb86-a33a-4b20-88c7-53de6fe19623")
 		)
 		(pin "+24_EXC" input
-			(at 220.218 109.982 0)
+			(at 220.218 91.948 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9151,7 +9151,7 @@
 		)
 	)
 	(sheet
-		(at 196.85 87.122)
+		(at 196.85 105.156)
 		(size 23.368 12.065)
 		(stroke
 			(width 0.1524)
@@ -9162,7 +9162,7 @@
 		)
 		(uuid "b7e73f80-a01f-409c-a1ae-634c4b865833")
 		(property "Sheetname" "4-20mA Frontend1"
-			(at 196.596 86.487 0)
+			(at 196.596 104.521 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9171,7 +9171,7 @@
 			)
 		)
 		(property "Sheetfile" "4-20mA.kicad_sch"
-			(at 196.85 99.695 0)
+			(at 196.85 117.729 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9180,7 +9180,7 @@
 			)
 		)
 		(pin "Vout" input
-			(at 196.85 93.726 180)
+			(at 196.85 111.76 180)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9190,7 +9190,7 @@
 			(uuid "aa42e0e8-8494-4d8e-bdb9-390a5b5a987f")
 		)
 		(pin "SIGNAL" input
-			(at 220.218 93.98 0)
+			(at 220.218 112.014 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9200,7 +9200,7 @@
 			(uuid "cf704ecf-799f-445d-813f-4468db3fcc0d")
 		)
 		(pin "+24_EXC" input
-			(at 220.218 91.948 0)
+			(at 220.218 109.982 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9334,7 +9334,7 @@
 		)
 	)
 	(sheet
-		(at 196.85 70.104)
+		(at 197.104 122.174)
 		(size 23.114 12.065)
 		(stroke
 			(width 0.1524)
@@ -9345,7 +9345,7 @@
 		)
 		(uuid "c99c1b0b-6659-4cec-a152-edd7ebc08576")
 		(property "Sheetname" "4-20mA Frontend"
-			(at 196.596 69.723 0)
+			(at 196.85 121.793 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9354,7 +9354,7 @@
 			)
 		)
 		(property "Sheetfile" "4-20mA.kicad_sch"
-			(at 196.85 82.677 0)
+			(at 197.104 134.747 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9363,7 +9363,7 @@
 			)
 		)
 		(pin "Vout" input
-			(at 196.85 75.946 180)
+			(at 197.104 128.016 180)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9373,7 +9373,7 @@
 			(uuid "6294c1c0-1c5e-4590-be86-8323034a919a")
 		)
 		(pin "SIGNAL" input
-			(at 219.964 77.47 0)
+			(at 220.218 129.286 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9383,7 +9383,7 @@
 			(uuid "802e6af5-019e-4048-90fb-3c466add0d0d")
 		)
 		(pin "+24_EXC" input
-			(at 219.964 75.184 0)
+			(at 220.218 127.254 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9691,7 +9691,7 @@
 		)
 	)
 	(sheet
-		(at 196.85 122.428)
+		(at 196.596 70.358)
 		(size 23.368 12.065)
 		(stroke
 			(width 0.1524)
@@ -9702,7 +9702,7 @@
 		)
 		(uuid "ed7a0d70-4012-4e50-88a7-aea647708582")
 		(property "Sheetname" "4-20mA Frontend3"
-			(at 196.85 121.793 0)
+			(at 196.596 69.723 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9711,7 +9711,7 @@
 			)
 		)
 		(property "Sheetfile" "4-20mA.kicad_sch"
-			(at 196.596 135.255 0)
+			(at 196.342 83.185 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9720,7 +9720,7 @@
 			)
 		)
 		(pin "Vout" input
-			(at 196.85 129.286 180)
+			(at 196.596 77.216 180)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9730,7 +9730,7 @@
 			(uuid "d0f7cbb6-2f57-4004-ab02-9993ed2ac044")
 		)
 		(pin "SIGNAL" input
-			(at 220.218 129.286 0)
+			(at 219.964 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9740,7 +9740,7 @@
 			(uuid "b423b56c-5c72-410e-9204-c1dfed9366f1")
 		)
 		(pin "+24_EXC" input
-			(at 220.218 127.254 0)
+			(at 219.964 75.184 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9815,7 +9815,7 @@
 		)
 	)
 	(sheet
-		(at 131.826 66.802)
+		(at 131.572 103.124)
 		(size 21.844 12.7)
 		(fields_autoplaced yes)
 		(stroke
@@ -9827,7 +9827,7 @@
 		)
 		(uuid "fb5bb440-61c9-4bd3-9ab6-a463ad90c8bb")
 		(property "Sheetname" "RTD Amp"
-			(at 131.826 66.0904 0)
+			(at 131.572 102.4124 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9836,7 +9836,7 @@
 			)
 		)
 		(property "Sheetfile" "3wire_amp.kicad_sch"
-			(at 131.826 80.0866 0)
+			(at 131.572 116.4086 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9846,7 +9846,7 @@
 			)
 		)
 		(pin "Vout" input
-			(at 131.826 73.66 180)
+			(at 131.572 109.982 180)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9856,7 +9856,7 @@
 			(uuid "95035883-a6b6-4491-9ce5-b7fa446dd05d")
 		)
 		(pin "R+" input
-			(at 153.67 74.93 0)
+			(at 153.416 111.252 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9866,7 +9866,7 @@
 			(uuid "4ce0bc3e-cbdd-4b6b-a563-2ea8b3a650fe")
 		)
 		(pin "R-" input
-			(at 153.67 73.152 0)
+			(at 153.416 109.474 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9876,7 +9876,7 @@
 			(uuid "35742256-d6dc-4e70-ac87-1fbb4e6d169b")
 		)
 		(pin "W-" input
-			(at 153.67 71.374 0)
+			(at 153.416 107.696 0)
 			(effects
 				(font
 					(size 1.27 1.27)
