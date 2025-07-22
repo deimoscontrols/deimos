@@ -699,12 +699,12 @@
       "ain_g1_1"
     ],
     [
-      "368e72f3-9163-43ab-a3ec-847979828650",
-      "ain_g1_2"
+      "be220027-a1e7-4f8a-b4af-8d208623fd51",
+      "ain_0-15V_1"
     ],
     [
-      "ce54f78c-a719-439b-ba71-25a5b01d1ee5",
-      "ain_g1_3"
+      "dd604314-47f9-4977-b551-e4daf9b9f74b",
+      "sallen_key_3kHz8"
     ],
     [
       "0ab125f9-c5b5-4162-87a8-3c0a237e613b",
@@ -717,14 +717,6 @@
     [
       "d8ba479a-a7d9-47f0-902a-0be012b7ebf9",
       "pwm_out_buf3"
-    ],
-    [
-      "0ab125f9-c5b5-4162-87a8-3c0a237e613b",
-      "sallen_key_3kHz7"
-    ],
-    [
-      "0ab125f9-c5b5-4162-87a8-3c0a237e613b",
-      "sallen_key_3kHz7"
     ],
     [
       "4b0b4e20-0ae3-4a37-acd3-d6dca880b023",
@@ -781,6 +773,14 @@
     [
       "926afd70-af22-4794-b800-14fc8a5a0159",
       "pwm_in_buf"
+    ],
+    [
+      "dd604314-47f9-4977-b551-e4daf9b9f74b",
+      "sallen_key_3kHz8"
+    ],
+    [
+      "ed2f7b43-1244-451f-9def-7c9639b384e1",
+      "ain_0-15V_"
     ],
     [
       "a9caaa1d-d23d-426e-af7e-b0ee1cb64b05",
