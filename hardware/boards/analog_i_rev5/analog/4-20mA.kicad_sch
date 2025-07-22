@@ -140,151 +140,6 @@
 				)
 			)
 		)
-		(symbol "Device:D_Zener"
-			(pin_numbers hide)
-			(pin_names
-				(offset 1.016) hide)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "D"
-				(at 0 2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "D_Zener"
-				(at 0 -2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "~"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Zener diode"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "diode"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_fp_filters" "TO-???* *_Diode_* *SingleDiode* D_*"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "D_Zener_0_1"
-				(polyline
-					(pts
-						(xy 1.27 0) (xy -1.27 0)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -1.27 -1.27) (xy -1.27 1.27) (xy -0.762 1.27)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 1.27 -1.27) (xy 1.27 1.27) (xy -1.27 0) (xy 1.27 -1.27)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "D_Zener_1_1"
-				(pin passive line
-					(at -3.81 0 0)
-					(length 2.54)
-					(name "K"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 3.81 0 180)
-					(length 2.54)
-					(name "A"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-		)
 		(symbol "Device:R_Small_US"
 			(pin_numbers hide)
 			(pin_names
@@ -1347,12 +1202,6 @@
 		(uuid "1cbb6a33-be79-40b7-a62e-bbcdf73f5c89")
 	)
 	(junction
-		(at 182.626 93.98)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "35b46feb-1578-4ece-8dce-5ab57793e20d")
-	)
-	(junction
 		(at 181.61 99.06)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -1394,12 +1243,6 @@
 		(color 0 0 0 0)
 		(uuid "bfe66510-3ac4-4092-9d53-055520f3a477")
 	)
-	(junction
-		(at 181.864 106.172)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "fd34e76e-9bd3-47b5-8e6b-95d70b685e49")
-	)
 	(wire
 		(pts
 			(xy 181.864 99.06) (xy 181.61 99.06)
@@ -1419,16 +1262,6 @@
 			(type default)
 		)
 		(uuid "15cd4745-f930-4795-a7bc-76ace69d4489")
-	)
-	(wire
-		(pts
-			(xy 181.864 106.172) (xy 185.674 106.172)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "16f122fe-9413-4d76-af06-3828ea031901")
 	)
 	(wire
 		(pts
@@ -1492,16 +1325,6 @@
 	)
 	(wire
 		(pts
-			(xy 181.61 93.98) (xy 182.626 93.98)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "368ef63f-2547-4b90-8585-fd25cff4b0df")
-	)
-	(wire
-		(pts
 			(xy 195.326 112.014) (xy 189.23 112.014)
 		)
 		(stroke
@@ -1539,26 +1362,6 @@
 			(type default)
 		)
 		(uuid "5c72c118-d494-4fd0-90a6-8136c2a15c9d")
-	)
-	(wire
-		(pts
-			(xy 182.626 95.758) (xy 182.626 93.98)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "681e87d2-7e43-492c-a916-a2952e2c8e97")
-	)
-	(wire
-		(pts
-			(xy 185.674 95.758) (xy 182.626 95.758)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6a326bd6-2bda-4eea-b0a9-42162a9010bf")
 	)
 	(wire
 		(pts
@@ -1612,16 +1415,6 @@
 	)
 	(wire
 		(pts
-			(xy 185.674 98.552) (xy 185.674 95.758)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "948f8305-7e6c-43e5-b785-8ac687dbd1b1")
-	)
-	(wire
-		(pts
 			(xy 134.62 99.06) (xy 153.67 99.06)
 		)
 		(stroke
@@ -1672,7 +1465,7 @@
 	)
 	(wire
 		(pts
-			(xy 189.23 93.98) (xy 182.626 93.98)
+			(xy 181.61 93.98) (xy 189.23 93.98)
 		)
 		(stroke
 			(width 0)
@@ -2192,94 +1985,6 @@
 				)
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed7a0d70-4012-4e50-88a7-aea647708582"
 					(reference "#PWR064")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:D_Zener")
-		(at 185.674 102.362 270)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "3845808c-3b00-455d-8412-33dd650cd426")
-		(property "Reference" "D12001"
-			(at 183.388 101.6 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "BZT52C3V3"
-			(at 187.96 103.378 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Diode_SMD:D_SOD-323"
-			(at 185.674 102.362 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 185.674 102.362 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 185.674 102.362 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C2112"
-			(at 185.674 102.362 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "986ae2f2-dfef-4f08-abd9-5869e635b618")
-		)
-		(pin "2"
-			(uuid "016ab989-dd9d-41b5-938d-53dc2af0f67a")
-		)
-		(instances
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/77831b95-4af9-4be7-883d-350d130a19a2"
-					(reference "D12001")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/b7e73f80-a01f-409c-a1ae-634c4b865833"
-					(reference "D11001")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/c99c1b0b-6659-4cec-a152-edd7ebc08576"
-					(reference "D10001")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed7a0d70-4012-4e50-88a7-aea647708582"
-					(reference "D13001")
 					(unit 1)
 				)
 			)

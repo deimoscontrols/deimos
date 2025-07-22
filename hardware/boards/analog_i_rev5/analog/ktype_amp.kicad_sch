@@ -996,13 +996,13 @@
 	)
 	(wire
 		(pts
-			(xy 219.71 102.87) (xy 238.125 102.87)
+			(xy 219.71 100.33) (xy 252.73 100.33)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "22e97e0d-9404-44b4-80e2-67979205f4b5")
+		(uuid "18d5fa47-6cd9-4021-bd5e-f51913f62cd0")
 	)
 	(wire
 		(pts
@@ -1086,6 +1086,16 @@
 	)
 	(wire
 		(pts
+			(xy 219.71 102.87) (xy 232.664 102.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "96aea6b1-9732-4942-a45f-c58333f35474")
+	)
+	(wire
+		(pts
 			(xy 113.03 99.06) (xy 113.03 104.14)
 		)
 		(stroke
@@ -1093,16 +1103,6 @@
 			(type default)
 		)
 		(uuid "d1390418-b6af-4316-ba61-d2ea1d6edb42")
-	)
-	(wire
-		(pts
-			(xy 219.71 100.33) (xy 252.73 100.33)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d2b016fc-921d-4329-a33d-2abd5ad6b33b")
 	)
 	(wire
 		(pts
@@ -1181,7 +1181,7 @@
 	)
 	(global_label "+1V024"
 		(shape input)
-		(at 237.998 102.87 0)
+		(at 232.537 102.87 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -1191,7 +1191,7 @@
 		)
 		(uuid "be79e066-128b-4234-b793-3d5b6f574cff")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 248.4822 102.87 0)
+			(at 243.0212 102.87 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2175,7 +2175,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 238.125 107.95 0)
+		(at 232.664 107.95 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2183,7 +2183,7 @@
 		(dnp no)
 		(uuid "07c7d49f-24e4-4264-ad73-c5923344d6f2")
 		(property "Reference" "#PWR09007"
-			(at 238.125 114.3 0)
+			(at 232.664 114.3 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2192,7 +2192,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 236.855 109.22 0)
+			(at 231.394 109.22 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2201,7 +2201,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 238.125 107.95 0)
+			(at 232.664 107.95 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2210,7 +2210,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 238.125 107.95 0)
+			(at 232.664 107.95 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2219,7 +2219,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 238.125 107.95 0)
+			(at 232.664 107.95 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2263,7 +2263,7 @@
 	)
 	(symbol
 		(lib_id "Device:C_Small")
-		(at 238.125 105.41 180)
+		(at 232.664 105.41 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2272,7 +2272,7 @@
 		(fields_autoplaced yes)
 		(uuid "57174aa4-ff86-449d-83d1-5bbb385a7f91")
 		(property "Reference" "C9006"
-			(at 231.775 105.4037 90)
+			(at 226.314 105.4037 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2280,7 +2280,7 @@
 			)
 		)
 		(property "Value" "0.1uF"
-			(at 234.315 105.4037 90)
+			(at 228.854 105.4037 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2288,7 +2288,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 238.125 105.41 0)
+			(at 232.664 105.41 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2297,7 +2297,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 238.125 105.41 0)
+			(at 232.664 105.41 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2306,7 +2306,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 238.125 105.41 0)
+			(at 232.664 105.41 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2927,7 +2927,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 222.9612 105.283 90)
+			(at 219.456 108.204 90)
 			(effects
 				(font
 					(size 1.27 1.27)
