@@ -3835,6 +3835,7 @@
 	(symbol
 		(lib_id "Device:C_Small")
 		(at 128.27 70.866 0)
+		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -3842,7 +3843,7 @@
 		(dnp no)
 		(uuid "3cda5aa8-1846-47cb-a515-efb54fcadd29")
 		(property "Reference" "C4002"
-			(at 133.35 72.136 0)
+			(at 123.19 72.136 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3851,7 +3852,7 @@
 			)
 		)
 		(property "Value" "10nF"
-			(at 135.89 69.596 0)
+			(at 120.65 69.596 0)
 			(effects
 				(font
 					(size 1.27 1.27)

@@ -4434,7 +4434,7 @@
 	)
 	(hierarchical_label "AIN13_DAC1"
 		(shape input)
-		(at 355.854 90.678 180)
+		(at 355.854 75.946 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4467,7 +4467,7 @@
 	)
 	(hierarchical_label "AIN14_DAC2"
 		(shape input)
-		(at 355.854 75.946 180)
+		(at 355.854 90.678 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4651,7 +4651,7 @@
 				)
 			)
 		)
-		(property "Footprint" "aaa:KFV141-2.54-12P"
+		(property "Footprint" "aaa:KF141V-2.54-12P"
 			(at 31.75 41.91 0)
 			(effects
 				(font
@@ -5356,7 +5356,7 @@
 				)
 			)
 		)
-		(property "Footprint" "aaa:KFV141-2.54-12P"
+		(property "Footprint" "aaa:KF141V-2.54-12P"
 			(at 369.062 41.148 0)
 			(effects
 				(font
@@ -7091,7 +7091,7 @@
 				)
 			)
 		)
-		(property "Footprint" "aaa:KFV141-2.54-10P"
+		(property "Footprint" "aaa:KF141V-2.54-10P"
 			(at 318.008 40.132 0)
 			(effects
 				(font
@@ -7183,7 +7183,7 @@
 				)
 			)
 		)
-		(property "Footprint" "aaa:KFV141-2.54-10P"
+		(property "Footprint" "aaa:KF141V-2.54-10P"
 			(at 143.51 43.688 0)
 			(effects
 				(font
@@ -7829,7 +7829,7 @@
 				)
 			)
 		)
-		(property "Footprint" "aaa:KFV141-2.54-12P"
+		(property "Footprint" "aaa:KF141V-2.54-12P"
 			(at 256.794 40.64 0)
 			(effects
 				(font
@@ -7927,7 +7927,7 @@
 				)
 			)
 		)
-		(property "Footprint" "aaa:KFV141-2.54-12P"
+		(property "Footprint" "aaa:KF141V-2.54-12P"
 			(at 210.058 42.164 0)
 			(effects
 				(font
@@ -8233,7 +8233,7 @@
 		)
 	)
 	(sheet
-		(at 355.854 85.852)
+		(at 355.854 71.12)
 		(size 24.638 9.652)
 		(fields_autoplaced yes)
 		(stroke
@@ -8245,7 +8245,7 @@
 		)
 		(uuid "13efaa5b-e400-45cc-91a0-978d4e7725f3")
 		(property "Sheetname" "dac_buf"
-			(at 355.854 85.1404 0)
+			(at 355.854 70.4084 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8254,7 +8254,7 @@
 			)
 		)
 		(property "Sheetfile" "dac_buf.kicad_sch"
-			(at 355.854 96.0886 0)
+			(at 355.854 81.3566 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8263,7 +8263,7 @@
 			)
 		)
 		(pin "VIN" input
-			(at 355.854 90.678 180)
+			(at 355.854 75.946 180)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8273,7 +8273,7 @@
 			(uuid "e16cce92-9fd4-48aa-80aa-3eb298c379bb")
 		)
 		(pin "VOUT" input
-			(at 380.492 90.678 0)
+			(at 380.492 75.946 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9459,7 +9459,7 @@
 		)
 	)
 	(sheet
-		(at 355.854 71.12)
+		(at 355.854 85.852)
 		(size 24.638 9.652)
 		(fields_autoplaced yes)
 		(stroke
@@ -9471,7 +9471,7 @@
 		)
 		(uuid "cebae258-d5b5-4a87-b6e3-430d71499c69")
 		(property "Sheetname" "dac_buf1"
-			(at 355.854 70.4084 0)
+			(at 355.854 85.1404 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9480,7 +9480,7 @@
 			)
 		)
 		(property "Sheetfile" "dac_buf.kicad_sch"
-			(at 355.854 81.3566 0)
+			(at 355.854 96.0886 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9489,7 +9489,7 @@
 			)
 		)
 		(pin "VIN" input
-			(at 355.854 75.946 180)
+			(at 355.854 90.678 180)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9499,7 +9499,7 @@
 			(uuid "ca2c01a9-21ed-46bc-afb4-e27a38c825a1")
 		)
 		(pin "VOUT" input
-			(at 380.492 75.946 0)
+			(at 380.492 90.678 0)
 			(effects
 				(font
 					(size 1.27 1.27)
