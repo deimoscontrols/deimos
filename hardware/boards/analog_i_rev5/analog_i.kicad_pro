@@ -737,16 +737,32 @@
       "Ethernet"
     ],
     [
+      "f31a785a-aa18-4b99-9461-7c34b37be0d7",
+      "sallen_key_100Hz"
+    ],
+    [
       "15b6c474-02be-417e-bc87-8489b7b45186",
       "K-Type TC Amp"
+    ],
+    [
+      "59f61450-605e-4295-9b9f-53d8d5df51eb",
+      "sallen_key_1kHz"
+    ],
+    [
+      "3688ccee-a1b0-41d3-bce5-95bc73998b83",
+      "K-Type TC Amp1"
+    ],
+    [
+      "59f61450-605e-4295-9b9f-53d8d5df51eb",
+      "sallen_key_1kHz"
     ],
     [
       "fb5bb440-61c9-4bd3-9ab6-a463ad90c8bb",
       "RTD Amp"
     ],
     [
-      "c99c1b0b-6659-4cec-a152-edd7ebc08576",
-      "4-20mA Frontend"
+      "413450a6-23f7-43dd-83b0-93f1b2a57e6d",
+      "sallen_key_3kHz"
     ],
     [
       "19141585-7846-417a-91df-f61215fe3233",
@@ -757,12 +773,8 @@
       "rtd_amp_inner"
     ],
     [
-      "b7e73f80-a01f-409c-a1ae-634c4b865833",
-      "4-20mA Frontend1"
-    ],
-    [
-      "3688ccee-a1b0-41d3-bce5-95bc73998b83",
-      "K-Type TC Amp1"
+      "413450a6-23f7-43dd-83b0-93f1b2a57e6d",
+      "sallen_key_3kHz"
     ],
     [
       "1fbd3e63-3701-4f31-b722-16e65c25cea8",
@@ -773,40 +785,132 @@
       "rtd_amp_inner"
     ],
     [
-      "77831b95-4af9-4be7-883d-350d130a19a2",
-      "4-20mA Frontend2"
-    ],
-    [
-      "e56dbb8f-9c9c-4d91-b98e-651f9aa49405",
-      "K-Type TC Amp2"
-    ],
-    [
-      "d6a52a0f-faf0-48a3-a8ea-d9db6b343f24",
-      "RTD Amp3"
-    ],
-    [
-      "76bdcc3c-aeb3-45bb-bfec-f68418164bd8",
-      "rtd_amp_inner"
+      "413450a6-23f7-43dd-83b0-93f1b2a57e6d",
+      "sallen_key_3kHz"
     ],
     [
       "ed7a0d70-4012-4e50-88a7-aea647708582",
       "4-20mA Frontend3"
     ],
     [
-      "34829f1f-4234-4dae-933e-0c65496409f7",
-      "K-Type TC Amp3"
+      "4b0b4e20-0ae3-4a37-acd3-d6dca880b023",
+      "sallen_key_3kHz3"
     ],
     [
-      "4491b10b-2044-45ea-b186-c518a135ceee",
-      "RTD Amp4"
+      "77831b95-4af9-4be7-883d-350d130a19a2",
+      "4-20mA Frontend2"
     ],
     [
-      "76bdcc3c-aeb3-45bb-bfec-f68418164bd8",
-      "rtd_amp_inner"
+      "4b0b4e20-0ae3-4a37-acd3-d6dca880b023",
+      "sallen_key_3kHz3"
     ],
     [
-      "6dd858ad-2af2-4b47-aa79-fa644af79f05",
-      "4-20mA Frontend4"
+      "b7e73f80-a01f-409c-a1ae-634c4b865833",
+      "4-20mA Frontend1"
+    ],
+    [
+      "4b0b4e20-0ae3-4a37-acd3-d6dca880b023",
+      "sallen_key_3kHz3"
+    ],
+    [
+      "c99c1b0b-6659-4cec-a152-edd7ebc08576",
+      "4-20mA Frontend"
+    ],
+    [
+      "4b0b4e20-0ae3-4a37-acd3-d6dca880b023",
+      "sallen_key_3kHz3"
+    ],
+    [
+      "ed60502d-2e6d-4293-85f2-5e967a3c42d8",
+      "ain_g666p333_"
+    ],
+    [
+      "63cb4c21-96ec-4930-8398-5e4d00a3dfaf",
+      "sallen_key_100Hz1"
+    ],
+    [
+      "a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc",
+      "ain_g25p7_"
+    ],
+    [
+      "e20d7205-bbae-4480-b1ec-aee4d6ee1bcf",
+      "sallen_key_1kHz2"
+    ],
+    [
+      "be220027-a1e7-4f8a-b4af-8d208623fd51",
+      "ain_0-15V_1"
+    ],
+    [
+      "dd604314-47f9-4977-b551-e4daf9b9f74b",
+      "sallen_key_3kHz8"
+    ],
+    [
+      "ed2f7b43-1244-451f-9def-7c9639b384e1",
+      "ain_0-15V_"
+    ],
+    [
+      "dd604314-47f9-4977-b551-e4daf9b9f74b",
+      "sallen_key_3kHz8"
+    ],
+    [
+      "3b63f70a-358c-4846-8cdc-f459df41a6c2",
+      "ain_g1_1"
+    ],
+    [
+      "0ab125f9-c5b5-4162-87a8-3c0a237e613b",
+      "sallen_key_3kHz7"
+    ],
+    [
+      "c0b9347d-9aa2-441c-987f-68119b1d92c1",
+      "ain_g1_"
+    ],
+    [
+      "0ab125f9-c5b5-4162-87a8-3c0a237e613b",
+      "sallen_key_3kHz7"
+    ],
+    [
+      "4793dc8a-9b5b-4e0e-98ad-d18b2e15ba42",
+      "pwm_in_buf1"
+    ],
+    [
+      "926afd70-af22-4794-b800-14fc8a5a0159",
+      "pwm_in_buf"
+    ],
+    [
+      "cab136f8-1a56-4c0d-892a-9614df511e87",
+      "pwm_in_buf4"
+    ],
+    [
+      "a0c6f2ec-efe6-41c6-a73f-fc59527214d9",
+      "pwm_in_buf3"
+    ],
+    [
+      "29721755-8d58-43bd-a39c-bd4a1e9dfd38",
+      "pwm_in_buf2"
+    ],
+    [
+      "13efaa5b-e400-45cc-91a0-978d4e7725f3",
+      "dac_buf"
+    ],
+    [
+      "cebae258-d5b5-4a87-b6e3-430d71499c69",
+      "dac_buf1"
+    ],
+    [
+      "3d57a2e8-76a3-4b72-b88d-c02ba9a3137f",
+      "pwm_out_buf"
+    ],
+    [
+      "2a5a8a5b-3176-4558-a595-780d8191c46b",
+      "pwm_out_buf1"
+    ],
+    [
+      "fbe215fd-185e-4781-8db8-c963f195ff3e",
+      "pwm_out_buf2"
+    ],
+    [
+      "d8ba479a-a7d9-47f0-902a-0be012b7ebf9",
+      "pwm_out_buf3"
     ]
   ],
   "text_variables": {}

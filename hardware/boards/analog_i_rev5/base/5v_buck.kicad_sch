@@ -2080,6 +2080,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "R11005")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2159,6 +2165,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "C11004")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2222,6 +2234,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "#PWR105")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "#PWR143")
 					(unit 1)
 				)
 			)
@@ -2378,6 +2396,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "IC11002")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2456,6 +2480,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "C11008")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2519,6 +2549,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "#PWR103")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "#PWR141")
 					(unit 1)
 				)
 			)
@@ -2586,6 +2622,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "#PWR109")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "#PWR144")
 					(unit 1)
 				)
 			)
@@ -2665,6 +2707,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "C11003")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2731,6 +2779,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "#PWR140")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2794,6 +2848,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "#PWR104")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "#PWR142")
 					(unit 1)
 				)
 			)
@@ -2876,6 +2936,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "R11003")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2953,6 +3019,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "C11006")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -3016,6 +3088,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "#PWR101")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "#PWR138")
 					(unit 1)
 				)
 			)
@@ -3095,6 +3173,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "L11001")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -3168,6 +3252,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "C8002")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "C11007")
 					(unit 1)
 				)
 			)
@@ -3250,6 +3340,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "R11004")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -3316,6 +3412,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "#PWR139")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -3379,6 +3481,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "#PWR110")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "#PWR145")
 					(unit 1)
 				)
 			)
@@ -3458,6 +3566,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/a8b9daed-275a-4a60-a12d-4ffab5119e53"
 					(reference "C8005")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/a8b9daed-275a-4a60-a12d-4ffab5119e53"
+					(reference "C11005")
 					(unit 1)
 				)
 			)

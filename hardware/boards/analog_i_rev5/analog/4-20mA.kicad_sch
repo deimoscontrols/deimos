@@ -1737,10 +1737,6 @@
 		)
 		(instances
 			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/6dd858ad-2af2-4b47-aa79-fa644af79f05"
-					(reference "C26001")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2"
 					(reference "C18001")
 					(unit 1)
@@ -1849,10 +1845,6 @@
 		)
 		(instances
 			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/6dd858ad-2af2-4b47-aa79-fa644af79f05"
-					(reference "R26002")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2"
 					(reference "R18002")
 					(unit 1)
@@ -1949,10 +1941,6 @@
 		)
 		(instances
 			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/6dd858ad-2af2-4b47-aa79-fa644af79f05"
-					(reference "#PWR026004")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2"
 					(reference "#PWR018004")
 					(unit 1)
@@ -2050,10 +2038,6 @@
 		)
 		(instances
 			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/6dd858ad-2af2-4b47-aa79-fa644af79f05"
-					(reference "C26002")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2"
 					(reference "C18002")
 					(unit 1)
@@ -2160,10 +2144,6 @@
 		)
 		(instances
 			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/6dd858ad-2af2-4b47-aa79-fa644af79f05"
-					(reference "R26001")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2"
 					(reference "R18001")
 					(unit 1)
@@ -2261,10 +2241,6 @@
 		)
 		(instances
 			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/6dd858ad-2af2-4b47-aa79-fa644af79f05"
-					(reference "#PWR032001")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2"
 					(reference "#PWR024001")
 					(unit 1)
@@ -2361,10 +2337,6 @@
 		)
 		(instances
 			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/6dd858ad-2af2-4b47-aa79-fa644af79f05"
-					(reference "#PWR032002")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2"
 					(reference "#PWR024002")
 					(unit 1)
@@ -2411,7 +2383,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "aa65ad79-d96b-4210-a342-4c0230e0e66e")
-		(property "Reference" "#PWR12001"
+		(property "Reference" "#PWR189"
 			(at 193.04 91.44 0)
 			(effects
 				(font
@@ -2460,6 +2432,24 @@
 			(uuid "b7ce5511-f76e-4cdc-9290-213463f3515a")
 		)
 		(instances
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2"
+					(reference "#PWR194")
+					(unit 1)
+				)
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/b7e73f80-a01f-409c-a1ae-634c4b865833"
+					(reference "#PWR199")
+					(unit 1)
+				)
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/c99c1b0b-6659-4cec-a152-edd7ebc08576"
+					(reference "#PWR204")
+					(unit 1)
+				)
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/ed7a0d70-4012-4e50-88a7-aea647708582"
+					(reference "#PWR189")
+					(unit 1)
+				)
+			)
 			(project "analog_frontend_panel"
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/77831b95-4af9-4be7-883d-350d130a19a2"
 					(reference "#PWR12001")
@@ -2539,10 +2529,6 @@
 		)
 		(instances
 			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/6dd858ad-2af2-4b47-aa79-fa644af79f05"
-					(reference "#PWR032003")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2"
 					(reference "#PWR024003")
 					(unit 1)
@@ -2639,10 +2625,6 @@
 		)
 		(instances
 			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/6dd858ad-2af2-4b47-aa79-fa644af79f05"
-					(reference "#PWR026006")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2"
 					(reference "#PWR018006")
 					(unit 1)
@@ -2740,10 +2722,6 @@
 		)
 		(instances
 			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/6dd858ad-2af2-4b47-aa79-fa644af79f05"
-					(reference "#PWR026003")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2"
 					(reference "#PWR018003")
 					(unit 1)
@@ -2941,10 +2919,6 @@
 		)
 		(instances
 			(project ""
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/6dd858ad-2af2-4b47-aa79-fa644af79f05"
-					(reference "IC32001")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2"
 					(reference "IC24001")
 					(unit 1)
@@ -3053,10 +3027,6 @@
 		)
 		(instances
 			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/6dd858ad-2af2-4b47-aa79-fa644af79f05"
-					(reference "C32001")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2"
 					(reference "C24001")
 					(unit 1)
@@ -3275,10 +3245,6 @@
 		)
 		(instances
 			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/6dd858ad-2af2-4b47-aa79-fa644af79f05"
-					(reference "IC26001")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/77831b95-4af9-4be7-883d-350d130a19a2"
 					(reference "IC18001")
 					(unit 1)
