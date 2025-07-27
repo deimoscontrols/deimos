@@ -4518,7 +4518,7 @@
 	)
 	(hierarchical_label "AIN12"
 		(shape input)
-		(at 244.602 72.136 180)
+		(at 244.602 148.844 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4529,7 +4529,7 @@
 	)
 	(hierarchical_label "AIN17"
 		(shape input)
-		(at 244.602 117.348 180)
+		(at 244.602 101.854 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4551,7 +4551,7 @@
 	)
 	(hierarchical_label "AIN15"
 		(shape input)
-		(at 244.602 86.106 180)
+		(at 244.602 132.842 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4573,7 +4573,7 @@
 	)
 	(hierarchical_label "AIN18"
 		(shape input)
-		(at 244.602 132.842 180)
+		(at 244.602 86.106 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4661,7 +4661,7 @@
 	)
 	(hierarchical_label "AIN16"
 		(shape input)
-		(at 244.602 101.854 180)
+		(at 244.602 117.348 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4771,7 +4771,7 @@
 	)
 	(hierarchical_label "AIN19"
 		(shape input)
-		(at 244.602 148.844 180)
+		(at 244.602 72.136 180)
 		(effects
 			(font
 				(size 1.27 1.27)
