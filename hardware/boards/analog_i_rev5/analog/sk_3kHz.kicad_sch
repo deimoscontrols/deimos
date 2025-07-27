@@ -873,7 +873,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "17e430df-ff3d-4873-b52d-8884836e9f53")
-		(property "Reference" "C21001"
+		(property "Reference" "C27001"
 			(at 91.694 92.202 0)
 			(effects
 				(font
@@ -1037,7 +1037,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "23ce765e-047e-405b-a343-791bda60370d")
-		(property "Reference" "C21003"
+		(property "Reference" "C27003"
 			(at 116.078 76.2 90)
 			(effects
 				(font
@@ -1190,7 +1190,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "6226d6f8-003a-441e-9d53-9bf546daca91")
-		(property "Reference" "R21001"
+		(property "Reference" "R27001"
 			(at 82.55 77.343 90)
 			(effects
 				(font
@@ -1352,7 +1352,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "6342d327-4755-4309-9976-fcf264742d04")
-		(property "Reference" "#PWR172"
+		(property "Reference" "#PWR188"
 			(at 113.03 99.06 0)
 			(effects
 				(font
@@ -1503,7 +1503,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "87807ff0-7ecf-4b22-b86f-d441bc0a161e")
-		(property "Reference" "U21001"
+		(property "Reference" "U27001"
 			(at 121.158 89.916 0)
 			(effects
 				(font
@@ -1666,7 +1666,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "b63adb6f-958c-402a-9213-ac7de52a053d")
-		(property "Reference" "#PWR171"
+		(property "Reference" "#PWR187"
 			(at 120.65 83.82 0)
 			(effects
 				(font
@@ -1817,7 +1817,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "c094a74f-67d9-46b2-bb27-5551e97d9f5d")
-		(property "Reference" "R21002"
+		(property "Reference" "R27002"
 			(at 93.98 77.343 90)
 			(effects
 				(font
@@ -1979,7 +1979,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "de52862c-0d89-4932-af27-a123f1b863e7")
-		(property "Reference" "C21002"
+		(property "Reference" "C27002"
 			(at 110.998 58.674 0)
 			(effects
 				(font
@@ -2143,7 +2143,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "de61b33f-b6e7-4ce7-8730-a9d324b7ba95")
-		(property "Reference" "#PWR170"
+		(property "Reference" "#PWR186"
 			(at 116.84 72.39 0)
 			(effects
 				(font
@@ -2295,7 +2295,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "f8fb09fd-047b-411e-8ff7-bd0ac8f7b981")
-		(property "Reference" "#PWR169"
+		(property "Reference" "#PWR185"
 			(at 101.6 99.06 0)
 			(effects
 				(font
