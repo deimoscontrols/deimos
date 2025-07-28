@@ -114,6 +114,16 @@
 	)
 	(wire
 		(pts
+			(xy 80.772 41.402) (xy 99.568 41.402)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "117a6ccc-0002-47b0-8dec-fe06353dd3b4")
+	)
+	(wire
+		(pts
 			(xy 31.496 39.37) (xy 31.496 50.038)
 		)
 		(stroke
@@ -151,6 +161,16 @@
 			(type default)
 		)
 		(uuid "1f848b9f-6dd3-4106-a65d-4a4c4350e784")
+	)
+	(wire
+		(pts
+			(xy 79.248 39.37) (xy 79.248 41.91)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "25764663-bd57-48e7-9d73-515342cee08a")
 	)
 	(wire
 		(pts
@@ -214,6 +234,16 @@
 	)
 	(wire
 		(pts
+			(xy 79.248 41.91) (xy 97.79 41.91)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3442755b-2c03-440e-ad03-b80bda099c2c")
+	)
+	(wire
+		(pts
 			(xy 25.4 50.8) (xy 44.45 50.8)
 		)
 		(stroke
@@ -241,6 +271,16 @@
 			(type default)
 		)
 		(uuid "3ec2e217-cf19-4f6b-8faf-c761d1d3beb1")
+	)
+	(wire
+		(pts
+			(xy 80.772 39.37) (xy 80.772 41.402)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3fb68dfb-dc1d-479e-a299-deefaeff8160")
 	)
 	(wire
 		(pts
@@ -694,6 +734,16 @@
 	)
 	(wire
 		(pts
+			(xy 97.79 41.91) (xy 97.79 56.388)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ca3f7ac7-b8f4-4c95-aa40-f64035e5b2ae")
+	)
+	(wire
+		(pts
 			(xy 35.56 49.53) (xy 54.61 49.53)
 		)
 		(stroke
@@ -731,6 +781,16 @@
 			(type default)
 		)
 		(uuid "d2b7bee8-a1ef-4cca-aff2-03bc41823763")
+	)
+	(wire
+		(pts
+			(xy 99.568 41.402) (xy 99.568 56.388)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d5c8a6e5-7b74-4e68-9ce1-639d5f02b3ec")
 	)
 	(wire
 		(pts
@@ -1266,6 +1326,26 @@
 			)
 			(uuid "68ac69aa-a836-4a6c-b32f-291e524115e1")
 		)
+		(pin "AIN13_DAC0" input
+			(at 79.248 39.37 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "b1ffd37a-e31d-4dde-9a2e-b753e09d9910")
+		)
+		(pin "AIN14_DAC1" input
+			(at 80.772 39.37 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "0d357569-c6c3-4e8e-8dd5-9803c2d62fb3")
+		)
 		(instances
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87"
@@ -1572,6 +1652,26 @@
 				(justify right)
 			)
 			(uuid "ee2932a8-f497-47a1-8bf0-c0ad56a13407")
+		)
+		(pin "AIN13_DAC0" input
+			(at 97.79 56.388 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "6468f69a-e124-4c35-9995-11fe70179dea")
+		)
+		(pin "AIN14_DAC1" input
+			(at 99.568 56.388 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "8031d5fa-f6d8-4d1d-8659-7e68caa83bfa")
 		)
 		(instances
 			(project "analog_i"
