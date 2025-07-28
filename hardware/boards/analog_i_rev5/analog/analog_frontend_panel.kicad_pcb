@@ -390,6 +390,7 @@
 	(net 244 "unconnected-(IC1003-N.C._4-Pad7)")
 	(net 245 "unconnected-(IC1003-N.C._3-Pad4)")
 	(net 246 "unconnected-(IC1003-N.C._1-Pad2)")
+	(net 247 "unconnected-(J1006-Pin_10-Pad10)")
 	(footprint "Resistor_SMD:R_0402_1005Metric"
 		(layer "F.Cu")
 		(uuid "0032b395-5a7d-4137-adf8-1399789611ef")
@@ -4675,6 +4676,19 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "LCSC" "C475123"
+			(at 0 0 -90)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "92eea02a-d999-4c58-af16-daa4e57ef3fe")
+			(effects
+				(font
+					(size 1 1)
 					(thickness 0.15)
 				)
 			)
@@ -20795,6 +20809,19 @@
 				)
 			)
 		)
+		(property "LCSC" "C475122"
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "3cfd7fdd-6ec3-4539-87ba-084c1588eb7f")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "TerminalBlock*:*")
 		(path "/cb9dcd53-dcca-4594-bade-9b783c956fd9")
 		(sheetname "Root")
@@ -21282,7 +21309,7 @@
 				"In30.Cu"
 			)
 			(remove_unused_layers no)
-			(net 224 "unconnected-(J1006-Pin_10-Pad10)_1")
+			(net 247 "unconnected-(J1006-Pin_10-Pad10)")
 			(pinfunction "Pin_10")
 			(pintype "passive+no_connect")
 			(uuid "83c164bb-4054-4aba-a727-7cce9b05f9cb")
@@ -37770,6 +37797,19 @@
 				)
 			)
 		)
+		(property "LCSC" "C475123"
+			(at 0 0 -90)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "8d99492b-14ee-491d-bd1d-83315aa35169")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "TerminalBlock*:*")
 		(path "/568fa78f-c48a-4229-ae9e-e2a2aaaeb133")
 		(sheetname "Root")
@@ -42589,6 +42629,19 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "LCSC" "C475122"
+			(at 0 0 -90)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "4ddfeec5-7d5d-4d3e-bb96-2a7c111da21b")
+			(effects
+				(font
+					(size 1 1)
 					(thickness 0.15)
 				)
 			)
@@ -51870,6 +51923,19 @@
 				)
 			)
 		)
+		(property "LCSC" "C475123"
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "894e88a1-a151-4a76-a21b-9423ac57b99e")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property ki_fp_filters "TerminalBlock*:*")
 		(path "/f9134a32-6ca7-4437-b6d0-377fc7356f86")
 		(sheetname "Root")
@@ -52798,6 +52864,19 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "LCSC" "C475123"
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "d9323cb0-0a6d-4d61-913d-5e19b47fda7f")
+			(effects
+				(font
+					(size 1 1)
 					(thickness 0.15)
 				)
 			)
