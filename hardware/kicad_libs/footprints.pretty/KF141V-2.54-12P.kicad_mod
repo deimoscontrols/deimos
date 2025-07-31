@@ -522,15 +522,15 @@
 		(remove_unused_layers no)
 		(uuid "e8aff970-c3b8-4e6b-8f15-8b310f4574aa")
 	)
-	(model "${KICAD8_3DMODEL_DIR}/Connector_PinHeader_2.54mm.3dshapes/PinHeader_1x10_P2.54mm_Vertical.wrl"
+	(model "${KIPRJMOD}/../../kicad_libs/footprints.pretty/KF141V-12P.step"
 		(offset
-			(xyz 0 0 0)
+			(xyz 9.75 -31.75 0)
 		)
 		(scale
 			(xyz 1 1 1)
 		)
 		(rotate
-			(xyz 0 0 0)
+			(xyz -90 0 -90)
 		)
 	)
 )
