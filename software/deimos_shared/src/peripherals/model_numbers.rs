@@ -13,3 +13,6 @@ pub const ANALOG_I_REV_3_MODEL_NUMBER: ModelNumber = 2;
 
 /// Integrated analog frontend unit
 pub const ANALOG_I_REV_4_MODEL_NUMBER: ModelNumber = 3;
+
+/// Integrated analog frontend unit
+pub const DEIMOS_DAQ_REV_5_MODEL_NUMBER: ModelNumber = 4;
