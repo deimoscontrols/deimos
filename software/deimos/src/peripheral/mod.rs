@@ -19,6 +19,9 @@ pub use analog_i_rev_3::AnalogIRev3;
 pub mod analog_i_rev_4;
 pub use analog_i_rev_4::AnalogIRev4;
 
+pub mod deimos_daq_rev5;
+pub use deimos_daq_rev5::DeimosDaqRev5;
+
 pub use deimos_shared::peripherals::PeripheralId;
 use once_cell::sync::Lazy;
 

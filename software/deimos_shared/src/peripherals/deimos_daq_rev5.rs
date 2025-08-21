@@ -42,7 +42,7 @@ pub mod operating_roundtrip {
 
         /// Digital-to-analog converter analog output voltage.
         /// 0-2.5V range.
-        pub dac_voltage_v: [f32; 2],
+        pub dac_v: [f32; 2],
     }
 
     impl Default for OperatingRoundtripInput {
@@ -55,7 +55,7 @@ pub mod operating_roundtrip {
                 phase_delta_ns: 0,
                 pwm_duty_frac: [0.0_f32; 4],
                 pwm_freq_hz: [1_000_000_u32; 4],
-                dac_voltage_v: [0.0_f32; 2],
+                dac_v: [0.0_f32; 2],
             }
         }
     }
