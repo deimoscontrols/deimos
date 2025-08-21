@@ -57,7 +57,7 @@ pub const MODEL_NUMBER: u64 =
 static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
 
 /// Storage for the latest ADC samples
-pub static ADC_SAMPLES: [AtomicF32; 20] = array_macro::array![_ => AtomicF32::new(0.0); 20];
+pub static ADC_SAMPLES: [AtomicF32; 18] = array_macro::array![_ => AtomicF32::new(0.0); 18];
 
 /// Storage for latest unrolled counter samples
 /// These are only integer-unwrapped, not filtered

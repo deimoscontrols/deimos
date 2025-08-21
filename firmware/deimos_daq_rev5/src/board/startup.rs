@@ -115,6 +115,9 @@ impl<'a> Board<'a> {
             (adc1, adc2, adc3)
         };
 
+        // Restore systick for use as main cycle timer
+        let systick = delay.free();
+
         // Initialize GPIO
         let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
         let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
@@ -252,19 +255,26 @@ impl<'a> Board<'a> {
         pwm7.set_duty(0);
         pwm7.enable();
 
+        
+
         //
         // DAC
         //
 
         let (dac1, dac2) = {
+            let pa4: Pin<'A', 4> = gpioa.pa4.into_analog();
+            let pa5: Pin<'A', 5> = gpioa.pa5.into_analog();
+
             // Set up DAC registers
-            let (dac1, dac2) = dp.DAC.dac((gpioa.pa4, gpioa.pa5), ccdr.peripheral.DAC12);
+            let (dac1, dac2) = dp.DAC.dac((pa4, pa5), ccdr.peripheral.DAC12);
 
             // Calibrate
-            let mut dac1: stm32h7xx_hal::dac::C1<DAC, stm32h7xx_hal::dac::Enabled> =
-                dac1.calibrate_buffer(&mut delay).enable();
-            let mut dac2: stm32h7xx_hal::dac::C2<DAC, stm32h7xx_hal::dac::Enabled> =
-                dac2.calibrate_buffer(&mut delay).enable();
+            // let mut dac1: stm32h7xx_hal::dac::C1<DAC, stm32h7xx_hal::dac::Enabled> =
+            //     dac1.calibrate_buffer(&mut delay).enable();
+            // let mut dac2: stm32h7xx_hal::dac::C2<DAC, stm32h7xx_hal::dac::Enabled> =
+            //     dac2.calibrate_buffer(&mut delay).enable();
+            let mut dac1 = dac1.enable();
+            let mut dac2 = dac2.enable();
 
             dac1.set_value(0);
             dac2.set_value(0);
@@ -398,9 +408,6 @@ impl<'a> Board<'a> {
 
         // Build ethernet interface
         let net: Net<'a> = Net::new(store, eth_dma, mac_addr.into(), Instant::ZERO);
-
-        // Restore systick for use as main cycle timer
-        let systick = delay.free();
 
         // Set up sub-cycle timer
         // TIM2 and TIM5 have 32-bit counters and 16-bit prescalers
