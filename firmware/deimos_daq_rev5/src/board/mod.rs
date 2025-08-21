@@ -20,7 +20,7 @@ use smoltcp::{
 
 use atomic_float::AtomicF32;
 
-use deimos_shared::peripherals::analog_i_rev_4::operating_roundtrip::OperatingRoundtripInput;
+use deimos_shared::peripherals::deimos_daq_rev5::operating_roundtrip::OperatingRoundtripInput;
 
 // State machine
 mod binding;
@@ -50,7 +50,7 @@ pub const SERIAL_NUMBER: u64 = u64::from_le_bytes(*include_bytes!("../../static/
 
 /// Model number
 pub const MODEL_NUMBER: u64 =
-    deimos_shared::peripherals::model_numbers::ANALOG_I_REV_4_MODEL_NUMBER;
+    deimos_shared::peripherals::model_numbers::DEIMOS_DAQ_REV_5_MODEL_NUMBER;
 
 /// Ethernet descriptor rings are a global singleton
 #[link_section = ".sram3.eth"]

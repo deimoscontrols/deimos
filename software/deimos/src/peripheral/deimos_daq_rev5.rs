@@ -102,10 +102,10 @@ impl Peripheral for DeimosDaqRev5 {
         for i in 0..18 {
             outputs[i] = out.adc_voltages[i] as f64;
         }
-        outputs[20] = out.encoder as f64;
-        outputs[21] = out.pulse_counter as f64;
-        outputs[22] = out.frequency_meas[0] as f64;
-        outputs[23] = out.frequency_meas[1] as f64;
+        outputs[19] = out.encoder as f64;
+        outputs[20] = out.pulse_counter as f64;
+        outputs[21] = out.frequency_meas[0] as f64;
+        outputs[22] = out.frequency_meas[1] as f64;
 
         out.metrics
     }

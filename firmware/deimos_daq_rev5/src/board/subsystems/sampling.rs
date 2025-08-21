@@ -121,8 +121,8 @@ pub struct AdcPins {
 
     pub ain11: Pin<'A', 0>,
     pub ain12: Pin<'A', 3>,
-    pub ain13: Pin<'A', 4>,
-    pub ain14: Pin<'A', 5>,
+    // pub ain13: Pin<'A', 4>,
+    // pub ain14: Pin<'A', 5>,
     pub ain15: Pin<'A', 6>,
 
     pub ain16: Pin<'B', 0>,
@@ -138,12 +138,12 @@ pub struct Sampler {
     pub adc2: adc::Adc<ADC2, adc::Enabled>,
     pub adc3: adc::Adc<ADC3, adc::Enabled>,
     pub adc_pins: AdcPins,
-    pub adc_scalings: [f32; 20],
-    pub adc_filters: [SisoIirFilter<2>; 20],
-    pub adc_filters_low_rate: [SisoIirFilter<1>; 20],
-    pub adc_filters_fractional_delay: [SisoFirFilter<3, f32>; 20],
+    pub adc_scalings: [f32; 18],
+    pub adc_filters: [SisoIirFilter<2>; 18],
+    pub adc_filters_low_rate: [SisoIirFilter<1>; 18],
+    pub adc_filters_fractional_delay: [SisoFirFilter<3, f32>; 18],
     pub adc_filter_cutoff_ratio: f64,
-    pub adc_values: [f32; 20],
+    pub adc_values: [f32; 18],
 
     // Timing
     pub timer: Timer<TIM2>,
@@ -195,8 +195,8 @@ impl Sampler {
             adc1_scaling, // 10
             adc1_scaling, // 11
             adc2_scaling, // 12
-            adc2_scaling, // 13
-            adc1_scaling, // 14
+            // adc2_scaling, // 13
+            // adc1_scaling, // 14
             adc2_scaling, // 15
             adc1_scaling, // 16
             adc2_scaling, // 17
@@ -206,9 +206,9 @@ impl Sampler {
 
         // Low-pass filters
         let cutoff_ratio = ADC_CUTOFF_RATIO.load(Ordering::Relaxed) as f64;
-        let adc_filters = [butter2(cutoff_ratio).unwrap(); 20];
-        let adc_filters_low_rate = [butter1(cutoff_ratio).unwrap(); 20];
-        let adc_values = [0.0_f32; 20];
+        let adc_filters = [butter2(cutoff_ratio).unwrap(); 18];
+        let adc_filters_low_rate = [butter1(cutoff_ratio).unwrap(); 18];
+        let adc_values = [0.0_f32; 18];
 
         // Fractional delay filters for synthetic simultaneous sampling
 
@@ -227,8 +227,10 @@ impl Sampler {
         let groups = (
             [8, 9, 0],
             [10, 12, 1],
-            [11, 13, 2],
-            [14, 15, 3],
+            // [11, 13, 2],  // ain13,14 consumed for DAC
+            // [14, 15, 3],
+            [11, 2],
+            [15, 3],
             [16, 17, 4],
             [18, 5],
             [19, 6],
@@ -252,8 +254,8 @@ impl Sampler {
         apply_delay(&mut delays, &groups.6, 6);
         apply_delay(&mut delays, &groups.7, 7);
 
-        let mut adc_filters_fractional_delay: [SisoFirFilter<3, f32>; 20] =
-            [SisoFirFilter::<3, f32>::new(&[0.0, 0.0, 0.0]); 20];
+        let mut adc_filters_fractional_delay: [SisoFirFilter<3, f32>; 18] =
+            [SisoFirFilter::<3, f32>::new(&[0.0, 0.0, 0.0]); 18];
         for (i, filter) in adc_filters_fractional_delay.iter_mut().enumerate() {
             let delay_frac = (delays[i] / internal_sample_period) as f32;
             *filter = polynomial_fractional_delay(delay_frac);
@@ -420,16 +422,16 @@ impl Sampler {
         b[1] = block!(self.adc3.read_sample()).unwrap();
 
         self.adc1.start_conversion(&mut self.adc_pins.ain11);
-        self.adc2.start_conversion(&mut self.adc_pins.ain13);
+        // self.adc2.start_conversion(&mut self.adc_pins.ain13);
         self.adc3.start_conversion(&mut self.adc_pins.ain2);
         b[11] = block!(self.adc1.read_sample()).unwrap();
-        b[13] = block!(self.adc2.read_sample()).unwrap();
+        // b[13] = block!(self.adc2.read_sample()).unwrap();
         b[2] = block!(self.adc3.read_sample()).unwrap();
 
-        self.adc1.start_conversion(&mut self.adc_pins.ain14);
+        // self.adc1.start_conversion(&mut self.adc_pins.ain14);
         self.adc2.start_conversion(&mut self.adc_pins.ain15);
         self.adc3.start_conversion(&mut self.adc_pins.ain3);
-        b[14] = block!(self.adc1.read_sample()).unwrap();
+        // b[14] = block!(self.adc1.read_sample()).unwrap();
         b[15] = block!(self.adc2.read_sample()).unwrap();
         b[3] = block!(self.adc3.read_sample()).unwrap();
 
