@@ -4,12 +4,12 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use irq::{handler, scope};
 use smoltcp::socket::udp;
 
-use deimos_shared::{peripherals::analog_i_rev_4::OperatingRoundtripInput, states::configuring::*};
+use deimos_shared::{peripherals::deimos_daq_rev5::OperatingRoundtripInput, states::configuring::*};
 
 impl<'a> Board<'a> {
     pub fn configure(&mut self) -> BoardState {
         // Initialize
-        self.set_pwm(&OperatingRoundtripInput::default());
+        self.set_outputs(&OperatingRoundtripInput::default());
         self.dt_ns = 1_000_000;
         self.systick_init();
         self.watchdog.feed();

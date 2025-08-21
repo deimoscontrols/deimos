@@ -8,14 +8,14 @@ use smoltcp::wire::IpListenEndpoint;
 use irq::{handler, scope};
 
 use deimos_shared::{
-    peripherals::analog_i_rev_4::operating_roundtrip::OperatingRoundtripInput, PERIPHERAL_RX_PORT,
+    peripherals::deimos_daq_rev5::operating_roundtrip::OperatingRoundtripInput, PERIPHERAL_RX_PORT,
 };
 
 impl<'a> Board<'a> {
     /// Acquire an IP address
     pub fn connect(&mut self) -> BoardState {
         // Initialize
-        self.set_pwm(&OperatingRoundtripInput::default());
+        self.set_outputs(&OperatingRoundtripInput::default());
         self.dt_ns = 1_000_000;
         self.systick_init();
         self.watchdog.feed();

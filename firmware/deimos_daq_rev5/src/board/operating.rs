@@ -6,7 +6,7 @@ use core::time::Duration;
 use irq::{handler, scope};
 use smoltcp::socket::udp;
 
-use deimos_shared::peripherals::analog_i_rev_4::*;
+use deimos_shared::peripherals::deimos_daq_rev5::*;
 use deimos_shared::states::{ByteStruct, ByteStructLen};
 
 /// When an i32 wraps, what is the size of the jump in value?
@@ -46,7 +46,7 @@ impl<'a> Board<'a> {
             (subcycle_scale * 1_000_000_000 / (self.subcycle_rate_hz as u64)) as u32;
 
         // Reset output state
-        self.set_pwm(&OperatingRoundtripInput::default());
+        self.set_outputs(&OperatingRoundtripInput::default());
 
         //    Transition flags
         let transition_connecting = AtomicBool::new(false);
@@ -164,7 +164,7 @@ impl<'a> Board<'a> {
                 self.systick_adjust(udp_input.phase_delta_ns + udp_input.period_delta_ns);
 
                 // Write GPIO state based on last received inputs
-                self.set_pwm(&udp_input);
+                self.set_outputs(&udp_input);
 
                 // Maintain IP address configuration or go back to connecting
                 let ip_address_ok = self.poll_dhcp();

@@ -12,6 +12,7 @@ use stm32h7xx_hal::{
     rcc::rec::AdcClkSel,
     rcc::ResetEnable,
     timer::GetClk,
+    traits::DacOut,
 };
 
 impl<'a> Board<'a> {
@@ -47,14 +48,14 @@ impl<'a> Board<'a> {
         // Watchdog reboots the board if the board freezes for any reason
         let mut watchdog = IndependentWatchdog::new(dp.IWDG);
 
+        // Temporarily use SYSTICK as a delay provider, for initialization only
+        let mut delay = Delay::new(cp.SYST, ccdr.clocks);
+
         // ADCs are initialized before we start parting out the peripherals
         // because they need to use systick (or another timer) for a delay briefly
-        let (adc1, adc2, adc3, systick) = {
+        let (adc1, adc2, adc3) = {
             // Switch adc_ker_ck_input multiplexer to per_ck
             ccdr.peripheral.kernel_adc_clk_mux(AdcClkSel::Per);
-
-            // Temporarily use SYSTICK as a delay provider, for initialization only
-            let mut delay = Delay::new(cp.SYST, ccdr.clocks);
 
             // Sample-hold duration and sample frequency are tuned together
             // with a signal generator attached to analog inputs
@@ -111,9 +112,7 @@ impl<'a> Board<'a> {
             let adc2 = adc2.enable();
             let adc3 = adc3.enable();
 
-            let systick = delay.free();
-
-            (adc1, adc2, adc3, systick)
+            (adc1, adc2, adc3)
         };
 
         // Initialize GPIO
@@ -254,13 +253,35 @@ impl<'a> Board<'a> {
         pwm7.enable();
 
         //
-        // GPIO
+        // DAC
         //
-        let pwm_pins = PwmPins {
+
+        let (dac1, dac2) = {
+            // Set up DAC registers
+            let (dac1, dac2) = dp.DAC.dac((gpioa.pa4, gpioa.pa5), ccdr.peripheral.DAC12);
+
+            // Calibrate
+            let mut dac1: stm32h7xx_hal::dac::C1<DAC, stm32h7xx_hal::dac::Enabled> =
+                dac1.calibrate_buffer(&mut delay).enable();
+            let mut dac2: stm32h7xx_hal::dac::C2<DAC, stm32h7xx_hal::dac::Enabled> =
+                dac2.calibrate_buffer(&mut delay).enable();
+
+            dac1.set_value(0);
+            dac2.set_value(0);
+
+            (dac1, dac2)
+        };
+
+        //
+        // Outputs
+        //
+        let outputs = Outputs {
             pwm0: pwm2,
             pwm1: pwm5,
             pwm2: pwm6,
             pwm3: pwm7,
+            dac1: dac1,
+            dac2: dac2,
         };
 
         //
@@ -281,8 +302,8 @@ impl<'a> Board<'a> {
         let ain10: Pin<'C', 3> = gpioc.pc3.into_analog();
         let ain11: Pin<'A', 0> = gpioa.pa0.into_analog();
         let ain12: Pin<'A', 3> = gpioa.pa3.into_analog();
-        let ain13: Pin<'A', 4> = gpioa.pa4.into_analog();
-        let ain14: Pin<'A', 5> = gpioa.pa5.into_analog();
+        // let ain13: Pin<'A', 4> = gpioa.pa4.into_analog();  // Consumed for DAC
+        // let ain14: Pin<'A', 5> = gpioa.pa5.into_analog();
         let ain15: Pin<'A', 6> = gpioa.pa6.into_analog();
         let ain16: Pin<'B', 0> = gpiob.pb0.into_analog();
         let ain17: Pin<'B', 1> = gpiob.pb1.into_analog();
@@ -303,8 +324,8 @@ impl<'a> Board<'a> {
             ain10,
             ain11,
             ain12,
-            ain13,
-            ain14,
+            // ain13,
+            // ain14,
             ain15,
             ain16,
             ain17,
@@ -378,6 +399,9 @@ impl<'a> Board<'a> {
         // Build ethernet interface
         let net: Net<'a> = Net::new(store, eth_dma, mac_addr.into(), Instant::ZERO);
 
+        // Restore systick for use as main cycle timer
+        let systick = delay.free();
+
         // Set up sub-cycle timer
         // TIM2 and TIM5 have 32-bit counters and 16-bit prescalers
         let subcycle_rate_hz = TIM5::get_clk(&ccdr.clocks).unwrap().to_Hz();
@@ -412,7 +436,7 @@ impl<'a> Board<'a> {
                 controller,
                 configuring_timeout_ms,
                 loss_of_contact_limit,
-                pwm_pins,
+                outputs,
             },
             adc,
         )

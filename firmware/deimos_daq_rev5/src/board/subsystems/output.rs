@@ -4,26 +4,31 @@ use stm32h7xx_hal::{
     rcc::CoreClocks,
     stm32::*,
     time::Hertz,
-    timer::GetClk,
+    timer::GetClk, traits::DacOut,
 };
 
-pub struct PwmPins {
+const DAC_SCALING: f32 = 4096.0 / 2.5;
+
+pub struct Outputs {
     pub pwm0: Pwm<TIM3, 1, ComplementaryImpossible>,
     pub pwm1: Pwm<TIM12, 0, ComplementaryImpossible>,
     pub pwm2: Pwm<TIM16, 0, ComplementaryDisabled>,
     pub pwm3: Pwm<TIM17, 0, ComplementaryDisabled>,
+    pub dac1: stm32h7xx_hal::dac::C1<DAC, stm32h7xx_hal::dac::Enabled>,
+    pub dac2: stm32h7xx_hal::dac::C2<DAC, stm32h7xx_hal::dac::Enabled>,
 }
 
 // Set PWM frequency and duty cycle
-pub fn set_pwm(
-    pwm_pins: &mut PwmPins,
+pub fn set_outputs(
+    outputs: &mut Outputs,
     pwm_duty_frac: &[f32; 4],
     pwm_freq_hz: &[u32; 4],
+    dac_v: &[f32; 2],
     clocks: &CoreClocks,
 ) {
     {
         let i = 0;
-        let pwm = &mut pwm_pins.pwm0;
+        let pwm = &mut outputs.pwm0;
 
         let duty = pwm_duty_frac[i];
         let freq = pwm_freq_hz[i].max(2).Hz(); // 0Hz causes breakage
@@ -44,7 +49,7 @@ pub fn set_pwm(
 
     {
         let i = 1;
-        let pwm = &mut pwm_pins.pwm1;
+        let pwm = &mut outputs.pwm1;
 
         let duty = pwm_duty_frac[i];
         let freq = pwm_freq_hz[i].max(2).Hz(); // 0Hz causes breakage
@@ -65,7 +70,7 @@ pub fn set_pwm(
 
     {
         let i = 2;
-        let pwm = &mut pwm_pins.pwm2;
+        let pwm = &mut outputs.pwm2;
 
         let duty = pwm_duty_frac[i];
         let freq = pwm_freq_hz[i].max(2).Hz(); // 0Hz causes breakage
@@ -86,7 +91,7 @@ pub fn set_pwm(
 
     {
         let i = 3;
-        let pwm = &mut pwm_pins.pwm3;
+        let pwm = &mut outputs.pwm3;
 
         let duty = pwm_duty_frac[i];
         let freq = pwm_freq_hz[i].max(2).Hz(); // 0Hz causes breakage
@@ -104,6 +109,9 @@ pub fn set_pwm(
         let duty = (duty * (pwm.get_max_duty() as f32)) as u16;
         pwm.set_duty(duty);
     }
+
+    outputs.dac1.set_value((dac_v[0] * DAC_SCALING) as u16);
+    outputs.dac2.set_value((dac_v[1] * DAC_SCALING) as u16);
 }
 
 // Period and prescaler calculator for 32-bit timers

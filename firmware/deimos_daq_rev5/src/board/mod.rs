@@ -33,7 +33,7 @@ mod startup;
 pub mod subsystems;
 pub use subsystems::interrupts;
 use subsystems::net::*;
-use subsystems::pwm::*;
+use subsystems::output::*;
 use subsystems::sampling::*;
 
 /// ADC sample frequency
@@ -116,7 +116,7 @@ pub struct Board<'a> {
     pub loss_of_contact_limit: u16,
 
     // I/O
-    pub pwm_pins: PwmPins,
+    pub outputs: Outputs,
 }
 
 impl<'a> Board<'a> {
@@ -172,11 +172,12 @@ impl<'a> Board<'a> {
     }
 
     // Set GPIO high/low or PWM duty cycle.
-    fn set_pwm(&mut self, input: &OperatingRoundtripInput) {
-        set_pwm(
-            &mut self.pwm_pins,
+    fn set_outputs(&mut self, input: &OperatingRoundtripInput) {
+        set_outputs(
+            &mut self.outputs,
             &input.pwm_duty_frac,
             &input.pwm_freq_hz,
+            &input.dac_v,
             &self.clocks,
         );
     }

@@ -6,7 +6,7 @@ use irq::{handler, scope};
 
 use smoltcp::socket::udp;
 
-use deimos_shared::peripherals::analog_i_rev_4::operating_roundtrip::OperatingRoundtripInput;
+use deimos_shared::peripherals::deimos_daq_rev5::operating_roundtrip::OperatingRoundtripInput;
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::states::binding::*;
 
@@ -14,7 +14,7 @@ impl<'a> Board<'a> {
     /// Bind to a controller
     pub fn bind(&mut self) -> BoardState {
         // Initialize
-        self.set_pwm(&OperatingRoundtripInput::default());
+        self.set_outputs(&OperatingRoundtripInput::default());
         self.dt_ns = 1_000_000;
         self.systick_init();
         self.watchdog.feed();
