@@ -213,28 +213,28 @@ impl Peripheral for DeimosDaqRev5 {
         {
             let input_name = format!("{name}.ain12");
             let voltage_calc_name = format!("{name}_0_2V5_1");
-            let voltage_calc = InverseAffine::new(input_name, 1.0, 0.0, true);
+            let voltage_calc = Affine::new(input_name, 1.0, 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
         {
             let input_name = format!("{name}.ain15");
             let voltage_calc_name = format!("{name}_0_2V5_2");
-            let voltage_calc = InverseAffine::new(input_name, 1.0, 0.0, true);
+            let voltage_calc = Affine::new(input_name, 1.0, 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
         {
             let input_name = format!("{name}.ain16");
             let voltage_calc_name = format!("{name}_0_15V_1");
-            let voltage_calc = InverseAffine::new(input_name, 1.0 / 6.0, 0.0, true);
+            let voltage_calc = Affine::new(input_name, 6.0, 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
         {
             let input_name = format!("{name}.ain17");
             let voltage_calc_name = format!("{name}_0_15V_2");
-            let voltage_calc = InverseAffine::new(input_name, 1.0 / 6.0, 0.0, true);
+            let voltage_calc = Affine::new(input_name, 6.0, 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
