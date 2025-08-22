@@ -66,7 +66,7 @@ fn main() {
     controller.add_peripheral("p6", Box::new(AnalogIRev4 { serial_number: 4 }));
     // controller.add_peripheral("p7", Box::new(AnalogIRev4 { serial_number: 5 }));
     // controller.add_peripheral("p8", Box::new(AnalogIRev4 { serial_number: 6 }));
-    controller.add_peripheral("p9", Box::new(DeimosDaqRev5 { serial_number: 1 }));
+    controller.add_peripheral("p8", Box::new(DeimosDaqRev5 { serial_number: 1 }));
 
     // Set up database dispatchers
     let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(

@@ -141,7 +141,7 @@ impl Peripheral for DeimosDaqRev5 {
             // v_sensed = 250e-6 amps * r_sensed * 25.7
             // => r_sensed = v_sensed / (250e-6 * 25.7)
             let slope = 250e-6 * 25.7;
-            let resistance_calc = InverseAffine::new(input_name, slope, 0.0, false);
+            let resistance_calc = InverseAffine::new(input_name, slope, 0.0, true);
             let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
             calcs.insert(resistance_calc_name, Box::new(resistance_calc));
             calcs.insert(temperature_calc_name.clone(), Box::new(temperature_calc));
@@ -197,7 +197,7 @@ impl Peripheral for DeimosDaqRev5 {
                 let voltage_calc_name = format!("{name}_tc_{n}_V");
                 let temperature_calc_name = format!("{name}_tc_{n}");
 
-                let voltage_calc = InverseAffine::new(input_name, slope, offset, false);
+                let voltage_calc = InverseAffine::new(input_name, slope, offset, true);
                 let temperature_calc = TcKtype::new(
                     format!("{voltage_calc_name}.y"),
                     format!("{name}_board_rtd.temperature_K"),
@@ -212,43 +212,43 @@ impl Peripheral for DeimosDaqRev5 {
         // Variety of raw voltages with different gains
         {
             let input_name = format!("{name}.ain12");
-            let voltage_calc_name = format!("0_2V5_1");
-            let voltage_calc = InverseAffine::new(input_name, 1.0, 0.0, false);
+            let voltage_calc_name = format!("{name}_0_2V5_1");
+            let voltage_calc = InverseAffine::new(input_name, 1.0, 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
         {
             let input_name = format!("{name}.ain15");
-            let voltage_calc_name = format!("0_2V5_2");
-            let voltage_calc = InverseAffine::new(input_name, 1.0, 0.0, false);
+            let voltage_calc_name = format!("{name}_0_2V5_2");
+            let voltage_calc = InverseAffine::new(input_name, 1.0, 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
         {
             let input_name = format!("{name}.ain16");
-            let voltage_calc_name = format!("0_15V_1");
-            let voltage_calc = InverseAffine::new(input_name, 1.0 / 6.0, 0.0, false);
+            let voltage_calc_name = format!("{name}_0_15V_1");
+            let voltage_calc = InverseAffine::new(input_name, 1.0 / 6.0, 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
         {
             let input_name = format!("{name}.ain17");
-            let voltage_calc_name = format!("0_15V_2");
-            let voltage_calc = InverseAffine::new(input_name, 1.0 / 6.0, 0.0, false);
+            let voltage_calc_name = format!("{name}_0_15V_2");
+            let voltage_calc = InverseAffine::new(input_name, 1.0 / 6.0, 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
         {
             let input_name = format!("{name}.ain18");
-            let voltage_calc_name = format!("x25p7");
-            let voltage_calc = InverseAffine::new(input_name, 25.7, 0.0, false);
+            let voltage_calc_name = format!("{name}_x26");
+            let voltage_calc = InverseAffine::new(input_name, 25.7, 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
         {
             let input_name = format!("{name}.ain19");
-            let voltage_calc_name = format!("x666p33");
-            let voltage_calc = InverseAffine::new(input_name, 1.0 + 49.4e3 / 75.0, 0.0, false);
+            let voltage_calc_name = format!("{name}_x666");
+            let voltage_calc = InverseAffine::new(input_name, 1.0 + 49.4e3 / 75.0, 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
