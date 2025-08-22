@@ -181,6 +181,10 @@ pub fn parse_binding(
             serial_number: msg.peripheral_id.serial_number,
         })),
 
+        model_numbers::DEIMOS_DAQ_REV_5_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev5 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
         _ => Err(format!("Unrecognized model number {m}").to_owned()),
     }
 }
