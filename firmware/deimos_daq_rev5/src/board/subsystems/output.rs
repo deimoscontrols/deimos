@@ -7,7 +7,7 @@ use stm32h7xx_hal::{
     timer::GetClk, traits::DacOut,
 };
 
-const DAC_SCALING: f32 = 4096.0 / 2.5;
+const DAC_SCALING: f32 = 4095.0 / 2.5;
 
 pub struct Outputs {
     pub pwm0: Pwm<TIM3, 1, ComplementaryImpossible>,

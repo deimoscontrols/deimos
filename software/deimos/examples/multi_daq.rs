@@ -86,15 +86,21 @@ fn main() {
     let duty = Constant::new(0.5, true);
     let freq = Sin::new(1.0 / (rate_hz / 100.0), 0.25, 100.0, 250_000.0, true);
     let freq1 = Sin::new(20.0, 0.25, 10.0, 200.0, true);
+    let dac1 = Sin::new(20.0, 0.0, 0.0, 2.5, true);
+    let dac2 = Sin::new(20.0, 5.0, 0.0, 2.5, true);
     controller.add_calc("duty", Box::new(duty));
     controller.add_calc("freq", Box::new(freq));
     controller.add_calc("freq1", Box::new(freq1));
+    controller.add_calc("dac1", Box::new(dac1));
+    controller.add_calc("dac2", Box::new(dac2));
     controller.set_peripheral_input_source("p1.pwm0_duty", "duty.y");
     controller.set_peripheral_input_source("p1.pwm0_freq", "freq.y");
     controller.set_peripheral_input_source("p1.pwm1_duty", "duty.y");
     controller.set_peripheral_input_source("p1.pwm1_freq", "freq1.y");
     controller.set_peripheral_input_source("p1.pwm3_duty", "sequence_machine.duty");
     controller.set_peripheral_input_source("p1.pwm3_freq", "freq.y");
+    controller.set_peripheral_input_source("p8.dac1", "dac1.y");
+    controller.set_peripheral_input_source("p8.dac2", "dac2.y");
 
     let timeouts = BTreeMap::from([
         ("low".to_owned(), Timeout::Loop),

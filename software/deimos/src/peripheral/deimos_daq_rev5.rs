@@ -31,8 +31,8 @@ impl Peripheral for DeimosDaqRev5 {
             names.push(format!("pwm{i}_freq").to_owned())
         }
 
-        names.push("dac0".to_string());
         names.push("dac1".to_string());
+        names.push("dac2".to_string());
 
         names
     }
@@ -241,14 +241,14 @@ impl Peripheral for DeimosDaqRev5 {
         {
             let input_name = format!("{name}.ain18");
             let voltage_calc_name = format!("{name}_x26");
-            let voltage_calc = InverseAffine::new(input_name, 25.7, 0.0, true);
+            let voltage_calc = Affine::new(input_name, 1.0 / 25.7, 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
         {
             let input_name = format!("{name}.ain19");
             let voltage_calc_name = format!("{name}_x666");
-            let voltage_calc = InverseAffine::new(input_name, 1.0 + 49.4e3 / 75.0, 0.0, true);
+            let voltage_calc = Affine::new(input_name, 1.0 / (1.0 + 49.4e3 / 75.0), 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
