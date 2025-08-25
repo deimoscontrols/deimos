@@ -1,5 +1,12 @@
 # Changelog
 
+## 2025-08-25 deimos 0.11.0, deimos_shared 0.5.0, Deimos DAQ Rev 5.0.0 hardware and firmware
+
+### Added
+
+* Add deimos_daq_rev5 schematic, layout, fab files, and firmware
+* Add deimos_daq_rev5 interface to deimos_shared
+* Add deimos_daq_rev5 peripheral implementation and calcs to deimos::peripheral
 
 ## 2025-06-28 deimos 0.10.2
 
