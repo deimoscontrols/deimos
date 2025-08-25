@@ -5,6 +5,7 @@
 ### Added
 
 * Add deimos_daq_rev5 schematic, layout, fab files, and firmware
+    * Adds active analog filters, 2x buffered analog outputs, and more raw voltage inputs
 * Add deimos_daq_rev5 interface to deimos_shared
 * Add deimos_daq_rev5 peripheral implementation and calcs to deimos::peripheral
 
