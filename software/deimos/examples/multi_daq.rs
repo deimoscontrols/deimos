@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::calc::{Constant, Sin};
-use crate::peripheral::{AnalogIRev3, AnalogIRev4};
+use crate::peripheral::{AnalogIRev3, AnalogIRev4, DeimosDaqRev5};
 use controller::context::ControllerCtx;
 use deimos::calc::SequenceMachine;
 use deimos::calc::sequence_machine::{MachineCfg, ThreshOp, Timeout, Transition};
@@ -37,7 +37,7 @@ fn main() {
     let peripheral_plugins = None;
 
     // Set control rate
-    let rate_hz = 25.0;
+    let rate_hz = 100.0;
     let dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
 
     // Define idle controller
@@ -45,6 +45,12 @@ fn main() {
     ctx.op_name = op_name;
     ctx.dt_ns = dt_ns;
     ctx.op_dir = op_dir.clone();
+    //   For a demo control network, assume that the control server does not have
+    //   a static address and may drop out for a few seconds while renewing its IP address.
+    //   For a real network, the control server and peripherals should be assigned
+    //   static addresses, and this limit can be comfortably set as low as 2-3 cycles.
+    ctx.controller_loss_of_contact_limit = (4.0 * rate_hz).min(1e4) as u16;
+    ctx.peripheral_loss_of_contact_limit = (4.0 * rate_hz).min(1e4) as u16;
     let mut controller = Controller::new(ctx);
 
     // Scan for peripherals on LAN
@@ -59,12 +65,13 @@ fn main() {
     controller.add_peripheral("p5", Box::new(AnalogIRev4 { serial_number: 3 }));
     controller.add_peripheral("p6", Box::new(AnalogIRev4 { serial_number: 4 }));
     // controller.add_peripheral("p7", Box::new(AnalogIRev4 { serial_number: 5 }));
-    controller.add_peripheral("p8", Box::new(AnalogIRev4 { serial_number: 6 }));
+    // controller.add_peripheral("p8", Box::new(AnalogIRev4 { serial_number: 6 }));
+    controller.add_peripheral("p8", Box::new(DeimosDaqRev5 { serial_number: 1 }));
 
     // Set up database dispatchers
     let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(
         "tsdb",
-        "/run/postgresql/", // Unix socket interface
+        "/run/postgresql/", // Unix socket interface; TCP works as well
         "jlogan",
         "POSTGRES_PW",
         Duration::from_nanos(1),
@@ -79,15 +86,21 @@ fn main() {
     let duty = Constant::new(0.5, true);
     let freq = Sin::new(1.0 / (rate_hz / 100.0), 0.25, 100.0, 250_000.0, true);
     let freq1 = Sin::new(20.0, 0.25, 10.0, 200.0, true);
+    let dac1 = Sin::new(20.0, 0.0, 0.0, 2.5, true);
+    let dac2 = Sin::new(20.0, 5.0, 0.0, 2.5 / 25.7, true);
     controller.add_calc("duty", Box::new(duty));
     controller.add_calc("freq", Box::new(freq));
     controller.add_calc("freq1", Box::new(freq1));
+    controller.add_calc("dac1", Box::new(dac1));
+    controller.add_calc("dac2", Box::new(dac2));
     controller.set_peripheral_input_source("p1.pwm0_duty", "duty.y");
     controller.set_peripheral_input_source("p1.pwm0_freq", "freq.y");
     controller.set_peripheral_input_source("p1.pwm1_duty", "duty.y");
     controller.set_peripheral_input_source("p1.pwm1_freq", "freq1.y");
     controller.set_peripheral_input_source("p1.pwm3_duty", "sequence_machine.duty");
     controller.set_peripheral_input_source("p1.pwm3_freq", "freq.y");
+    controller.set_peripheral_input_source("p8.dac1", "dac1.y");
+    controller.set_peripheral_input_source("p8.dac2", "dac2.y");
 
     let timeouts = BTreeMap::from([
         ("low".to_owned(), Timeout::Loop),

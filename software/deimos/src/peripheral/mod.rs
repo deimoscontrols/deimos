@@ -19,6 +19,9 @@ pub use analog_i_rev_3::AnalogIRev3;
 pub mod analog_i_rev_4;
 pub use analog_i_rev_4::AnalogIRev4;
 
+pub mod deimos_daq_rev5;
+pub use deimos_daq_rev5::DeimosDaqRev5;
+
 pub use deimos_shared::peripherals::PeripheralId;
 use once_cell::sync::Lazy;
 
@@ -175,6 +178,10 @@ pub fn parse_binding(
         })),
 
         model_numbers::ANALOG_I_REV_4_MODEL_NUMBER => Ok(Box::new(AnalogIRev4 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
+        model_numbers::DEIMOS_DAQ_REV_5_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev5 {
             serial_number: msg.peripheral_id.serial_number,
         })),
 

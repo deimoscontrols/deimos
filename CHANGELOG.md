@@ -1,5 +1,30 @@
 # Changelog
 
+## 2025-08-25 deimos 0.11.0, deimos_shared 0.5.0, Deimos DAQ Rev 5.0.0 hardware and firmware
+
+### Added
+
+* Add deimos_daq_rev5 schematic, layout, fab files, and firmware
+    * Adds active analog filters, 2x buffered analog outputs, and more raw voltage inputs
+* Add deimos_daq_rev5 interface to deimos_shared
+* Add deimos_daq_rev5 peripheral implementation and calcs to deimos::peripheral
+
+### Removed
+
+* Remove deimos_gui
+
+## 2025-06-28 deimos 0.10.2
+
+### Changed
+
+* Do not exit control loop immediately on transmit error
+    * Instead, allow peripherals or controller to register loss of contact & follow established loss of contact procedure
+    * This allows the control loop to bridge brief outages during DHCP IP address lease renewal
+
+### Added
+
+* Add ltspice models of several sizing options for zero-ripple Sallen-Key filters
+
 ## 2025-06-25 analog_i_rev4 firmware 0.4.0, deimos 0.10.1
 
 ### Changed

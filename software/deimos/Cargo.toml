@@ -1,6 +1,6 @@
 [package]
 name = "deimos"
-version = "0.10.1"
+version = "0.11.0"
 edition = "2024"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "MIT OR Apache-2.0"
@@ -15,7 +15,7 @@ readme = "./README.md"
 all-features = true
 
 [dependencies]
-deimos_shared = { path = "../deimos_shared", version = "0.4.0" }
+deimos_shared = { path = "../deimos_shared", version = "0.5.0" }
 
 # Control loop prep
 chrono = { version = "0.4.39", features = ["std"], default-features = false }  # timestamp formatting

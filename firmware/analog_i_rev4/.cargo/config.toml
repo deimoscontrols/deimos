@@ -4,9 +4,9 @@ rustflags = [
   # LLD (shipped with the Rust toolchain) is used as the default linker
   "-C", "link-arg=-Tlink.x",
   "-C", "target-cpu=cortex-m7",
-  # Use all floating-point instruction sets available with codegen,
+  # Uncomment to use all floating-point instruction sets available with codegen,
   # full ARMv7 instruction set, and realtime profile
-  "-C", "target-feature=+fp64,+vfp2,+rclass,+v7"
+  # "-C", "target-feature=+fp64,+vfp2,+rclass,+v7"
 ]
 
 [build]
