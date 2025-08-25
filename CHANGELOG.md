@@ -8,6 +8,10 @@
 * Add deimos_daq_rev5 interface to deimos_shared
 * Add deimos_daq_rev5 peripheral implementation and calcs to deimos::peripheral
 
+### Removed
+
+* Remove deimos_gui
+
 ## 2025-06-28 deimos 0.10.2
 
 ### Changed
