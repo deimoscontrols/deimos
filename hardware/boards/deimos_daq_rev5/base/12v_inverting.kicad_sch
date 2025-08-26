@@ -1953,7 +1953,7 @@
 		(dnp no)
 		(uuid "2ce3361f-d128-486e-869d-176cca0498f8")
 		(property "Reference" "C4007"
-			(at 151.384 84.582 0)
+			(at 146.05 89.154 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1962,7 +1962,7 @@
 			)
 		)
 		(property "Value" "10uF 50V 0805"
-			(at 158.242 81.788 0)
+			(at 143.764 80.518 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2032,7 +2032,7 @@
 		(dnp no)
 		(uuid "543eb48e-4c70-4659-b719-be6c327d1950")
 		(property "Reference" "C4006"
-			(at 129.794 84.582 0)
+			(at 127.762 83.82 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2405,10 +2405,9 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "7dfae7a8-b1b2-4c09-bf9d-5b9474c9b2d6")
 		(property "Reference" "R4001"
-			(at 121.158 86.3599 0)
+			(at 121.158 87.122 0)
 			(effects
 				(font
 					(size 1.27 1.27)
