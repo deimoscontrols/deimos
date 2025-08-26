@@ -6442,12 +6442,12 @@
 		)
 		(uuid "186cb701-e0a1-4c4f-ae23-800f5d3ad874")
 	)
-	(text "ADC Input Filter\n16kHz nom."
+	(text "ADC Input Filter\n16kHz nom.\n\nPrimarily for input capacitance;\nmanually tuned to eliminate crosstalk."
 		(exclude_from_sim no)
-		(at 27.94 69.342 0)
+		(at 29.718 65.532 0)
 		(effects
 			(font
-				(size 4 4)
+				(size 2 2)
 			)
 			(justify left bottom)
 		)

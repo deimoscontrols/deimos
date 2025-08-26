@@ -1220,12 +1220,6 @@
 		(uuid "53d3d5c4-7e49-4fc0-a109-6650f2c03d6d")
 	)
 	(junction
-		(at 120.904 76.2)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "66feb51f-a412-4925-bb7e-97d42decf600")
-	)
-	(junction
 		(at 126.238 105.41)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -1252,16 +1246,6 @@
 			(type default)
 		)
 		(uuid "114e5bbf-6bd9-4ecd-b945-1669658e8256")
-	)
-	(wire
-		(pts
-			(xy 120.904 73.66) (xy 120.904 76.2)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "15cd4745-f930-4795-a7bc-76ace69d4489")
 	)
 	(wire
 		(pts
@@ -1455,16 +1439,6 @@
 	)
 	(wire
 		(pts
-			(xy 120.904 76.2) (xy 120.904 78.232)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c49029ea-c722-4fbe-9b06-f7821668af59")
-	)
-	(wire
-		(pts
 			(xy 181.61 93.98) (xy 189.23 93.98)
 		)
 		(stroke
@@ -1566,17 +1540,6 @@
 			(justify left bottom)
 		)
 		(uuid "227fe1d3-9ac9-4453-b93a-2fda5fd228c2")
-	)
-	(text "Short fb to gnd\nfor pass-through"
-		(exclude_from_sim no)
-		(at 123.19 76.708 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "42fe8421-a815-48c1-93ea-2860d25f8ed2")
 	)
 	(text "75 Ohm\nsense"
 		(exclude_from_sim no)
@@ -2280,16 +2243,15 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 120.904 78.232 0)
+		(at 120.904 73.66 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "a410bf58-6f0b-4807-a896-ab243b3ab9f4")
 		(property "Reference" "#PWR024002"
-			(at 120.904 84.582 0)
+			(at 127.254 73.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2298,15 +2260,16 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 120.904 82.677 0)
+			(at 123.952 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify right)
 			)
 		)
 		(property "Footprint" ""
-			(at 120.904 78.232 0)
+			(at 120.904 73.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2315,7 +2278,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 120.904 78.232 0)
+			(at 120.904 73.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2324,7 +2287,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 120.904 78.232 0)
+			(at 120.904 73.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3059,6 +3022,85 @@
 				)
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed7a0d70-4012-4e50-88a7-aea647708582"
 					(reference "C35001")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+24V")
+		(at 120.904 76.2 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "e7596c0e-7b79-455e-ab91-d690ff646cb5")
+		(property "Reference" "#PWR10002"
+			(at 117.094 76.2 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+24V"
+			(at 124.46 76.1999 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 120.904 76.2 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 120.904 76.2 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 120.904 76.2 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "b5881df4-2f6e-4097-9830-558a9e633516")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/77831b95-4af9-4be7-883d-350d130a19a2"
+					(reference "#PWR12002")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/b7e73f80-a01f-409c-a1ae-634c4b865833"
+					(reference "#PWR11001")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/c99c1b0b-6659-4cec-a152-edd7ebc08576"
+					(reference "#PWR10002")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed7a0d70-4012-4e50-88a7-aea647708582"
+					(reference "#PWR13002")
 					(unit 1)
 				)
 			)
