@@ -203,6 +203,17 @@
 		)
 		(uuid "41b8d863-c3d2-4acb-a325-d653e334a9d8")
 	)
+	(text "-12V pwr"
+		(exclude_from_sim no)
+		(at 243.84 83.82 0)
+		(effects
+			(font
+				(size 4 4)
+			)
+			(justify left bottom)
+		)
+		(uuid "72d6da9e-781f-42a2-a453-97af633af09c")
+	)
 	(text "1.024V +/- 0.05% Ref"
 		(exclude_from_sim no)
 		(at 102.108 41.402 0)
@@ -227,7 +238,7 @@
 	)
 	(text "Testpoints"
 		(exclude_from_sim no)
-		(at 215.9 72.136 0)
+		(at 208.534 71.628 0)
 		(effects
 			(font
 				(size 4 4)
@@ -1243,6 +1254,44 @@
 		)
 	)
 	(sheet
+		(at 246.126 87.122)
+		(size 16.764 17.272)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "23e19bde-060f-4059-96a5-ca43a6cc55da")
+		(property "Sheetname" "12v_inverting"
+			(at 246.126 86.4104 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "12v_inverting.kicad_sch"
+			(at 246.126 104.9786 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "stm32h7_base"
+				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e"
+					(page "11")
+				)
+			)
+		)
+	)
+	(sheet
 		(at 83.058 39.878)
 		(size 15.494 17.78)
 		(fields_autoplaced yes)
@@ -1433,7 +1482,7 @@
 		)
 	)
 	(sheet
-		(at 218.186 78.486)
+		(at 210.566 74.93)
 		(size 24.13 20.574)
 		(fields_autoplaced yes)
 		(stroke
@@ -1445,7 +1494,7 @@
 		)
 		(uuid "f8ee85d2-545a-41b5-afed-b6a262439b08")
 		(property "Sheetname" "power_status_leds"
-			(at 218.186 77.7744 0)
+			(at 210.566 74.2184 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1454,7 +1503,7 @@
 			)
 		)
 		(property "Sheetfile" "power_status_leds.kicad_sch"
-			(at 218.186 99.6446 0)
+			(at 210.566 96.0886 0)
 			(effects
 				(font
 					(size 1.27 1.27)

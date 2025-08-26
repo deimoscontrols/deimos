@@ -621,6 +621,10 @@
       "Ethernet"
     ],
     [
+      "23e19bde-060f-4059-96a5-ca43a6cc55da",
+      "12v_inverting"
+    ],
+    [
       "0a1e0bd0-0a38-48a2-850f-3bdf02fef3ae",
       "24v_connector"
     ],
