@@ -1637,7 +1637,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "89d971e6-cfee-4914-8e35-eb46be125b26")
-		(property "Reference" "D14001"
+		(property "Reference" "D20001"
 			(at 84.582 86.614 0)
 			(effects
 				(font
@@ -1717,7 +1717,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "930f8085-542f-4807-bc7d-7ea71822b954")
-		(property "Reference" "#PWR14005"
+		(property "Reference" "#PWR20005"
 			(at 86.868 96.52 0)
 			(effects
 				(font

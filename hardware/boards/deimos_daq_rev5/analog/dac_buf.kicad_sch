@@ -1064,7 +1064,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "34650758-63bc-4ba2-bb75-68e2f8a33797")
-		(property "Reference" "C32006"
+		(property "Reference" "C39003"
 			(at 158.242 111.506 90)
 			(effects
 				(font
@@ -1814,7 +1814,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "aec7cb91-c924-49c0-bfd4-608f57891ddd")
-		(property "Reference" "#PWR32013"
+		(property "Reference" "#PWR39013"
 			(at 155.194 117.348 0)
 			(effects
 				(font
