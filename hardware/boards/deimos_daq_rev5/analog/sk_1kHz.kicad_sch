@@ -318,6 +318,151 @@
 				)
 			)
 		)
+		(symbol "Device:D_Zener"
+			(pin_numbers hide)
+			(pin_names
+				(offset 1.016) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "D"
+				(at 0 2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "D_Zener"
+				(at 0 -2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Zener diode"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "diode"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "TO-???* *_Diode_* *SingleDiode* D_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "D_Zener_0_1"
+				(polyline
+					(pts
+						(xy 1.27 0) (xy -1.27 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.27 -1.27) (xy -1.27 1.27) (xy -0.762 1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 -1.27) (xy 1.27 1.27) (xy -1.27 0) (xy 1.27 -1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "D_Zener_1_1"
+				(pin passive line
+					(at -3.81 0 0)
+					(length 2.54)
+					(name "K"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 3.81 0 180)
+					(length 2.54)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
 		(symbol "Device:R_Small_US"
 			(pin_numbers hide)
 			(pin_names
@@ -675,6 +820,12 @@
 		(uuid "1aacb20a-f283-445e-b6cd-bdbeea25879c")
 	)
 	(junction
+		(at 87.122 82.55)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "22687e7d-20c5-4ff4-ada0-7327744a8951")
+	)
+	(junction
 		(at 133.35 85.09)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -724,7 +875,7 @@
 	)
 	(wire
 		(pts
-			(xy 85.09 82.55) (xy 88.9 82.55)
+			(xy 85.09 82.55) (xy 87.122 82.55)
 		)
 		(stroke
 			(width 0)
@@ -791,6 +942,16 @@
 			(type default)
 		)
 		(uuid "bd7eff07-4f9a-415b-984b-31ff7d735773")
+	)
+	(wire
+		(pts
+			(xy 87.122 82.55) (xy 88.9 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c089d802-28ba-4f2a-98ee-429411f44d1c")
 	)
 	(wire
 		(pts
@@ -1239,6 +1400,90 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:D_Zener")
+		(at 87.122 86.36 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "90ef78d4-8176-4cc3-b0d0-830f4dcdfb5c")
+		(property "Reference" "D5001"
+			(at 84.836 86.614 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "BZT52C3V3"
+			(at 89.662 88.138 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Diode_SMD:D_SOD-323"
+			(at 87.122 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 87.122 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 87.122 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C2112"
+			(at 87.122 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "ec0a70ab-c2e5-43b9-8d89-920e9a8aaca9")
+		)
+		(pin "2"
+			(uuid "bd9cd604-449c-4fba-9155-fff715a1f26e")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/15b6c474-02be-417e-bc87-8489b7b45186/59f61450-605e-4295-9b9f-53d8d5df51eb"
+					(reference "D5001")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83/59f61450-605e-4295-9b9f-53d8d5df51eb"
+					(reference "D8001")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc/e20d7205-bbae-4480-b1ec-aee4d6ee1bcf"
+					(reference "D9001")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 120.65 77.47 0)
 		(unit 1)
@@ -1502,6 +1747,80 @@
 		)
 	)
 	(symbol
+		(lib_id "power:GND")
+		(at 87.122 90.17 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "c37e6803-8342-4c6c-ac6d-aa0d16de2e3c")
+		(property "Reference" "#PWR5005"
+			(at 87.122 96.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 88.9 94.234 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 87.122 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 87.122 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 87.122 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "2b285145-037a-47d1-abf3-b5c4df89bae0")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/15b6c474-02be-417e-bc87-8489b7b45186/59f61450-605e-4295-9b9f-53d8d5df51eb"
+					(reference "#PWR5005")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83/59f61450-605e-4295-9b9f-53d8d5df51eb"
+					(reference "#PWR8005")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc/e20d7205-bbae-4480-b1ec-aee4d6ee1bcf"
+					(reference "#PWR9005")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:C_Small")
 		(at 101.6 90.17 180)
 		(unit 1)
@@ -1511,7 +1830,7 @@
 		(dnp no)
 		(uuid "c7305d08-1eca-4929-8d8a-d199935d1d6c")
 		(property "Reference" "C17005"
-			(at 91.694 92.202 0)
+			(at 98.806 95.504 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1520,7 +1839,7 @@
 			)
 		)
 		(property "Value" "10nF C0G 5%"
-			(at 85.598 90.17 0)
+			(at 96.774 101.6 90)
 			(effects
 				(font
 					(size 1.27 1.27)

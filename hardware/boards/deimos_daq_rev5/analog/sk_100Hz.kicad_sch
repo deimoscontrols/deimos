@@ -318,6 +318,151 @@
 				)
 			)
 		)
+		(symbol "Device:D_Zener"
+			(pin_numbers hide)
+			(pin_names
+				(offset 1.016) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "D"
+				(at 0 2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "D_Zener"
+				(at 0 -2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Zener diode"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "diode"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "TO-???* *_Diode_* *SingleDiode* D_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "D_Zener_0_1"
+				(polyline
+					(pts
+						(xy 1.27 0) (xy -1.27 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.27 -1.27) (xy -1.27 1.27) (xy -0.762 1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 -1.27) (xy 1.27 1.27) (xy -1.27 0) (xy 1.27 -1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "D_Zener_1_1"
+				(pin passive line
+					(at -3.81 0 0)
+					(length 2.54)
+					(name "K"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 3.81 0 180)
+					(length 2.54)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
 		(symbol "Device:R_Small_US"
 			(pin_numbers hide)
 			(pin_names
@@ -675,6 +820,12 @@
 		(uuid "28192ede-db8a-42bc-b5ef-ea0967fb25b3")
 	)
 	(junction
+		(at 86.868 82.55)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "310227ba-90ae-4ab9-8ba0-989e89e2f36c")
+	)
+	(junction
 		(at 133.35 85.09)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -724,7 +875,7 @@
 	)
 	(wire
 		(pts
-			(xy 85.09 82.55) (xy 88.9 82.55)
+			(xy 85.09 82.55) (xy 86.868 82.55)
 		)
 		(stroke
 			(width 0)
@@ -814,6 +965,16 @@
 	)
 	(wire
 		(pts
+			(xy 86.868 82.55) (xy 88.9 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d60ed64e-cc82-415b-b6a5-935a3f612369")
+	)
+	(wire
+		(pts
 			(xy 110.49 68.58) (xy 88.9 68.58)
 		)
 		(stroke
@@ -874,7 +1035,7 @@
 		(dnp no)
 		(uuid "451eba81-b8b3-467b-ba6b-9d8ffe9d551c")
 		(property "Reference" "C15005"
-			(at 91.694 92.202 0)
+			(at 98.298 96.266 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -883,7 +1044,7 @@
 			)
 		)
 		(property "Value" "10nF C0G 5%"
-			(at 85.598 90.17 0)
+			(at 96.266 102.362 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1462,6 +1623,156 @@
 				)
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed60502d-2e6d-4293-85f2-5e967a3c42d8/63cb4c21-96ec-4930-8398-5e4d00a3dfaf"
 					(reference "U14001")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:D_Zener")
+		(at 86.868 86.36 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "89d971e6-cfee-4914-8e35-eb46be125b26")
+		(property "Reference" "D14001"
+			(at 84.582 86.614 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "BZT52C3V3"
+			(at 89.408 88.138 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Diode_SMD:D_SOD-323"
+			(at 86.868 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 86.868 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 86.868 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C2112"
+			(at 86.868 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "4793a1b5-a454-493a-b9a8-46ca48fed1d7")
+		)
+		(pin "2"
+			(uuid "c9b01cd7-beea-49a7-b399-c55d3f02c324")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/f31a785a-aa18-4b99-9461-7c34b37be0d7"
+					(reference "D20001")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed60502d-2e6d-4293-85f2-5e967a3c42d8/63cb4c21-96ec-4930-8398-5e4d00a3dfaf"
+					(reference "D14001")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 86.868 90.17 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "930f8085-542f-4807-bc7d-7ea71822b954")
+		(property "Reference" "#PWR14005"
+			(at 86.868 96.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 88.646 94.234 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 86.868 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 86.868 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 86.868 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "25cdb630-9c03-44f9-a1ea-03eab3e2716b")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/f31a785a-aa18-4b99-9461-7c34b37be0d7"
+					(reference "#PWR20005")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed60502d-2e6d-4293-85f2-5e967a3c42d8/63cb4c21-96ec-4930-8398-5e4d00a3dfaf"
+					(reference "#PWR14005")
 					(unit 1)
 				)
 			)
