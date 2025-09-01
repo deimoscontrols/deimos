@@ -5,141 +5,6 @@
 	(uuid "301d41bc-e751-4572-aa30-b18e7cc8cda7")
 	(paper "A4")
 	(lib_symbols
-		(symbol "Device:C_Small"
-			(pin_numbers hide)
-			(pin_names
-				(offset 0.254) hide)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "C"
-				(at 0.254 1.778 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Value" "C_Small"
-				(at 0.254 -2.032 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "~"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Unpolarized capacitor, small symbol"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "capacitor cap"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_fp_filters" "C_*"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "C_Small_0_1"
-				(polyline
-					(pts
-						(xy -1.524 -0.508) (xy 1.524 -0.508)
-					)
-					(stroke
-						(width 0.3302)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -1.524 0.508) (xy 1.524 0.508)
-					)
-					(stroke
-						(width 0.3048)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "C_Small_1_1"
-				(pin passive line
-					(at 0 2.54 270)
-					(length 2.032)
-					(name "~"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 0 -2.54 90)
-					(length 2.032)
-					(name "~"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-		)
 		(symbol "Device:R_Small_US"
 			(pin_numbers hide)
 			(pin_names
@@ -273,528 +138,6 @@
 				)
 			)
 		)
-		(symbol "aaa:INA826AIDR"
-			(pin_names
-				(offset 0.762)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "IC"
-				(at 24.13 7.62 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Value" "INA826AIDR"
-				(at 24.13 5.08 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Footprint" "SOIC127P600X175-8N"
-				(at 24.13 2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "http://www.ti.com/lit/gpn/ina826"
-				(at 24.13 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-					(hide yes)
-				)
-			)
-			(property "Description" "Precision, 200-uA Supply Current, 36-V Supply Instrumentation Amplifier"
-				(at 24.13 -2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-					(hide yes)
-				)
-			)
-			(property "Height" "1.75"
-				(at 24.13 -5.08 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-					(hide yes)
-				)
-			)
-			(property "Manufacturer_Name" "Texas Instruments"
-				(at 24.13 -7.62 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-					(hide yes)
-				)
-			)
-			(property "Manufacturer_Part_Number" "INA826AIDR"
-				(at 24.13 -10.16 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-					(hide yes)
-				)
-			)
-			(property "Mouser Part Number" "595-INA826AIDR"
-				(at 24.13 -12.7 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-					(hide yes)
-				)
-			)
-			(property "Mouser Price/Stock" "https://www.mouser.co.uk/ProductDetail/Texas-Instruments/INA826AIDR?qs=RqytGdBYyUFuQNJtlkA6aQ%3D%3D"
-				(at 24.13 -15.24 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-					(hide yes)
-				)
-			)
-			(property "Arrow Part Number" "INA826AIDR"
-				(at 24.13 -17.78 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-					(hide yes)
-				)
-			)
-			(property "Arrow Price/Stock" "https://www.arrow.com/en/products/ina826aidr/texas-instruments?region=nac"
-				(at 24.13 -20.32 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-					(hide yes)
-				)
-			)
-			(property "Mouser Testing Part Number" ""
-				(at 24.13 -22.86 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-					(hide yes)
-				)
-			)
-			(property "Mouser Testing Price/Stock" ""
-				(at 24.13 -25.4 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-					(hide yes)
-				)
-			)
-			(symbol "INA826AIDR_0_0"
-				(pin passive line
-					(at 0 0 0)
-					(length 5.08)
-					(name "-IN1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 0 -2.54 0)
-					(length 5.08)
-					(name "RG_1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 0 -5.08 0)
-					(length 5.08)
-					(name "RG_2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 0 -7.62 0)
-					(length 5.08)
-					(name "+IN"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 27.94 -7.62 180)
-					(length 5.08)
-					(name "-VS"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "5"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 27.94 -5.08 180)
-					(length 5.08)
-					(name "REF"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "6"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 27.94 -2.54 180)
-					(length 5.08)
-					(name "VOUT"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "7"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 27.94 0 180)
-					(length 5.08)
-					(name "+VS"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "8"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(symbol "INA826AIDR_0_1"
-				(polyline
-					(pts
-						(xy 5.08 2.54) (xy 22.86 2.54) (xy 22.86 -10.16) (xy 5.08 -10.16) (xy 5.08 2.54)
-					)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-		)
-		(symbol "power:+12V"
-			(power)
-			(pin_numbers hide)
-			(pin_names
-				(offset 0) hide)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "#PWR"
-				(at 0 -3.81 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Value" "+12V"
-				(at 0 3.556 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Power symbol creates a global label with name \"+12V\""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "global power"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "+12V_0_1"
-				(polyline
-					(pts
-						(xy -0.762 1.27) (xy 0 2.54)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0 0) (xy 0 2.54)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0 2.54) (xy 0.762 1.27)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "+12V_1_1"
-				(pin power_in line
-					(at 0 0 90)
-					(length 0)
-					(name "~"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-		)
-		(symbol "power:-12V"
-			(power)
-			(pin_numbers hide)
-			(pin_names
-				(offset 0) hide)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "#PWR"
-				(at 0 -3.81 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Value" "-12V"
-				(at 0 3.556 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Power symbol creates a global label with name \"-12V\""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "global power"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "-12V_0_0"
-				(pin power_in line
-					(at 0 0 90)
-					(length 0)
-					(name "~"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(symbol "-12V_0_1"
-				(polyline
-					(pts
-						(xy 0 0) (xy 0 1.27) (xy 0.762 1.27) (xy 0 2.54) (xy -0.762 1.27) (xy 0 1.27)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type outline)
-					)
-				)
-			)
-		)
 		(symbol "power:GND"
 			(power)
 			(pin_names
@@ -893,108 +236,24 @@
 		)
 	)
 	(junction
-		(at 139.446 97.028)
+		(at 143.256 102.362)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "334d2daf-f7d1-406d-af0b-c10945e9c5a6")
-	)
-	(junction
-		(at 85.344 104.648)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c2731b6e-4316-4fd7-94f6-e0fb93710891")
-	)
-	(junction
-		(at 139.446 104.648)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "e375d78d-16ff-4c89-b019-00fa8217952f")
+		(uuid "007144b4-de8a-4b4b-b368-3f02e87de574")
 	)
 	(wire
 		(pts
-			(xy 85.344 104.648) (xy 106.934 104.648)
+			(xy 143.256 102.362) (xy 159.512 102.362)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "76a74e4c-a668-481e-891f-0c22b71f47b5")
-	)
-	(wire
-		(pts
-			(xy 152.654 102.362) (xy 152.654 99.568)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "bfd07fa3-c10b-43a9-830d-9ca0d40b2313")
-	)
-	(wire
-		(pts
-			(xy 134.874 97.028) (xy 139.446 97.028)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "da290b5c-61dd-4d75-b0b5-46a98e2f8174")
-	)
-	(wire
-		(pts
-			(xy 152.654 102.362) (xy 159.512 102.362)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "dee986e2-5ef0-462d-9bd1-e61a0c3f80b1")
-	)
-	(wire
-		(pts
-			(xy 134.874 99.568) (xy 152.654 99.568)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "e0c4cba0-5fda-4139-9f73-b523cd9bd8e7")
-	)
-	(wire
-		(pts
-			(xy 134.874 104.648) (xy 139.446 104.648)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f48e18b7-08ac-4320-b52d-11e8ad3c0b92")
-	)
-	(text "G=1"
-		(exclude_from_sim no)
-		(at 102.489 102.108 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "123bf780-a611-4904-8339-67e884affa67")
-	)
-	(text "Amp for isolation only"
-		(exclude_from_sim no)
-		(at 109.728 109.474 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "4f66c43d-4587-430c-aab1-cd1c3818a021")
+		(uuid "1e635e82-c4e6-4855-929e-ca9b5e69fdb5")
 	)
 	(text "Divider G = 2 / (10 + 2) = 1/6\n-> max measurable voltage = 2.5V * 6 = 15V"
 		(exclude_from_sim no)
-		(at 85.598 86.614 0)
+		(at 143.51 84.328 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -1016,7 +275,7 @@
 	)
 	(hierarchical_label "VIN"
 		(shape input)
-		(at 85.344 99.568 90)
+		(at 143.256 97.282 90)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -1026,281 +285,8 @@
 		(uuid "c0609351-276a-45d0-843d-29871a1dd99c")
 	)
 	(symbol
-		(lib_id "aaa:INA826AIDR")
-		(at 106.934 97.028 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "09e14040-3669-458b-84e8-60c9fb7ea343")
-		(property "Reference" "IC40001"
-			(at 120.904 88.773 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "INA826AIDR"
-			(at 120.904 91.313 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "aaa:SOIC127P600X175-8N"
-			(at 131.064 94.488 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "http://www.ti.com/lit/gpn/ina826"
-			(at 131.064 97.028 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-		(property "Description" "Precision, 200-uA Supply Current, 36-V Supply Instrumentation Amplifier"
-			(at 131.064 99.568 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-		(property "Height" "1.75"
-			(at 131.064 102.108 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-		(property "Manufacturer_Name" "Texas Instruments"
-			(at 131.064 104.648 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-		(property "Manufacturer_Part_Number" "INA826AIDR"
-			(at 131.064 107.188 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-		(property "Mouser Part Number" "595-INA826AIDR"
-			(at 131.064 109.728 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-		(property "Mouser Price/Stock" "https://www.mouser.co.uk/ProductDetail/Texas-Instruments/INA826AIDR?qs=RqytGdBYyUFuQNJtlkA6aQ%3D%3D"
-			(at 131.064 112.268 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-		(property "Arrow Part Number" "INA826AIDR"
-			(at 131.064 114.808 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-		(property "Arrow Price/Stock" "https://www.arrow.com/en/products/ina826aidr/texas-instruments?region=nac"
-			(at 131.064 117.348 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-		(property "Mouser Testing Part Number" ""
-			(at 131.064 119.888 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-		(property "Mouser Testing Price/Stock" ""
-			(at 131.064 122.428 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C38433"
-			(at 106.934 97.028 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "f489d2e7-3070-44a9-9b27-fd4af72939da")
-		)
-		(pin "2"
-			(uuid "a392f45b-e491-4bd3-9a43-213c71991244")
-		)
-		(pin "3"
-			(uuid "17367a17-f85c-4a76-9ac3-1b07e44a64a3")
-		)
-		(pin "4"
-			(uuid "46ca19bc-bf46-4794-9339-28ef9fc884b7")
-		)
-		(pin "5"
-			(uuid "6d0725b2-a99f-4dd0-bcd7-bc7dd2a56e6d")
-		)
-		(pin "6"
-			(uuid "5bb06e56-c3cc-4c43-b128-9a94f0478deb")
-		)
-		(pin "7"
-			(uuid "bb4bc9e8-5352-4dc0-9f11-f3c5a0aead0e")
-		)
-		(pin "8"
-			(uuid "57cf2f35-6997-4ccc-85ef-d5fea088748b")
-		)
-		(instances
-			(project "analog_i"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/be220027-a1e7-4f8a-b4af-8d208623fd51"
-					(reference "IC40001")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/ed2f7b43-1244-451f-9def-7c9639b384e1"
-					(reference "IC42001")
-					(unit 1)
-				)
-			)
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/be220027-a1e7-4f8a-b4af-8d208623fd51"
-					(reference "IC23001")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed2f7b43-1244-451f-9def-7c9639b384e1"
-					(reference "IC45001")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C_Small")
-		(at 139.446 107.188 180)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "0e1880ab-7773-4049-97d1-9c4e6a041c47")
-		(property "Reference" "C23002"
-			(at 142.24 108.712 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "0.1uF"
-			(at 136.652 107.696 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 139.446 107.188 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 139.446 107.188 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 139.446 107.188 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "d0b14947-6e08-4d2b-be90-108574a811db")
-		)
-		(pin "2"
-			(uuid "e5a75d02-f83d-44b5-8c26-7e7976928f5f")
-		)
-		(instances
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/be220027-a1e7-4f8a-b4af-8d208623fd51"
-					(reference "C23002")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed2f7b43-1244-451f-9def-7c9639b384e1"
-					(reference "C43001")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:R_Small_US")
-		(at 85.344 107.188 0)
+		(at 143.256 104.902 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1308,7 +294,7 @@
 		(dnp no)
 		(uuid "0f10a1d5-8715-44eb-88d2-6cba821dbe2c")
 		(property "Reference" "R40002"
-			(at 90.17 109.22 90)
+			(at 148.082 106.934 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1316,7 +302,7 @@
 			)
 		)
 		(property "Value" "RNCF0603TKY2K00 2k 0.01% 5ppm/C"
-			(at 88.138 123.698 90)
+			(at 146.05 121.412 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1324,7 +310,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
-			(at 85.344 107.188 0)
+			(at 143.256 104.902 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1333,7 +319,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 85.344 107.188 0)
+			(at 143.256 104.902 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1342,7 +328,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 85.344 107.188 0)
+			(at 143.256 104.902 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1351,7 +337,7 @@
 			)
 		)
 		(property "LCSC" "C346578"
-			(at 85.344 107.188 90)
+			(at 143.256 104.902 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1390,7 +376,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 85.344 109.728 0)
+		(at 143.256 107.442 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1398,7 +384,7 @@
 		(dnp no)
 		(uuid "10c5aabf-0971-439b-a2c9-92be4bb1e850")
 		(property "Reference" "#PWR231"
-			(at 85.344 116.078 0)
+			(at 143.256 113.792 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1407,7 +393,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 87.376 113.538 0)
+			(at 145.288 111.252 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1416,7 +402,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 85.344 109.728 0)
+			(at 143.256 107.442 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1425,7 +411,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 85.344 109.728 0)
+			(at 143.256 107.442 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1434,7 +420,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 85.344 109.728 0)
+			(at 143.256 107.442 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1469,220 +455,8 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+12V")
-		(at 139.446 97.028 270)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "11d65f70-a144-481f-ae75-755baa13069d")
-		(property "Reference" "#PWR23005"
-			(at 135.636 97.028 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+12V"
-			(at 143.51 97.0279 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" ""
-			(at 139.446 97.028 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 139.446 97.028 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+12V\""
-			(at 139.446 97.028 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "4f903480-1f13-4591-9246-cd0b41d921e2")
-		)
-		(instances
-			(project ""
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/be220027-a1e7-4f8a-b4af-8d208623fd51"
-					(reference "#PWR23005")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed2f7b43-1244-451f-9def-7c9639b384e1"
-					(reference "#PWR43001")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 139.446 109.728 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "19988b1d-c8a2-45ef-a5e2-c49c089ebf10")
-		(property "Reference" "#PWR23006"
-			(at 139.446 116.078 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "GND"
-			(at 139.446 114.173 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 139.446 109.728 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 139.446 109.728 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 139.446 109.728 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "7dc6f0bf-087d-4ee0-a26d-cf08d1861338")
-		)
-		(instances
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/be220027-a1e7-4f8a-b4af-8d208623fd51"
-					(reference "#PWR23006")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed2f7b43-1244-451f-9def-7c9639b384e1"
-					(reference "#PWR43003")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:-12V")
-		(at 139.446 104.648 270)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "523273c9-22fb-4f74-a049-f6105fe1365e")
-		(property "Reference" "#PWR23007"
-			(at 135.636 104.648 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "-12V"
-			(at 143.51 104.6479 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" ""
-			(at 139.446 104.648 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 139.446 104.648 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"-12V\""
-			(at 139.446 104.648 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "49e597c1-a794-4caa-af78-0e97fe4a75cc")
-		)
-		(instances
-			(project ""
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/be220027-a1e7-4f8a-b4af-8d208623fd51"
-					(reference "#PWR23007")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed2f7b43-1244-451f-9def-7c9639b384e1"
-					(reference "#PWR43004")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:R_Small_US")
-		(at 85.344 102.108 180)
+		(at 143.256 99.822 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1690,7 +464,7 @@
 		(dnp no)
 		(uuid "65e8d1e2-946b-48d4-b0ec-f2d20b1fc657")
 		(property "Reference" "R40001"
-			(at 80.264 100.584 90)
+			(at 138.176 98.298 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1698,7 +472,7 @@
 			)
 		)
 		(property "Value" "RNCF0603TKW10K0 10k 0.01% 5ppm/C"
-			(at 82.296 85.09 90)
+			(at 140.208 82.804 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1706,7 +480,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
-			(at 85.344 102.108 0)
+			(at 143.256 99.822 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1715,7 +489,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 85.344 102.108 0)
+			(at 143.256 99.822 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1724,7 +498,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 85.344 102.108 0)
+			(at 143.256 99.822 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1733,7 +507,7 @@
 			)
 		)
 		(property "LCSC" "C2482678"
-			(at 85.344 102.108 90)
+			(at 143.256 99.822 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1765,318 +539,6 @@
 				)
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed2f7b43-1244-451f-9def-7c9639b384e1"
 					(reference "R45004")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 106.934 97.028 270)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "7404780a-c75e-4a36-ae17-94077389f960")
-		(property "Reference" "#PWR230"
-			(at 100.584 97.028 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "GND"
-			(at 103.632 97.0279 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Footprint" ""
-			(at 106.934 97.028 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 106.934 97.028 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 106.934 97.028 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "08e3c0c1-58c3-4a53-a8b0-e6a8c6699f9b")
-		)
-		(instances
-			(project "analog_i"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/be220027-a1e7-4f8a-b4af-8d208623fd51"
-					(reference "#PWR230")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/ed2f7b43-1244-451f-9def-7c9639b384e1"
-					(reference "#PWR239")
-					(unit 1)
-				)
-			)
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/be220027-a1e7-4f8a-b4af-8d208623fd51"
-					(reference "#PWR23002")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed2f7b43-1244-451f-9def-7c9639b384e1"
-					(reference "#PWR45005")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 134.874 102.108 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "7c52c28e-6fa1-4938-af31-44196deb4dc6")
-		(property "Reference" "#PWR23003"
-			(at 141.224 102.108 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "GND"
-			(at 137.668 102.108 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Footprint" ""
-			(at 134.874 102.108 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 134.874 102.108 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 134.874 102.108 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "8c139628-8718-4ec6-b51e-638702e1f21b")
-		)
-		(instances
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/be220027-a1e7-4f8a-b4af-8d208623fd51"
-					(reference "#PWR23003")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed2f7b43-1244-451f-9def-7c9639b384e1"
-					(reference "#PWR43002")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C_Small")
-		(at 139.446 94.488 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "cfb29aa2-2460-417f-869d-4ec885b56d96")
-		(property "Reference" "C40001"
-			(at 136.652 92.964 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "0.1uF"
-			(at 142.24 93.98 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 139.446 94.488 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 139.446 94.488 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 139.446 94.488 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "8bcd0180-aa6e-4c53-b495-92104f02b206")
-		)
-		(pin "2"
-			(uuid "709a735a-a775-457e-b02a-69e24e92ba74")
-		)
-		(instances
-			(project "analog_i"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/be220027-a1e7-4f8a-b4af-8d208623fd51"
-					(reference "C40001")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/ed2f7b43-1244-451f-9def-7c9639b384e1"
-					(reference "C42001")
-					(unit 1)
-				)
-			)
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/be220027-a1e7-4f8a-b4af-8d208623fd51"
-					(reference "C23001")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed2f7b43-1244-451f-9def-7c9639b384e1"
-					(reference "C45001")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 139.446 91.948 180)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "f0f1cc23-6b7b-43c3-95ef-2a58dd5c8dd7")
-		(property "Reference" "#PWR228"
-			(at 139.446 85.598 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "GND"
-			(at 139.446 87.503 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 139.446 91.948 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 139.446 91.948 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 139.446 91.948 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "098f0c67-d7bd-4f36-8342-04660446586f")
-		)
-		(instances
-			(project "analog_i"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/be220027-a1e7-4f8a-b4af-8d208623fd51"
-					(reference "#PWR228")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/ed2f7b43-1244-451f-9def-7c9639b384e1"
-					(reference "#PWR237")
-					(unit 1)
-				)
-			)
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/be220027-a1e7-4f8a-b4af-8d208623fd51"
-					(reference "#PWR23004")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed2f7b43-1244-451f-9def-7c9639b384e1"
-					(reference "#PWR45007")
 					(unit 1)
 				)
 			)
