@@ -1067,7 +1067,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "0a0e0390-3fd7-488a-b533-25a4d2e21fe4")
-		(property "Reference" "#PWR10001"
+		(property "Reference" "#PWR12001"
 			(at 141.732 112.776 0)
 			(effects
 				(font
@@ -1555,7 +1555,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "8d9aa4b1-7156-43a5-ab40-e30253d5a577")
-		(property "Reference" "R10001"
+		(property "Reference" "R12001"
 			(at 143.002 103.886 0)
 			(effects
 				(font

@@ -192,17 +192,6 @@
 		)
 		(uuid "30d3e77a-5179-4936-9810-2528d1fdd080")
 	)
-	(text "5V pwr"
-		(exclude_from_sim no)
-		(at 164.846 59.436 0)
-		(effects
-			(font
-				(size 4 4)
-			)
-			(justify left bottom)
-		)
-		(uuid "41b8d863-c3d2-4acb-a325-d653e334a9d8")
-	)
 	(text "-12V pwr"
 		(exclude_from_sim no)
 		(at 243.84 83.82 0)
@@ -1363,44 +1352,6 @@
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a"
 					(page "5")
-				)
-			)
-		)
-	)
-	(sheet
-		(at 166.116 61.722)
-		(size 14.478 13.716)
-		(fields_autoplaced yes)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(fill
-			(color 0 0 0 0.0000)
-		)
-		(uuid "a8b9daed-275a-4a60-a12d-4ffab5119e53")
-		(property "Sheetname" "5V buck"
-			(at 166.116 61.0104 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Sheetfile" "5v_buck.kicad_sch"
-			(at 166.116 76.0226 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-			)
-		)
-		(instances
-			(project "analog_i"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a"
-					(page "36")
 				)
 			)
 		)
