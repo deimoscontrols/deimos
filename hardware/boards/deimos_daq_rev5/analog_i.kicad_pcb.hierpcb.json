@@ -4,7 +4,7 @@
       "anchor": "U15001"
     },
     "base/stm32h7_base.kicad_pcb": {
-      "anchor": "J7"
+      "anchor": "IC1"
     },
     "analog_i.kicad_pcb": {
       "anchor": "IC6001"
