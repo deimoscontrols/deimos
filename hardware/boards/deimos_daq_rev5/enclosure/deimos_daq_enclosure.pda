@@ -3,12 +3,13 @@ Assembly:
   designer: {'Sep 9, 2025, 8:48:06 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 8:49:07 PM EDT': '7.2.1
       Aug, 28', 'Sep 9, 2025, 8:49:08 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 8:54:28 PM EDT': '7.2.1
       Aug, 28', 'Sep 9, 2025, 9:00:37 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 9:00:48 PM EDT': '7.2.1
-      Aug, 28'}
+      Aug, 28', 'Sep 9, 2025, 9:15:53 PM EDT': '7.2.1 Aug, 28'}
   versionIds: {c985918d-8c58-11f0-9e27-0242ac110003: 'Sep. 8, 2025, 2:12:08 a.m. GMT',
     ce53ff26-8ddf-11f0-939b-2c98113d472b: 'Sep 9, 2025, 8:48:06 PM EDT', f2a83ac8-8ddf-11f0-939b-2c98113d472b: 'Sep
       9, 2025, 8:49:08 PM EDT', ab88df20-8de0-11f0-939b-2c98113d472b: 'Sep 9, 2025,
       8:54:28 PM EDT', 8e9f075d-8de1-11f0-939b-2c98113d472b: 'Sep 9, 2025, 9:00:48
-      PM EDT'}
+      PM EDT', 06482802-8de3-11f0-939b-2c98113d472b: 'Sep 9, 2025, 9:11:05 PM EDT',
+    afb3bcc2-8de3-11f0-939b-2c98113d472b: 'Sep 9, 2025, 9:15:53 PM EDT'}
   commits: {'Aug, 28': 530ee2e14789923a8cc21622b4e8118cf7d1a7de}
   QuotedUnits: MM
   DesignID: 1U Extruded Aluminum Type C Template
@@ -16,7 +17,7 @@ Assembly:
   displayName: 1U Extruded Aluminum Type C
   version: 13.0
   awiVersion: 0.0
-  VersionID: 8e9f075d-8de1-11f0-939b-2c98113d472b
+  VersionID: afb3bcc2-8de3-11f0-939b-2c98113d472b
   componentID: -1
   InParentID: c985918e-8c58-11f0-9e27-0242ac110003
   description: A 1U enclosure with extruded aluminum sides. Type C front and rear
@@ -2978,7 +2979,7 @@ Assembly:
       displayName: Top Plate
       version: 13.0
       awiVersion: 0.0
-      VersionID: 8e9f075c-8de1-11f0-939b-2c98113d472b
+      VersionID: afb3bcc1-8de3-11f0-939b-2c98113d472b
       componentID: -1
       InParentID: c98b0fd9-8c58-11f0-9e27-0242ac110003
       description: The Top Cover
@@ -3028,7 +3029,7 @@ Assembly:
           displayName: Top
           version: 13.0
           awiVersion: 0.0
-          VersionID: 8e9f075b-8de1-11f0-939b-2c98113d472b
+          VersionID: afb3bcc0-8de3-11f0-939b-2c98113d472b
           componentID: -1
           InParentID: c98b36f0-8c58-11f0-9e27-0242ac110003
           ID: c98b36ed-8c58-11f0-9e27-0242ac110003
@@ -3060,7 +3061,7 @@ Assembly:
           - {className: Absolute}
           Attachment2Ds:
           - Rectangle:
-              width: '0.3652345467276017'
+              width: '0.3506677754241676'
               height: '0.06669672829495377'
               type: CUTOUT
               name: rectangle
@@ -3087,14 +3088,14 @@ Assembly:
               - BooleanProperty: [profileCutout, true]
               layer: Default
               rotation: '180.0'
-              OriginX: '1.6176278676457567'
+              OriginX: '1.7469079629637299'
               OriginY: '-0.026980236082481557'
               onSameSide: true
               flatpatternAttachment: false
               scaleFactorY: '-1.0'
               Attachment2Ds: []
           - Rectangle:
-              width: '0.6602874678936976'
+              width: '0.6578889869215336'
               height: '0.5702743607862707'
               type: CUTOUT
               name: rectangle
@@ -3121,14 +3122,14 @@ Assembly:
               - BooleanProperty: [profileCutout, true]
               layer: Default
               rotation: '180.0'
-              OriginX: '2.3951633144822644'
+              OriginX: '2.5378729323260223'
               OriginY: '-0.030136418999405883'
               onSameSide: true
               flatpatternAttachment: false
               scaleFactorY: '-1.0'
               Attachment2Ds: []
           - Rectangle:
-              width: '0.688500369599329'
+              width: '0.5358765097567568'
               height: '3.77155442337688'
               type: CUTOUT
               name: rectangle
@@ -3155,14 +3156,14 @@ Assembly:
               - BooleanProperty: [profileCutout, false]
               layer: Default
               rotation: '180.0'
-              OriginX: '1.2310365005623596'
+              OriginX: '1.0784126407197874'
               OriginY: '3.650163020996009'
               onSameSide: true
               flatpatternAttachment: false
               scaleFactorY: '-1.0'
               Attachment2Ds: []
           - Rectangle:
-              width: '0.7613868648473067'
+              width: '0.5357483303653693'
               height: '3.769789675013372'
               type: CUTOUT
               name: rectangle
