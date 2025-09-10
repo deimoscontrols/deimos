@@ -1,14 +1,18 @@
 # Protocase Designer Configuration 
 Assembly:
-  designer: {}
-  versionIds: {c985918d-8c58-11f0-9e27-0242ac110003: 'Sep. 8, 2025, 2:12:08 a.m. GMT'}
-  commits: {}
+  designer: {'Sep 9, 2025, 8:48:06 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 8:49:07 PM EDT': '7.2.1
+      Aug, 28', 'Sep 9, 2025, 8:49:08 PM EDT': '7.2.1 Aug, 28'}
+  versionIds: {c985918d-8c58-11f0-9e27-0242ac110003: 'Sep. 8, 2025, 2:12:08 a.m. GMT',
+    ce53ff26-8ddf-11f0-939b-2c98113d472b: 'Sep 9, 2025, 8:48:06 PM EDT', f2a83ac8-8ddf-11f0-939b-2c98113d472b: 'Sep
+      9, 2025, 8:49:08 PM EDT'}
+  commits: {'Aug, 28': 530ee2e14789923a8cc21622b4e8118cf7d1a7de}
+  QuotedUnits: MM
   DesignID: 1U Extruded Aluminum Type C Template
   name: 1U Extruded Aluminum Type C
   displayName: 1U Extruded Aluminum Type C
   version: 13.0
   awiVersion: 0.0
-  VersionID: c985918d-8c58-11f0-9e27-0242ac110003
+  VersionID: f2a83ac8-8ddf-11f0-939b-2c98113d472b
   componentID: -1
   InParentID: c985918e-8c58-11f0-9e27-0242ac110003
   description: A 1U enclosure with extruded aluminum sides. Type C front and rear
@@ -237,7 +241,7 @@ Assembly:
         - {name: BottomColor, default: Bottom Color, displayName: BottomColor}
         - {name: FrontRearThick, default: FrontRearThick, displayName: FrontRearThick}
         - {name: TopBottomThick, default: TopBottomThick, displayName: TopBottomThick}
-      DesignID: 38e19130-8c59-11f0-9e27-0242ac110003
+      DesignID: f02f5d01-8ddd-11f0-939b-2c98113d472b
       Mark At Laser: GREEN
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: MetalType, color: BottomColor, thickness: TopBottomThick}
@@ -472,7 +476,7 @@ Assembly:
           Parameters:
           - {name: actualPanelScrew, default: 'IfElse(FrontRearThick < 0.125, shortPanelScrew,
               panel screw)', description: The actual panel screw to use, displayName: actualPanelScrew}
-      DesignID: 38e1b841-8c59-11f0-9e27-0242ac110003
+      DesignID: f03ccaa5-8ddd-11f0-939b-2c98113d472b
       Mark At Laser: GREEN
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: MetalType, color: FrontColor, thickness: FrontRearThick}
@@ -2003,7 +2007,7 @@ Assembly:
         Parameters:
         - {name: color, default: Extrusion Color, displayName: color}
         - {name: Length, default: Depth, displayName: Length}
-      DesignID: 38e25483-8c59-11f0-9e27-0242ac110003
+      DesignID: f056e268-8ddd-11f0-939b-2c98113d472b
       Mark At Laser: RED
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: Aluminum, color: color, thickness: '0'}
@@ -2044,10 +2048,10 @@ Assembly:
               displayName: Un-named 2D Thing
               version: 13.0
               awiVersion: 0.0
-              VersionID: c98a4d1a-8c58-11f0-9e27-0242ac110003
+              VersionID: ef71b2c1-8ddd-11f0-939b-2c98113d472b
               componentID: -1
-              InParentID: 38e25484-8c59-11f0-9e27-0242ac110003
-              ID: c98a4d19-8c58-11f0-9e27-0242ac110003
+              InParentID: f057097d-8ddd-11f0-939b-2c98113d472b
+              ID: ef71b2c0-8ddd-11f0-939b-2c98113d472b
               exist: '1.0'
               template: false
               verified: false
@@ -2077,349 +2081,349 @@ Assembly:
               - CircleArc3:
                   end: ['0.07000000000000028', '-0.07000000000000028']
                   mid: ['0.020502525316941522', '-0.04949747468305832']
-                  segID: {PathIDReference: c98a4d21-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef729d28-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.2560000000000002', '0.0']
-                segID: {PathIDReference: c98a4d22-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d29-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['0.043999999999999595', '0.04400000000069104']
                   mid: ['0.031112698372452563', '0.012887301628036418']
-                  segID: {PathIDReference: c98a4d23-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef729d2a-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['-0.020000000000017337', '0.019999999999702922']
                   mid: ['-0.005857864376385358', '0.014142135623540053']
-                  segID: {PathIDReference: c98a4d24-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef729d2b-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.20000000000000018', '0.0']
-                segID: {PathIDReference: c98a4d25-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d2c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.020000000000000018']
-                segID: {PathIDReference: c98a4d26-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d2d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.040000000000000036']
-                segID: {PathIDReference: c98a4d27-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d2e-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.020000000000000018']
-                segID: {PathIDReference: c98a4d28-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d2f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.43899609370000015', '0.0']
-                segID: {PathIDReference: c98a4d29-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d30-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.007653668599999719', '-0.0015224093000001382']
-                segID: {PathIDReference: c98a4d2a-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d31-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.03133450890000056', '-0.020897225699999744']
-                segID: {PathIDReference: c98a4d2b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d32-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.10171572879999946', '0.0']
-                segID: {PathIDReference: c98a4d2c-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d33-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.014142135600000216', '0.0058578643999998015']
-                segID: {PathIDReference: c98a4d2d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d34-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: c98a4d2e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d35-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.009496089999999846']
-                segID: {PathIDReference: c98a4d2f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d36-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: c98a4d30-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d37-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.014142135600000216', '0.0058578643999998015']
-                segID: {PathIDReference: c98a4d31-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d38-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.08121377699999943', '0.0']
-                segID: {PathIDReference: c98a4d32-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d39-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.02484603949999986', '0.01656176829999989']
-                segID: {PathIDReference: c98a4d33-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d3a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.014142135700000225', '0.005857864300000237']
-                segID: {PathIDReference: c98a4d34-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d3b-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.45949804780000036', '0.0']
-                segID: {PathIDReference: c98a4d35-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d3c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d36-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d3d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: c98a4d37-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d3e-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.020000000000000462']
-                segID: {PathIDReference: c98a4d38-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d3f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.07354499120000035', '0.0']
-                segID: {PathIDReference: c98a4d39-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d40-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.050098144199999695', '0.0111628532000001']
-                segID: {PathIDReference: c98a4d3a-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d41-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040619530199999865', '0.03137653759999992']
-                segID: {PathIDReference: c98a4d3b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d42-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.006936184500000664', '0.019184900700000007']
-                segID: {PathIDReference: c98a4d3c-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d43-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.01081509940000025', '0.023063815499999585']
-                segID: {PathIDReference: c98a4d3d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d44-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.0191849006', '0.006936184499999776']
-                segID: {PathIDReference: c98a4d3e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d45-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.023063815500000473', '-0.010815099399999362']
-                segID: {PathIDReference: c98a4d3f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d46-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['-0.007499235430590723', '0.08168085129369906']
                   mid: ['-0.10234712720391403', '0.031788047704970346']
-                  segID: {PathIDReference: c98a4d40-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef729d47-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019184900700000007', '-0.006936184499999776']
-                segID: {PathIDReference: c98a4d41-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d48-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.023063815499999585', '0.010815099399999362']
-                segID: {PathIDReference: c98a4d42-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d49-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.006936184499999776', '0.0191849006']
-                segID: {PathIDReference: c98a4d43-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d4a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.010815099399999362', '0.02306381560000048']
-                segID: {PathIDReference: c98a4d44-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d4b-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.03534007570000064', '0.02025233409999938']
-                segID: {PathIDReference: c98a4d45-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d4c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.04012053349999967', '0.00702999140000049']
-                segID: {PathIDReference: c98a4d46-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d4d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.07354582770000029', '3.0759999996021747E-6']
-                segID: {PathIDReference: c98a4d47-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d4e-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.01999916349999964', '0.020000000000000462']
-                segID: {PathIDReference: c98a4d48-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d4f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.030000836400000175']
-                segID: {PathIDReference: c98a4d49-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d50-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d4a-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d51-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98a4d4b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d52-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: c98a4d4c-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d53-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d4d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d54-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: c98a4d4e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d55-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98a4d4f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d56-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d50-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d57-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: c98a4d51-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d58-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d52-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d59-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98a4d53-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d5a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.014142135600000216', '0.0058578644000002456']
-                segID: {PathIDReference: c98a4d54-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d5b-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: c98a4d55-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d5c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d56-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d5d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: c98a4d57-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d5e-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98a4d58-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d5f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d59-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d60-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: c98a4d5a-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d61-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d5b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d62-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98a4d5c-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d63-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: c98a4d5d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d64-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d5e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d65-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: c98a4d5f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d66-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98a4d60-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d67-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d61-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d68-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: c98a4d62-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d69-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d63-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d6a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98a4d64-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d6b-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: c98a4d65-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d6c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d66-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d6d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: c98a4d67-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d6e-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98a4d68-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d6f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d69-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d70-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: c98a4d6a-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d71-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.020000000000000462']
-                segID: {PathIDReference: c98a4d6b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d72-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98a4d6c-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d73-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.020000000000000462', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d6d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d74-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.020000000000000462']
-                segID: {PathIDReference: c98a4d6e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d75-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d6f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d76-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98a4d70-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d77-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d71-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d78-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.030000836500000183']
-                segID: {PathIDReference: c98a4d72-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d79-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.01999916349999964', '0.019999999900000454']
-                segID: {PathIDReference: c98a4d73-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d7a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.07354582770000029', '3.0759999996021747E-6']
-                segID: {PathIDReference: c98a4d74-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d7b-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.04012053349999967', '0.007029991500000499']
-                segID: {PathIDReference: c98a4d75-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d7c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.03534007570000064', '0.02025233409999938']
-                segID: {PathIDReference: c98a4d76-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d7d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.010815099399999362', '0.023063815500000473']
-                segID: {PathIDReference: c98a4d77-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d7e-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.006936184499999776', '0.0191849006']
-                segID: {PathIDReference: c98a4d78-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d7f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.023063815499999585', '0.01081509940000025']
-                segID: {PathIDReference: c98a4d79-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d80-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019184900700000007', '-0.006936184500000664']
-                segID: {PathIDReference: c98a4d7a-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d81-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['0.0074992354305898346', '0.08168085129369906']
                   mid: ['-0.0948478917733242', '0.04989280358872872']
-                  segID: {PathIDReference: c98a4d7b-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef729d82-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.023063815500000473', '-0.010815099300000242']
-                segID: {PathIDReference: c98a4d7c-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d83-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0191849006', '0.0069361843999997674']
-                segID: {PathIDReference: c98a4d7d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d84-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.01081509940000025', '0.02306381560000048']
-                segID: {PathIDReference: c98a4d7e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d85-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.006936184500000664', '0.0191849006']
-                segID: {PathIDReference: c98a4d7f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d86-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040619530199999865', '0.03137653759999992']
-                segID: {PathIDReference: c98a4d80-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d87-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.050098144199999695', '0.011162853199999212']
-                segID: {PathIDReference: c98a4d81-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d88-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.07354499120000035', '0.0']
-                segID: {PathIDReference: c98a4d82-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d89-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.020000000000000462']
-                segID: {PathIDReference: c98a4d83-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d8a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: c98a4d84-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d8b-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98a4d85-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d8c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.45949804780000036', '0.0']
-                segID: {PathIDReference: c98a4d86-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d8d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.02484603959999987', '0.01656176829999989']
-                segID: {PathIDReference: c98a4d87-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d8e-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.014142135600000216', '0.005857864300000237']
-                segID: {PathIDReference: c98a4d88-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d8f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.08121377699999943', '0.0']
-                segID: {PathIDReference: c98a4d89-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d90-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.014142135600000216', '0.0058578644000002456']
-                segID: {PathIDReference: c98a4d8a-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d91-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: c98a4d8b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d92-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.009496089999999846']
-                segID: {PathIDReference: c98a4d8c-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d93-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.0058578644000002456', '0.014142135699999336']
-                segID: {PathIDReference: c98a4d8d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d94-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.014142135600000216', '0.005857864300000237']
-                segID: {PathIDReference: c98a4d8e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d95-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.09674516599999983', '0.0']
-                segID: {PathIDReference: c98a4d8f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d96-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.026301886099999727', '-0.013047052000000114']
-                segID: {PathIDReference: c98a4d90-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d97-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.022627416999999816', '-0.009372582999999324']
-                segID: {PathIDReference: c98a4d91-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d98-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.4340255309000005', '0.0']
-                segID: {PathIDReference: c98a4d92-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d99-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['-0.019999999999999574', '0.019999999999999574']
                   mid: ['-0.014142135623730567', '0.005857864376269006']
-                  segID: {PathIDReference: c98a4d93-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef729d9a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.040000000000000036']
-                segID: {PathIDReference: c98a4d94-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d9b-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['0.019999999999846807', '0.01999999999998625']
                   mid: ['0.0058578643761748594', '0.014142135623712804']
-                  segID: {PathIDReference: c98a4d95-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef729d9c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.20000000000000018', '0.0']
-                segID: {PathIDReference: c98a4d96-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729d9d-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['0.020000000000018225', '0.020000000000297113']
                   mid: ['0.014142135623842478', '0.005857864376372923']
-                  segID: {PathIDReference: c98a4d97-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef729d9e-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['-0.044000000000370854', '0.043999999999756234']
                   mid: ['-0.01288730162811813', '0.03111269837207331']
-                  segID: {PathIDReference: c98a4d98-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef729d9f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.2560000000000002', '0.0']
-                segID: {PathIDReference: c98a4d99-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729da0-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['-0.07000000000000028', '-0.07000000000000028']
                   mid: ['-0.04949747468305876', '-0.020502525316941522']
-                  segID: {PathIDReference: c98a4d9a-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef729da1-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.07312759940000024']
-                segID: {PathIDReference: c98a4d9b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729da2-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.048989794799999764']
-                segID: {PathIDReference: c98a4d9c-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729da3-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034835779899999864']
-                segID: {PathIDReference: c98a4d9d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729da4-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: c98a4d9e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729da5-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98a4d9f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729da6-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: c98a4da0-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729da7-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98a4da1-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729da8-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: c98a4da2-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729da9-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98a4da3-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729daa-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: c98a4da4-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729dab-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98a4da5-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729dac-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: c98a4da6-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729dad-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98a4da7-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729dae-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: c98a4da8-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729daf-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98a4da9-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729db0-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: c98a4daa-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729db1-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98a4dab-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729db2-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: c98a4dac-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729db3-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98a4dad-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729db4-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: c98a4dae-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729db5-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.14460486659999994']
-                segID: {PathIDReference: c98a4daf-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729db6-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297169999945']
-                segID: {PathIDReference: c98a4db0-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729db7-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98a4db1-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729db8-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: c98a4db2-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729db9-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98a4db3-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729dba-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297169999945']
-                segID: {PathIDReference: c98a4db4-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729dbb-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98a4db5-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729dbc-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: c98a4db6-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729dbd-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98a4db7-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729dbe-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297169999945']
-                segID: {PathIDReference: c98a4db8-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef729dbf-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98a4db9-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef72c3d0-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: c98a4dba-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef72c3d1-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98a4dbb-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef72c3d2-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: c98a4dbc-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef72c3d3-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98a4dbd-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef72c3d4-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: c98a4dbe-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef72c3d5-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98a4dbf-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef72c3d6-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: c98a4dc0-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef72c3d7-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034835779799999855']
-                segID: {PathIDReference: c98a4dc1-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef72c3d8-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.048989794799999764']
-                segID: {PathIDReference: c98a4dc2-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef72c3d9-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.07293044140000005']
-                segID: {PathIDReference: c98a4dc3-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef72c3da-8ddd-11f0-939b-2c98113d472b}
           SweepPath:
             CompositePath:
               type: CONSTRUCT
@@ -2427,10 +2431,10 @@ Assembly:
               displayName: Un-named 2D Thing
               version: 13.0
               awiVersion: 0.0
-              VersionID: c98a4d1d-8c58-11f0-9e27-0242ac110003
+              VersionID: ef7200e4-8ddd-11f0-939b-2c98113d472b
               componentID: -1
-              InParentID: 38e25485-8c59-11f0-9e27-0242ac110003
-              ID: c98a4d1c-8c58-11f0-9e27-0242ac110003
+              InParentID: f057097a-8ddd-11f0-939b-2c98113d472b
+              ID: ef7200e3-8ddd-11f0-939b-2c98113d472b
               exist: '1.0'
               template: false
               verified: false
@@ -2458,7 +2462,7 @@ Assembly:
                 - {name: Length, default: Depth, displayName: Length}
               pathSegments:
               - Line: ['0', Length]
-                segID: {PathIDReference: c98a4dc4-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef72eaeb-8ddd-11f0-939b-2c98113d472b}
           AttachPts:
           - {className: MatePt, x: '0', y: '0', z: '0', name: LeftSide-Front, ID: c98a73d8-8c58-11f0-9e27-0242ac110003}
           Connections:
@@ -2500,7 +2504,7 @@ Assembly:
         - {name: color, default: Extrusion Color, displayName: color}
         - {name: Height, default: Height, displayName: Height}
         - {name: Length, default: Depth, displayName: Length}
-      DesignID: 38e25486-8c59-11f0-9e27-0242ac110003
+      DesignID: f05f201e-8ddd-11f0-939b-2c98113d472b
       Mark At Laser: RED
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: Aluminum, color: color, thickness: '0'}
@@ -2541,10 +2545,10 @@ Assembly:
               displayName: Un-named 2D Thing
               version: 13.0
               awiVersion: 0.0
-              VersionID: c98ae913-8c58-11f0-9e27-0242ac110003
+              VersionID: ef7534e6-8ddd-11f0-939b-2c98113d472b
               componentID: -1
-              InParentID: 38e27b97-8c59-11f0-9e27-0242ac110003
-              ID: c98ae912-8c58-11f0-9e27-0242ac110003
+              InParentID: f05f2023-8ddd-11f0-939b-2c98113d472b
+              ID: ef7534e5-8ddd-11f0-939b-2c98113d472b
               exist: '1.0'
               template: false
               verified: false
@@ -2575,349 +2579,349 @@ Assembly:
               - CircleArc3:
                   end: ['0.07000000000000028', '-0.07000000000000028']
                   mid: ['0.020502525316941522', '-0.04949747468305832']
-                  segID: {PathIDReference: c98ae91a-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef75830d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.2560000000000002', '0.0']
-                segID: {PathIDReference: c98ae91b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75830e-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['0.043999999999999595', '0.04400000000069104']
                   mid: ['0.031112698372452563', '0.012887301628036418']
-                  segID: {PathIDReference: c98ae91c-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef75830f-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['-0.020000000000017337', '0.019999999999702922']
                   mid: ['-0.005857864376385358', '0.014142135623540053']
-                  segID: {PathIDReference: c98ae91d-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef758310-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.20000000000000018', '0.0']
-                segID: {PathIDReference: c98ae91e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758311-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.020000000000000018']
-                segID: {PathIDReference: c98ae91f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758312-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.040000000000000036']
-                segID: {PathIDReference: c98ae920-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758313-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.020000000000000018']
-                segID: {PathIDReference: c98ae921-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758314-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.43899609370000015', '0.0']
-                segID: {PathIDReference: c98ae922-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758315-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.007653668599999719', '-0.0015224093000001382']
-                segID: {PathIDReference: c98ae923-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758316-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.03133450890000056', '-0.020897225699999744']
-                segID: {PathIDReference: c98ae924-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758317-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.10171572879999946', '0.0']
-                segID: {PathIDReference: c98ae925-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758318-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.014142135600000216', '0.0058578643999998015']
-                segID: {PathIDReference: c98ae926-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758319-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: c98ae927-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75831a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.009496089999999846']
-                segID: {PathIDReference: c98ae928-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75831b-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: c98ae929-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75831c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.014142135600000216', '0.0058578643999998015']
-                segID: {PathIDReference: c98ae92a-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75831d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.08121377699999943', '0.0']
-                segID: {PathIDReference: c98ae92b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75831e-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.02484603949999986', '0.01656176829999989']
-                segID: {PathIDReference: c98ae92c-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75831f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.014142135700000225', '0.005857864300000237']
-                segID: {PathIDReference: c98ae92d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758320-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.45949804780000036', '0.0']
-                segID: {PathIDReference: c98ae92e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758321-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98ae92f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758322-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: c98ae930-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758323-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.020000000000000462']
-                segID: {PathIDReference: c98ae931-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758324-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.07354499120000035', '0.0']
-                segID: {PathIDReference: c98ae932-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758325-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.050098144199999695', '0.0111628532000001']
-                segID: {PathIDReference: c98ae933-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758326-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040619530199999865', '0.03137653759999992']
-                segID: {PathIDReference: c98ae934-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758327-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.006936184500000664', '0.019184900700000007']
-                segID: {PathIDReference: c98ae935-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758328-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.01081509940000025', '0.023063815499999585']
-                segID: {PathIDReference: c98ae936-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758329-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.0191849006', '0.006936184499999776']
-                segID: {PathIDReference: c98ae937-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75832a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.023063815500000473', '-0.010815099399999362']
-                segID: {PathIDReference: c98ae938-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75832b-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['-0.007499235430590723', '0.08168085129369906']
                   mid: ['-0.10234712720391403', '0.031788047704970346']
-                  segID: {PathIDReference: c98ae939-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef75832c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019184900700000007', '-0.006936184499999776']
-                segID: {PathIDReference: c98ae93a-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75832d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.023063815499999585', '0.010815099399999362']
-                segID: {PathIDReference: c98ae93b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75832e-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.006936184499999776', '0.0191849006']
-                segID: {PathIDReference: c98ae93c-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75832f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.010815099399999362', '0.02306381560000048']
-                segID: {PathIDReference: c98ae93d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758330-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.03534007570000064', '0.02025233409999938']
-                segID: {PathIDReference: c98ae93e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758331-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.04012053349999967', '0.00702999140000049']
-                segID: {PathIDReference: c98ae93f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758332-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.07354582770000029', '3.0759999996021747E-6']
-                segID: {PathIDReference: c98ae940-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758333-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.01999916349999964', '0.020000000000000462']
-                segID: {PathIDReference: c98ae941-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758334-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.030000836400000175']
-                segID: {PathIDReference: c98ae942-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758335-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98ae943-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758336-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98ae944-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758337-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: c98ae945-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758338-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: c98ae946-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758339-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: c98ae947-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75833a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98ae948-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75833b-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98ae949-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75833c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: c98ae94a-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75833d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98ae94b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75833e-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98ae94c-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75833f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.014142135600000216', '0.0058578644000002456']
-                segID: {PathIDReference: c98ae94d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758340-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: c98ae94e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758341-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: c98ae94f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758342-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: c98ae950-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758343-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98ae951-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758344-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98ae952-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758345-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: c98ae953-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758346-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98ae954-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758347-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98ae955-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758348-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: c98ae956-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758349-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: c98ae957-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75834a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: c98ae958-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75834b-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98ae959-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75834c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98ae95a-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75834d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: c98ae95b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75834e-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98ae95c-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75834f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98ae95d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758350-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: c98ae95e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758351-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: c98ae95f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758352-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: c98ae960-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758353-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98ae961-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758354-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98ae962-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758355-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: c98ae963-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758356-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.020000000000000462']
-                segID: {PathIDReference: c98ae964-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758357-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98ae965-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758358-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.020000000000000462', '0.019999999999999574']
-                segID: {PathIDReference: c98ae966-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758359-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.020000000000000462']
-                segID: {PathIDReference: c98ae967-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75835a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.019999999999999574']
-                segID: {PathIDReference: c98ae968-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75835b-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: c98ae969-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75835c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98ae96a-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75835d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.030000836500000183']
-                segID: {PathIDReference: c98ae96b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75835e-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.01999916349999964', '0.019999999900000454']
-                segID: {PathIDReference: c98ae96c-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75835f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.07354582770000029', '3.0759999996021747E-6']
-                segID: {PathIDReference: c98ae96d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758360-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.04012053349999967', '0.007029991500000499']
-                segID: {PathIDReference: c98ae96e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758361-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.03534007570000064', '0.02025233409999938']
-                segID: {PathIDReference: c98ae96f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758362-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.010815099399999362', '0.023063815500000473']
-                segID: {PathIDReference: c98ae970-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758363-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.006936184499999776', '0.0191849006']
-                segID: {PathIDReference: c98ae971-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758364-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.023063815499999585', '0.01081509940000025']
-                segID: {PathIDReference: c98ae972-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758365-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019184900700000007', '-0.006936184500000664']
-                segID: {PathIDReference: c98ae973-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758366-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['0.0074992354305898346', '0.08168085129369906']
                   mid: ['-0.0948478917733242', '0.04989280358872872']
-                  segID: {PathIDReference: c98ae974-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef758367-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.023063815500000473', '-0.010815099300000242']
-                segID: {PathIDReference: c98ae975-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758368-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0191849006', '0.0069361843999997674']
-                segID: {PathIDReference: c98ae976-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758369-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.01081509940000025', '0.02306381560000048']
-                segID: {PathIDReference: c98ae977-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75836a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.006936184500000664', '0.0191849006']
-                segID: {PathIDReference: c98ae978-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75836b-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040619530199999865', '0.03137653759999992']
-                segID: {PathIDReference: c98ae979-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75836c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.050098144199999695', '0.011162853199999212']
-                segID: {PathIDReference: c98ae97a-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75836d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.07354499120000035', '0.0']
-                segID: {PathIDReference: c98ae97b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75836e-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.020000000000000462']
-                segID: {PathIDReference: c98ae97c-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75836f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: c98ae97d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758370-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: c98ae97e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758371-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.45949804780000036', '0.0']
-                segID: {PathIDReference: c98ae97f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758372-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.02484603959999987', '0.01656176829999989']
-                segID: {PathIDReference: c98ae980-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758373-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.014142135600000216', '0.005857864300000237']
-                segID: {PathIDReference: c98ae981-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758374-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.08121377699999943', '0.0']
-                segID: {PathIDReference: c98ae982-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758375-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.014142135600000216', '0.0058578644000002456']
-                segID: {PathIDReference: c98ae983-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758376-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: c98ae984-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758377-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.009496089999999846']
-                segID: {PathIDReference: c98ae985-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758378-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.0058578644000002456', '0.014142135699999336']
-                segID: {PathIDReference: c98ae986-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758379-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.014142135600000216', '0.005857864300000237']
-                segID: {PathIDReference: c98ae987-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75837a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.09674516599999983', '0.0']
-                segID: {PathIDReference: c98ae988-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75837b-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.026301886099999727', '-0.013047052000000114']
-                segID: {PathIDReference: c98ae989-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75837c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.022627416999999816', '-0.009372582999999324']
-                segID: {PathIDReference: c98ae98a-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75837d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.4340255309000005', '0.0']
-                segID: {PathIDReference: c98ae98b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75837e-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['-0.019999999999999574', '0.019999999999999574']
                   mid: ['-0.014142135623730567', '0.005857864376269006']
-                  segID: {PathIDReference: c98ae98c-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef75837f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '0.040000000000000036']
-                segID: {PathIDReference: c98ae98d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758380-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['0.019999999999846807', '0.01999999999998625']
                   mid: ['0.0058578643761748594', '0.014142135623712804']
-                  segID: {PathIDReference: c98ae98e-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef758381-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.20000000000000018', '0.0']
-                segID: {PathIDReference: c98ae98f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758382-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['0.020000000000018225', '0.020000000000297113']
                   mid: ['0.014142135623842478', '0.005857864376372923']
-                  segID: {PathIDReference: c98ae990-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef758383-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['-0.044000000000370854', '0.043999999999756234']
                   mid: ['-0.01288730162811813', '0.03111269837207331']
-                  segID: {PathIDReference: c98ae991-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef758384-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.2560000000000002', '0.0']
-                segID: {PathIDReference: c98ae992-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758385-8ddd-11f0-939b-2c98113d472b}
               - CircleArc3:
                   end: ['-0.07000000000000028', '-0.07000000000000028']
                   mid: ['-0.04949747468305876', '-0.020502525316941522']
-                  segID: {PathIDReference: c98ae993-8c58-11f0-9e27-0242ac110003}
+                  segID: {PathIDReference: ef758386-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.07312759940000024']
-                segID: {PathIDReference: c98ae994-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758387-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.048989794799999764']
-                segID: {PathIDReference: c98ae995-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758388-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034835779899999864']
-                segID: {PathIDReference: c98ae996-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758389-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: c98ae997-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75838a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98ae998-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75838b-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: c98ae999-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75838c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98ae99a-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75838d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: c98ae99b-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75838e-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98ae99c-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75838f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: c98ae99d-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758390-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98ae99e-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758391-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: c98ae99f-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758392-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98ae9a0-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758393-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: c98ae9a1-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758394-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98ae9a2-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758395-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: c98ae9a3-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758396-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98ae9a4-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758397-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: c98ae9a5-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758398-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98ae9a6-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef758399-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: c98ae9a7-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75839a-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.14460486659999994']
-                segID: {PathIDReference: c98ae9a8-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75839b-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297169999945']
-                segID: {PathIDReference: c98ae9a9-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75839c-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98ae9aa-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75839d-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: c98ae9ab-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75839e-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98ae9ac-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75839f-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297169999945']
-                segID: {PathIDReference: c98ae9ad-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583a0-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98ae9ae-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583a1-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: c98ae9af-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583a2-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98ae9b0-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583a3-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297169999945']
-                segID: {PathIDReference: c98ae9b1-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583a4-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98ae9b2-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583a5-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: c98ae9b3-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583a6-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98ae9b4-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583a7-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: c98ae9b5-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583a8-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: c98ae9b6-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583a9-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: c98ae9b7-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583aa-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: c98ae9b8-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583ab-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: c98ae9b9-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583ac-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.034835779799999855']
-                segID: {PathIDReference: c98ae9ba-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583ad-8ddd-11f0-939b-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.048989794799999764']
-                segID: {PathIDReference: c98ae9bb-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583ae-8ddd-11f0-939b-2c98113d472b}
               - Line: ['0.0', '-0.07293044140000005']
-                segID: {PathIDReference: c98ae9bc-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef7583af-8ddd-11f0-939b-2c98113d472b}
           SweepPath:
             CompositePath:
               type: CONSTRUCT
@@ -2925,10 +2929,10 @@ Assembly:
               displayName: Un-named 2D Thing
               version: 13.0
               awiVersion: 0.0
-              VersionID: c98ae916-8c58-11f0-9e27-0242ac110003
+              VersionID: ef7534e9-8ddd-11f0-939b-2c98113d472b
               componentID: -1
-              InParentID: 38e27b98-8c59-11f0-9e27-0242ac110003
-              ID: c98ae915-8c58-11f0-9e27-0242ac110003
+              InParentID: f05f2020-8ddd-11f0-939b-2c98113d472b
+              ID: ef7534e8-8ddd-11f0-939b-2c98113d472b
               exist: '1.0'
               template: false
               verified: false
@@ -2957,7 +2961,7 @@ Assembly:
                 - {name: Length, default: Depth, displayName: Length}
               pathSegments:
               - Line: ['0', Length]
-                segID: {PathIDReference: c98b0fcd-8c58-11f0-9e27-0242ac110003}
+                segID: {PathIDReference: ef75a9c0-8ddd-11f0-939b-2c98113d472b}
           AttachPts:
           - {className: MatePt, x: '0', y: Height-.14, z: '0', name: RightSide-Front,
             ID: c98b0fd1-8c58-11f0-9e27-0242ac110003}
@@ -2970,7 +2974,7 @@ Assembly:
       displayName: Top Plate
       version: 13.0
       awiVersion: 0.0
-      VersionID: c98b0fd8-8c58-11f0-9e27-0242ac110003
+      VersionID: f2a83ac7-8ddf-11f0-939b-2c98113d472b
       componentID: -1
       InParentID: c98b0fd9-8c58-11f0-9e27-0242ac110003
       description: The Top Cover
@@ -3005,7 +3009,7 @@ Assembly:
         - {name: MetalType, default: MetalType, displayName: MetalType}
         - {name: FrontRearThick, default: FrontRearThick, displayName: FrontRearThick}
         - {name: TopBottomThick, default: TopBottomThick, displayName: TopBottomThick}
-      DesignID: 38e27b99-8c59-11f0-9e27-0242ac110003
+      DesignID: f0675cd4-8ddd-11f0-939b-2c98113d472b
       Mark At Laser: GREEN
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: MetalType, color: TopColor, thickness: TopBottomThick}
@@ -3020,7 +3024,7 @@ Assembly:
           displayName: Top
           version: 13.0
           awiVersion: 0.0
-          VersionID: c98b36ef-8c58-11f0-9e27-0242ac110003
+          VersionID: f2a83ac6-8ddf-11f0-939b-2c98113d472b
           componentID: -1
           InParentID: c98b36f0-8c58-11f0-9e27-0242ac110003
           ID: c98b36ed-8c58-11f0-9e27-0242ac110003
@@ -3051,6 +3055,142 @@ Assembly:
           Connections:
           - {className: Absolute}
           Attachment2Ds:
+          - Rectangle:
+              width: '0.3652345467276017'
+              height: '0.06669672829495377'
+              type: CUTOUT
+              name: rectangle
+              displayName: Thing2D
+              version: 13.0
+              awiVersion: 0.0
+              VersionID: 6b1e9e45-8dde-11f0-939b-2c98113d472b
+              componentID: -1
+              InParentID: 6b1b69cb-8dde-11f0-939b-2c98113d472b
+              ID: 6889745d-8dde-11f0-939b-2c98113d472b
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              properties:
+              - BooleanProperty: [profileCutout, true]
+              layer: Default
+              rotation: '180.0'
+              OriginX: '1.6176278676457567'
+              OriginY: '-0.026980236082481557'
+              onSameSide: true
+              flatpatternAttachment: false
+              scaleFactorY: '-1.0'
+              Attachment2Ds: []
+          - Rectangle:
+              width: '0.6602874678936976'
+              height: '0.5702743607862707'
+              type: CUTOUT
+              name: rectangle
+              displayName: Thing2D
+              version: 13.0
+              awiVersion: 0.0
+              VersionID: 66f87380-8dde-11f0-939b-2c98113d472b
+              componentID: -1
+              InParentID: 66f84c69-8dde-11f0-939b-2c98113d472b
+              ID: 6563f1a4-8dde-11f0-939b-2c98113d472b
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              properties:
+              - BooleanProperty: [profileCutout, true]
+              layer: Default
+              rotation: '180.0'
+              OriginX: '2.3951633144822644'
+              OriginY: '-0.030136418999405883'
+              onSameSide: true
+              flatpatternAttachment: false
+              scaleFactorY: '-1.0'
+              Attachment2Ds: []
+          - Rectangle:
+              width: '0.5579542717604284'
+              height: '4.766720445163161'
+              type: CUTOUT
+              name: rectangle
+              displayName: Thing2D
+              version: 13.0
+              awiVersion: 0.0
+              VersionID: 62b0432a-8dde-11f0-939b-2c98113d472b
+              componentID: -1
+              InParentID: 62aebcb4-8dde-11f0-939b-2c98113d472b
+              ID: 5f4a347d-8dde-11f0-939b-2c98113d472b
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              properties:
+              - BooleanProperty: [profileCutout, false]
+              layer: Default
+              rotation: '180.0'
+              OriginX: '1.2310365005623596'
+              OriginY: '2.5874268312346995'
+              onSameSide: true
+              flatpatternAttachment: false
+              scaleFactorY: '-1.0'
+              Attachment2Ds: []
+          - Rectangle:
+              width: '0.6199491908449205'
+              height: '4.759832120820439'
+              type: CUTOUT
+              name: rectangle
+              displayName: Thing2D
+              version: 13.0
+              awiVersion: 0.0
+              VersionID: 5d1fda97-8dde-11f0-939b-2c98113d472b
+              componentID: -1
+              InParentID: 5d1e2c65-8dde-11f0-939b-2c98113d472b
+              ID: 5c123b3c-8dde-11f0-939b-2c98113d472b
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              properties:
+              - BooleanProperty: [profileCutout, false]
+              layer: Default
+              rotation: '180.0'
+              OriginX: '2.9531175862426924'
+              OriginY: '2.6012034799201427'
+              onSameSide: true
+              flatpatternAttachment: false
+              scaleFactorY: '-1.0'
+              Attachment2Ds: []
           - Rectangle:
               width: '0.125'
               height: '0.25'
@@ -3240,7 +3380,7 @@ Assembly:
           Parameters:
           - {name: actualPanelScrew, default: 'IfElse(FrontRearThick < 0.125, shortPanelScrew,
               panel screw)', description: The actual panel screw to use, displayName: actualPanelScrew}
-      DesignID: 38e27b9a-8c59-11f0-9e27-0242ac110003
+      DesignID: f069a6e8-8ddd-11f0-939b-2c98113d472b
       Mark At Laser: GREEN
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: MetalType, color: RearColor, thickness: FrontRearThick}
