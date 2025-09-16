@@ -10199,6 +10199,7 @@
 		(property "Reference" "IC5004"
 			(at 0 0 -90)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "2aa1fb4f-e3bc-4501-89a0-853fedb68263")
 			(effects
 				(font
@@ -12929,6 +12930,7 @@
 		(property "Reference" "S1"
 			(at -0.5 0 0)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "a08a92ca-0c29-4dbf-a217-84d58c43ff1c")
 			(effects
 				(font
@@ -27212,6 +27214,7 @@
 		(property "Reference" "T1"
 			(at 0 0 180)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "9b590902-8af3-445a-8803-57b34bc6e41d")
 			(effects
 				(font
@@ -28825,6 +28828,7 @@
 		(property "Reference" "J3001"
 			(at 3.57 0.16 90)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "2e26a05d-8b73-4b6f-82bc-5936bf2bff4c")
 			(effects
 				(font

@@ -1,14 +1,17 @@
 # Protocase Designer Configuration 
 Assembly:
-  designer: {'Sep 9, 2025, 10:00:05 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 10:03:39 PM EDT': '7.2.1
-      Aug, 28', 'Sep 9, 2025, 10:19:04 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 8:48:06 PM EDT': '7.2.1
-      Aug, 28', 'Sep 9, 2025, 8:49:07 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 8:49:08 PM EDT': '7.2.1
-      Aug, 28', 'Sep 9, 2025, 8:54:28 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 9:00:37 PM EDT': '7.2.1
-      Aug, 28', 'Sep 9, 2025, 9:00:48 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 9:15:53 PM EDT': '7.2.1
-      Aug, 28', 'Sep 9, 2025, 9:20:46 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 9:21:45 PM EDT': '7.2.1
-      Aug, 28', 'Sep 9, 2025, 9:45:51 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 9:45:53 PM EDT': '7.2.1
-      Aug, 28', 'Sep 9, 2025, 9:48:18 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 9:57:17 PM EDT': '7.2.1
-      Aug, 28', 'Sep 9, 2025, 9:58:52 PM EDT': '7.2.1 Aug, 28'}
+  designer: {'Sep 10, 2025, 2:26:18 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 10:00:05 PM EDT': '7.2.1
+      Aug, 28', 'Sep 9, 2025, 10:03:39 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 10:19:04 PM EDT': '7.2.1
+      Aug, 28', 'Sep 9, 2025, 8:48:06 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 8:49:07 PM EDT': '7.2.1
+      Aug, 28', 'Sep 9, 2025, 8:49:08 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 8:54:28 PM EDT': '7.2.1
+      Aug, 28', 'Sep 9, 2025, 9:00:37 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 9:00:48 PM EDT': '7.2.1
+      Aug, 28', 'Sep 9, 2025, 9:15:53 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 9:20:46 PM EDT': '7.2.1
+      Aug, 28', 'Sep 9, 2025, 9:21:45 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 9:45:51 PM EDT': '7.2.1
+      Aug, 28', 'Sep 9, 2025, 9:45:53 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 9:48:18 PM EDT': '7.2.1
+      Aug, 28', 'Sep 9, 2025, 9:57:17 PM EDT': '7.2.1 Aug, 28', 'Sep 9, 2025, 9:58:52 PM EDT': '7.2.1
+      Aug, 28', 'Sep. 15, 2025, 10:17:48 p.m. EDT': '7.2.1 Aug, 28', 'Sep. 15, 2025, 10:17:52 p.m. EDT': '7.2.1
+      Aug, 28', 'Sep. 15, 2025, 10:19:25 p.m. EDT': '7.2.1 Aug, 28', 'Sep. 15, 2025, 10:20:54 p.m. EDT': '7.2.1
+      Aug, 28', 'Sep. 15, 2025, 11:18:10 p.m. EDT': '7.2.1 Aug, 28'}
   versionIds: {c985918d-8c58-11f0-9e27-0242ac110003: 'Sep. 8, 2025, 2:12:08 a.m. GMT',
     ce53ff26-8ddf-11f0-939b-2c98113d472b: 'Sep 9, 2025, 8:48:06 PM EDT', f2a83ac8-8ddf-11f0-939b-2c98113d472b: 'Sep
       9, 2025, 8:49:08 PM EDT', ab88df20-8de0-11f0-939b-2c98113d472b: 'Sep 9, 2025,
@@ -28,18 +31,25 @@ Assembly:
       PM EDT', 2f496c9c-8dea-11f0-9e3c-2c98113d472b: 'Sep 9, 2025, 10:02:21 PM EDT',
     4f11de54-8dea-11f0-9e3c-2c98113d472b: 'Sep 9, 2025, 10:03:15 PM EDT', 5891f6f7-8dea-11f0-9e3c-2c98113d472b: 'Sep
       9, 2025, 10:03:39 PM EDT', 97ffa5b2-8deb-11f0-9e3c-2c98113d472b: 'Sep 9, 2025,
-      10:12:27 PM EDT', 7aa1af76-8dec-11f0-9e3c-2c98113d472b: 'Sep 9, 2025, 10:19:04
-      PM EDT'}
+      10:12:27 PM EDT', 7aa1af76-8dec-11f0-9e3c-2c98113d472b: 'Sep 10, 2025, 2:26:18
+      PM EDT', 5b61bd74-92a0-11f0-8d93-2c98113d472b: 'Sep. 15, 2025, 9:56:27 p.m.
+      EDT', b6a34ace-92a1-11f0-8d93-2c98113d472b: 'Sep. 15, 2025, 10:06:10 p.m. EDT',
+    36750aa6-92a3-11f0-8d93-2c98113d472b: 'Sep. 15, 2025, 10:16:53 p.m. EDT', 42db7b46-92a3-11f0-8d93-2c98113d472b: 'Sep.
+      15, 2025, 10:17:14 p.m. EDT', 51299716-92a3-11f0-8d93-2c98113d472b: 'Sep. 15,
+      2025, 10:19:25 p.m. EDT', c3f122b9-92a3-11f0-8d93-2c98113d472b: 'Sep. 15, 2025,
+      10:20:54 p.m. EDT', f8d3f467-92a3-11f0-8d93-2c98113d472b: 'Sep. 15, 2025, 10:22:20
+      p.m. EDT', 96594180-92ab-11f0-8d93-2c98113d472b: 'Sep. 15, 2025, 11:18:10 p.m.
+      EDT'}
   commits: {'Aug, 28': 530ee2e14789923a8cc21622b4e8118cf7d1a7de}
-  QuotedUnits: MM
+  QuotedUnits: INCHES
   DesignID: 1U Extruded Aluminum Type C Template
   name: 1U Extruded Aluminum Type C
   displayName: 1U Extruded Aluminum Type C
   version: 13.0
   awiVersion: 0.0
-  VersionID: 7aa1af76-8dec-11f0-9e3c-2c98113d472b
+  VersionID: 96594180-92ab-11f0-8d93-2c98113d472b
   componentID: -1
-  InParentID: 010ae47e-8dea-11f0-9e3c-2c98113d472b
+  InParentID: 8adec345-92a1-11f0-8d93-2c98113d472b
   description: A 1U enclosure with extruded aluminum sides. Type C front and rear
     panels have flush top and bottom and profiled sides. Top and bottom panels are
     0.006" (0.152mm) shorter than extrusion length, for clearance.
@@ -266,7 +276,7 @@ Assembly:
         - {name: BottomColor, default: Bottom Color, displayName: BottomColor}
         - {name: FrontRearThick, default: FrontRearThick, displayName: FrontRearThick}
         - {name: TopBottomThick, default: TopBottomThick, displayName: TopBottomThick}
-      DesignID: 6bb1c6b6-8de7-11f0-9e3c-2c98113d472b
+      DesignID: 1f0eddc0-928c-11f0-8d93-2c98113d472b
       Mark At Laser: GREEN
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: MetalType, color: BottomColor, thickness: TopBottomThick}
@@ -501,7 +511,7 @@ Assembly:
           Parameters:
           - {name: actualPanelScrew, default: 'IfElse(FrontRearThick < 0.125, shortPanelScrew,
               panel screw)', description: The actual panel screw to use, displayName: actualPanelScrew}
-      DesignID: 6bc01eba-8de7-11f0-9e3c-2c98113d472b
+      DesignID: 1f1ff4e4-928c-11f0-8d93-2c98113d472b
       Mark At Laser: GREEN
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: MetalType, color: FrontColor, thickness: FrontRearThick}
@@ -1145,14 +1155,15 @@ Assembly:
               convertedFile: false
               autogeneratedtype: NOT_AUTOGENERATED
               properties:
-              - BooleanProperty: [profileCutout, true]
               - BooleanProperty: [UserAddedCornerRad, true]
+              - BooleanProperty: [profileCutout, true]
               layer: Default
               OriginX: '2.118244043286479'
               OriginY: '0.44740520948344287'
               onSameSide: true
               flatpatternAttachment: false
               scaleFactorY: '-1.0'
+              zOrigin: '0.'
               PathModifications:
               - RoundAllMod:
                   radius: {Value: '0.01968503937007874'}
@@ -1182,14 +1193,15 @@ Assembly:
               convertedFile: false
               autogeneratedtype: NOT_AUTOGENERATED
               properties:
-              - BooleanProperty: [profileCutout, true]
               - BooleanProperty: [UserAddedCornerRad, true]
+              - BooleanProperty: [profileCutout, true]
               layer: Default
               OriginX: '1.3288976377952757'
               OriginY: '0.44528148637192433'
               onSameSide: true
               flatpatternAttachment: false
               scaleFactorY: '-1.0'
+              zOrigin: '0.'
               PathModifications:
               - RoundAllMod:
                   radius: {Value: '0.01968503937007874'}
@@ -2105,7 +2117,7 @@ Assembly:
         Parameters:
         - {name: color, default: Extrusion Color, displayName: color}
         - {name: Length, default: Depth, displayName: Length}
-      DesignID: 6bdb6efd-8de7-11f0-9e3c-2c98113d472b
+      DesignID: 1f4e7f52-928c-11f0-8d93-2c98113d472b
       Mark At Laser: RED
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: Aluminum, color: color, thickness: '0'}
@@ -2146,10 +2158,10 @@ Assembly:
               displayName: Un-named 2D Thing
               version: 13.0
               awiVersion: 0.0
-              VersionID: 6b0a1585-8de7-11f0-9e3c-2c98113d472b
+              VersionID: 1aab83db-928c-11f0-8d93-2c98113d472b
               componentID: -1
-              InParentID: 6bdb9612-8de7-11f0-9e3c-2c98113d472b
-              ID: 6b0a1584-8de7-11f0-9e3c-2c98113d472b
+              InParentID: 1f4e7f57-928c-11f0-8d93-2c98113d472b
+              ID: 1aab83da-928c-11f0-8d93-2c98113d472b
               exist: '1.0'
               template: false
               verified: false
@@ -2179,349 +2191,349 @@ Assembly:
               - CircleArc3:
                   end: ['0.07000000000000028', '-0.07000000000000028']
                   mid: ['0.020502525316941522', '-0.04949747468305832']
-                  segID: {PathIDReference: 6b0ad8dc-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aabf912-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.2560000000000002', '0.0']
-                segID: {PathIDReference: 6b0ad8dd-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf913-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['0.043999999999999595', '0.04400000000069104']
                   mid: ['0.031112698372452563', '0.012887301628036418']
-                  segID: {PathIDReference: 6b0ad8de-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aabf914-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['-0.020000000000017337', '0.019999999999702922']
                   mid: ['-0.005857864376385358', '0.014142135623540053']
-                  segID: {PathIDReference: 6b0ad8df-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aabf915-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.20000000000000018', '0.0']
-                segID: {PathIDReference: 6b0ad8e0-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf916-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.020000000000000018']
-                segID: {PathIDReference: 6b0ad8e1-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf917-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.040000000000000036']
-                segID: {PathIDReference: 6b0ad8e2-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf918-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.020000000000000018']
-                segID: {PathIDReference: 6b0ad8e3-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf919-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.43899609370000015', '0.0']
-                segID: {PathIDReference: 6b0ad8e4-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf91a-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.007653668599999719', '-0.0015224093000001382']
-                segID: {PathIDReference: 6b0ad8e5-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf91b-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.03133450890000056', '-0.020897225699999744']
-                segID: {PathIDReference: 6b0ad8e6-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf91c-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.10171572879999946', '0.0']
-                segID: {PathIDReference: 6b0ad8e7-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf91d-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.014142135600000216', '0.0058578643999998015']
-                segID: {PathIDReference: 6b0ad8e8-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf91e-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: 6b0ad8e9-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf91f-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.009496089999999846']
-                segID: {PathIDReference: 6b0ad8ea-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf920-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: 6b0ad8eb-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf921-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.014142135600000216', '0.0058578643999998015']
-                segID: {PathIDReference: 6b0ad8ec-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf922-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.08121377699999943', '0.0']
-                segID: {PathIDReference: 6b0ad8ed-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf923-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.02484603949999986', '0.01656176829999989']
-                segID: {PathIDReference: 6b0ad8ee-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf924-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.014142135700000225', '0.005857864300000237']
-                segID: {PathIDReference: 6b0ad8ef-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf925-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.45949804780000036', '0.0']
-                segID: {PathIDReference: 6b0ad8f0-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf926-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad8f1-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf927-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: 6b0ad8f2-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf928-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.020000000000000462']
-                segID: {PathIDReference: 6b0ad8f3-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf929-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.07354499120000035', '0.0']
-                segID: {PathIDReference: 6b0ad8f4-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf92a-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.050098144199999695', '0.0111628532000001']
-                segID: {PathIDReference: 6b0ad8f5-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf92b-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040619530199999865', '0.03137653759999992']
-                segID: {PathIDReference: 6b0ad8f6-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf92c-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.006936184500000664', '0.019184900700000007']
-                segID: {PathIDReference: 6b0ad8f7-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf92d-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.01081509940000025', '0.023063815499999585']
-                segID: {PathIDReference: 6b0ad8f8-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf92e-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.0191849006', '0.006936184499999776']
-                segID: {PathIDReference: 6b0ad8f9-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf92f-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.023063815500000473', '-0.010815099399999362']
-                segID: {PathIDReference: 6b0ad8fa-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf930-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['-0.007499235430590723', '0.08168085129369906']
                   mid: ['-0.10234712720391403', '0.031788047704970346']
-                  segID: {PathIDReference: 6b0ad8fb-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aabf931-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019184900700000007', '-0.006936184499999776']
-                segID: {PathIDReference: 6b0ad8fc-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf932-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.023063815499999585', '0.010815099399999362']
-                segID: {PathIDReference: 6b0ad8fd-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf933-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.006936184499999776', '0.0191849006']
-                segID: {PathIDReference: 6b0ad8fe-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf934-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.010815099399999362', '0.02306381560000048']
-                segID: {PathIDReference: 6b0ad8ff-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf935-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.03534007570000064', '0.02025233409999938']
-                segID: {PathIDReference: 6b0ad900-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf936-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.04012053349999967', '0.00702999140000049']
-                segID: {PathIDReference: 6b0ad901-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf937-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.07354582770000029', '3.0759999996021747E-6']
-                segID: {PathIDReference: 6b0ad902-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf938-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.01999916349999964', '0.020000000000000462']
-                segID: {PathIDReference: 6b0ad903-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf939-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.030000836400000175']
-                segID: {PathIDReference: 6b0ad904-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf93a-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad905-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf93b-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0ad906-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf93c-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: 6b0ad907-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf93d-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad908-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf93e-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: 6b0ad909-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf93f-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0ad90a-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf940-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad90b-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf941-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: 6b0ad90c-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf942-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad90d-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf943-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0ad90e-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf944-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.014142135600000216', '0.0058578644000002456']
-                segID: {PathIDReference: 6b0ad90f-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf945-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: 6b0ad910-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf946-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad911-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf947-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: 6b0ad912-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf948-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0ad913-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf949-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad914-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf94a-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: 6b0ad915-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf94b-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad916-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf94c-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0ad917-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf94d-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: 6b0ad918-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf94e-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad919-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf94f-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: 6b0ad91a-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf950-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0ad91b-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf951-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad91c-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf952-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: 6b0ad91d-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf953-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad91e-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf954-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0ad91f-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf955-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: 6b0ad920-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf956-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad921-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf957-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: 6b0ad922-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf958-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0ad923-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf959-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad924-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf95a-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: 6b0ad925-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf95b-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.020000000000000462']
-                segID: {PathIDReference: 6b0ad926-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf95c-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0ad927-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf95d-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.020000000000000462', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad928-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf95e-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.020000000000000462']
-                segID: {PathIDReference: 6b0ad929-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf95f-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad92a-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf960-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0ad92b-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf961-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad92c-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf962-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.030000836500000183']
-                segID: {PathIDReference: 6b0ad92d-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf963-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.01999916349999964', '0.019999999900000454']
-                segID: {PathIDReference: 6b0ad92e-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf964-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.07354582770000029', '3.0759999996021747E-6']
-                segID: {PathIDReference: 6b0ad92f-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf965-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.04012053349999967', '0.007029991500000499']
-                segID: {PathIDReference: 6b0ad930-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf966-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.03534007570000064', '0.02025233409999938']
-                segID: {PathIDReference: 6b0ad931-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf967-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.010815099399999362', '0.023063815500000473']
-                segID: {PathIDReference: 6b0ad932-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf968-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.006936184499999776', '0.0191849006']
-                segID: {PathIDReference: 6b0ad933-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf969-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.023063815499999585', '0.01081509940000025']
-                segID: {PathIDReference: 6b0ad934-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf96a-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019184900700000007', '-0.006936184500000664']
-                segID: {PathIDReference: 6b0ad935-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf96b-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['0.0074992354305898346', '0.08168085129369906']
                   mid: ['-0.0948478917733242', '0.04989280358872872']
-                  segID: {PathIDReference: 6b0ad936-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aabf96c-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.023063815500000473', '-0.010815099300000242']
-                segID: {PathIDReference: 6b0ad937-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf96d-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0191849006', '0.0069361843999997674']
-                segID: {PathIDReference: 6b0ad938-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf96e-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.01081509940000025', '0.02306381560000048']
-                segID: {PathIDReference: 6b0ad939-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf96f-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.006936184500000664', '0.0191849006']
-                segID: {PathIDReference: 6b0ad93a-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf970-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040619530199999865', '0.03137653759999992']
-                segID: {PathIDReference: 6b0ad93b-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf971-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.050098144199999695', '0.011162853199999212']
-                segID: {PathIDReference: 6b0ad93c-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf972-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.07354499120000035', '0.0']
-                segID: {PathIDReference: 6b0ad93d-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf973-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.020000000000000462']
-                segID: {PathIDReference: 6b0ad93e-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf974-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: 6b0ad93f-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf975-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0ad940-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf976-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.45949804780000036', '0.0']
-                segID: {PathIDReference: 6b0ad941-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf977-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.02484603959999987', '0.01656176829999989']
-                segID: {PathIDReference: 6b0ad942-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf978-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.014142135600000216', '0.005857864300000237']
-                segID: {PathIDReference: 6b0ad943-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf979-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.08121377699999943', '0.0']
-                segID: {PathIDReference: 6b0ad944-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf97a-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.014142135600000216', '0.0058578644000002456']
-                segID: {PathIDReference: 6b0ad945-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf97b-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: 6b0ad946-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf97c-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.009496089999999846']
-                segID: {PathIDReference: 6b0ad947-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf97d-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.0058578644000002456', '0.014142135699999336']
-                segID: {PathIDReference: 6b0ad948-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf97e-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.014142135600000216', '0.005857864300000237']
-                segID: {PathIDReference: 6b0ad949-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf97f-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.09674516599999983', '0.0']
-                segID: {PathIDReference: 6b0ad94a-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf980-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.026301886099999727', '-0.013047052000000114']
-                segID: {PathIDReference: 6b0ad94b-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf981-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.022627416999999816', '-0.009372582999999324']
-                segID: {PathIDReference: 6b0ad94c-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf982-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.4340255309000005', '0.0']
-                segID: {PathIDReference: 6b0ad94d-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf983-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['-0.019999999999999574', '0.019999999999999574']
                   mid: ['-0.014142135623730567', '0.005857864376269006']
-                  segID: {PathIDReference: 6b0ad94e-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aabf984-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.040000000000000036']
-                segID: {PathIDReference: 6b0ad94f-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf985-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['0.019999999999846807', '0.01999999999998625']
                   mid: ['0.0058578643761748594', '0.014142135623712804']
-                  segID: {PathIDReference: 6b0ad950-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aabf986-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.20000000000000018', '0.0']
-                segID: {PathIDReference: 6b0ad951-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf987-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['0.020000000000018225', '0.020000000000297113']
                   mid: ['0.014142135623842478', '0.005857864376372923']
-                  segID: {PathIDReference: 6b0ad952-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aabf988-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['-0.044000000000370854', '0.043999999999756234']
                   mid: ['-0.01288730162811813', '0.03111269837207331']
-                  segID: {PathIDReference: 6b0aff63-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aabf989-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.2560000000000002', '0.0']
-                segID: {PathIDReference: 6b0aff64-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf98a-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['-0.07000000000000028', '-0.07000000000000028']
                   mid: ['-0.04949747468305876', '-0.020502525316941522']
-                  segID: {PathIDReference: 6b0aff65-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aabf98b-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.07312759940000024']
-                segID: {PathIDReference: 6b0aff66-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf98c-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.048989794799999764']
-                segID: {PathIDReference: 6b0aff67-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf98d-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034835779899999864']
-                segID: {PathIDReference: 6b0aff68-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf98e-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: 6b0aff69-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf98f-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0aff6a-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf990-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: 6b0aff6b-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf991-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0aff6c-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf992-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: 6b0aff6d-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf993-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0aff6e-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf994-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: 6b0aff6f-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf995-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0aff70-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf996-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: 6b0aff71-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf997-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0aff72-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf998-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: 6b0aff73-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf999-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0aff74-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf99a-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: 6b0aff75-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf99b-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0aff76-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf99c-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: 6b0aff77-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf99d-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0aff78-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf99e-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: 6b0aff79-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf99f-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.14460486659999994']
-                segID: {PathIDReference: 6b0aff7a-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9a0-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297169999945']
-                segID: {PathIDReference: 6b0aff7b-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9a1-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0aff7c-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9a2-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: 6b0aff7d-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9a3-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0aff7e-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9a4-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297169999945']
-                segID: {PathIDReference: 6b0aff7f-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9a5-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0aff80-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9a6-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: 6b0aff81-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9a7-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0aff82-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9a8-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297169999945']
-                segID: {PathIDReference: 6b0aff83-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9a9-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0aff84-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9aa-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: 6b0aff85-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9ab-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0aff86-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9ac-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: 6b0aff87-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9ad-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0aff88-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9ae-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: 6b0aff89-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9af-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0aff8a-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9b0-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: 6b0aff8b-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9b1-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034835779799999855']
-                segID: {PathIDReference: 6b0aff8c-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9b2-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.048989794799999764']
-                segID: {PathIDReference: 6b0aff8d-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9b3-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.07293044140000005']
-                segID: {PathIDReference: 6b0aff8e-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aabf9b4-928c-11f0-8d93-2c98113d472b}
           SweepPath:
             CompositePath:
               type: CONSTRUCT
@@ -2529,10 +2541,10 @@ Assembly:
               displayName: Un-named 2D Thing
               version: 13.0
               awiVersion: 0.0
-              VersionID: 6b0a63a8-8de7-11f0-9e3c-2c98113d472b
+              VersionID: 1aabaaee-928c-11f0-8d93-2c98113d472b
               componentID: -1
-              InParentID: 6bdb960f-8de7-11f0-9e3c-2c98113d472b
-              ID: 6b0a63a7-8de7-11f0-9e3c-2c98113d472b
+              InParentID: 1f4e7f54-928c-11f0-8d93-2c98113d472b
+              ID: 1aabaaed-928c-11f0-8d93-2c98113d472b
               exist: '1.0'
               template: false
               verified: false
@@ -2560,7 +2572,7 @@ Assembly:
                 - {name: Length, default: Depth, displayName: Length}
               pathSegments:
               - Line: ['0', Length]
-                segID: {PathIDReference: 6b0aff8f-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aac1fc5-928c-11f0-8d93-2c98113d472b}
           AttachPts:
           - {className: MatePt, x: '0', y: '0', z: '0', name: LeftSide-Front, ID: c98a73d8-8c58-11f0-9e27-0242ac110003}
           Connections:
@@ -2602,7 +2614,7 @@ Assembly:
         - {name: color, default: Extrusion Color, displayName: color}
         - {name: Height, default: Height, displayName: Height}
         - {name: Length, default: Depth, displayName: Length}
-      DesignID: 6be50c43-8de7-11f0-9e3c-2c98113d472b
+      DesignID: 1f5f4788-928c-11f0-8d93-2c98113d472b
       Mark At Laser: RED
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: Aluminum, color: color, thickness: '0'}
@@ -2643,10 +2655,10 @@ Assembly:
               displayName: Un-named 2D Thing
               version: 13.0
               awiVersion: 0.0
-              VersionID: 6b0d227a-8de7-11f0-9e3c-2c98113d472b
+              VersionID: 1aad5850-928c-11f0-8d93-2c98113d472b
               componentID: -1
-              InParentID: 6be50c48-8de7-11f0-9e3c-2c98113d472b
-              ID: 6b0d2279-8de7-11f0-9e3c-2c98113d472b
+              InParentID: 1f5f478d-928c-11f0-8d93-2c98113d472b
+              ID: 1aad584f-928c-11f0-8d93-2c98113d472b
               exist: '1.0'
               template: false
               verified: false
@@ -2677,349 +2689,349 @@ Assembly:
               - CircleArc3:
                   end: ['0.07000000000000028', '-0.07000000000000028']
                   mid: ['0.020502525316941522', '-0.04949747468305832']
-                  segID: {PathIDReference: 6b0d70a1-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aad7f67-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.2560000000000002', '0.0']
-                segID: {PathIDReference: 6b0d70a2-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f68-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['0.043999999999999595', '0.04400000000069104']
                   mid: ['0.031112698372452563', '0.012887301628036418']
-                  segID: {PathIDReference: 6b0d70a3-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aad7f69-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['-0.020000000000017337', '0.019999999999702922']
                   mid: ['-0.005857864376385358', '0.014142135623540053']
-                  segID: {PathIDReference: 6b0d70a4-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aad7f6a-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.20000000000000018', '0.0']
-                segID: {PathIDReference: 6b0d70a5-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f6b-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.020000000000000018']
-                segID: {PathIDReference: 6b0d70a6-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f6c-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.040000000000000036']
-                segID: {PathIDReference: 6b0d70a7-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f6d-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.020000000000000018']
-                segID: {PathIDReference: 6b0d70a8-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f6e-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.43899609370000015', '0.0']
-                segID: {PathIDReference: 6b0d70a9-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f6f-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.007653668599999719', '-0.0015224093000001382']
-                segID: {PathIDReference: 6b0d70aa-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f70-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.03133450890000056', '-0.020897225699999744']
-                segID: {PathIDReference: 6b0d70ab-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f71-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.10171572879999946', '0.0']
-                segID: {PathIDReference: 6b0d70ac-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f72-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.014142135600000216', '0.0058578643999998015']
-                segID: {PathIDReference: 6b0d70ad-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f73-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: 6b0d70ae-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f74-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.009496089999999846']
-                segID: {PathIDReference: 6b0d70af-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f75-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: 6b0d70b0-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f76-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.014142135600000216', '0.0058578643999998015']
-                segID: {PathIDReference: 6b0d70b1-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f77-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.08121377699999943', '0.0']
-                segID: {PathIDReference: 6b0d70b2-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f78-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.02484603949999986', '0.01656176829999989']
-                segID: {PathIDReference: 6b0d70b3-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f79-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.014142135700000225', '0.005857864300000237']
-                segID: {PathIDReference: 6b0d70b4-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f7a-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.45949804780000036', '0.0']
-                segID: {PathIDReference: 6b0d70b5-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f7b-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70b6-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f7c-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: 6b0d70b7-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f7d-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.020000000000000462']
-                segID: {PathIDReference: 6b0d70b8-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f7e-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.07354499120000035', '0.0']
-                segID: {PathIDReference: 6b0d70b9-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f7f-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.050098144199999695', '0.0111628532000001']
-                segID: {PathIDReference: 6b0d70ba-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f80-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040619530199999865', '0.03137653759999992']
-                segID: {PathIDReference: 6b0d70bb-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f81-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.006936184500000664', '0.019184900700000007']
-                segID: {PathIDReference: 6b0d70bc-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f82-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.01081509940000025', '0.023063815499999585']
-                segID: {PathIDReference: 6b0d70bd-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f83-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.0191849006', '0.006936184499999776']
-                segID: {PathIDReference: 6b0d70be-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f84-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.023063815500000473', '-0.010815099399999362']
-                segID: {PathIDReference: 6b0d70bf-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f85-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['-0.007499235430590723', '0.08168085129369906']
                   mid: ['-0.10234712720391403', '0.031788047704970346']
-                  segID: {PathIDReference: 6b0d70c0-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aad7f86-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019184900700000007', '-0.006936184499999776']
-                segID: {PathIDReference: 6b0d70c1-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f87-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.023063815499999585', '0.010815099399999362']
-                segID: {PathIDReference: 6b0d70c2-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f88-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.006936184499999776', '0.0191849006']
-                segID: {PathIDReference: 6b0d70c3-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f89-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.010815099399999362', '0.02306381560000048']
-                segID: {PathIDReference: 6b0d70c4-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f8a-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.03534007570000064', '0.02025233409999938']
-                segID: {PathIDReference: 6b0d70c5-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f8b-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.04012053349999967', '0.00702999140000049']
-                segID: {PathIDReference: 6b0d70c6-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f8c-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.07354582770000029', '3.0759999996021747E-6']
-                segID: {PathIDReference: 6b0d70c7-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f8d-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.01999916349999964', '0.020000000000000462']
-                segID: {PathIDReference: 6b0d70c8-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f8e-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.030000836400000175']
-                segID: {PathIDReference: 6b0d70c9-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f8f-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70ca-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f90-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0d70cb-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f91-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: 6b0d70cc-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f92-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70cd-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f93-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: 6b0d70ce-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f94-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0d70cf-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f95-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70d0-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f96-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: 6b0d70d1-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f97-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70d2-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f98-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0d70d3-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f99-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.014142135600000216', '0.0058578644000002456']
-                segID: {PathIDReference: 6b0d70d4-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f9a-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: 6b0d70d5-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f9b-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70d6-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f9c-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: 6b0d70d7-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f9d-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0d70d8-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f9e-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70d9-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7f9f-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: 6b0d70da-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fa0-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70db-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fa1-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0d70dc-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fa2-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: 6b0d70dd-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fa3-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70de-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fa4-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: 6b0d70df-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fa5-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0d70e0-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fa6-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70e1-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fa7-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: 6b0d70e2-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fa8-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70e3-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fa9-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0d70e4-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7faa-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: 6b0d70e5-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fab-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70e6-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fac-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.020000000000000462']
-                segID: {PathIDReference: 6b0d70e7-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fad-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0d70e8-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fae-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70e9-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7faf-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: 6b0d70ea-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fb0-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.020000000000000462']
-                segID: {PathIDReference: 6b0d70eb-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fb1-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0d70ec-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fb2-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.020000000000000462', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70ed-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fb3-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.020000000000000462']
-                segID: {PathIDReference: 6b0d70ee-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fb4-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.020000000000000462', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70ef-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fb5-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.08999999999999986', '0.0']
-                segID: {PathIDReference: 6b0d70f0-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fb6-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d70f1-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fb7-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.030000836500000183']
-                segID: {PathIDReference: 6b0d70f2-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fb8-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.01999916349999964', '0.019999999900000454']
-                segID: {PathIDReference: 6b0d70f3-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fb9-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.07354582770000029', '3.0759999996021747E-6']
-                segID: {PathIDReference: 6b0d70f4-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fba-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.04012053349999967', '0.007029991500000499']
-                segID: {PathIDReference: 6b0d70f5-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fbb-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.03534007570000064', '0.02025233409999938']
-                segID: {PathIDReference: 6b0d70f6-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fbc-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.010815099399999362', '0.023063815500000473']
-                segID: {PathIDReference: 6b0d70f7-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fbd-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.006936184499999776', '0.0191849006']
-                segID: {PathIDReference: 6b0d70f8-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fbe-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.023063815499999585', '0.01081509940000025']
-                segID: {PathIDReference: 6b0d70f9-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fbf-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019184900700000007', '-0.006936184500000664']
-                segID: {PathIDReference: 6b0d70fa-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fc0-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['0.0074992354305898346', '0.08168085129369906']
                   mid: ['-0.0948478917733242', '0.04989280358872872']
-                  segID: {PathIDReference: 6b0d70fb-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aad7fc1-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.023063815500000473', '-0.010815099300000242']
-                segID: {PathIDReference: 6b0d70fc-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fc2-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0191849006', '0.0069361843999997674']
-                segID: {PathIDReference: 6b0d70fd-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fc3-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.01081509940000025', '0.02306381560000048']
-                segID: {PathIDReference: 6b0d70fe-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fc4-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.006936184500000664', '0.0191849006']
-                segID: {PathIDReference: 6b0d70ff-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fc5-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040619530199999865', '0.03137653759999992']
-                segID: {PathIDReference: 6b0d7100-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fc6-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.050098144199999695', '0.011162853199999212']
-                segID: {PathIDReference: 6b0d7101-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fc7-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.07354499120000035', '0.0']
-                segID: {PathIDReference: 6b0d7102-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fc8-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.019999999999999574', '0.020000000000000462']
-                segID: {PathIDReference: 6b0d7103-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fc9-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.03000000000000025']
-                segID: {PathIDReference: 6b0d7104-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fca-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.019999999999999574', '0.019999999999999574']
-                segID: {PathIDReference: 6b0d7105-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fcb-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.45949804780000036', '0.0']
-                segID: {PathIDReference: 6b0d7106-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fcc-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.02484603959999987', '0.01656176829999989']
-                segID: {PathIDReference: 6b0d7107-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fcd-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.014142135600000216', '0.005857864300000237']
-                segID: {PathIDReference: 6b0d7108-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fce-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.08121377699999943', '0.0']
-                segID: {PathIDReference: 6b0d7109-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fcf-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.014142135600000216', '0.0058578644000002456']
-                segID: {PathIDReference: 6b0d710a-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fd0-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0058578644000002456', '0.014142135600000216']
-                segID: {PathIDReference: 6b0d710b-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fd1-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.009496089999999846']
-                segID: {PathIDReference: 6b0d710c-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fd2-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.0058578644000002456', '0.014142135699999336']
-                segID: {PathIDReference: 6b0d710d-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fd3-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.014142135600000216', '0.005857864300000237']
-                segID: {PathIDReference: 6b0d710e-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fd4-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.09674516599999983', '0.0']
-                segID: {PathIDReference: 6b0d710f-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fd5-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.026301886099999727', '-0.013047052000000114']
-                segID: {PathIDReference: 6b0d7110-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fd6-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.022627416999999816', '-0.009372582999999324']
-                segID: {PathIDReference: 6b0d7111-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fd7-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.4340255309000005', '0.0']
-                segID: {PathIDReference: 6b0d7112-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fd8-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['-0.019999999999999574', '0.019999999999999574']
                   mid: ['-0.014142135623730567', '0.005857864376269006']
-                  segID: {PathIDReference: 6b0d7113-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aad7fd9-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '0.040000000000000036']
-                segID: {PathIDReference: 6b0d7114-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fda-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['0.019999999999846807', '0.01999999999998625']
                   mid: ['0.0058578643761748594', '0.014142135623712804']
-                  segID: {PathIDReference: 6b0d7115-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aad7fdb-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.20000000000000018', '0.0']
-                segID: {PathIDReference: 6b0d7116-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fdc-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['0.020000000000018225', '0.020000000000297113']
                   mid: ['0.014142135623842478', '0.005857864376372923']
-                  segID: {PathIDReference: 6b0d7117-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aad7fdd-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['-0.044000000000370854', '0.043999999999756234']
                   mid: ['-0.01288730162811813', '0.03111269837207331']
-                  segID: {PathIDReference: 6b0d7118-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aad7fde-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.2560000000000002', '0.0']
-                segID: {PathIDReference: 6b0d7119-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fdf-928c-11f0-8d93-2c98113d472b}
               - CircleArc3:
                   end: ['-0.07000000000000028', '-0.07000000000000028']
                   mid: ['-0.04949747468305876', '-0.020502525316941522']
-                  segID: {PathIDReference: 6b0d711a-8de7-11f0-9e3c-2c98113d472b}
+                  segID: {PathIDReference: 1aad7fe0-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.07312759940000024']
-                segID: {PathIDReference: 6b0d711b-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fe1-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.048989794799999764']
-                segID: {PathIDReference: 6b0d711c-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fe2-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034835779899999864']
-                segID: {PathIDReference: 6b0d711d-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fe3-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: 6b0d711e-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fe4-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0d711f-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fe5-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: 6b0d7120-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fe6-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0d7121-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fe7-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: 6b0d7122-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fe8-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0d7123-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fe9-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: 6b0d7124-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fea-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0d7125-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7feb-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: 6b0d7126-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fec-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0d7127-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fed-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: 6b0d7128-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fee-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0d7129-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fef-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: 6b0d712a-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7ff0-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0d712b-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7ff1-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: 6b0d712c-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7ff2-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0d712d-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7ff3-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: 6b0d712e-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7ff4-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.14460486659999994']
-                segID: {PathIDReference: 6b0d712f-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7ff5-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297169999945']
-                segID: {PathIDReference: 6b0d7130-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7ff6-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0d7131-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7ff7-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: 6b0d7132-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7ff8-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0d7133-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7ff9-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297169999945']
-                segID: {PathIDReference: 6b0d7134-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7ffa-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0d7135-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7ffb-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: 6b0d7136-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7ffc-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0d7137-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7ffd-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297169999945']
-                segID: {PathIDReference: 6b0d7138-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7ffe-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0d7139-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad7fff-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.04034297160000033']
-                segID: {PathIDReference: 6b0d713a-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad8000-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0d713b-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad8001-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: 6b0d713c-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad8002-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034709190100000065']
-                segID: {PathIDReference: 6b0d713d-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad8003-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.040342971599999444']
-                segID: {PathIDReference: 6b0d713e-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad8004-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.014604866600000044']
-                segID: {PathIDReference: 6b0d713f-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad8005-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.040000000000000036', '-0.04034297170000034']
-                segID: {PathIDReference: 6b0d7140-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad8006-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.034835779799999855']
-                segID: {PathIDReference: 6b0d7141-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad8007-928c-11f0-8d93-2c98113d472b}
               - Line: ['-0.040000000000000036', '-0.048989794799999764']
-                segID: {PathIDReference: 6b0d7142-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad8008-928c-11f0-8d93-2c98113d472b}
               - Line: ['0.0', '-0.07293044140000005']
-                segID: {PathIDReference: 6b0d7143-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aad8009-928c-11f0-8d93-2c98113d472b}
           SweepPath:
             CompositePath:
               type: CONSTRUCT
@@ -3027,10 +3039,10 @@ Assembly:
               displayName: Un-named 2D Thing
               version: 13.0
               awiVersion: 0.0
-              VersionID: 6b0d498d-8de7-11f0-9e3c-2c98113d472b
+              VersionID: 1aad5853-928c-11f0-8d93-2c98113d472b
               componentID: -1
-              InParentID: 6be50c45-8de7-11f0-9e3c-2c98113d472b
-              ID: 6b0d498c-8de7-11f0-9e3c-2c98113d472b
+              InParentID: 1f5f478a-928c-11f0-8d93-2c98113d472b
+              ID: 1aad5852-928c-11f0-8d93-2c98113d472b
               exist: '1.0'
               template: false
               verified: false
@@ -3059,7 +3071,7 @@ Assembly:
                 - {name: Length, default: Depth, displayName: Length}
               pathSegments:
               - Line: ['0', Length]
-                segID: {PathIDReference: 6b0d9854-8de7-11f0-9e3c-2c98113d472b}
+                segID: {PathIDReference: 1aada71a-928c-11f0-8d93-2c98113d472b}
           AttachPts:
           - {className: MatePt, x: '0', y: Height-.14, z: '0', name: RightSide-Front,
             ID: c98b0fd1-8c58-11f0-9e27-0242ac110003}
@@ -3072,9 +3084,9 @@ Assembly:
       displayName: Top Plate
       version: 13.0
       awiVersion: 0.0
-      VersionID: 7aa1af75-8dec-11f0-9e3c-2c98113d472b
+      VersionID: 9659417f-92ab-11f0-8d93-2c98113d472b
       componentID: -1
-      InParentID: c98b0fd9-8c58-11f0-9e27-0242ac110003
+      InParentID: 8adec344-92a1-11f0-8d93-2c98113d472b
       description: The Top Cover
       partnumber: 1U Extruded Enclosure Top Part no bend2
       ID: 1U Extruded Enclosure Top Part no bend2
@@ -3107,7 +3119,7 @@ Assembly:
         - {name: MetalType, default: MetalType, displayName: MetalType}
         - {name: FrontRearThick, default: FrontRearThick, displayName: FrontRearThick}
         - {name: TopBottomThick, default: TopBottomThick, displayName: TopBottomThick}
-      DesignID: 6bee8279-8de7-11f0-9e3c-2c98113d472b
+      DesignID: 1f7010be-928c-11f0-8d93-2c98113d472b
       Mark At Laser: GREEN
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: MetalType, color: TopColor, thickness: TopBottomThick}
@@ -3122,9 +3134,9 @@ Assembly:
           displayName: Top
           version: 13.0
           awiVersion: 0.0
-          VersionID: 7aa1af74-8dec-11f0-9e3c-2c98113d472b
+          VersionID: 9659417e-92ab-11f0-8d93-2c98113d472b
           componentID: -1
-          InParentID: c98b36f0-8c58-11f0-9e27-0242ac110003
+          InParentID: 8adec343-92a1-11f0-8d93-2c98113d472b
           ID: c98b36ed-8c58-11f0-9e27-0242ac110003
           template: true
           verified: true
@@ -3155,18 +3167,176 @@ Assembly:
           Connections:
           - {className: Absolute}
           Attachment2Ds:
+          - Bitmap:
+              type: GRAPHIC
+              name: Un-named 2D Thing
+              displayName: Thing2D
+              version: 13.0
+              awiVersion: 0.0
+              VersionID: 7d713768-92ab-11f0-8d93-2c98113d472b
+              componentID: -1
+              InParentID: 7d713767-92ab-11f0-8d93-2c98113d472b
+              ID: 7ae24f25-92ab-11f0-8d93-2c98113d472b
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              rotation: '90.0'
+              OriginX: '0.28405312346822525'
+              OriginY: '3.7608741598332838'
+              onSameSide: true
+              flatpatternAttachment: false
+              scaleFactorY: '-1.0'
+              width: '3.6799999999999997'
+              height: '0.24666666666666703'
+              proceduralOption: FixGraphic
+              data: !!binary |-
+                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
+              fixedForBackground: false
+          - Bitmap:
+              type: GRAPHIC
+              name: Un-named 2D Thing
+              displayName: Thing2D
+              version: 13.0
+              awiVersion: 0.0
+              VersionID: 4fb12ec8-92ab-11f0-8d93-2c98113d472b
+              componentID: -1
+              InParentID: 4fb12ec7-92ab-11f0-8d93-2c98113d472b
+              ID: 4beb7435-92ab-11f0-8d93-2c98113d472b
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              rotation: '90.0'
+              OriginX: '3.1081224407010613'
+              OriginY: '3.6236512025239707'
+              onSameSide: true
+              flatpatternAttachment: false
+              scaleFactorY: '-1.0'
+              width: '3.666666666666667'
+              height: '0.1800000000000006'
+              proceduralOption: FixGraphic
+              data: !!binary |-
+                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
+              fixedForBackground: false
+          - Text2D: {type: GRAPHIC, color: Opaque Black, name: Text, displayName: Thing2D,
+              version: 13.0, awiVersion: 0.0, VersionID: 1ccbf7bb-929f-11f0-8d93-2c98113d472b,
+              componentID: -1, InParentID: 8adec341-92a1-11f0-8d93-2c98113d472b, ID: 8adec340-92a1-11f0-8d93-2c98113d472b,
+              template: false, verified: false, cncApproved: false, encrypted: false,
+              exportable: true, userLibraryCreated: false, customTemplate: false,
+              locked: false, templateModification: UNMODIFIED, reconstructedFile: false,
+              convertedFile: false, autogeneratedtype: NOT_AUTOGENERATED, layer: Default,
+              rotation: '180.0', OriginX: '2.5348078854679708', OriginY: '8.529143790507636',
+              onSameSide: true, flatpatternAttachment: false, scaleFactorY: '-1.0',
+              content: 'K-Type TC #2', fontFamily: Arial, fontStyle: Regular, fontSize: '8.0',
+              sizeCorrected: true, userEditedFontSize: false, kerning: true, textAlignment: LEFT}
+          - Text2D: {type: GRAPHIC, color: Opaque Black, name: Text, displayName: Thing2D,
+              version: 13.0, awiVersion: 0.0, VersionID: 1ccbf7bb-929f-11f0-8d93-2c98113d472b,
+              componentID: -1, InParentID: 88b8af74-92a1-11f0-8d93-2c98113d472b, ID: 88b88863-92a1-11f0-8d93-2c98113d472b,
+              template: false, verified: false, cncApproved: false, encrypted: false,
+              exportable: true, userLibraryCreated: false, customTemplate: false,
+              locked: false, templateModification: UNMODIFIED, reconstructedFile: false,
+              convertedFile: false, autogeneratedtype: NOT_AUTOGENERATED, layer: Default,
+              rotation: '180.0', OriginX: '1.7339426826576378', OriginY: '8.533492255062544',
+              onSameSide: true, flatpatternAttachment: false, scaleFactorY: '-1.0',
+              content: 'K-Type TC #1', fontFamily: Arial, fontStyle: Regular, fontSize: '8.0',
+              sizeCorrected: true, userEditedFontSize: false, kerning: true, textAlignment: LEFT}
+          - Text2D: {type: GRAPHIC, color: Opaque Black, name: Text, displayName: Thing2D,
+              version: 13.0, awiVersion: 0.0, VersionID: 1ccbf7bb-929f-11f0-8d93-2c98113d472b,
+              componentID: -1, InParentID: 06a212a7-92a1-11f0-8d93-2c98113d472b, ID: 06a1eb96-92a1-11f0-8d93-2c98113d472b,
+              template: false, verified: false, cncApproved: false, encrypted: false,
+              exportable: true, userLibraryCreated: false, customTemplate: false,
+              locked: false, templateModification: UNMODIFIED, reconstructedFile: false,
+              convertedFile: false, autogeneratedtype: NOT_AUTOGENERATED, layer: Default,
+              rotation: '180.0', OriginX: '1.7758963204588785', OriginY: '0.09159836022915563',
+              onSameSide: true, flatpatternAttachment: false, scaleFactorY: '-1.0',
+              content: 5.5x2.5mm, fontFamily: Arial, fontStyle: Regular, fontSize: '8.0',
+              sizeCorrected: true, userEditedFontSize: false, kerning: true, textAlignment: LEFT}
+          - Text2D: {type: GRAPHIC, color: Opaque Black, name: Text, displayName: Thing2D,
+              version: 13.0, awiVersion: 0.0, VersionID: 1ccbf7bb-929f-11f0-8d93-2c98113d472b,
+              componentID: -1, InParentID: cc46f422-92a0-11f0-8d93-2c98113d472b, ID: cc46cd11-92a0-11f0-8d93-2c98113d472b,
+              template: false, verified: false, cncApproved: false, encrypted: false,
+              exportable: true, userLibraryCreated: false, customTemplate: false,
+              locked: false, templateModification: UNMODIFIED, reconstructedFile: false,
+              convertedFile: false, autogeneratedtype: NOT_AUTOGENERATED, layer: Default,
+              rotation: '180.0', OriginX: '1.7704015242393465', OriginY: '0.21248387705885796',
+              onSameSide: true, flatpatternAttachment: false, scaleFactorY: '-1.0',
+              content: 24VDC, fontFamily: Arial, fontStyle: Regular, fontSize: '10.0',
+              sizeCorrected: true, userEditedFontSize: false, kerning: true, textAlignment: LEFT}
           - SVG:
-              Bounds: {width: '2.4041440500346716', height: '2.6782123484226923',
+              Bounds: {width: '0.24721291792412625', height: '0.2183878916941731',
+                x: '0.0', y: '0.0'}
+              type: GRAPHIC
+              name: Network
+              displayName: Network
+              version: 13.0
+              awiVersion: 2.0
+              VersionID: 15e2b2da-caa6-4e10-af2c-81a1286fadc4
+              componentID: -1
+              InParentID: 84752ed6-92a0-11f0-8d93-2c98113d472b
+              partnumber: Network
+              ID: 847507c5-92a0-11f0-8d93-2c98113d472b
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              OriginX: '2.855845156804328'
+              OriginY: '0.08060876779009188'
+              onSameSide: true
+              flatpatternAttachment: false
+              scaleFactorX: '-1.0'
+              inLibrary: byPartNum
+              autoGeneratedType: NOT_AUTOGENERATED
+              document: "<?xml version=\"1.0\" encoding=\"UTF-8\"?><!-- Generator:\
+                \ Adobe Illustrator 23.0.3, SVG Export Plug-In . SVG Version: 6.00\
+                \ Build 0)  --><svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"\
+                http://www.w3.org/1999/xlink\" contentScriptType=\"text/ecmascript\"\
+                \ zoomAndPan=\"magnify\" contentStyleType=\"text/css\" id=\"Layer_1\"\
+                \ style=\"enable-background:new 0 0 22.3 19.7;\" version=\"1.1\" width=\"\
+                22.3\" xml:space=\"preserve\" preserveAspectRatio=\"xMidYMid meet\"\
+                \ viewBox=\"0 0 22.3 19.7\" height=\"19.7\" x=\"0px\" y=\"0px\">\n\
+                <g>\n\t<path d=\"M22.3,10.4V9.1H11.8V7.3h3.6V0H7v7.3h3.6v1.8H0v1.3h4v2H0.4v7.3h8.4v-7.3H5.2v-2h11.8v2h-3.6v7.3h8.4v-7.3h-3.6v-2H22.3z\
+                \    M7.5,13.7v4.6H1.7v-4.6H7.5z M8.3,6V1.4H14V6H8.3z M20.6,13.7v4.6h-5.8v-4.6H20.6z\"\
+                />\n</g>\n</svg>"
+          - SVG:
+              Bounds: {width: '0.7463761184650732', height: '0.7463761184650729',
                 x: '0.0', y: '0.0'}
               type: GRAPHIC
               name: Un-named 2D Thing
               displayName: Thing2D
               version: 13.0
               awiVersion: 0.0
-              VersionID: 5fe02abd-8dec-11f0-9e3c-2c98113d472b
+              VersionID: 3ce60c2e-929f-11f0-8d93-2c98113d472b
               componentID: -1
-              InParentID: 5ee41779-8dec-11f0-9e3c-2c98113d472b
-              ID: 5ee41778-8dec-11f0-9e3c-2c98113d472b
+              InParentID: 38c86d9a-929f-11f0-8d93-2c98113d472b
+              ID: 38c86d99-929f-11f0-8d93-2c98113d472b
               template: false
               verified: false
               cncApproved: false
@@ -3181,11 +3351,376 @@ Assembly:
               autogeneratedtype: NOT_AUTOGENERATED
               layer: Default
               rotation: '180.0'
-              OriginX: '3.0771927037581426'
-              OriginY: '0.7234111840406079'
+              OriginX: '1.4124232078981815'
+              OriginY: '2.157675713110757'
               onSameSide: true
               flatpatternAttachment: false
               scaleFactorY: '-1.0'
+              document: <?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg"
+                xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:svg="http://www.w3.org/2000/svg"
+                contentScriptType="text/ecmascript" width="37mm" zoomAndPan="magnify"
+                contentStyleType="text/css" height="37mm" preserveAspectRatio="xMidYMid
+                meet" version="1.1"><svg:rect x="4mm" width="1mm" y="4mm" height="1mm"/><svg:rect
+                x="5mm" width="1mm" y="4mm" height="1mm"/><svg:rect x="6mm" width="1mm"
+                y="4mm" height="1mm"/><svg:rect x="7mm" width="1mm" y="4mm" height="1mm"/><svg:rect
+                x="8mm" width="1mm" y="4mm" height="1mm"/><svg:rect x="9mm" width="1mm"
+                y="4mm" height="1mm"/><svg:rect x="10mm" width="1mm" y="4mm" height="1mm"/><svg:rect
+                x="16mm" width="1mm" y="4mm" height="1mm"/><svg:rect x="18mm" width="1mm"
+                y="4mm" height="1mm"/><svg:rect x="21mm" width="1mm" y="4mm" height="1mm"/><svg:rect
+                x="22mm" width="1mm" y="4mm" height="1mm"/><svg:rect x="23mm" width="1mm"
+                y="4mm" height="1mm"/><svg:rect x="24mm" width="1mm" y="4mm" height="1mm"/><svg:rect
+                x="26mm" width="1mm" y="4mm" height="1mm"/><svg:rect x="27mm" width="1mm"
+                y="4mm" height="1mm"/><svg:rect x="28mm" width="1mm" y="4mm" height="1mm"/><svg:rect
+                x="29mm" width="1mm" y="4mm" height="1mm"/><svg:rect x="30mm" width="1mm"
+                y="4mm" height="1mm"/><svg:rect x="31mm" width="1mm" y="4mm" height="1mm"/><svg:rect
+                x="32mm" width="1mm" y="4mm" height="1mm"/><svg:rect x="4mm" width="1mm"
+                y="5mm" height="1mm"/><svg:rect x="10mm" width="1mm" y="5mm" height="1mm"/><svg:rect
+                x="13mm" width="1mm" y="5mm" height="1mm"/><svg:rect x="15mm" width="1mm"
+                y="5mm" height="1mm"/><svg:rect x="20mm" width="1mm" y="5mm" height="1mm"/><svg:rect
+                x="22mm" width="1mm" y="5mm" height="1mm"/><svg:rect x="24mm" width="1mm"
+                y="5mm" height="1mm"/><svg:rect x="26mm" width="1mm" y="5mm" height="1mm"/><svg:rect
+                x="32mm" width="1mm" y="5mm" height="1mm"/><svg:rect x="4mm" width="1mm"
+                y="6mm" height="1mm"/><svg:rect x="6mm" width="1mm" y="6mm" height="1mm"/><svg:rect
+                x="7mm" width="1mm" y="6mm" height="1mm"/><svg:rect x="8mm" width="1mm"
+                y="6mm" height="1mm"/><svg:rect x="10mm" width="1mm" y="6mm" height="1mm"/><svg:rect
+                x="13mm" width="1mm" y="6mm" height="1mm"/><svg:rect x="14mm" width="1mm"
+                y="6mm" height="1mm"/><svg:rect x="18mm" width="1mm" y="6mm" height="1mm"/><svg:rect
+                x="19mm" width="1mm" y="6mm" height="1mm"/><svg:rect x="21mm" width="1mm"
+                y="6mm" height="1mm"/><svg:rect x="22mm" width="1mm" y="6mm" height="1mm"/><svg:rect
+                x="23mm" width="1mm" y="6mm" height="1mm"/><svg:rect x="26mm" width="1mm"
+                y="6mm" height="1mm"/><svg:rect x="28mm" width="1mm" y="6mm" height="1mm"/><svg:rect
+                x="29mm" width="1mm" y="6mm" height="1mm"/><svg:rect x="30mm" width="1mm"
+                y="6mm" height="1mm"/><svg:rect x="32mm" width="1mm" y="6mm" height="1mm"/><svg:rect
+                x="4mm" width="1mm" y="7mm" height="1mm"/><svg:rect x="6mm" width="1mm"
+                y="7mm" height="1mm"/><svg:rect x="7mm" width="1mm" y="7mm" height="1mm"/><svg:rect
+                x="8mm" width="1mm" y="7mm" height="1mm"/><svg:rect x="10mm" width="1mm"
+                y="7mm" height="1mm"/><svg:rect x="13mm" width="1mm" y="7mm" height="1mm"/><svg:rect
+                x="15mm" width="1mm" y="7mm" height="1mm"/><svg:rect x="17mm" width="1mm"
+                y="7mm" height="1mm"/><svg:rect x="20mm" width="1mm" y="7mm" height="1mm"/><svg:rect
+                x="22mm" width="1mm" y="7mm" height="1mm"/><svg:rect x="23mm" width="1mm"
+                y="7mm" height="1mm"/><svg:rect x="24mm" width="1mm" y="7mm" height="1mm"/><svg:rect
+                x="26mm" width="1mm" y="7mm" height="1mm"/><svg:rect x="28mm" width="1mm"
+                y="7mm" height="1mm"/><svg:rect x="29mm" width="1mm" y="7mm" height="1mm"/><svg:rect
+                x="30mm" width="1mm" y="7mm" height="1mm"/><svg:rect x="32mm" width="1mm"
+                y="7mm" height="1mm"/><svg:rect x="4mm" width="1mm" y="8mm" height="1mm"/><svg:rect
+                x="6mm" width="1mm" y="8mm" height="1mm"/><svg:rect x="7mm" width="1mm"
+                y="8mm" height="1mm"/><svg:rect x="8mm" width="1mm" y="8mm" height="1mm"/><svg:rect
+                x="10mm" width="1mm" y="8mm" height="1mm"/><svg:rect x="13mm" width="1mm"
+                y="8mm" height="1mm"/><svg:rect x="15mm" width="1mm" y="8mm" height="1mm"/><svg:rect
+                x="22mm" width="1mm" y="8mm" height="1mm"/><svg:rect x="26mm" width="1mm"
+                y="8mm" height="1mm"/><svg:rect x="28mm" width="1mm" y="8mm" height="1mm"/><svg:rect
+                x="29mm" width="1mm" y="8mm" height="1mm"/><svg:rect x="30mm" width="1mm"
+                y="8mm" height="1mm"/><svg:rect x="32mm" width="1mm" y="8mm" height="1mm"/><svg:rect
+                x="4mm" width="1mm" y="9mm" height="1mm"/><svg:rect x="10mm" width="1mm"
+                y="9mm" height="1mm"/><svg:rect x="12mm" width="1mm" y="9mm" height="1mm"/><svg:rect
+                x="14mm" width="1mm" y="9mm" height="1mm"/><svg:rect x="19mm" width="1mm"
+                y="9mm" height="1mm"/><svg:rect x="20mm" width="1mm" y="9mm" height="1mm"/><svg:rect
+                x="21mm" width="1mm" y="9mm" height="1mm"/><svg:rect x="23mm" width="1mm"
+                y="9mm" height="1mm"/><svg:rect x="24mm" width="1mm" y="9mm" height="1mm"/><svg:rect
+                x="26mm" width="1mm" y="9mm" height="1mm"/><svg:rect x="32mm" width="1mm"
+                y="9mm" height="1mm"/><svg:rect x="4mm" width="1mm" y="10mm" height="1mm"/><svg:rect
+                x="5mm" width="1mm" y="10mm" height="1mm"/><svg:rect x="6mm" width="1mm"
+                y="10mm" height="1mm"/><svg:rect x="7mm" width="1mm" y="10mm" height="1mm"/><svg:rect
+                x="8mm" width="1mm" y="10mm" height="1mm"/><svg:rect x="9mm" width="1mm"
+                y="10mm" height="1mm"/><svg:rect x="10mm" width="1mm" y="10mm" height="1mm"/><svg:rect
+                x="12mm" width="1mm" y="10mm" height="1mm"/><svg:rect x="14mm" width="1mm"
+                y="10mm" height="1mm"/><svg:rect x="16mm" width="1mm" y="10mm" height="1mm"/><svg:rect
+                x="18mm" width="1mm" y="10mm" height="1mm"/><svg:rect x="20mm" width="1mm"
+                y="10mm" height="1mm"/><svg:rect x="22mm" width="1mm" y="10mm" height="1mm"/><svg:rect
+                x="24mm" width="1mm" y="10mm" height="1mm"/><svg:rect x="26mm" width="1mm"
+                y="10mm" height="1mm"/><svg:rect x="27mm" width="1mm" y="10mm" height="1mm"/><svg:rect
+                x="28mm" width="1mm" y="10mm" height="1mm"/><svg:rect x="29mm" width="1mm"
+                y="10mm" height="1mm"/><svg:rect x="30mm" width="1mm" y="10mm" height="1mm"/><svg:rect
+                x="31mm" width="1mm" y="10mm" height="1mm"/><svg:rect x="32mm" width="1mm"
+                y="10mm" height="1mm"/><svg:rect x="13mm" width="1mm" y="11mm" height="1mm"/><svg:rect
+                x="17mm" width="1mm" y="11mm" height="1mm"/><svg:rect x="19mm" width="1mm"
+                y="11mm" height="1mm"/><svg:rect x="20mm" width="1mm" y="11mm" height="1mm"/><svg:rect
+                x="21mm" width="1mm" y="11mm" height="1mm"/><svg:rect x="22mm" width="1mm"
+                y="11mm" height="1mm"/><svg:rect x="24mm" width="1mm" y="11mm" height="1mm"/><svg:rect
+                x="4mm" width="1mm" y="12mm" height="1mm"/><svg:rect x="7mm" width="1mm"
+                y="12mm" height="1mm"/><svg:rect x="9mm" width="1mm" y="12mm" height="1mm"/><svg:rect
+                x="10mm" width="1mm" y="12mm" height="1mm"/><svg:rect x="12mm" width="1mm"
+                y="12mm" height="1mm"/><svg:rect x="13mm" width="1mm" y="12mm" height="1mm"/><svg:rect
+                x="14mm" width="1mm" y="12mm" height="1mm"/><svg:rect x="15mm" width="1mm"
+                y="12mm" height="1mm"/><svg:rect x="18mm" width="1mm" y="12mm" height="1mm"/><svg:rect
+                x="20mm" width="1mm" y="12mm" height="1mm"/><svg:rect x="23mm" width="1mm"
+                y="12mm" height="1mm"/><svg:rect x="25mm" width="1mm" y="12mm" height="1mm"/><svg:rect
+                x="27mm" width="1mm" y="12mm" height="1mm"/><svg:rect x="4mm" width="1mm"
+                y="13mm" height="1mm"/><svg:rect x="5mm" width="1mm" y="13mm" height="1mm"/><svg:rect
+                x="6mm" width="1mm" y="13mm" height="1mm"/><svg:rect x="12mm" width="1mm"
+                y="13mm" height="1mm"/><svg:rect x="13mm" width="1mm" y="13mm" height="1mm"/><svg:rect
+                x="14mm" width="1mm" y="13mm" height="1mm"/><svg:rect x="15mm" width="1mm"
+                y="13mm" height="1mm"/><svg:rect x="17mm" width="1mm" y="13mm" height="1mm"/><svg:rect
+                x="19mm" width="1mm" y="13mm" height="1mm"/><svg:rect x="20mm" width="1mm"
+                y="13mm" height="1mm"/><svg:rect x="24mm" width="1mm" y="13mm" height="1mm"/><svg:rect
+                x="25mm" width="1mm" y="13mm" height="1mm"/><svg:rect x="26mm" width="1mm"
+                y="13mm" height="1mm"/><svg:rect x="29mm" width="1mm" y="13mm" height="1mm"/><svg:rect
+                x="32mm" width="1mm" y="13mm" height="1mm"/><svg:rect x="4mm" width="1mm"
+                y="14mm" height="1mm"/><svg:rect x="6mm" width="1mm" y="14mm" height="1mm"/><svg:rect
+                x="7mm" width="1mm" y="14mm" height="1mm"/><svg:rect x="8mm" width="1mm"
+                y="14mm" height="1mm"/><svg:rect x="10mm" width="1mm" y="14mm" height="1mm"/><svg:rect
+                x="13mm" width="1mm" y="14mm" height="1mm"/><svg:rect x="14mm" width="1mm"
+                y="14mm" height="1mm"/><svg:rect x="15mm" width="1mm" y="14mm" height="1mm"/><svg:rect
+                x="16mm" width="1mm" y="14mm" height="1mm"/><svg:rect x="17mm" width="1mm"
+                y="14mm" height="1mm"/><svg:rect x="18mm" width="1mm" y="14mm" height="1mm"/><svg:rect
+                x="19mm" width="1mm" y="14mm" height="1mm"/><svg:rect x="21mm" width="1mm"
+                y="14mm" height="1mm"/><svg:rect x="23mm" width="1mm" y="14mm" height="1mm"/><svg:rect
+                x="25mm" width="1mm" y="14mm" height="1mm"/><svg:rect x="26mm" width="1mm"
+                y="14mm" height="1mm"/><svg:rect x="27mm" width="1mm" y="14mm" height="1mm"/><svg:rect
+                x="28mm" width="1mm" y="14mm" height="1mm"/><svg:rect x="29mm" width="1mm"
+                y="14mm" height="1mm"/><svg:rect x="30mm" width="1mm" y="14mm" height="1mm"/><svg:rect
+                x="31mm" width="1mm" y="14mm" height="1mm"/><svg:rect x="5mm" width="1mm"
+                y="15mm" height="1mm"/><svg:rect x="6mm" width="1mm" y="15mm" height="1mm"/><svg:rect
+                x="8mm" width="1mm" y="15mm" height="1mm"/><svg:rect x="12mm" width="1mm"
+                y="15mm" height="1mm"/><svg:rect x="16mm" width="1mm" y="15mm" height="1mm"/><svg:rect
+                x="17mm" width="1mm" y="15mm" height="1mm"/><svg:rect x="20mm" width="1mm"
+                y="15mm" height="1mm"/><svg:rect x="22mm" width="1mm" y="15mm" height="1mm"/><svg:rect
+                x="26mm" width="1mm" y="15mm" height="1mm"/><svg:rect x="27mm" width="1mm"
+                y="15mm" height="1mm"/><svg:rect x="28mm" width="1mm" y="15mm" height="1mm"/><svg:rect
+                x="30mm" width="1mm" y="15mm" height="1mm"/><svg:rect x="31mm" width="1mm"
+                y="15mm" height="1mm"/><svg:rect x="5mm" width="1mm" y="16mm" height="1mm"/><svg:rect
+                x="7mm" width="1mm" y="16mm" height="1mm"/><svg:rect x="9mm" width="1mm"
+                y="16mm" height="1mm"/><svg:rect x="10mm" width="1mm" y="16mm" height="1mm"/><svg:rect
+                x="12mm" width="1mm" y="16mm" height="1mm"/><svg:rect x="13mm" width="1mm"
+                y="16mm" height="1mm"/><svg:rect x="14mm" width="1mm" y="16mm" height="1mm"/><svg:rect
+                x="15mm" width="1mm" y="16mm" height="1mm"/><svg:rect x="16mm" width="1mm"
+                y="16mm" height="1mm"/><svg:rect x="18mm" width="1mm" y="16mm" height="1mm"/><svg:rect
+                x="19mm" width="1mm" y="16mm" height="1mm"/><svg:rect x="21mm" width="1mm"
+                y="16mm" height="1mm"/><svg:rect x="23mm" width="1mm" y="16mm" height="1mm"/><svg:rect
+                x="24mm" width="1mm" y="16mm" height="1mm"/><svg:rect x="25mm" width="1mm"
+                y="16mm" height="1mm"/><svg:rect x="26mm" width="1mm" y="16mm" height="1mm"/><svg:rect
+                x="29mm" width="1mm" y="16mm" height="1mm"/><svg:rect x="31mm" width="1mm"
+                y="16mm" height="1mm"/><svg:rect x="32mm" width="1mm" y="16mm" height="1mm"/><svg:rect
+                x="4mm" width="1mm" y="17mm" height="1mm"/><svg:rect x="6mm" width="1mm"
+                y="17mm" height="1mm"/><svg:rect x="8mm" width="1mm" y="17mm" height="1mm"/><svg:rect
+                x="12mm" width="1mm" y="17mm" height="1mm"/><svg:rect x="13mm" width="1mm"
+                y="17mm" height="1mm"/><svg:rect x="15mm" width="1mm" y="17mm" height="1mm"/><svg:rect
+                x="17mm" width="1mm" y="17mm" height="1mm"/><svg:rect x="18mm" width="1mm"
+                y="17mm" height="1mm"/><svg:rect x="19mm" width="1mm" y="17mm" height="1mm"/><svg:rect
+                x="20mm" width="1mm" y="17mm" height="1mm"/><svg:rect x="23mm" width="1mm"
+                y="17mm" height="1mm"/><svg:rect x="24mm" width="1mm" y="17mm" height="1mm"/><svg:rect
+                x="4mm" width="1mm" y="18mm" height="1mm"/><svg:rect x="5mm" width="1mm"
+                y="18mm" height="1mm"/><svg:rect x="7mm" width="1mm" y="18mm" height="1mm"/><svg:rect
+                x="8mm" width="1mm" y="18mm" height="1mm"/><svg:rect x="9mm" width="1mm"
+                y="18mm" height="1mm"/><svg:rect x="10mm" width="1mm" y="18mm" height="1mm"/><svg:rect
+                x="11mm" width="1mm" y="18mm" height="1mm"/><svg:rect x="12mm" width="1mm"
+                y="18mm" height="1mm"/><svg:rect x="17mm" width="1mm" y="18mm" height="1mm"/><svg:rect
+                x="18mm" width="1mm" y="18mm" height="1mm"/><svg:rect x="21mm" width="1mm"
+                y="18mm" height="1mm"/><svg:rect x="26mm" width="1mm" y="18mm" height="1mm"/><svg:rect
+                x="28mm" width="1mm" y="18mm" height="1mm"/><svg:rect x="29mm" width="1mm"
+                y="18mm" height="1mm"/><svg:rect x="30mm" width="1mm" y="18mm" height="1mm"/><svg:rect
+                x="31mm" width="1mm" y="18mm" height="1mm"/><svg:rect x="32mm" width="1mm"
+                y="18mm" height="1mm"/><svg:rect x="7mm" width="1mm" y="19mm" height="1mm"/><svg:rect
+                x="9mm" width="1mm" y="19mm" height="1mm"/><svg:rect x="11mm" width="1mm"
+                y="19mm" height="1mm"/><svg:rect x="14mm" width="1mm" y="19mm" height="1mm"/><svg:rect
+                x="15mm" width="1mm" y="19mm" height="1mm"/><svg:rect x="19mm" width="1mm"
+                y="19mm" height="1mm"/><svg:rect x="21mm" width="1mm" y="19mm" height="1mm"/><svg:rect
+                x="22mm" width="1mm" y="19mm" height="1mm"/><svg:rect x="26mm" width="1mm"
+                y="19mm" height="1mm"/><svg:rect x="27mm" width="1mm" y="19mm" height="1mm"/><svg:rect
+                x="28mm" width="1mm" y="19mm" height="1mm"/><svg:rect x="29mm" width="1mm"
+                y="19mm" height="1mm"/><svg:rect x="31mm" width="1mm" y="19mm" height="1mm"/><svg:rect
+                x="4mm" width="1mm" y="20mm" height="1mm"/><svg:rect x="8mm" width="1mm"
+                y="20mm" height="1mm"/><svg:rect x="10mm" width="1mm" y="20mm" height="1mm"/><svg:rect
+                x="11mm" width="1mm" y="20mm" height="1mm"/><svg:rect x="17mm" width="1mm"
+                y="20mm" height="1mm"/><svg:rect x="21mm" width="1mm" y="20mm" height="1mm"/><svg:rect
+                x="22mm" width="1mm" y="20mm" height="1mm"/><svg:rect x="23mm" width="1mm"
+                y="20mm" height="1mm"/><svg:rect x="25mm" width="1mm" y="20mm" height="1mm"/><svg:rect
+                x="31mm" width="1mm" y="20mm" height="1mm"/><svg:rect x="7mm" width="1mm"
+                y="21mm" height="1mm"/><svg:rect x="8mm" width="1mm" y="21mm" height="1mm"/><svg:rect
+                x="9mm" width="1mm" y="21mm" height="1mm"/><svg:rect x="12mm" width="1mm"
+                y="21mm" height="1mm"/><svg:rect x="13mm" width="1mm" y="21mm" height="1mm"/><svg:rect
+                x="16mm" width="1mm" y="21mm" height="1mm"/><svg:rect x="17mm" width="1mm"
+                y="21mm" height="1mm"/><svg:rect x="18mm" width="1mm" y="21mm" height="1mm"/><svg:rect
+                x="19mm" width="1mm" y="21mm" height="1mm"/><svg:rect x="20mm" width="1mm"
+                y="21mm" height="1mm"/><svg:rect x="21mm" width="1mm" y="21mm" height="1mm"/><svg:rect
+                x="25mm" width="1mm" y="21mm" height="1mm"/><svg:rect x="26mm" width="1mm"
+                y="21mm" height="1mm"/><svg:rect x="27mm" width="1mm" y="21mm" height="1mm"/><svg:rect
+                x="29mm" width="1mm" y="21mm" height="1mm"/><svg:rect x="32mm" width="1mm"
+                y="21mm" height="1mm"/><svg:rect x="4mm" width="1mm" y="22mm" height="1mm"/><svg:rect
+                x="10mm" width="1mm" y="22mm" height="1mm"/><svg:rect x="18mm" width="1mm"
+                y="22mm" height="1mm"/><svg:rect x="19mm" width="1mm" y="22mm" height="1mm"/><svg:rect
+                x="20mm" width="1mm" y="22mm" height="1mm"/><svg:rect x="21mm" width="1mm"
+                y="22mm" height="1mm"/><svg:rect x="24mm" width="1mm" y="22mm" height="1mm"/><svg:rect
+                x="26mm" width="1mm" y="22mm" height="1mm"/><svg:rect x="27mm" width="1mm"
+                y="22mm" height="1mm"/><svg:rect x="28mm" width="1mm" y="22mm" height="1mm"/><svg:rect
+                x="31mm" width="1mm" y="22mm" height="1mm"/><svg:rect x="32mm" width="1mm"
+                y="22mm" height="1mm"/><svg:rect x="6mm" width="1mm" y="23mm" height="1mm"/><svg:rect
+                x="7mm" width="1mm" y="23mm" height="1mm"/><svg:rect x="8mm" width="1mm"
+                y="23mm" height="1mm"/><svg:rect x="9mm" width="1mm" y="23mm" height="1mm"/><svg:rect
+                x="11mm" width="1mm" y="23mm" height="1mm"/><svg:rect x="15mm" width="1mm"
+                y="23mm" height="1mm"/><svg:rect x="18mm" width="1mm" y="23mm" height="1mm"/><svg:rect
+                x="21mm" width="1mm" y="23mm" height="1mm"/><svg:rect x="22mm" width="1mm"
+                y="23mm" height="1mm"/><svg:rect x="24mm" width="1mm" y="23mm" height="1mm"/><svg:rect
+                x="31mm" width="1mm" y="23mm" height="1mm"/><svg:rect x="32mm" width="1mm"
+                y="23mm" height="1mm"/><svg:rect x="4mm" width="1mm" y="24mm" height="1mm"/><svg:rect
+                x="7mm" width="1mm" y="24mm" height="1mm"/><svg:rect x="8mm" width="1mm"
+                y="24mm" height="1mm"/><svg:rect x="9mm" width="1mm" y="24mm" height="1mm"/><svg:rect
+                x="10mm" width="1mm" y="24mm" height="1mm"/><svg:rect x="13mm" width="1mm"
+                y="24mm" height="1mm"/><svg:rect x="14mm" width="1mm" y="24mm" height="1mm"/><svg:rect
+                x="15mm" width="1mm" y="24mm" height="1mm"/><svg:rect x="19mm" width="1mm"
+                y="24mm" height="1mm"/><svg:rect x="21mm" width="1mm" y="24mm" height="1mm"/><svg:rect
+                x="22mm" width="1mm" y="24mm" height="1mm"/><svg:rect x="24mm" width="1mm"
+                y="24mm" height="1mm"/><svg:rect x="25mm" width="1mm" y="24mm" height="1mm"/><svg:rect
+                x="26mm" width="1mm" y="24mm" height="1mm"/><svg:rect x="27mm" width="1mm"
+                y="24mm" height="1mm"/><svg:rect x="28mm" width="1mm" y="24mm" height="1mm"/><svg:rect
+                x="30mm" width="1mm" y="24mm" height="1mm"/><svg:rect x="12mm" width="1mm"
+                y="25mm" height="1mm"/><svg:rect x="14mm" width="1mm" y="25mm" height="1mm"/><svg:rect
+                x="15mm" width="1mm" y="25mm" height="1mm"/><svg:rect x="16mm" width="1mm"
+                y="25mm" height="1mm"/><svg:rect x="18mm" width="1mm" y="25mm" height="1mm"/><svg:rect
+                x="19mm" width="1mm" y="25mm" height="1mm"/><svg:rect x="24mm" width="1mm"
+                y="25mm" height="1mm"/><svg:rect x="28mm" width="1mm" y="25mm" height="1mm"/><svg:rect
+                x="30mm" width="1mm" y="25mm" height="1mm"/><svg:rect x="31mm" width="1mm"
+                y="25mm" height="1mm"/><svg:rect x="32mm" width="1mm" y="25mm" height="1mm"/><svg:rect
+                x="4mm" width="1mm" y="26mm" height="1mm"/><svg:rect x="5mm" width="1mm"
+                y="26mm" height="1mm"/><svg:rect x="6mm" width="1mm" y="26mm" height="1mm"/><svg:rect
+                x="7mm" width="1mm" y="26mm" height="1mm"/><svg:rect x="8mm" width="1mm"
+                y="26mm" height="1mm"/><svg:rect x="9mm" width="1mm" y="26mm" height="1mm"/><svg:rect
+                x="10mm" width="1mm" y="26mm" height="1mm"/><svg:rect x="13mm" width="1mm"
+                y="26mm" height="1mm"/><svg:rect x="14mm" width="1mm" y="26mm" height="1mm"/><svg:rect
+                x="15mm" width="1mm" y="26mm" height="1mm"/><svg:rect x="16mm" width="1mm"
+                y="26mm" height="1mm"/><svg:rect x="20mm" width="1mm" y="26mm" height="1mm"/><svg:rect
+                x="21mm" width="1mm" y="26mm" height="1mm"/><svg:rect x="24mm" width="1mm"
+                y="26mm" height="1mm"/><svg:rect x="26mm" width="1mm" y="26mm" height="1mm"/><svg:rect
+                x="28mm" width="1mm" y="26mm" height="1mm"/><svg:rect x="31mm" width="1mm"
+                y="26mm" height="1mm"/><svg:rect x="4mm" width="1mm" y="27mm" height="1mm"/><svg:rect
+                x="10mm" width="1mm" y="27mm" height="1mm"/><svg:rect x="12mm" width="1mm"
+                y="27mm" height="1mm"/><svg:rect x="16mm" width="1mm" y="27mm" height="1mm"/><svg:rect
+                x="18mm" width="1mm" y="27mm" height="1mm"/><svg:rect x="19mm" width="1mm"
+                y="27mm" height="1mm"/><svg:rect x="21mm" width="1mm" y="27mm" height="1mm"/><svg:rect
+                x="24mm" width="1mm" y="27mm" height="1mm"/><svg:rect x="28mm" width="1mm"
+                y="27mm" height="1mm"/><svg:rect x="29mm" width="1mm" y="27mm" height="1mm"/><svg:rect
+                x="30mm" width="1mm" y="27mm" height="1mm"/><svg:rect x="32mm" width="1mm"
+                y="27mm" height="1mm"/><svg:rect x="4mm" width="1mm" y="28mm" height="1mm"/><svg:rect
+                x="6mm" width="1mm" y="28mm" height="1mm"/><svg:rect x="7mm" width="1mm"
+                y="28mm" height="1mm"/><svg:rect x="8mm" width="1mm" y="28mm" height="1mm"/><svg:rect
+                x="10mm" width="1mm" y="28mm" height="1mm"/><svg:rect x="15mm" width="1mm"
+                y="28mm" height="1mm"/><svg:rect x="20mm" width="1mm" y="28mm" height="1mm"/><svg:rect
+                x="24mm" width="1mm" y="28mm" height="1mm"/><svg:rect x="25mm" width="1mm"
+                y="28mm" height="1mm"/><svg:rect x="26mm" width="1mm" y="28mm" height="1mm"/><svg:rect
+                x="27mm" width="1mm" y="28mm" height="1mm"/><svg:rect x="28mm" width="1mm"
+                y="28mm" height="1mm"/><svg:rect x="4mm" width="1mm" y="29mm" height="1mm"/><svg:rect
+                x="6mm" width="1mm" y="29mm" height="1mm"/><svg:rect x="7mm" width="1mm"
+                y="29mm" height="1mm"/><svg:rect x="8mm" width="1mm" y="29mm" height="1mm"/><svg:rect
+                x="10mm" width="1mm" y="29mm" height="1mm"/><svg:rect x="12mm" width="1mm"
+                y="29mm" height="1mm"/><svg:rect x="13mm" width="1mm" y="29mm" height="1mm"/><svg:rect
+                x="14mm" width="1mm" y="29mm" height="1mm"/><svg:rect x="15mm" width="1mm"
+                y="29mm" height="1mm"/><svg:rect x="16mm" width="1mm" y="29mm" height="1mm"/><svg:rect
+                x="17mm" width="1mm" y="29mm" height="1mm"/><svg:rect x="19mm" width="1mm"
+                y="29mm" height="1mm"/><svg:rect x="21mm" width="1mm" y="29mm" height="1mm"/><svg:rect
+                x="24mm" width="1mm" y="29mm" height="1mm"/><svg:rect x="26mm" width="1mm"
+                y="29mm" height="1mm"/><svg:rect x="27mm" width="1mm" y="29mm" height="1mm"/><svg:rect
+                x="28mm" width="1mm" y="29mm" height="1mm"/><svg:rect x="29mm" width="1mm"
+                y="29mm" height="1mm"/><svg:rect x="30mm" width="1mm" y="29mm" height="1mm"/><svg:rect
+                x="32mm" width="1mm" y="29mm" height="1mm"/><svg:rect x="4mm" width="1mm"
+                y="30mm" height="1mm"/><svg:rect x="6mm" width="1mm" y="30mm" height="1mm"/><svg:rect
+                x="7mm" width="1mm" y="30mm" height="1mm"/><svg:rect x="8mm" width="1mm"
+                y="30mm" height="1mm"/><svg:rect x="10mm" width="1mm" y="30mm" height="1mm"/><svg:rect
+                x="19mm" width="1mm" y="30mm" height="1mm"/><svg:rect x="20mm" width="1mm"
+                y="30mm" height="1mm"/><svg:rect x="21mm" width="1mm" y="30mm" height="1mm"/><svg:rect
+                x="22mm" width="1mm" y="30mm" height="1mm"/><svg:rect x="23mm" width="1mm"
+                y="30mm" height="1mm"/><svg:rect x="24mm" width="1mm" y="30mm" height="1mm"/><svg:rect
+                x="28mm" width="1mm" y="30mm" height="1mm"/><svg:rect x="29mm" width="1mm"
+                y="30mm" height="1mm"/><svg:rect x="30mm" width="1mm" y="30mm" height="1mm"/><svg:rect
+                x="32mm" width="1mm" y="30mm" height="1mm"/><svg:rect x="4mm" width="1mm"
+                y="31mm" height="1mm"/><svg:rect x="10mm" width="1mm" y="31mm" height="1mm"/><svg:rect
+                x="13mm" width="1mm" y="31mm" height="1mm"/><svg:rect x="16mm" width="1mm"
+                y="31mm" height="1mm"/><svg:rect x="20mm" width="1mm" y="31mm" height="1mm"/><svg:rect
+                x="21mm" width="1mm" y="31mm" height="1mm"/><svg:rect x="22mm" width="1mm"
+                y="31mm" height="1mm"/><svg:rect x="23mm" width="1mm" y="31mm" height="1mm"/><svg:rect
+                x="24mm" width="1mm" y="31mm" height="1mm"/><svg:rect x="26mm" width="1mm"
+                y="31mm" height="1mm"/><svg:rect x="27mm" width="1mm" y="31mm" height="1mm"/><svg:rect
+                x="31mm" width="1mm" y="31mm" height="1mm"/><svg:rect x="4mm" width="1mm"
+                y="32mm" height="1mm"/><svg:rect x="5mm" width="1mm" y="32mm" height="1mm"/><svg:rect
+                x="6mm" width="1mm" y="32mm" height="1mm"/><svg:rect x="7mm" width="1mm"
+                y="32mm" height="1mm"/><svg:rect x="8mm" width="1mm" y="32mm" height="1mm"/><svg:rect
+                x="9mm" width="1mm" y="32mm" height="1mm"/><svg:rect x="10mm" width="1mm"
+                y="32mm" height="1mm"/><svg:rect x="12mm" width="1mm" y="32mm" height="1mm"/><svg:rect
+                x="14mm" width="1mm" y="32mm" height="1mm"/><svg:rect x="16mm" width="1mm"
+                y="32mm" height="1mm"/><svg:rect x="19mm" width="1mm" y="32mm" height="1mm"/><svg:rect
+                x="20mm" width="1mm" y="32mm" height="1mm"/><svg:rect x="22mm" width="1mm"
+                y="32mm" height="1mm"/><svg:rect x="24mm" width="1mm" y="32mm" height="1mm"/><svg:rect
+                x="25mm" width="1mm" y="32mm" height="1mm"/><svg:rect x="26mm" width="1mm"
+                y="32mm" height="1mm"/><svg:rect x="27mm" width="1mm" y="32mm" height="1mm"/><svg:rect
+                x="28mm" width="1mm" y="32mm" height="1mm"/><svg:rect x="29mm" width="1mm"
+                y="32mm" height="1mm"/><svg:rect x="31mm" width="1mm" y="32mm" height="1mm"/></svg>
+          - Text2D: {type: GRAPHIC, color: Opaque Black, name: Text, displayName: Thing2D,
+              version: 13.0, awiVersion: 0.0, VersionID: db3d70a1-9293-11f0-8d93-2c98113d472b,
+              componentID: -1, InParentID: b62ef0cc-9294-11f0-8d93-2c98113d472b, ID: b62ea2ab-9294-11f0-8d93-2c98113d472b,
+              template: false, verified: false, cncApproved: false, encrypted: false,
+              exportable: true, userLibraryCreated: false, customTemplate: false,
+              locked: false, templateModification: UNMODIFIED, reconstructedFile: false,
+              convertedFile: false, autogeneratedtype: NOT_AUTOGENERATED, layer: Default,
+              rotation: '90.0', OriginX: '1.5133867855820544', OriginY: '1.5960512100139566',
+              onSameSide: true, flatpatternAttachment: false, scaleFactorY: '-1.0',
+              content: 'https://deimoscontrols.com', fontFamily: Arial, fontStyle: Regular,
+              fontSize: '12.0', sizeCorrected: true, userEditedFontSize: false, kerning: true,
+              textAlignment: LEFT}
+          - Text2D: {type: GRAPHIC, color: Opaque Black, name: Text, displayName: Thing2D,
+              version: 13.0, awiVersion: 0.0, VersionID: db3d70a1-9293-11f0-8d93-2c98113d472b,
+              componentID: -1, InParentID: 9b82a275-9294-11f0-8d93-2c98113d472b, ID: 9b825454-9294-11f0-8d93-2c98113d472b,
+              template: false, verified: false, cncApproved: false, encrypted: false,
+              exportable: true, userLibraryCreated: false, customTemplate: false,
+              locked: false, templateModification: UNMODIFIED, reconstructedFile: false,
+              convertedFile: false, autogeneratedtype: NOT_AUTOGENERATED, layer: Default,
+              rotation: '89.5', OriginX: '1.713698181345409', OriginY: '1.5952605457484343',
+              onSameSide: true, flatpatternAttachment: false, scaleFactorY: '-1.0',
+              content: support@deimoscontrols.com, fontFamily: Arial, fontStyle: Regular,
+              fontSize: '12.0', sizeCorrected: true, userEditedFontSize: false, kerning: true,
+              textAlignment: LEFT}
+          - Text2D: {type: GRAPHIC, color: Opaque Black, name: Text, displayName: Thing2D,
+              version: 13.0, awiVersion: 0.0, VersionID: db3d70a1-9293-11f0-8d93-2c98113d472b,
+              componentID: -1, InParentID: daaffdf4-9293-11f0-8d93-2c98113d472b, ID: cd02b5d2-9293-11f0-8d93-2c98113d472b,
+              template: false, verified: false, cncApproved: false, encrypted: false,
+              exportable: true, userLibraryCreated: false, customTemplate: false,
+              locked: false, templateModification: UNMODIFIED, reconstructedFile: false,
+              convertedFile: false, autogeneratedtype: NOT_AUTOGENERATED, layer: Default,
+              rotation: '90.0', OriginX: '1.9090519989589216', OriginY: '1.5779861488950262',
+              onSameSide: true, flatpatternAttachment: false, scaleFactorY: '-1.0',
+              content: Deimos Controls LLC, fontFamily: Arial, fontStyle: Regular,
+              fontSize: '12.0', sizeCorrected: true, userEditedFontSize: false, kerning: true,
+              textAlignment: LEFT}
+          - Text2D: {type: GRAPHIC, color: Opaque Black, name: Text, displayName: Thing2D,
+              version: 13.0, awiVersion: 0.0, VersionID: b4c6f26e-9293-11f0-8d93-2c98113d472b,
+              componentID: -1, InParentID: b4520fd2-9293-11f0-8d93-2c98113d472b, ID: afd8206f-9293-11f0-8d93-2c98113d472b,
+              template: false, verified: false, cncApproved: false, encrypted: false,
+              exportable: true, userLibraryCreated: false, customTemplate: false,
+              locked: false, templateModification: UNMODIFIED, reconstructedFile: false,
+              convertedFile: false, autogeneratedtype: NOT_AUTOGENERATED, layer: Default,
+              rotation: '90.0', OriginX: '2.0936958735120323', OriginY: '1.5653994556924569',
+              onSameSide: true, flatpatternAttachment: false, scaleFactorY: '-1.0',
+              content: DEIMOS DAQ, fontFamily: Arial, fontStyle: Regular, fontSize: '20.0',
+              sizeCorrected: true, userEditedFontSize: false, kerning: true, textAlignment: LEFT}
+          - SVG:
+              Bounds: {width: '0.7913139534138447', height: '0.881522386930839', x: '0.0',
+                y: '0.0'}
+              type: GRAPHIC
+              name: Un-named 2D Thing
+              displayName: Thing2D
+              version: 13.0
+              awiVersion: 0.0
+              VersionID: 1b1827fa-928c-11f0-8d93-2c98113d472b
+              componentID: -1
+              InParentID: 1af389ca-928c-11f0-8d93-2c98113d472b
+              ID: 1b1827f9-928c-11f0-8d93-2c98113d472b
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              rotation: '180.0'
+              OriginX: '2.2976536315911296'
+              OriginY: '0.6257400774181097'
+              onSameSide: true
+              flatpatternAttachment: false
+              scaleFactorY: '-1.0'
+              zOrigin: '0.'
               document: "<?xml version=\"1.0\" encoding=\"UTF-8\"?><svg xmlns=\"http://www.w3.org/2000/svg\"\
                 \ xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:svg=\"http://www.w3.org/2000/svg\"\
                 \ xmlns:sodipodi=\"http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd\"\
@@ -3290,8 +3825,8 @@ Assembly:
               convertedFile: false
               autogeneratedtype: NOT_AUTOGENERATED
               properties:
-              - BooleanProperty: [profileCutout, true]
               - BooleanProperty: [UserAddedCornerRad, true]
+              - BooleanProperty: [profileCutout, true]
               layer: Default
               rotation: '180.0'
               OriginX: '1.7469079629637299'
@@ -3329,8 +3864,8 @@ Assembly:
               convertedFile: false
               autogeneratedtype: NOT_AUTOGENERATED
               properties:
-              - BooleanProperty: [profileCutout, true]
               - BooleanProperty: [UserAddedCornerRad, true]
+              - BooleanProperty: [profileCutout, true]
               layer: Default
               rotation: '180.0'
               OriginX: '2.5378729323260223'
@@ -3368,8 +3903,8 @@ Assembly:
               convertedFile: false
               autogeneratedtype: NOT_AUTOGENERATED
               properties:
-              - BooleanProperty: [profileCutout, false]
               - BooleanProperty: [UserAddedCornerRad, true]
+              - BooleanProperty: [profileCutout, false]
               layer: Default
               rotation: '180.0'
               OriginX: '1.0784126407197874'
@@ -3407,8 +3942,8 @@ Assembly:
               convertedFile: false
               autogeneratedtype: NOT_AUTOGENERATED
               properties:
-              - BooleanProperty: [profileCutout, false]
               - BooleanProperty: [UserAddedCornerRad, true]
+              - BooleanProperty: [profileCutout, false]
               layer: Default
               rotation: '180.0'
               OriginX: '3.0945552602450785'
@@ -3610,7 +4145,7 @@ Assembly:
           Parameters:
           - {name: actualPanelScrew, default: 'IfElse(FrontRearThick < 0.125, shortPanelScrew,
               panel screw)', description: The actual panel screw to use, displayName: actualPanelScrew}
-      DesignID: 6bf5adb9-8de7-11f0-9e3c-2c98113d472b
+      DesignID: 1f8d0f0e-928c-11f0-8d93-2c98113d472b
       Mark At Laser: GREEN
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: MetalType, color: RearColor, thickness: FrontRearThick}
@@ -4248,14 +4783,15 @@ Assembly:
               convertedFile: false
               autogeneratedtype: NOT_AUTOGENERATED
               properties:
-              - BooleanProperty: [profileCutout, false]
               - BooleanProperty: [UserAddedCornerRad, true]
+              - BooleanProperty: [profileCutout, false]
               layer: Default
               rotation: '180.0'
               OriginX: '2.6965789194588377'
               OriginY: '0.45199999999999796'
               onSameSide: true
               flatpatternAttachment: false
+              zOrigin: '0.'
               PathModifications:
               - RoundAllMod:
                   radius: {Value: '0.01968503937007874'}
@@ -4285,14 +4821,15 @@ Assembly:
               convertedFile: false
               autogeneratedtype: NOT_AUTOGENERATED
               properties:
-              - BooleanProperty: [profileCutout, false]
               - BooleanProperty: [UserAddedCornerRad, true]
+              - BooleanProperty: [profileCutout, false]
               layer: Default
               rotation: '180.0'
               OriginX: '1.9319551065664207'
               OriginY: '0.45215047606625636'
               onSameSide: true
               flatpatternAttachment: false
+              zOrigin: '0.'
               PathModifications:
               - RoundAllMod:
                   radius: {Value: '0.01968503937007874'}
