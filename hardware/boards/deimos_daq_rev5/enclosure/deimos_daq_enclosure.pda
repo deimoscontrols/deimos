@@ -551,7 +551,7 @@ Assembly:
           properties:
           - BooleanProperty: [PEMOnTop, true]
           pickable: true
-          Graphics Options: {Top: SILK_PRINT, Bottom: DIGITAL_PRINT, Asked Bottom: true,
+          Graphics Options: {Top: DIGITAL_PRINT, Bottom: DIGITAL_PRINT, Asked Bottom: false,
             Asked Top: false}
           BaseProfile:
             type: OUTLINE
@@ -3160,8 +3160,8 @@ Assembly:
           properties:
           - BooleanProperty: [PEMOnTop, true]
           pickable: true
-          Graphics Options: {Top: SILK_PRINT, Bottom: DIGITAL_PRINT, Asked Bottom: true,
-            Asked Top: false}
+          Graphics Options: {Top: DIGITAL_PRINT, Bottom: DIGITAL_PRINT, Asked Bottom: false,
+            Asked Top: true}
           length: Width
           width: Depth
           FaceCoordinateTransform:
@@ -4176,7 +4176,7 @@ Assembly:
           properties:
           - BooleanProperty: [PEMOnTop, true]
           pickable: true
-          Graphics Options: {Top: SILK_PRINT, Bottom: DIGITAL_PRINT, Asked Bottom: true,
+          Graphics Options: {Top: DIGITAL_PRINT, Bottom: DIGITAL_PRINT, Asked Bottom: false,
             Asked Top: false}
           BaseProfile:
             type: OUTLINE
