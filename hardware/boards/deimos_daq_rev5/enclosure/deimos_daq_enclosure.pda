@@ -12,8 +12,8 @@ Assembly:
       Aug, 28', 'Sep. 15, 2025, 10:17:48 p.m. EDT': '7.2.1 Aug, 28', 'Sep. 15, 2025, 10:17:52 p.m. EDT': '7.2.1
       Aug, 28', 'Sep. 15, 2025, 10:19:25 p.m. EDT': '7.2.1 Aug, 28', 'Sep. 15, 2025, 10:20:54 p.m. EDT': '7.2.1
       Aug, 28', 'Sep. 15, 2025, 11:18:10 p.m. EDT': '7.2.1 Aug, 28', 'Sep. 16, 2025, 10:39:02 p.m. EDT': '7.2.1
-      Aug, 28', 'Sep. 16, 2025, 10:47:40 p.m. EDT': '7.2.1 Aug, 28', 'Sep. 16, 2025, 7:25:03 a.m. EDT': '7.2.1
-      Aug, 28'}
+      Aug, 28', 'Sep. 16, 2025, 10:47:40 p.m. EDT': '7.2.1 Aug, 28', 'Sep. 16, 2025, 11:02:21 p.m. EDT': '7.2.1
+      Aug, 28', 'Sep. 16, 2025, 7:25:03 a.m. EDT': '7.2.1 Aug, 28'}
   versionIds: {c985918d-8c58-11f0-9e27-0242ac110003: 'Sep. 8, 2025, 2:12:08 a.m. GMT',
     ce53ff26-8ddf-11f0-939b-2c98113d472b: 'Sep 9, 2025, 8:48:06 PM EDT', f2a83ac8-8ddf-11f0-939b-2c98113d472b: 'Sep
       9, 2025, 8:49:08 PM EDT', ab88df20-8de0-11f0-939b-2c98113d472b: 'Sep 9, 2025,
@@ -46,7 +46,8 @@ Assembly:
       16, 2025, 7:25:03 a.m. EDT', 6b0025e9-936f-11f0-9908-2c98113d472b: 'Sep. 16,
       2025, 10:38:39 p.m. EDT', 72526264-936f-11f0-9908-2c98113d472b: 'Sep. 16, 2025,
       10:39:02 p.m. EDT', a8d050cf-9370-11f0-9367-2c98113d472b: 'Sep. 16, 2025, 10:47:40
-      p.m. EDT'}
+      p.m. EDT', b586a49e-9372-11f0-9367-2c98113d472b: 'Sep. 16, 2025, 11:02:21 p.m.
+      EDT'}
   commits: {'Aug, 28': 530ee2e14789923a8cc21622b4e8118cf7d1a7de}
   QuotedUnits: INCHES
   DesignID: 1U Extruded Aluminum Type C Template
@@ -54,7 +55,7 @@ Assembly:
   displayName: 1U Extruded Aluminum Type C
   version: 13.0
   awiVersion: 0.0
-  VersionID: a8d050cf-9370-11f0-9367-2c98113d472b
+  VersionID: b586a49e-9372-11f0-9367-2c98113d472b
   componentID: -1
   InParentID: 5cb40602-936f-11f0-9908-2c98113d472b
   description: A 1U enclosure with extruded aluminum sides. Type C front and rear
@@ -3091,7 +3092,7 @@ Assembly:
       displayName: Top Plate
       version: 13.0
       awiVersion: 0.0
-      VersionID: a8d050ce-9370-11f0-9367-2c98113d472b
+      VersionID: b586a49d-9372-11f0-9367-2c98113d472b
       componentID: -1
       InParentID: 5cb40601-936f-11f0-9908-2c98113d472b
       description: The Top Cover
@@ -3141,7 +3142,7 @@ Assembly:
           displayName: Top
           version: 13.0
           awiVersion: 0.0
-          VersionID: a8d050cd-9370-11f0-9367-2c98113d472b
+          VersionID: b586a49c-9372-11f0-9367-2c98113d472b
           componentID: -1
           InParentID: 5cb40600-936f-11f0-9908-2c98113d472b
           ID: c98b36ed-8c58-11f0-9e27-0242ac110003
@@ -4102,7 +4103,7 @@ Assembly:
                   </g>
                 </svg>
           - SVG:
-              Bounds: {width: '3.7214774726210464', height: '0.1893851737798683',
+              Bounds: {width: '3.6839639131228257', height: '0.18747611695043967',
                 x: '0.0', y: '0.0'}
               type: GRAPHIC
               name: Un-named 2D Thing
