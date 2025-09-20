@@ -1,5 +1,62 @@
 # Changelog
 
+## 2025-09-19 Deimos DAQ Rev 6.0.0 hardware and firmware
+
+Tooling
+* ubuntu 24.04
+* kicad 8 with hierarchical PCB plugin
+* protocase designer v7.2.1 linux version
+  * Run like `LD_LIBRARY_PATH=/opt/protocasedesigner/lib/app/natives/occjava/linux-x86_64/ /opt/protocasedesigner/bin/ProtocaseDesigner` to resolve link path issue for java runtime
+* freecad 1.0.2
+
+### Added
+
+* Enclosure design (protocase)
+* 3D assembly (freecad)
+    * With STEP exports from protocase and kicad
+* Rev6 schematic and layout
+    * [x] Add damping in RTD current sink control loop
+        * Existing circuit sees about 60mV peak-to-peak oscillation on the FET gate due to lack of damping in loop
+        * Add integrator-style filter
+        * Resistor from FET source to amp negative
+        * Capacitor from FET gate to amp negative
+        * Amp output to amp gate
+        * 10k 10nF
+    * [x] Use higher-voltage supply for inamp circuits again to handle common-mode without saturating
+        * Without this, TC and RTD amps read low and high-gain voltage inputs saturate well within intended 0-2.5V range
+        * +/-12V split rail should do the trick
+    * [x] Put supply voltage on ADJ/EN pin of LDOs
+        * Previous revs' 4-20mA current limiter LDOs were functioning due to a coincidental hardware bug in the LDOs that caused them to latch enabled during board startup
+        * Intended behavior of the LDO chip is to be powered down when ADJ/EN is shorted to ground
+        * LDO targets ADJ pin as output voltage if ADJ voltage is > enable threshold (around 1.5V)
+        * Bodge-wire testing confirms that putting 12V on the ADJ pin for the 12V LDO produces the intended behavior (pass-through with short-circuit protection)
+    * [x] Remove LDO output caps & add 0.1uF input caps
+        * Limit inrush to avoid over-current trip during board startup
+    * [x] Add 1.024V on ref pin for high-gain voltage inputs to allow measuring with symmetric noise near 0V
+    * [x] Add one power-on indicator LED back in
+    * [x] Fix labeling of gain in schematic for 660x channel
+    * [x] Update 3.3V zener to PN with smaller footprint
+    * [x] Use back-to-back zeners for filter input to handle negative rail saturation
+    * [x] Replace OPA333 with OPA196 for filters & use +/-12V split supply to get full range of 0-2.5V output
+    * [x] Add -12V rail for inamp biasing
+        * TI application note SLVAE10 fig 3 shows use of TPS560430 as inverting buck-boost
+        * https://www.ti.com/lit/an/slvae10/slvae10.pdf
+    * [x] Remove inamp from 4-20mA and G<=1 circuits in favor of overvoltage protection in filter circuits
+    * [x] Remove PWM I/O logic buffers in favor of resistor-diode overvoltage protection & current-limiting
+        * Buffers pull too much current & produce ground plane noise 
+    * [x] Remove 5V converter that is no longer needed for anything 
+    * [x] Remove extra mounting holes that will not be needed with an extrusion enclosure 
+    * Prep layout for aluminum extrusion enclosure
+        * https://www.protocase.com/products/electronic-enclosures/aluminum.php
+        * [x] Move components back from board edge (min 0.64" clearance each side to tall parts, 0.2" to short parts & traces)
+        * [x] Place remaining horizontal connectors on ends for panel access, 0.064" overhang for front/back panels
+        * [x] Pack lever-wire connectors closer together now that the dimensions are confirmed
+    * [x] Replace eth connector with one that is smaller and cheaper 
+    * [x] Add enclosure
+        * [x] Template
+        * [x] Cutouts
+        * [x] Silkscreen labels
+
 ## 2025-08-25 deimos 0.11.0, deimos_shared 0.5.0, Deimos DAQ Rev 5.0.0 hardware and firmware
 
 ### Added
