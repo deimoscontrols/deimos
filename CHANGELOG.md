@@ -1,6 +1,6 @@
 # Changelog
 
-## 2025-09-19 Deimos DAQ Rev 6.0.0 hardware and firmware
+## 2025-09-19 deimos 0.11.1, Deimos DAQ Rev 6.0.0 hardware and firmware
 
 Tooling
 * ubuntu 24.04
@@ -56,6 +56,10 @@ Tooling
         * [x] Template
         * [x] Cutouts
         * [x] Silkscreen labels
+
+### Changed
+
+* Improved error handling and formatting in `deimos::controller`
 
 ## 2025-08-25 deimos 0.11.0, deimos_shared 0.5.0, Deimos DAQ Rev 5.0.0 hardware and firmware
 
