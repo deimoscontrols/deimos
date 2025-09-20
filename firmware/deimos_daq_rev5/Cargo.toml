@@ -18,7 +18,8 @@ stm32h7xx-hal = { version = "0.16.0", features=["rt", "revision_v", "stm32h743v"
 #stm32h7xx-hal = { path = "../../../../stm32h7xx-hal", features=["rt", "revision_v", "stm32h743v", "ethernet"] }
 nb = "1.1.0"
 irq = "0.2.3"
-flaw = "0.2.5"
+flaw = "0.3.0"
+#flaw = { path = "../../../flaw/flaw" }
 atomic_float = "1.1.0"
 array-macro = "2.1.8"
 

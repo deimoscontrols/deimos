@@ -66,7 +66,7 @@ fn main() {
     controller.add_peripheral("p6", Box::new(AnalogIRev4 { serial_number: 4 }));
     // controller.add_peripheral("p7", Box::new(AnalogIRev4 { serial_number: 5 }));
     // controller.add_peripheral("p8", Box::new(AnalogIRev4 { serial_number: 6 }));
-    controller.add_peripheral("p8", Box::new(DeimosDaqRev5 { serial_number: 1 }));
+    controller.add_peripheral("p8", Box::new(DeimosDaqRev5 { serial_number: 2 }));
 
     // Set up database dispatchers
     let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(
@@ -99,6 +99,9 @@ fn main() {
     controller.set_peripheral_input_source("p1.pwm1_freq", "freq1.y");
     controller.set_peripheral_input_source("p1.pwm3_duty", "sequence_machine.duty");
     controller.set_peripheral_input_source("p1.pwm3_freq", "freq.y");
+
+    controller.set_peripheral_input_source("p8.pwm0_duty", "duty.y");
+    controller.set_peripheral_input_source("p8.pwm0_freq", "freq.y");
     controller.set_peripheral_input_source("p8.dac1", "dac1.y");
     controller.set_peripheral_input_source("p8.dac2", "dac2.y");
 
