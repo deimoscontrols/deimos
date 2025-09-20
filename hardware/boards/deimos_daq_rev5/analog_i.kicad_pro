@@ -488,8 +488,8 @@
       "plot": "",
       "pos_files": "",
       "specctra_dsn": "",
-      "step": "enclosure/deimos_daq_rev6.step",
-      "svg": "enclosure/",
+      "step": "analog_i.step",
+      "svg": "",
       "vrml": ""
     },
     "page_layout_descr_file": ""

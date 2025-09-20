@@ -1,4 +1,4 @@
 (sym_lib_table
   (version 7)
-  (lib (name "aaa")(type "KiCad")(uri "/home/jlogan/git/deimos/hardware/kicad_libs/symbols/symbols.kicad_sym")(options "")(descr ""))
+  (lib (name "aaa")(type "KiCad")(uri "${KIPRJMOD}/../../../kicad_libs/symbols/symbols.kicad_sym")(options "")(descr ""))
 )

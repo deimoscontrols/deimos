@@ -192,16 +192,16 @@
 		)
 		(uuid "30d3e77a-5179-4936-9810-2528d1fdd080")
 	)
-	(text "-12V pwr"
+	(text "5V pwr"
 		(exclude_from_sim no)
-		(at 243.84 83.82 0)
+		(at 164.846 59.436 0)
 		(effects
 			(font
 				(size 4 4)
 			)
 			(justify left bottom)
 		)
-		(uuid "72d6da9e-781f-42a2-a453-97af633af09c")
+		(uuid "41b8d863-c3d2-4acb-a325-d653e334a9d8")
 	)
 	(text "1.024V +/- 0.05% Ref"
 		(exclude_from_sim no)
@@ -227,7 +227,7 @@
 	)
 	(text "Testpoints"
 		(exclude_from_sim no)
-		(at 208.534 71.628 0)
+		(at 215.9 72.136 0)
 		(effects
 			(font
 				(size 4 4)
@@ -717,6 +717,146 @@
 			)
 		)
 	)
+	(symbol
+		(lib_id "Mechanical:MountingHole")
+		(at 40.386 134.62 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "9cf721ee-c7a3-4ec6-bb48-fc775e48d563")
+		(property "Reference" "H1004"
+			(at 43.18 133.985 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "MountingHole_for_10-32"
+			(at 43.18 136.525 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "MountingHole:MountingHole_5mm"
+			(at 40.386 134.62 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 40.386 134.62 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 40.386 134.62 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "stm32h7_base"
+				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e"
+					(reference "H1004")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a"
+					(reference "H2004")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mechanical:MountingHole")
+		(at 40.386 128.524 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "e20d56f6-885c-4c63-8b93-0cda79e3e437")
+		(property "Reference" "H1003"
+			(at 43.18 127.889 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "MountingHole_for_10-32"
+			(at 43.18 130.429 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "MountingHole:MountingHole_5mm"
+			(at 40.386 128.524 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 40.386 128.524 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 40.386 128.524 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "stm32h7_base"
+				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e"
+					(reference "H1003")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a"
+					(reference "H2003")
+					(unit 1)
+				)
+			)
+		)
+	)
 	(sheet
 		(at 55.372 30.226)
 		(size 16.002 18.288)
@@ -1103,44 +1243,6 @@
 		)
 	)
 	(sheet
-		(at 246.126 87.122)
-		(size 16.764 17.272)
-		(fields_autoplaced yes)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(fill
-			(color 0 0 0 0.0000)
-		)
-		(uuid "23e19bde-060f-4059-96a5-ca43a6cc55da")
-		(property "Sheetname" "12v_inverting"
-			(at 246.126 86.4104 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Sheetfile" "12v_inverting.kicad_sch"
-			(at 246.126 104.9786 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-			)
-		)
-		(instances
-			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e"
-					(page "11")
-				)
-			)
-		)
-	)
-	(sheet
 		(at 83.058 39.878)
 		(size 15.494 17.78)
 		(fields_autoplaced yes)
@@ -1212,6 +1314,44 @@
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a"
 					(page "5")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 166.116 61.722)
+		(size 14.478 13.716)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "a8b9daed-275a-4a60-a12d-4ffab5119e53")
+		(property "Sheetname" "5V buck"
+			(at 166.116 61.0104 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "5v_buck.kicad_sch"
+			(at 166.116 76.0226 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a"
+					(page "36")
 				)
 			)
 		)
@@ -1293,7 +1433,7 @@
 		)
 	)
 	(sheet
-		(at 210.566 74.93)
+		(at 218.186 78.486)
 		(size 24.13 20.574)
 		(fields_autoplaced yes)
 		(stroke
@@ -1305,7 +1445,7 @@
 		)
 		(uuid "f8ee85d2-545a-41b5-afed-b6a262439b08")
 		(property "Sheetname" "power_status_leds"
-			(at 210.566 74.2184 0)
+			(at 218.186 77.7744 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1314,7 +1454,7 @@
 			)
 		)
 		(property "Sheetfile" "power_status_leds.kicad_sch"
-			(at 210.566 96.0886 0)
+			(at 218.186 99.6446 0)
 			(effects
 				(font
 					(size 1.27 1.27)

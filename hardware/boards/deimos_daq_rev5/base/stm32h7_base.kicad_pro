@@ -621,10 +621,6 @@
       "Ethernet"
     ],
     [
-      "23e19bde-060f-4059-96a5-ca43a6cc55da",
-      "12v_inverting"
-    ],
-    [
       "0a1e0bd0-0a38-48a2-850f-3bdf02fef3ae",
       "24v_connector"
     ],
@@ -639,6 +635,10 @@
     [
       "e1c9a48d-0faf-4502-abd1-fd8b351cacb5",
       "3.3V buck"
+    ],
+    [
+      "a8b9daed-275a-4a60-a12d-4ffab5119e53",
+      "5V buck"
     ],
     [
       "b0b0bf52-ab0f-447d-a4ad-06c08cf2163a",

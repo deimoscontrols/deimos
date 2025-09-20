@@ -453,11 +453,11 @@
 				)
 			)
 		)
-		(symbol "power:-12V"
+		(symbol "power:+5V"
 			(power)
-			(pin_numbers hide)
 			(pin_names
-				(offset 0) hide)
+				(offset 0)
+			)
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
@@ -470,7 +470,7 @@
 					(hide yes)
 				)
 			)
-			(property "Value" "-12V"
+			(property "Value" "+5V"
 				(at 0 3.556 0)
 				(effects
 					(font
@@ -496,7 +496,7 @@
 					(hide yes)
 				)
 			)
-			(property "Description" "Power symbol creates a global label with name \"-12V\""
+			(property "Description" "Power symbol creates a global label with name \"+5V\""
 				(at 0 0 0)
 				(effects
 					(font
@@ -505,7 +505,7 @@
 					(hide yes)
 				)
 			)
-			(property "ki_keywords" "global power"
+			(property "ki_keywords" "power-flag"
 				(at 0 0 0)
 				(effects
 					(font
@@ -514,11 +514,49 @@
 					(hide yes)
 				)
 			)
-			(symbol "-12V_0_0"
+			(symbol "+5V_0_1"
+				(polyline
+					(pts
+						(xy -0.762 1.27) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 2.54) (xy 0.762 1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "+5V_1_1"
 				(pin power_in line
 					(at 0 0 90)
-					(length 0)
-					(name "~"
+					(length 0) hide
+					(name "+5V"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -531,20 +569,6 @@
 								(size 1.27 1.27)
 							)
 						)
-					)
-				)
-			)
-			(symbol "-12V_0_1"
-				(polyline
-					(pts
-						(xy 0 0) (xy 0 1.27) (xy 0.762 1.27) (xy 0 2.54) (xy -0.762 1.27) (xy 0 1.27)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type outline)
 					)
 				)
 			)
@@ -717,6 +741,78 @@
 		)
 	)
 	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 179.578 82.042 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "63e3bba2-ffa8-4034-83d2-d0b2184bba2d")
+		(property "Reference" "TP10002"
+			(at 177.8 80.518 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "TestPoint_+5V"
+			(at 179.324 87.122 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
+			(at 174.498 82.042 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 174.498 82.042 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 179.578 82.042 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "dde5ef87-0659-4eba-a7a3-b6142956a38e")
+		)
+		(instances
+			(project "stm32h7_base"
+				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/f8ee85d2-545a-41b5-afed-b6a262439b08"
+					(reference "TP10002")
+					(unit 1)
+				)
+			)
+			(project "simplicity_analog_1"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/f8ee85d2-545a-41b5-afed-b6a262439b08"
+					(reference "TP7002")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:+12V")
 		(at 175.26 82.042 0)
 		(unit 1)
@@ -783,71 +879,6 @@
 			(project "simplicity_analog_1"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/f8ee85d2-545a-41b5-afed-b6a262439b08"
 					(reference "#PWR07036")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:-12V")
-		(at 170.434 82.042 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "81c61288-4d3a-4ab8-a771-1739bf5e44ef")
-		(property "Reference" "#PWR11001"
-			(at 170.434 85.852 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "-12V"
-			(at 170.434 76.2 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 170.434 82.042 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 170.434 82.042 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"-12V\""
-			(at 170.434 82.042 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "1d03f515-0989-4d43-9a9d-745f6611a8a9")
-		)
-		(instances
-			(project ""
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/f8ee85d2-545a-41b5-afed-b6a262439b08"
-					(reference "#PWR11001")
 					(unit 1)
 				)
 			)
@@ -998,34 +1029,16 @@
 		)
 	)
 	(symbol
-		(lib_id "Connector:TestPoint")
-		(at 170.434 82.042 180)
+		(lib_id "power:+5V")
+		(at 179.578 82.042 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "c8765f43-a844-4df7-a9dc-ffb1603863d7")
-		(property "Reference" "TP11001"
-			(at 168.656 80.518 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "TestPoint_+12V"
-			(at 170.18 87.122 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
-			(at 165.354 82.042 0)
+		(uuid "ae531c51-5ec5-4037-a26f-28d8e579d79f")
+		(property "Reference" "#PWR07037"
+			(at 179.578 85.852 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1033,8 +1046,26 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
-			(at 165.354 82.042 0)
+		(property "Value" "+5V"
+			(at 179.578 74.93 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 179.578 82.042 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 179.578 82.042 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1043,7 +1074,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 170.434 82.042 0)
+			(at 179.578 82.042 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1052,12 +1083,18 @@
 			)
 		)
 		(pin "1"
-			(uuid "c0ab3ef4-739d-4c62-962d-5c75cc801ad8")
+			(uuid "f442bc67-73f9-463a-b5b2-32a6890ed786")
 		)
 		(instances
-			(project "stm32h7_base"
+			(project ""
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/f8ee85d2-545a-41b5-afed-b6a262439b08"
-					(reference "TP11001")
+					(reference "#PWR07037")
+					(unit 1)
+				)
+			)
+			(project "simplicity_analog_1"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/f8ee85d2-545a-41b5-afed-b6a262439b08"
+					(reference "#PWR07037")
 					(unit 1)
 				)
 			)

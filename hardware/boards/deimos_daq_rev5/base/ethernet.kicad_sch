@@ -2218,6 +2218,348 @@
 				)
 			)
 		)
+		(symbol "aaa:6339160-1"
+			(pin_names
+				(offset 0.762)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "J"
+				(at 19.05 7.62 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "6339160-1"
+				(at 19.05 5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" "63391601"
+				(at 19.05 2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "https://www.te.com/commerce/DocumentDelivery/DDEController?Action=showdoc&DocId=Customer+Drawing%7F6339160%7FE%7Fpdf%7FEnglish%7FENG_CD_6339160_E_6339160-c_drw.pdf%7F6339160-1"
+				(at 19.05 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Description" "Cat5 modular RJ45 jack, 8/8,SMT,shielded"
+				(at 19.05 -2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Height" "13.72"
+				(at 19.05 -5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer_Name" "TE Connectivity"
+				(at 19.05 -7.62 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer_Part_Number" "6339160-1"
+				(at 19.05 -10.16 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Mouser Part Number" "571-6339160-1"
+				(at 19.05 -12.7 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Mouser Price/Stock" "https://www.mouser.co.uk/ProductDetail/TE-Connectivity/6339160-1?qs=Il0cmQ4mt8K1Qlv3V6xMcA%3D%3D"
+				(at 19.05 -15.24 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Arrow Part Number" "6339160-1"
+				(at 19.05 -17.78 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Arrow Price/Stock" "https://www.arrow.com/en/products/6339160-1/te-connectivity?region=nac"
+				(at 19.05 -20.32 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Mouser Testing Part Number" ""
+				(at 19.05 -22.86 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Mouser Testing Price/Stock" ""
+				(at 19.05 -25.4 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(symbol "6339160-1_0_0"
+				(pin passive line
+					(at 22.86 -17.78 180)
+					(length 5.08)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -2.54 0)
+					(length 5.08)
+					(name "10"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "10"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 22.86 -15.24 180)
+					(length 5.08)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 22.86 -12.7 180)
+					(length 5.08)
+					(name "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 22.86 -10.16 180)
+					(length 5.08)
+					(name "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 22.86 -7.62 180)
+					(length 5.08)
+					(name "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 22.86 -5.08 180)
+					(length 5.08)
+					(name "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 22.86 -2.54 180)
+					(length 5.08)
+					(name "7"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "7"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 22.86 0 180)
+					(length 5.08)
+					(name "8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 5.08)
+					(name "9"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "9"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(symbol "6339160-1_0_1"
+				(polyline
+					(pts
+						(xy 5.08 2.54) (xy 17.78 2.54) (xy 17.78 -20.32) (xy 5.08 -20.32) (xy 5.08 2.54)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+		)
 		(symbol "aaa:H1102NLT"
 			(pin_names
 				(offset 0.762)
@@ -2875,321 +3217,6 @@
 				)
 			)
 		)
-		(symbol "aaa:RCH_RC01133"
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "J"
-				(at 21.59 12.7 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-				)
-			)
-			(property "Value" "RCH_RC01133"
-				(at 21.59 10.16 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-				)
-			)
-			(property "Footprint" "RCHRC01133"
-				(at 21.59 -89.84 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2007281104_RCH-RC01133_C708616.pdf"
-				(at 21.59 -189.84 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-					(hide yes)
-				)
-			)
-			(property "Description" "RJ45Receptacle 1 Shielded Bend insert Without LED -40~+70 Plugin Ethernet Connectors / Modular Connectors (RJ45 RJ11) ROHS"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Height" "13.35"
-				(at 21.59 -389.84 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-					(hide yes)
-				)
-			)
-			(property "Manufacturer_Name" "RCH"
-				(at 21.59 -489.84 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-					(hide yes)
-				)
-			)
-			(property "Manufacturer_Part_Number" "RCH RC01133"
-				(at 21.59 -589.84 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-					(hide yes)
-				)
-			)
-			(property "Mouser Part Number" ""
-				(at 21.59 -689.84 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-					(hide yes)
-				)
-			)
-			(property "Mouser Price/Stock" ""
-				(at 21.59 -789.84 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-					(hide yes)
-				)
-			)
-			(property "Arrow Part Number" ""
-				(at 21.59 -889.84 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-					(hide yes)
-				)
-			)
-			(property "Arrow Price/Stock" ""
-				(at 21.59 -989.84 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left top)
-					(hide yes)
-				)
-			)
-			(symbol "RCH_RC01133_1_1"
-				(rectangle
-					(start 5.08 7.62)
-					(end 20.32 -7.62)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-				(pin passive line
-					(at 7.62 12.7 270)
-					(length 5.08)
-					(name "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 25.4 0 180)
-					(length 5.08)
-					(name "MH2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "10"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 7.62 -12.7 90)
-					(length 5.08)
-					(name "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 10.16 12.7 270)
-					(length 5.08)
-					(name "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 10.16 -12.7 90)
-					(length 5.08)
-					(name "4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 12.7 12.7 270)
-					(length 5.08)
-					(name "5"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "5"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 12.7 -12.7 90)
-					(length 5.08)
-					(name "6"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "6"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 15.24 12.7 270)
-					(length 5.08)
-					(name "7"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "7"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 15.24 -12.7 90)
-					(length 5.08)
-					(name "8"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "8"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 0 0 0)
-					(length 5.08)
-					(name "MH1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "9"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-		)
 		(symbol "power:+3V3"
 			(power)
 			(pin_names
@@ -3406,6 +3433,12 @@
 				)
 			)
 		)
+	)
+	(junction
+		(at 277.622 58.674)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "0775c680-d6bb-4c18-bfb7-7a436fa7326c")
 	)
 	(junction
 		(at 125.476 159.258)
@@ -3793,16 +3826,6 @@
 	)
 	(wire
 		(pts
-			(xy 277.622 27.686) (xy 277.622 36.068)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "150cf906-13b6-4247-9935-e232fc7566b0")
-	)
-	(wire
-		(pts
 			(xy 34.036 130.556) (xy 34.036 141.478)
 		)
 		(stroke
@@ -3830,26 +3853,6 @@
 			(type default)
 		)
 		(uuid "1c2d3d35-05dd-481f-8a9f-71d903fa5da6")
-	)
-	(wire
-		(pts
-			(xy 257.302 48.514) (xy 257.302 62.738)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "20910164-aedc-4eca-b16c-229ba3078e00")
-	)
-	(wire
-		(pts
-			(xy 262.382 40.894) (xy 262.382 33.782)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "211f24af-6e73-4113-b14d-d74176a2de0b")
 	)
 	(wire
 		(pts
@@ -3883,16 +3886,6 @@
 	)
 	(wire
 		(pts
-			(xy 256.286 64.262) (xy 275.082 64.262)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2624b1bf-8d4a-4b5e-8029-783817e186eb")
-	)
-	(wire
-		(pts
 			(xy 34.036 141.478) (xy 85.09 141.478)
 		)
 		(stroke
@@ -3910,6 +3903,16 @@
 			(type default)
 		)
 		(uuid "2bcb67d7-644e-4bee-8f60-4adb7f1e0e0b")
+	)
+	(wire
+		(pts
+			(xy 277.622 56.134) (xy 277.622 58.674)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2d20a682-a471-41c6-aaab-824918ebf0f0")
 	)
 	(wire
 		(pts
@@ -3943,23 +3946,13 @@
 	)
 	(wire
 		(pts
-			(xy 249.936 53.594) (xy 256.286 53.594)
+			(xy 249.936 53.594) (xy 254.762 53.594)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "32a33f69-3578-4eb5-8029-d31343739662")
-	)
-	(wire
-		(pts
-			(xy 263.398 58.674) (xy 263.398 66.294)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "36c9cfb1-3358-4e4b-8423-b65cf91ea7e9")
 	)
 	(wire
 		(pts
@@ -4013,7 +4006,7 @@
 	)
 	(wire
 		(pts
-			(xy 251.714 48.514) (xy 257.302 48.514)
+			(xy 254.762 48.514) (xy 251.714 48.514)
 		)
 		(stroke
 			(width 0)
@@ -4033,7 +4026,7 @@
 	)
 	(wire
 		(pts
-			(xy 237.236 40.894) (xy 262.382 40.894)
+			(xy 237.236 40.894) (xy 254.762 40.894)
 		)
 		(stroke
 			(width 0)
@@ -4133,16 +4126,6 @@
 	)
 	(wire
 		(pts
-			(xy 257.302 62.738) (xy 272.542 62.738)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5058e9bc-5421-422d-a09c-5cff341cb481")
-	)
-	(wire
-		(pts
 			(xy 46.482 149.098) (xy 49.022 149.098)
 		)
 		(stroke
@@ -4150,16 +4133,6 @@
 			(type default)
 		)
 		(uuid "525fb2cb-8efa-4c4a-912a-a0655198691b")
-	)
-	(wire
-		(pts
-			(xy 270.002 33.782) (xy 270.002 36.068)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "526191a7-63aa-4cbd-b3ec-49434d2191fb")
 	)
 	(wire
 		(pts
@@ -4173,16 +4146,6 @@
 	)
 	(wire
 		(pts
-			(xy 252.984 55.88) (xy 252.984 27.686)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "52c8ade6-aab7-43f6-80f8-144022a5a67f")
-	)
-	(wire
-		(pts
 			(xy 56.642 125.476) (xy 63.5 125.476)
 		)
 		(stroke
@@ -4193,7 +4156,7 @@
 	)
 	(wire
 		(pts
-			(xy 249.174 45.974) (xy 257.81 45.974)
+			(xy 249.174 45.974) (xy 254.762 45.974)
 		)
 		(stroke
 			(width 0)
@@ -4313,26 +4276,6 @@
 	)
 	(wire
 		(pts
-			(xy 252.984 27.686) (xy 277.622 27.686)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "66fa2b28-567b-4551-995a-c6a5692de811")
-	)
-	(wire
-		(pts
-			(xy 254.254 55.88) (xy 254.254 58.674)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "69c28610-5a8c-4245-b22e-defd61fd973d")
-	)
-	(wire
-		(pts
 			(xy 63.5 130.556) (xy 63.5 161.798)
 		)
 		(stroke
@@ -4400,26 +4343,6 @@
 			(type default)
 		)
 		(uuid "76f8877e-67dd-4a5e-b116-006fd67f41eb")
-	)
-	(wire
-		(pts
-			(xy 257.81 32.004) (xy 272.542 32.004)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "78300745-2330-44e9-bda6-7f730e9be07d")
-	)
-	(wire
-		(pts
-			(xy 259.08 61.468) (xy 270.002 61.468)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "7a0bdfb4-8117-4e0e-9448-73ad3bd15933")
 	)
 	(wire
 		(pts
@@ -4613,16 +4536,6 @@
 	)
 	(wire
 		(pts
-			(xy 262.382 33.782) (xy 270.002 33.782)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9d4d0d22-00e0-40a0-9d13-5762b5ecd112")
-	)
-	(wire
-		(pts
 			(xy 100.33 109.474) (xy 93.98 109.474)
 		)
 		(stroke
@@ -4713,16 +4626,6 @@
 	)
 	(wire
 		(pts
-			(xy 272.542 32.004) (xy 272.542 36.068)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b28a9752-b8d7-431c-9a6f-b3e089a8afa6")
-	)
-	(wire
-		(pts
 			(xy 132.334 46.736) (xy 132.334 31.242)
 		)
 		(stroke
@@ -4740,16 +4643,6 @@
 			(type default)
 		)
 		(uuid "b57a42bf-7fe2-486e-9ef5-5fc3c3e033f4")
-	)
-	(wire
-		(pts
-			(xy 257.81 45.974) (xy 257.81 32.004)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b589ea43-f6f4-423e-a9d5-a3d1d02b3455")
 	)
 	(wire
 		(pts
@@ -4773,16 +4666,6 @@
 	)
 	(wire
 		(pts
-			(xy 275.082 64.262) (xy 275.082 61.468)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b73c51a4-bf94-4bda-83ec-c3594c0fa253")
-	)
-	(wire
-		(pts
 			(xy 251.714 79.248) (xy 251.714 81.026)
 		)
 		(stroke
@@ -4790,16 +4673,6 @@
 			(type default)
 		)
 		(uuid "b7c351ce-15f9-42b7-ab00-3995523cd792")
-	)
-	(wire
-		(pts
-			(xy 263.398 66.294) (xy 277.622 66.294)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b84ac971-94c3-4aca-a8e6-b105deb4ffc8")
 	)
 	(wire
 		(pts
@@ -4853,16 +4726,6 @@
 	)
 	(wire
 		(pts
-			(xy 272.542 62.738) (xy 272.542 61.468)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c4bb36d5-6f35-4538-b544-126e8c1c3048")
-	)
-	(wire
-		(pts
 			(xy 199.136 45.466) (xy 219.456 45.466)
 		)
 		(stroke
@@ -4873,16 +4736,6 @@
 	)
 	(wire
 		(pts
-			(xy 254.762 51.054) (xy 254.762 29.464)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c80bcb34-5ce7-4134-81a4-5e38a4370d50")
-	)
-	(wire
-		(pts
 			(xy 171.196 53.086) (xy 171.196 51.562)
 		)
 		(stroke
@@ -4890,6 +4743,16 @@
 			(type default)
 		)
 		(uuid "c8fa87e2-2ed8-45b0-9ad3-c4ea69380b8c")
+	)
+	(wire
+		(pts
+			(xy 254.762 56.134) (xy 254.254 56.134)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ca1a50a2-6364-415f-84b0-d85338bbde6e")
 	)
 	(wire
 		(pts
@@ -4943,16 +4806,6 @@
 	)
 	(wire
 		(pts
-			(xy 256.286 53.594) (xy 256.286 64.262)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d7322007-f843-4820-adc3-0d2f08d38868")
-	)
-	(wire
-		(pts
 			(xy 237.236 37.338) (xy 237.236 40.894)
 		)
 		(stroke
@@ -4983,6 +4836,16 @@
 	)
 	(wire
 		(pts
+			(xy 254.254 56.134) (xy 254.254 58.674)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d8ffca8c-5ed4-4bca-8c8b-b2c84bc50155")
+	)
+	(wire
+		(pts
 			(xy 131.318 171.704) (xy 131.318 172.212)
 		)
 		(stroke
@@ -4990,16 +4853,6 @@
 			(type default)
 		)
 		(uuid "d94f1406-5ba6-4bdb-8639-ea160f0f202b")
-	)
-	(wire
-		(pts
-			(xy 254.762 29.464) (xy 275.082 29.464)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d9dc37f1-aec4-453b-8219-01f493a9d154")
 	)
 	(wire
 		(pts
@@ -5023,7 +4876,7 @@
 	)
 	(wire
 		(pts
-			(xy 247.65 43.434) (xy 259.08 43.434)
+			(xy 247.65 43.434) (xy 254.762 43.434)
 		)
 		(stroke
 			(width 0)
@@ -5053,16 +4906,6 @@
 	)
 	(wire
 		(pts
-			(xy 277.622 66.294) (xy 277.622 61.468)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "e59fa1ea-0a27-4e21-a879-8757d5f8455a")
-	)
-	(wire
-		(pts
 			(xy 251.714 72.39) (xy 251.714 79.248)
 		)
 		(stroke
@@ -5080,16 +4923,6 @@
 			(type default)
 		)
 		(uuid "e6566556-9269-474b-b268-8e6440e7e101")
-	)
-	(wire
-		(pts
-			(xy 275.082 29.464) (xy 275.082 36.068)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "e760528e-3fbb-4262-9840-6f608eb8190b")
 	)
 	(wire
 		(pts
@@ -5133,16 +4966,6 @@
 	)
 	(wire
 		(pts
-			(xy 259.08 43.434) (xy 259.08 61.468)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ee616b8b-4b6c-411b-ae47-05b549bb1171")
-	)
-	(wire
-		(pts
 			(xy 164.338 55.626) (xy 171.196 55.626)
 		)
 		(stroke
@@ -5183,7 +5006,7 @@
 	)
 	(wire
 		(pts
-			(xy 254.254 58.674) (xy 263.398 58.674)
+			(xy 254.254 58.674) (xy 254.762 58.674)
 		)
 		(stroke
 			(width 0)
@@ -5250,16 +5073,6 @@
 			(type default)
 		)
 		(uuid "fe932f3a-b9cf-4851-ab2f-a8914903ff4c")
-	)
-	(wire
-		(pts
-			(xy 254.254 55.88) (xy 252.984 55.88)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ff44475d-d8a5-47a8-b565-9d2f064b73c5")
 	)
 	(text "12.1k total,\nsplit for cost"
 		(exclude_from_sim no)
@@ -5705,6 +5518,206 @@
 			(project "simplicity_analog_1"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb/bffed79e-b0f8-42ef-b35b-0bc5151b6608"
 					(reference "R7020")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "aaa:6339160-1")
+		(at 277.622 58.674 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "082c20ac-068b-4310-8c4d-aefcb293e2fb")
+		(property "Reference" "J7"
+			(at 266.192 33.782 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "6339160-1"
+			(at 266.192 36.322 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "63391601"
+			(at 258.572 61.214 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.te.com/commerce/DocumentDelivery/DDEController?Action=showdoc&DocId=Customer+Drawing%7F6339160%7FE%7Fpdf%7FEnglish%7FENG_CD_6339160_E_6339160-c_drw.pdf%7F6339160-1"
+			(at 258.572 58.674 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "Cat5 modular RJ45 jack, 8/8,SMT,shielded"
+			(at 258.572 56.134 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Height" "13.72"
+			(at 258.572 53.594 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer_Name" "TE Connectivity"
+			(at 258.572 51.054 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer_Part_Number" "6339160-1"
+			(at 258.572 48.514 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Mouser Part Number" "571-6339160-1"
+			(at 258.572 45.974 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Mouser Price/Stock" "https://www.mouser.co.uk/ProductDetail/TE-Connectivity/6339160-1?qs=Il0cmQ4mt8K1Qlv3V6xMcA%3D%3D"
+			(at 258.572 43.434 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Arrow Part Number" "6339160-1"
+			(at 258.572 40.894 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Arrow Price/Stock" "https://www.arrow.com/en/products/6339160-1/te-connectivity?region=nac"
+			(at 258.572 38.354 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Mouser Testing Part Number" ""
+			(at 258.572 35.814 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Mouser Testing Price/Stock" ""
+			(at 258.572 33.274 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C125076"
+			(at 277.622 58.674 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "a122c493-53d3-473e-84b6-15a167d01ffa")
+		)
+		(pin "10"
+			(uuid "f5b7ef83-f507-462e-8c65-e6a416bc451f")
+		)
+		(pin "2"
+			(uuid "282e066c-1973-474f-a853-9ffab17e6f0e")
+		)
+		(pin "3"
+			(uuid "fcb0d668-b0f5-4370-8a8f-0a1a257cffed")
+		)
+		(pin "4"
+			(uuid "007e62f5-5459-455b-bb20-3e22398bf8ff")
+		)
+		(pin "5"
+			(uuid "af3f2a9a-f621-4c2a-af04-c8413d736cc1")
+		)
+		(pin "6"
+			(uuid "5a796dfa-ea6c-42e4-a97e-eefbdcd8f343")
+		)
+		(pin "7"
+			(uuid "112a0878-7b56-4c95-a40e-32033bfeda6e")
+		)
+		(pin "8"
+			(uuid "36bded77-4573-47c3-938c-af63b232efc7")
+		)
+		(pin "9"
+			(uuid "64546eb8-0f40-4d0e-9d37-9368842ca1c0")
+		)
+		(instances
+			(project "stm32h7_base"
+				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0ba2a584-1605-4428-86ed-58b87d6513cb/bffed79e-b0f8-42ef-b35b-0bc5151b6608"
+					(reference "J7")
+					(unit 1)
+				)
+			)
+			(project "simplicity_analog_1"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb/bffed79e-b0f8-42ef-b35b-0bc5151b6608"
+					(reference "J7001")
 					(unit 1)
 				)
 			)
@@ -6923,7 +6936,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 262.382 48.768 270)
+		(at 277.622 58.674 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -6931,7 +6944,7 @@
 		(dnp no)
 		(uuid "421361fc-9ffa-493f-badd-8f4c7d84f058")
 		(property "Reference" "#PWR0144"
-			(at 256.032 48.768 0)
+			(at 283.972 58.674 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6940,7 +6953,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 257.9878 48.895 0)
+			(at 282.0162 58.547 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6948,7 +6961,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 262.382 48.768 0)
+			(at 277.622 58.674 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6957,7 +6970,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 262.382 48.768 0)
+			(at 277.622 58.674 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6966,7 +6979,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 262.382 48.768 0)
+			(at 277.622 58.674 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9825,179 +9838,6 @@
 		)
 	)
 	(symbol
-		(lib_id "aaa:RCH_RC01133")
-		(at 262.382 48.768 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "d08b5204-d797-43ef-8a4e-26887a4e51c0")
-		(property "Reference" "J3001"
-			(at 291.338 42.4494 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "RCH_RC01133"
-			(at 291.338 44.9894 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "aaa:RCHRC01133"
-			(at 283.972 138.608 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2007281104_RCH-RC01133_C708616.pdf"
-			(at 283.972 238.608 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-				(hide yes)
-			)
-		)
-		(property "Description" "RJ45Receptacle 1 Shielded Bend insert Without LED -40~+70 Plugin Ethernet Connectors / Modular Connectors (RJ45 RJ11) ROHS"
-			(at 262.382 48.768 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Height" "13.35"
-			(at 283.972 438.608 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-				(hide yes)
-			)
-		)
-		(property "Manufacturer_Name" "RCH"
-			(at 283.972 538.608 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-				(hide yes)
-			)
-		)
-		(property "Manufacturer_Part_Number" "RCH RC01133"
-			(at 283.972 638.608 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-				(hide yes)
-			)
-		)
-		(property "Mouser Part Number" ""
-			(at 283.972 738.608 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-				(hide yes)
-			)
-		)
-		(property "Mouser Price/Stock" ""
-			(at 283.972 838.608 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-				(hide yes)
-			)
-		)
-		(property "Arrow Part Number" ""
-			(at 283.972 938.608 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-				(hide yes)
-			)
-		)
-		(property "Arrow Price/Stock" ""
-			(at 283.972 1038.608 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C708616"
-			(at 262.382 48.768 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "898c772d-ec47-47c2-b22c-d693727b4884")
-		)
-		(pin "6"
-			(uuid "d80a0eab-d909-4e48-9794-0efb9f0f4d6c")
-		)
-		(pin "4"
-			(uuid "fd5f7455-8017-40dc-a931-f5fd52880e3f")
-		)
-		(pin "7"
-			(uuid "2a1f808e-f56e-4d79-8527-96243504ba2b")
-		)
-		(pin "9"
-			(uuid "e9cfda40-e027-4897-8194-b0e38a9c22ae")
-		)
-		(pin "5"
-			(uuid "0870ea6a-e243-4564-b3de-dab9ed852c98")
-		)
-		(pin "2"
-			(uuid "642f77de-beed-4a47-a1c1-a152adab266d")
-		)
-		(pin "3"
-			(uuid "e7003c93-7d35-4aeb-9ed6-0f8a80905704")
-		)
-		(pin "8"
-			(uuid "b13c6ae1-165e-4570-a801-125448afe021")
-		)
-		(pin "10"
-			(uuid "3a6558df-3b6e-4309-b76a-8974033fa795")
-		)
-		(instances
-			(project ""
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0ba2a584-1605-4428-86ed-58b87d6513cb/bffed79e-b0f8-42ef-b35b-0bc5151b6608"
-					(reference "J3001")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:GND")
 		(at 93.98 114.554 0)
 		(unit 1)
@@ -10946,71 +10786,6 @@
 			(project "simplicity_analog_1"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb/bffed79e-b0f8-42ef-b35b-0bc5151b6608"
 					(reference "#PWR07003")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 287.782 48.768 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "faea8987-c88d-4c1a-aa23-0addf4a77a9b")
-		(property "Reference" "#PWR3001"
-			(at 294.132 48.768 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "GND"
-			(at 292.1762 48.641 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 287.782 48.768 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 287.782 48.768 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 287.782 48.768 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "be4e069e-b2a2-4753-a2e2-1d3ca8c293cf")
-		)
-		(instances
-			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0ba2a584-1605-4428-86ed-58b87d6513cb/bffed79e-b0f8-42ef-b35b-0bc5151b6608"
-					(reference "#PWR3001")
 					(unit 1)
 				)
 			)
