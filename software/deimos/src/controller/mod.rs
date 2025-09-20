@@ -458,7 +458,9 @@ impl Controller {
             };
 
             for (sid, pid) in addresses.iter() {
-                let p = bound_peripherals.get(&(*sid, *pid)).expect(&format!("Did not find {pid:?} in bound peripherals"));
+                let p = bound_peripherals
+                    .get(&(*sid, *pid))
+                    .expect(&format!("Did not find {pid:?} in bound peripherals"));
                 let num_to_write = p.configuring_input_size();
                 p.emit_configuring(config_input, &mut txbuf[..num_to_write]);
                 self.sockets[*sid]
