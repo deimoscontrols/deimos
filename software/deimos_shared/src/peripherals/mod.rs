@@ -5,6 +5,7 @@ pub mod analog_i_rev_2;
 pub mod analog_i_rev_3;
 pub mod analog_i_rev_4;
 pub mod deimos_daq_rev5;
+pub mod deimos_daq_rev6;
 pub mod model_numbers;
 
 // Type aliases for device identification
