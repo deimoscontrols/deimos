@@ -3520,7 +3520,7 @@
 				)
 			)
 		)
-		(property "Value" "10k 1%"
+		(property "Value" "10"
 			(at 121.92 65.4304 90)
 			(effects
 				(font
@@ -3708,7 +3708,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "1nF"
+		(property "Value" "2.2uF"
 			(at 135.89 64.516 0)
 			(effects
 				(font
@@ -3808,7 +3808,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "10nF"
+		(property "Value" "1uF"
 			(at 120.65 69.596 0)
 			(effects
 				(font
@@ -5464,7 +5464,7 @@
 				)
 			)
 		)
-		(property "Value" "10k 1%"
+		(property "Value" "10"
 			(at 121.92 76.3016 90)
 			(effects
 				(font
@@ -6794,7 +6794,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "1nF"
+		(property "Value" "2.2uF"
 			(at 135.89 74.676 0)
 			(effects
 				(font
