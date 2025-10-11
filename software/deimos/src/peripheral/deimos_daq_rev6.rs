@@ -1,7 +1,7 @@
 use super::Peripheral;
 use crate::calc::{Affine, Calc, InverseAffine, RtdPt100, TcKtype};
 use deimos_shared::OperatingMetrics;
-use deimos_shared::peripherals::{PeripheralId, deimos_daq_rev5::*, model_numbers};
+use deimos_shared::peripherals::{PeripheralId, deimos_daq_rev6::*, model_numbers};
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
@@ -15,7 +15,7 @@ pub struct DeimosDaqRev6 {
 impl Peripheral for DeimosDaqRev6 {
     fn id(&self) -> PeripheralId {
         PeripheralId {
-            model_number: model_numbers::DEIMOS_DAQ_REV_5_MODEL_NUMBER,
+            model_number: model_numbers::DEIMOS_DAQ_REV_6_MODEL_NUMBER,
             serial_number: self.serial_number,
         }
     }
@@ -241,14 +241,14 @@ impl Peripheral for DeimosDaqRev6 {
         {
             let input_name = format!("{name}.ain18");
             let voltage_calc_name = format!("{name}_x26");
-            let voltage_calc = Affine::new(input_name, 1.0 / 25.7, 0.0, true);
+            let voltage_calc = InverseAffine::new(input_name, 25.7, 1.024, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
         {
             let input_name = format!("{name}.ain19");
             let voltage_calc_name = format!("{name}_x666");
-            let voltage_calc = Affine::new(input_name, 1.0 / (1.0 + 49.4e3 / 75.0), 0.0, true);
+            let voltage_calc = InverseAffine::new(input_name, 1.0 + 49.4e3 / 75.0, 1.024, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 

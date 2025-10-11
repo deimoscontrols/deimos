@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::calc::{Constant, Sin};
-use crate::peripheral::{AnalogIRev3, AnalogIRev4, DeimosDaqRev5};
+use crate::peripheral::{AnalogIRev3, AnalogIRev4, DeimosDaqRev6};
 use controller::context::ControllerCtx;
 use deimos::calc::SequenceMachine;
 use deimos::calc::sequence_machine::{MachineCfg, ThreshOp, Timeout, Transition};
@@ -66,7 +66,7 @@ fn main() {
     controller.add_peripheral("p6", Box::new(AnalogIRev4 { serial_number: 4 }));
     // controller.add_peripheral("p7", Box::new(AnalogIRev4 { serial_number: 5 }));
     // controller.add_peripheral("p8", Box::new(AnalogIRev4 { serial_number: 6 }));
-    controller.add_peripheral("p8", Box::new(DeimosDaqRev5 { serial_number: 2 }));
+    controller.add_peripheral("p8", Box::new(DeimosDaqRev6 { serial_number: 1 }));
 
     // Set up database dispatchers
     let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(

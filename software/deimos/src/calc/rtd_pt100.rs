@@ -19,9 +19,9 @@ use crate::{calc_config, calc_input_names, calc_output_names};
 /// init so that it does not cause additional cycle delay during the first operating cycle.
 pub static INTERPOLATOR: Lazy<MulticubicRegular<'static, f64, 1>> = Lazy::new(|| {
     MulticubicRegular::new(
-        &[PROBE_RESISTANCE_N],
-        &[PROBE_RESISTANCE_START_OHM],
-        &[PROBE_RESISTANCE_STEP_OHM],
+        [PROBE_RESISTANCE_N],
+        [PROBE_RESISTANCE_START_OHM],
+        [PROBE_RESISTANCE_STEP_OHM],
         &PROBE_TEMP_K,
         true,
     )
@@ -68,7 +68,7 @@ impl Calc for RtdPt100 {
         self.output_index = output_range.clone().next().unwrap();
 
         // Call the interpolator once to make sure it is initialized
-        INTERPOLATOR.interp_one(&[0.0]).unwrap();
+        INTERPOLATOR.interp_one([0.0]).unwrap();
     }
 
     fn terminate(&mut self) {
@@ -82,7 +82,7 @@ impl Calc for RtdPt100 {
 
         // An error here would indicate that we have encountered an unrepresentable number during interpolation.
         // As of writing, no method of producing an error here is known.
-        let y = INTERPOLATOR.interp_one(&[sensed_resistance]).unwrap();
+        let y = INTERPOLATOR.interp_one([sensed_resistance]).unwrap();
 
         tape[self.output_index] = y;
     }
@@ -119,7 +119,7 @@ mod test {
     fn test_interpolator() {
         // Check the interpolator against a value from the table
         let inp = [19.82];
-        let interped = INTERPOLATOR.interp_one(&inp).unwrap();
+        let interped = INTERPOLATOR.interp_one(inp).unwrap();
         let expected = -197.0 + 273.15;
         println!("{interped}, {expected}");
         let rel_err = (interped - expected) / expected;
