@@ -8438,7 +8438,7 @@
 		(dnp no)
 		(uuid "cc3693ae-73c6-44c6-a667-140e171d66cd")
 		(property "Reference" "C1001"
-			(at 144.78 247.904 90)
+			(at 144.526 249.936 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8446,7 +8446,7 @@
 			)
 		)
 		(property "Value" "0.1uF 50V 0603"
-			(at 140.462 250.19 90)
+			(at 140.208 252.222 90)
 			(effects
 				(font
 					(size 1.27 1.27)
