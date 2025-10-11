@@ -922,12 +922,6 @@
 		(uuid "0b9c5e26-85e0-4312-9989-f8bbe5cd0a67")
 	)
 	(junction
-		(at 86.614 82.55)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "3ba6bcb9-53f1-4503-8141-a93e7a507fc3")
-	)
-	(junction
 		(at 133.35 85.09)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -987,23 +981,13 @@
 	)
 	(wire
 		(pts
-			(xy 85.09 82.55) (xy 86.614 82.55)
+			(xy 85.09 82.55) (xy 88.9 82.55)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "545bd60d-8ef4-4bdd-8d9a-77cd788e8cc8")
-	)
-	(wire
-		(pts
-			(xy 86.614 82.55) (xy 88.9 82.55)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "57dd54a9-9bd6-4fff-9066-5e9c2920b4db")
 	)
 	(wire
 		(pts
@@ -1084,6 +1068,17 @@
 			(type default)
 		)
 		(uuid "e79cfe55-1100-438f-a7e3-cf0a1c18dbd7")
+	)
+	(text "OVP diodes must be in front of\nfilter resistors in order to\nprevent voltage error due to\nleakage current through the\ndiode below breakdown voltage."
+		(exclude_from_sim no)
+		(at 58.674 109.22 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "d21d645d-bc32-45f7-be55-83b51c58c552")
 	)
 	(hierarchical_label "VOUT"
 		(shape input)
@@ -1281,7 +1276,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 86.614 97.79 0)
+		(at 80.01 97.79 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1289,7 +1284,7 @@
 		(dnp no)
 		(uuid "45ca5504-df18-482e-bc6c-b1a896dcecb5")
 		(property "Reference" "#PWR5002"
-			(at 86.614 104.14 0)
+			(at 80.01 104.14 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1298,7 +1293,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 88.392 101.854 0)
+			(at 81.788 101.854 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1307,7 +1302,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 86.614 97.79 0)
+			(at 80.01 97.79 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1316,7 +1311,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 86.614 97.79 0)
+			(at 80.01 97.79 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1325,7 +1320,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 86.614 97.79 0)
+			(at 80.01 97.79 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1676,7 +1671,7 @@
 	)
 	(symbol
 		(lib_id "Device:D_Zener")
-		(at 86.614 93.98 270)
+		(at 80.01 93.98 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1684,7 +1679,7 @@
 		(dnp no)
 		(uuid "994894d4-e148-4fc6-922f-57fc5f540f36")
 		(property "Reference" "D5001"
-			(at 92.456 92.202 90)
+			(at 85.852 92.202 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1692,7 +1687,7 @@
 			)
 		)
 		(property "Value" "MMZ3Z3V3"
-			(at 93.726 93.98 90)
+			(at 87.122 93.98 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1700,7 +1695,7 @@
 			)
 		)
 		(property "Footprint" "Diode_SMD:D_SOD-323"
-			(at 86.614 93.98 0)
+			(at 80.01 93.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1709,7 +1704,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 86.614 93.98 0)
+			(at 80.01 93.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1718,7 +1713,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 86.614 93.98 0)
+			(at 80.01 93.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1727,7 +1722,7 @@
 			)
 		)
 		(property "LCSC" "C52056"
-			(at 86.614 93.98 0)
+			(at 80.01 93.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2106,7 +2101,7 @@
 	)
 	(symbol
 		(lib_id "Device:D_Zener")
-		(at 86.614 86.36 90)
+		(at 80.01 86.36 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2114,7 +2109,7 @@
 		(dnp no)
 		(uuid "e058ba81-7bfa-4860-85cf-b032b0607c02")
 		(property "Reference" "D5002"
-			(at 80.772 88.138 90)
+			(at 74.168 88.138 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2122,7 +2117,7 @@
 			)
 		)
 		(property "Value" "MMZ3Z3V3"
-			(at 79.502 86.36 90)
+			(at 72.898 86.36 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2130,7 +2125,7 @@
 			)
 		)
 		(property "Footprint" "Diode_SMD:D_SOD-323"
-			(at 86.614 86.36 0)
+			(at 80.01 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2139,7 +2134,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 86.614 86.36 0)
+			(at 80.01 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2148,7 +2143,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 86.614 86.36 0)
+			(at 80.01 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2157,7 +2152,7 @@
 			)
 		)
 		(property "LCSC" "C52056"
-			(at 86.614 86.36 0)
+			(at 80.01 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
