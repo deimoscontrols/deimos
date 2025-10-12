@@ -318,151 +318,6 @@
 				)
 			)
 		)
-		(symbol "Device:D_Zener"
-			(pin_numbers hide)
-			(pin_names
-				(offset 1.016) hide)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "D"
-				(at 0 2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "D_Zener"
-				(at 0 -2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "~"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Zener diode"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "diode"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_fp_filters" "TO-???* *_Diode_* *SingleDiode* D_*"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "D_Zener_0_1"
-				(polyline
-					(pts
-						(xy 1.27 0) (xy -1.27 0)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -1.27 -1.27) (xy -1.27 1.27) (xy -0.762 1.27)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 1.27 -1.27) (xy 1.27 1.27) (xy -1.27 0) (xy 1.27 -1.27)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "D_Zener_1_1"
-				(pin passive line
-					(at -3.81 0 0)
-					(length 2.54)
-					(name "K"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 3.81 0 180)
-					(length 2.54)
-					(name "A"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-		)
 		(symbol "Device:R_Small_US"
 			(pin_numbers hide)
 			(pin_names
@@ -596,6 +451,207 @@
 				)
 			)
 		)
+		(symbol "Transistor_FET:MMBFJ113"
+			(pin_names hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "Q"
+				(at 5.08 1.905 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "MMBFJ113"
+				(at 5.08 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+				(at 5.08 -1.905 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+						(italic yes)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "https://www.onsemi.com/pub/Collateral/MMBFJ113-D.PDF"
+				(at 5.08 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Description" "2mA min, 35V, 100mOhm max, 0.5-3V Vgs(off), N-Channel JFET, SOT-23"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "N-Channel FET Transistor"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "SOT?23*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "MMBFJ113_0_1"
+				(polyline
+					(pts
+						(xy 0.254 0) (xy -2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.254 1.905) (xy 0.254 -1.905)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.54 -2.54) (xy 2.54 -1.397) (xy 0.254 -1.397)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.54 2.54) (xy 2.54 1.397) (xy 0.254 1.397)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy -1.016 0.381) (xy -1.016 -0.381) (xy 0 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(circle
+					(center 1.27 0)
+					(radius 2.8194)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "MMBFJ113_1_1"
+				(pin passive line
+					(at 2.54 5.08 270)
+					(length 2.54)
+					(name "D"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 2.54 -5.08 90)
+					(length 2.54)
+					(name "S"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -5.08 0 0)
+					(length 2.54)
+					(name "G"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
 		(symbol "power:+12V"
 			(power)
 			(pin_numbers hide)
@@ -696,6 +752,126 @@
 				)
 			)
 			(symbol "+12V_1_1"
+				(pin power_in line
+					(at 0 0 90)
+					(length 0)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "power:+3.3V"
+			(power)
+			(pin_numbers hide)
+			(pin_names
+				(offset 0) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "#PWR"
+				(at 0 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Value" "+3.3V"
+				(at 0 3.556 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"+3.3V\""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "+3.3V_0_1"
+				(polyline
+					(pts
+						(xy -0.762 1.27) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 2.54) (xy 0.762 1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "+3.3V_1_1"
 				(pin power_in line
 					(at 0 0 90)
 					(length 0)
@@ -916,16 +1092,40 @@
 		(uuid "0039fc93-7277-4ab4-ae58-d14bb4b2a4f5")
 	)
 	(junction
+		(at 86.614 82.55)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "06320c39-c0b2-49b0-ac3e-15ef05129834")
+	)
+	(junction
 		(at 113.03 92.71)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "0b9c5e26-85e0-4312-9989-f8bbe5cd0a67")
 	)
 	(junction
+		(at 86.614 86.868)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c6dc4be2-ed00-412f-afb2-99dbb038998b")
+	)
+	(junction
 		(at 133.35 85.09)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "d55138a7-651b-4f43-9981-28a932b15c3c")
+	)
+	(junction
+		(at 93.726 89.916)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "d7c94c2a-a11b-4c80-b536-8965196e6f3d")
+	)
+	(junction
+		(at 81.026 104.394)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "e55de30a-53f3-4a3d-a403-2f075732d15b")
 	)
 	(junction
 		(at 101.6 82.55)
@@ -951,6 +1151,16 @@
 	)
 	(wire
 		(pts
+			(xy 86.614 86.868) (xy 86.614 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "09a10a9b-51e3-418c-8801-1e7949a7f916")
+	)
+	(wire
+		(pts
 			(xy 123.19 85.09) (xy 133.35 85.09)
 		)
 		(stroke
@@ -958,6 +1168,36 @@
 			(type default)
 		)
 		(uuid "1d77cfac-9e32-468d-9392-c1f1623f3adf")
+	)
+	(wire
+		(pts
+			(xy 75.946 104.394) (xy 81.026 104.394)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1fca1ca0-dcd7-4e39-8d31-187e5a0b35b7")
+	)
+	(wire
+		(pts
+			(xy 88.392 96.52) (xy 88.392 89.916)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2f384e68-9ce9-41de-b336-dc6dccaa8e15")
+	)
+	(wire
+		(pts
+			(xy 75.946 97.79) (xy 75.946 104.394)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2f573864-8108-46a9-920a-8c7023f09573")
 	)
 	(wire
 		(pts
@@ -981,13 +1221,23 @@
 	)
 	(wire
 		(pts
-			(xy 85.09 82.55) (xy 88.9 82.55)
+			(xy 85.09 82.55) (xy 86.614 82.55)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "545bd60d-8ef4-4bdd-8d9a-77cd788e8cc8")
+	)
+	(wire
+		(pts
+			(xy 86.106 97.79) (xy 86.106 104.394)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5a0d2a8f-737f-4a90-8422-eebcff55c429")
 	)
 	(wire
 		(pts
@@ -998,6 +1248,46 @@
 			(type default)
 		)
 		(uuid "5a93fa2e-fe1a-4712-88af-555da889bb86")
+	)
+	(wire
+		(pts
+			(xy 93.726 89.916) (xy 98.552 89.916)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6a313c61-afb7-4367-97da-f8c4168ebc17")
+	)
+	(wire
+		(pts
+			(xy 93.726 86.868) (xy 86.614 86.868)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7d25870b-47fd-4d54-84f4-c5be9107955e")
+	)
+	(wire
+		(pts
+			(xy 81.026 86.868) (xy 86.614 86.868)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "879a5151-f686-4a82-a002-59685d40c250")
+	)
+	(wire
+		(pts
+			(xy 86.106 104.394) (xy 81.026 104.394)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "89c3f47e-7602-4bdc-8212-553939c2c3ce")
 	)
 	(wire
 		(pts
@@ -1021,6 +1311,26 @@
 	)
 	(wire
 		(pts
+			(xy 81.026 90.17) (xy 81.026 86.868)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b8c7df80-3a5d-4087-9490-0fa117087db2")
+	)
+	(wire
+		(pts
+			(xy 98.552 89.916) (xy 98.552 96.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bc3db3dc-4edd-405a-88f1-81c2df84ba8a")
+	)
+	(wire
+		(pts
 			(xy 107.95 99.06) (xy 133.35 99.06)
 		)
 		(stroke
@@ -1028,6 +1338,16 @@
 			(type default)
 		)
 		(uuid "bd7eff07-4f9a-415b-984b-31ff7d735773")
+	)
+	(wire
+		(pts
+			(xy 88.392 89.916) (xy 93.726 89.916)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c2e2d6cc-584c-4033-afe5-9f4ab76745ec")
 	)
 	(wire
 		(pts
@@ -1041,6 +1361,16 @@
 	)
 	(wire
 		(pts
+			(xy 93.726 89.916) (xy 93.726 86.868)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c8496359-750f-4de5-adac-7dc6ef59ec60")
+	)
+	(wire
+		(pts
 			(xy 88.9 68.58) (xy 88.9 82.55)
 		)
 		(stroke
@@ -1051,13 +1381,13 @@
 	)
 	(wire
 		(pts
-			(xy 133.35 85.09) (xy 145.796 85.09)
+			(xy 86.614 82.55) (xy 88.9 82.55)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "d4f52fb1-e391-4df9-b8c6-8ce4a2f491ae")
+		(uuid "d48498b4-c409-44a8-be88-40a4b2ed7bed")
 	)
 	(wire
 		(pts
@@ -1079,20 +1409,20 @@
 		)
 		(uuid "e79cfe55-1100-438f-a7e3-cf0a1c18dbd7")
 	)
-	(text "OVP diodes must be outside\nfilter resistors in order to\nprevent voltage error due to\nleakage current through the\ndiode below breakdown voltage.\n\nFor some channels that do not\nhave an amplifier in front of\nthe filter, diode leakage can\nstill be an issue for accuracy\ndue to resistors between the\nsignal and the diodes.\n\nSo, the only place left to put\nthem that works consistently is\nafter the filter opamp."
+	(text "JFETs in diode arrangement\nare used for their extremely\nlow leakage current, because\nleakage current here causes\nerror in measured voltage.\n\nExpect about 0.6V forward voltage\nwhich gives a clamping range of\n[-0.6, 3.9] V in this case.\n\nTI application note AB-064\ndescribes the approach in more\ndetail.\n\nhttps://www.ti.com/lit/an/sboa058/sboa058.pdf"
 		(exclude_from_sim no)
-		(at 154.686 105.664 0)
+		(at 73.66 125.984 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left)
 		)
-		(uuid "c53bb5e8-854b-43c6-ac8c-22dce1cbb2ee")
+		(uuid "52e94e75-a14e-4d9b-a596-2626ad221de5")
 	)
 	(hierarchical_label "VOUT"
 		(shape input)
-		(at 145.796 85.09 0)
+		(at 133.35 85.09 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -1198,6 +1528,96 @@
 		)
 	)
 	(symbol
+		(lib_id "Transistor_FET:MMBFJ113")
+		(at 81.026 95.25 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "3303a0e4-de08-496f-9930-250ec24c7ee6")
+		(property "Reference" "Q5001"
+			(at 81.28 100.838 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "MMBFJ113"
+			(at 81.026 102.87 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 79.121 100.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.onsemi.com/pub/Collateral/MMBFJ113-D.PDF"
+			(at 77.216 100.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "2mA min, 35V, 100mOhm max, 0.5-3V Vgs(off), N-Channel JFET, SOT-23"
+			(at 81.026 95.25 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C891686"
+			(at 81.026 95.25 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "290604ec-de5c-4c48-8fc9-942b8bd3fdac")
+		)
+		(pin "3"
+			(uuid "2660ba23-fbe0-4912-86a2-02901bf82ac7")
+		)
+		(pin "1"
+			(uuid "4270a647-18f7-42ff-be86-33ccdcc78dfd")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/15b6c474-02be-417e-bc87-8489b7b45186/59f61450-605e-4295-9b9f-53d8d5df51eb"
+					(reference "Q5001")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83/59f61450-605e-4295-9b9f-53d8d5df51eb"
+					(reference "Q8001")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc/e20d7205-bbae-4480-b1ec-aee4d6ee1bcf"
+					(reference "Q9001")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 101.6 92.71 0)
 		(unit 1)
@@ -1285,16 +1705,16 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 145.796 100.33 0)
+		(lib_id "power:+3.3V")
+		(at 81.026 104.394 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "45ca5504-df18-482e-bc6c-b1a896dcecb5")
+		(uuid "459046df-883e-44f2-9256-a3be0185967f")
 		(property "Reference" "#PWR5002"
-			(at 145.796 106.68 0)
+			(at 81.026 100.584 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1302,17 +1722,16 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "GND"
-			(at 147.574 104.394 0)
+		(property "Value" "+3.3V"
+			(at 80.772 108.458 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify right)
 			)
 		)
 		(property "Footprint" ""
-			(at 145.796 100.33 0)
+			(at 81.026 104.394 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1321,7 +1740,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 145.796 100.33 0)
+			(at 81.026 104.394 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1329,8 +1748,8 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
-			(at 145.796 100.33 0)
+		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
+			(at 81.026 104.394 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1339,7 +1758,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "85101231-a636-4abb-83ed-3ca138f40910")
+			(uuid "536b462f-2f8e-42f9-a7c4-44d9652938ab")
 		)
 		(instances
 			(project "analog_frontend_panel"
@@ -1532,6 +1951,96 @@
 		)
 	)
 	(symbol
+		(lib_id "Transistor_FET:MMBFJ113")
+		(at 93.472 99.06 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "787dbe8c-5591-4e91-a883-fee1ac13181d")
+		(property "Reference" "Q5002"
+			(at 93.472 91.694 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "MMBFJ113"
+			(at 93.472 93.726 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 95.377 93.98 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.onsemi.com/pub/Collateral/MMBFJ113-D.PDF"
+			(at 97.282 93.98 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "2mA min, 35V, 100mOhm max, 0.5-3V Vgs(off), N-Channel JFET, SOT-23"
+			(at 93.472 99.06 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C891686"
+			(at 93.472 99.06 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "43ee45d2-b2c5-4c6a-9fec-6a1579a1bb4d")
+		)
+		(pin "3"
+			(uuid "df9cc9a4-8734-4c48-9e93-2057200e8c6f")
+		)
+		(pin "1"
+			(uuid "f6cbcd78-70d8-4efd-9308-923f1f3d9647")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/15b6c474-02be-417e-bc87-8489b7b45186/59f61450-605e-4295-9b9f-53d8d5df51eb"
+					(reference "Q5002")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83/59f61450-605e-4295-9b9f-53d8d5df51eb"
+					(reference "Q8002")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc/e20d7205-bbae-4480-b1ec-aee4d6ee1bcf"
+					(reference "Q9002")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 118.11 77.47 90)
 		(unit 1)
@@ -1599,6 +2108,79 @@
 				)
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc/e20d7205-bbae-4480-b1ec-aee4d6ee1bcf"
 					(reference "#PWR9005")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 93.472 104.14 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "91439d7b-721c-4334-832c-d82abf7adc91")
+		(property "Reference" "#PWR5007"
+			(at 93.472 110.49 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 93.472 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 93.472 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 93.472 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 93.472 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "a76c0d5b-ec0b-4da1-8593-3a4999a77dd1")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/15b6c474-02be-417e-bc87-8489b7b45186/59f61450-605e-4295-9b9f-53d8d5df51eb"
+					(reference "#PWR5007")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83/59f61450-605e-4295-9b9f-53d8d5df51eb"
+					(reference "#PWR8007")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc/e20d7205-bbae-4480-b1ec-aee4d6ee1bcf"
+					(reference "#PWR9007")
 					(unit 1)
 				)
 			)
@@ -1674,90 +2256,6 @@
 				)
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc/e20d7205-bbae-4480-b1ec-aee4d6ee1bcf"
 					(reference "C9004")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:D_Zener")
-		(at 145.796 96.52 270)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "994894d4-e148-4fc6-922f-57fc5f540f36")
-		(property "Reference" "D5001"
-			(at 137.668 95.25 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "MMZ3Z3V3"
-			(at 138.938 97.028 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Diode_SMD:D_SOD-323"
-			(at 145.796 96.52 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 145.796 96.52 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 145.796 96.52 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C52056"
-			(at 145.796 96.52 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "43493fbc-b408-46fe-afaf-e8f1ab488227")
-		)
-		(pin "2"
-			(uuid "f807a744-c67c-402c-aecc-4b5b53503986")
-		)
-		(instances
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/15b6c474-02be-417e-bc87-8489b7b45186/59f61450-605e-4295-9b9f-53d8d5df51eb"
-					(reference "D5001")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83/59f61450-605e-4295-9b9f-53d8d5df51eb"
-					(reference "D8001")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc/e20d7205-bbae-4480-b1ec-aee4d6ee1bcf"
-					(reference "D9001")
 					(unit 1)
 				)
 			)
@@ -1921,7 +2419,7 @@
 		(dnp no)
 		(uuid "c7305d08-1eca-4929-8d8a-d199935d1d6c")
 		(property "Reference" "C17005"
-			(at 98.806 95.504 90)
+			(at 106.68 93.472 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1930,7 +2428,7 @@
 			)
 		)
 		(property "Value" "10nF C0G 5%"
-			(at 96.774 101.6 90)
+			(at 104.648 99.568 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2104,90 +2602,6 @@
 				)
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc/e20d7205-bbae-4480-b1ec-aee4d6ee1bcf"
 					(reference "R9001")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:D_Zener")
-		(at 145.796 88.9 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "e058ba81-7bfa-4860-85cf-b032b0607c02")
-		(property "Reference" "D5002"
-			(at 139.954 90.678 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "MMZ3Z3V3"
-			(at 138.684 88.9 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Diode_SMD:D_SOD-323"
-			(at 145.796 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 145.796 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 145.796 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C52056"
-			(at 145.796 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "56daf545-de2d-44e6-a8b2-2707a8702ee1")
-		)
-		(pin "2"
-			(uuid "5362fe85-2868-484d-bc62-b3bfa3c40b83")
-		)
-		(instances
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/15b6c474-02be-417e-bc87-8489b7b45186/59f61450-605e-4295-9b9f-53d8d5df51eb"
-					(reference "D5002")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83/59f61450-605e-4295-9b9f-53d8d5df51eb"
-					(reference "D8002")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc/e20d7205-bbae-4480-b1ec-aee4d6ee1bcf"
-					(reference "D9002")
 					(unit 1)
 				)
 			)
