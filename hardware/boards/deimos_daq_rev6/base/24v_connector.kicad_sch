@@ -618,151 +618,6 @@
 				)
 			)
 		)
-		(symbol "Device:D_Zener"
-			(pin_numbers hide)
-			(pin_names
-				(offset 1.016) hide)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "D"
-				(at 0 2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "D_Zener"
-				(at 0 -2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "~"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Zener diode"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "diode"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_fp_filters" "TO-???* *_Diode_* *SingleDiode* D_*"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "D_Zener_0_1"
-				(polyline
-					(pts
-						(xy 1.27 0) (xy -1.27 0)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -1.27 -1.27) (xy -1.27 1.27) (xy -0.762 1.27)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 1.27 -1.27) (xy 1.27 1.27) (xy -1.27 0) (xy 1.27 -1.27)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "D_Zener_1_1"
-				(pin passive line
-					(at -3.81 0 0)
-					(length 2.54)
-					(name "K"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 3.81 0 180)
-					(length 2.54)
-					(name "A"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-		)
 		(symbol "Device:R_Small"
 			(pin_numbers hide)
 			(pin_names
@@ -1764,12 +1619,6 @@
 		(uuid "031509cc-3b31-45ce-93d7-d81444246f1c")
 	)
 	(junction
-		(at 131.064 157.988)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "120454c9-baf7-46da-a50f-05f509175ad4")
-	)
-	(junction
 		(at 78.232 119.888)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -1788,12 +1637,6 @@
 		(uuid "7d6c03e8-d2f5-4248-bc20-030c9a486350")
 	)
 	(junction
-		(at 89.662 158.242)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "a9ac41eb-b03d-4bd9-9fcd-ba0664b3541f")
-	)
-	(junction
 		(at 125.222 158.242)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -1804,12 +1647,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "bfe2de21-0dc5-4adb-8f20-e269b02248b4")
-	)
-	(junction
-		(at 80.772 88.646)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c32e9fd2-a170-45eb-92ad-5e4e51d5c1f9")
 	)
 	(junction
 		(at 84.836 119.888)
@@ -1829,15 +1666,9 @@
 		(color 0 0 0 0)
 		(uuid "d3e916ca-3d74-4da3-bd88-97c888765d4d")
 	)
-	(junction
-		(at 68.58 100.584)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "e930e7ed-387e-4246-a63d-a8cadcd5635c")
-	)
 	(wire
 		(pts
-			(xy 78.232 158.242) (xy 89.662 158.242)
+			(xy 78.232 158.242) (xy 97.282 158.242)
 		)
 		(stroke
 			(width 0)
@@ -1867,16 +1698,6 @@
 	)
 	(wire
 		(pts
-			(xy 82.296 88.646) (xy 80.772 88.646)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "133a0ed6-67c2-4540-aa33-dba581174234")
-	)
-	(wire
-		(pts
 			(xy 72.136 95.504) (xy 72.136 100.584)
 		)
 		(stroke
@@ -1884,26 +1705,6 @@
 			(type default)
 		)
 		(uuid "14df19bb-be54-4185-be71-cffabcac363e")
-	)
-	(wire
-		(pts
-			(xy 80.772 87.376) (xy 80.772 88.646)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3c32b66c-6573-4cdb-82ec-0bc43248d918")
-	)
-	(wire
-		(pts
-			(xy 80.772 88.9) (xy 80.772 88.646)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3d4b10fe-e760-4146-8b9c-f16168029e1c")
 	)
 	(wire
 		(pts
@@ -1977,16 +1778,6 @@
 	)
 	(wire
 		(pts
-			(xy 134.112 157.988) (xy 131.064 157.988)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "93601df9-94ce-48dd-83ed-a293597ce3cb")
-	)
-	(wire
-		(pts
 			(xy 78.232 119.888) (xy 78.232 151.892)
 		)
 		(stroke
@@ -1997,16 +1788,6 @@
 	)
 	(wire
 		(pts
-			(xy 134.874 161.798) (xy 134.112 161.798)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c73cd246-f073-4f52-badc-ff6997bb5db4")
-	)
-	(wire
-		(pts
 			(xy 125.222 153.162) (xy 131.064 153.162)
 		)
 		(stroke
@@ -2014,16 +1795,6 @@
 			(type default)
 		)
 		(uuid "c73e517f-147b-4d5b-8109-8b9d72d43e1c")
-	)
-	(wire
-		(pts
-			(xy 134.112 161.798) (xy 134.112 157.988)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c980ada8-61c8-4f94-9f12-cf0a92347ffa")
 	)
 	(wire
 		(pts
@@ -2047,26 +1818,6 @@
 	)
 	(wire
 		(pts
-			(xy 91.44 168.148) (xy 89.662 168.148)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d390bb9b-afe4-43e3-ac57-eaa208e5b224")
-	)
-	(wire
-		(pts
-			(xy 68.58 88.9) (xy 80.772 88.9)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "daeabf8b-7882-44dc-b484-9b3737b8292f")
-	)
-	(wire
-		(pts
 			(xy 82.296 90.424) (xy 82.296 88.646)
 		)
 		(stroke
@@ -2087,26 +1838,6 @@
 	)
 	(wire
 		(pts
-			(xy 89.662 168.148) (xy 89.662 158.242)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "e7543a12-b9aa-4478-9cf9-d8863383cd4a")
-	)
-	(wire
-		(pts
-			(xy 68.58 96.52) (xy 68.58 100.584)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "eb717abb-417f-41d4-9081-b675f924921e")
-	)
-	(wire
-		(pts
 			(xy 84.836 154.432) (xy 83.312 154.432)
 		)
 		(stroke
@@ -2124,26 +1855,6 @@
 			(type default)
 		)
 		(uuid "ef2dc3bd-bec7-48de-bbd6-e08d87bf1c4f")
-	)
-	(wire
-		(pts
-			(xy 89.662 158.242) (xy 97.282 158.242)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "fcd9e5d4-98b9-40cf-96eb-39bbfe9726a4")
-	)
-	(wire
-		(pts
-			(xy 131.064 153.162) (xy 131.064 157.988)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "fef8028a-7ed4-44ef-a202-8b8cef7bc58b")
 	)
 	(rectangle
 		(start 61.468 78.232)
@@ -2248,7 +1959,7 @@
 	)
 	(hierarchical_label "24V_VOLTAGE_FB"
 		(shape input)
-		(at 134.874 161.798 0)
+		(at 131.064 153.162 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2259,7 +1970,7 @@
 	)
 	(hierarchical_label "24V_CURRENT_FB"
 		(shape input)
-		(at 80.772 87.376 180)
+		(at 82.296 88.646 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2417,82 +2128,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:D_Zener")
-		(at 68.58 92.71 270)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "144e086f-8514-4b14-b830-44adcf19b514")
-		(property "Reference" "D5003"
-			(at 74.422 90.932 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "MMZ3Z3V3"
-			(at 75.692 92.71 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Diode_SMD:D_SOD-323"
-			(at 68.58 92.71 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 68.58 92.71 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 68.58 92.71 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C52056"
-			(at 68.58 92.71 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "1341ea93-7de4-419b-9dd1-bb08c4bcb6d9")
-		)
-		(pin "2"
-			(uuid "904eeccd-47fe-47a4-8952-f63c5537eb54")
-		)
-		(instances
-			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0a1e0bd0-0a38-48a2-850f-3bdf02fef3ae"
-					(reference "D5003")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Connector:TestPoint")
 		(at 117.856 91.186 90)
 		(unit 1)
@@ -2557,71 +2192,6 @@
 			(project "simplicity_analog_1"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0a1e0bd0-0a38-48a2-850f-3bdf02fef3ae"
 					(reference "TP8002")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 106.68 168.148 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "198541a9-30c9-4203-a031-5fcc4a4c1f16")
-		(property "Reference" "#PWR5006"
-			(at 113.03 168.148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "GND"
-			(at 110.236 168.148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 106.68 168.148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 106.68 168.148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 106.68 168.148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "62d43b3e-95d0-4cfa-a980-e5578be46423")
-		)
-		(instances
-			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0a1e0bd0-0a38-48a2-850f-3bdf02fef3ae"
-					(reference "#PWR5006")
 					(unit 1)
 				)
 			)
@@ -2761,82 +2331,6 @@
 			(project "simplicity_analog_1"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0a1e0bd0-0a38-48a2-850f-3bdf02fef3ae"
 					(reference "#PWR0101")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:D_Zener")
-		(at 95.25 168.148 180)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "3b14f5c5-8eef-483e-b89b-e829bd46f876")
-		(property "Reference" "D5005"
-			(at 99.568 170.688 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "MMZ3Z3V3"
-			(at 90.17 170.688 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Diode_SMD:D_SOD-323"
-			(at 95.25 168.148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 95.25 168.148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 95.25 168.148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C52056"
-			(at 95.25 168.148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "92ab9d5c-b4d9-4237-9d96-710aa53fbdeb")
-		)
-		(pin "2"
-			(uuid "a3eedaf3-127e-4990-95b5-c408789043a1")
-		)
-		(instances
-			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0a1e0bd0-0a38-48a2-850f-3bdf02fef3ae"
-					(reference "D5005")
 					(unit 1)
 				)
 			)
@@ -3426,153 +2920,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:D_Zener")
-		(at 131.064 161.798 270)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "97a9d011-c748-487a-86ba-5c2043ada372")
-		(property "Reference" "D5002"
-			(at 135.636 164.084 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "MMZ3Z3V3"
-			(at 136.906 165.862 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Diode_SMD:D_SOD-323"
-			(at 131.064 161.798 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 131.064 161.798 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 131.064 161.798 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C52056"
-			(at 131.064 161.798 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "7f198ae5-2194-4b1c-b608-2ded772dea14")
-		)
-		(pin "2"
-			(uuid "c4680181-665e-40e8-86a1-8cd00cbbd5f3")
-		)
-		(instances
-			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0a1e0bd0-0a38-48a2-850f-3bdf02fef3ae"
-					(reference "D5002")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 131.064 165.608 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "9d733f72-05be-445c-994a-446c7c535b12")
-		(property "Reference" "#PWR5001"
-			(at 131.064 171.958 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "GND"
-			(at 131.064 169.164 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 131.064 165.608 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 131.064 165.608 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 131.064 165.608 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "c8bf08b8-b3b2-489d-b3d7-ef408ba1728a")
-		)
-		(instances
-			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0a1e0bd0-0a38-48a2-850f-3bdf02fef3ae"
-					(reference "#PWR5001")
-					(unit 1)
-				)
-			)
-			(project "analog_i"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0a1e0bd0-0a38-48a2-850f-3bdf02fef3ae"
-					(reference "#PWR131")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:R_Small")
 		(at 78.232 160.782 180)
 		(unit 1)
@@ -3736,82 +3083,6 @@
 			(project "simplicity_analog_1"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0a1e0bd0-0a38-48a2-850f-3bdf02fef3ae"
 					(reference "R8004")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:D_Zener")
-		(at 102.87 168.148 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "ac0dfce5-fa3d-4497-8387-01aa1e073205")
-		(property "Reference" "D5004"
-			(at 98.552 165.608 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "MMZ3Z3V3"
-			(at 107.95 165.608 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Diode_SMD:D_SOD-323"
-			(at 102.87 168.148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 102.87 168.148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 102.87 168.148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C52056"
-			(at 102.87 168.148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "077a0a0e-53dd-4240-8187-c7cdc7e1c155")
-		)
-		(pin "2"
-			(uuid "74767cec-0ebf-4c91-9566-030a2ffc1adc")
-		)
-		(instances
-			(project "stm32h7_base"
-				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0a1e0bd0-0a38-48a2-850f-3bdf02fef3ae"
-					(reference "D5004")
 					(unit 1)
 				)
 			)
