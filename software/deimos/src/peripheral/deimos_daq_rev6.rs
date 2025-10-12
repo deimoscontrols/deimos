@@ -247,7 +247,7 @@ impl Peripheral for DeimosDaqRev6 {
 
         {
             let input_name = format!("{name}.ain19");
-            let voltage_calc_name = format!("{name}_x666");
+            let voltage_calc_name = format!("{name}_x660");
             let voltage_calc = InverseAffine::new(input_name, 1.0 + 49.4e3 / 75.0, 1.024, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
