@@ -70,7 +70,9 @@ impl Calc for Butter2 {
         self.output_index = output_range.clone().next().unwrap();
 
         let sample_rate_hz = 1e9f64 / f64::from(ctx.dt_ns);
-        let cutoff_ratio = (self.cutoff_hz / sample_rate_hz).max(MIN_CUTOFF_RATIO).min(MAX_CUTOFF_RATIO);
+        let cutoff_ratio = (self.cutoff_hz / sample_rate_hz)
+            .max(MIN_CUTOFF_RATIO)
+            .min(MAX_CUTOFF_RATIO);
 
         let filter = butter2(cutoff_ratio).unwrap_or_else(|err| {
             panic!("Failed to construct butter2 filter for ratio {cutoff_ratio}: {err}")
@@ -87,8 +89,11 @@ impl Calc for Butter2 {
 
     fn eval(&mut self, tape: &mut [f64]) {
         let x = tape[self.input_index];
-        let y = if !self.initialized {
+        let y = if branches::unlikely(!self.initialized) {
+            // Pass through the first value to avoid excessive timing
+            // on first cycle due to initialization
             self.filt.initialize(x as f32);
+            self.initialized = true;
             x
         } else {
             self.filt.update(x as f32) as f64
