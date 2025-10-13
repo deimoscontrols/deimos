@@ -70,19 +70,20 @@ impl Orchestrator {
     /// # Panics
     /// * If eval() is called before init()
     /// * If evaluation of individual calcs panics
-    pub fn eval(&mut self) {
+    pub fn eval(&mut self) -> Result<(), &'static str> {
         // Evaluate calcs in order
         for name in self.state.eval_order.iter() {
             self.calcs
                 .get_mut(name)
                 .unwrap()
-                .eval(&mut self.state.calc_tape);
+                .eval(&mut self.state.calc_tape)?;
         }
 
         // Populate peripheral inputs
         for (dst_index, src_index) in self.state.peripheral_input_source_indices.iter().copied() {
             self.state.calc_tape[dst_index] = self.state.calc_tape[src_index];
         }
+        Ok(())
     }
 
     /// Consume the latest outputs from a single peripheral by name,
@@ -267,7 +268,7 @@ impl Orchestrator {
         &mut self,
         ctx: ControllerCtx,
         peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
-    ) {
+    ) -> Result<(), &'static str> {
         // These will be stored
         let mut peripheral_output_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
         let mut peripheral_input_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
@@ -389,7 +390,7 @@ impl Orchestrator {
             }
 
             // Initialize this calc
-            calc.init(ctx.clone(), input_indices, output_range)
+            calc.init(ctx.clone(), input_indices, output_range)?;
         }
 
         // Find the indices of fields that will be given to the peripherals
@@ -413,11 +414,15 @@ impl Orchestrator {
             peripheral_input_slices,
             peripheral_input_source_indices,
         };
+        Ok(())
     }
 
     /// Clear state to reset for another run
-    pub fn terminate(&mut self) {
+    pub fn terminate(&mut self) -> Result<(), &'static str> {
         self.state = OrchestratorState::default();
-        self.calcs.values_mut().for_each(|c| c.terminate());
+        for calc in self.calcs.values_mut() {
+            calc.terminate()?;
+        }
+        Ok(())
     }
 }

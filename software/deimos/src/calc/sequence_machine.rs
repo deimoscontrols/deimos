@@ -699,7 +699,12 @@ impl SequenceMachine {
 #[typetag::serde]
 impl Calc for SequenceMachine {
     /// Reset internal sequence and register calc tape indices
-    fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
+    fn init(
+        &mut self,
+        ctx: ControllerCtx,
+        input_indices: Vec<usize>,
+        output_range: Range<usize>,
+    ) -> Result<(), &'static str> {
         // Reload from folder, if linked
         if let Some(rel_path) = &self.cfg.link_folder {
             let folder = ctx.op_dir.join(rel_path);
@@ -707,7 +712,7 @@ impl Calc for SequenceMachine {
         }
 
         // Reset execution sequence
-        self.terminate();
+        self.terminate()?;
 
         // Set per-run config
         self.execution_state.input_indices = input_indices;
@@ -735,9 +740,10 @@ impl Calc for SequenceMachine {
 
         // Make sure lookup tables are usable, transitions refer to real sequences, etc
         self.validate().unwrap();
+        Ok(())
     }
 
-    fn terminate(&mut self) {
+    fn terminate(&mut self) -> Result<(), &'static str> {
         self.execution_state.input_indices.clear();
         self.execution_state.output_range = usize::MAX..usize::MAX;
         let start_time = self
@@ -747,9 +753,10 @@ impl Calc for SequenceMachine {
             .get_start_time_s();
         self.execution_state.sequence_time_s = start_time;
         self.execution_state.current_sequence = self.cfg.entry.clone();
+        Ok(())
     }
 
-    fn eval(&mut self, tape: &mut [f64]) {
+    fn eval(&mut self, tape: &mut [f64]) -> Result<(), &'static str> {
         // Increment sequence time
         self.execution_state.sequence_time_s += self.execution_state.dt_s;
         // Transition to the next sequence if needed, which may reset sequence time
@@ -762,6 +769,7 @@ impl Calc for SequenceMachine {
             self.execution_state.output_range.clone(),
             tape,
         );
+        Ok(())
     }
 
     /// Map from input field names (like `v`, without prefix) to the sequence name

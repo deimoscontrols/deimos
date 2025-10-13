@@ -307,7 +307,9 @@ impl Controller {
             .collect::<Vec<String>>();
 
         // Reset calc orchestrator
-        self.orchestrator.terminate();
+        self.orchestrator
+            .terminate()
+            .expect("Failed to terminate calc orchestrator");
 
         // Close sockets
         self.sockets.iter_mut().for_each(|sock| sock.close());
@@ -387,8 +389,12 @@ impl Controller {
 
         // Initialize calc graph
         println!("Initializing calc orchestrator");
-        self.orchestrator.init(self.ctx.clone(), &self.peripherals);
-        self.orchestrator.eval(); // Populate constants, etc
+        self.orchestrator
+            .init(self.ctx.clone(), &self.peripherals)
+            .expect("Failed to initialize calc orchestrator");
+        self.orchestrator
+            .eval()
+            .expect("Failed to evaluate calc orchestrator during init");
 
         // Set up dispatcher(s)
         // TODO: send metrics to calcs so that they can be used as calc inputs
@@ -787,7 +793,9 @@ impl Controller {
             }
 
             // Run calcs
-            self.orchestrator.eval();
+            self.orchestrator
+                .eval()
+                .expect("Calc orchestrator evaluation failed during run loop");
 
             // Send outputs to db
             //    Write metrics

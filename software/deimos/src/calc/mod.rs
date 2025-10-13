@@ -104,13 +104,18 @@ impl Clone for Box<dyn Calc> {
 #[typetag::serde(tag = "type")]
 pub trait Calc: Send + Sync + Debug {
     /// Reset internal state and register calc tape indices
-    fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>);
+    fn init(
+        &mut self,
+        ctx: ControllerCtx,
+        input_indices: Vec<usize>,
+        output_range: Range<usize>,
+    ) -> Result<(), &'static str>;
 
     /// Clear state to reset for another run
-    fn terminate(&mut self);
+    fn terminate(&mut self) -> Result<(), &'static str>;
 
     /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]);
+    fn eval(&mut self, tape: &mut [f64]) -> Result<(), &'static str>;
 
     /// Map from input field names (like `v`, without prefix) to the state name
     /// that the input should draw from (like `peripheral_0.output_1`, with prefix)
