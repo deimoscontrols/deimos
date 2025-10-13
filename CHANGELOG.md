@@ -1,6 +1,39 @@
 # Changelog
 
-## 2025-09-19 deimos 0.11.1, Deimos DAQ Rev 6.0.0 hardware and firmware
+## 2025-10-12 deimos 0.11.2, deimos_shared 0.5.1, Deimos DAQ Rev 6.0.1 hardware and firmware
+
+Tooling
+* ubuntu 24.04
+* kicad 8 with hierarchical PCB plugin
+* protocase designer v7.2.1 linux version
+  * Run like `LD_LIBRARY_PATH=/opt/protocasedesigner/lib/app/natives/occjava/linux-x86_64/ /opt/protocasedesigner/bin/ProtocaseDesigner` to resolve link path issue for java runtime
+* freecad 1.0.2
+
+### Added
+
+Hardware
+* Deimos DAQ Rev 6.0.1 schematic and layout
+    * [x] Replace overvoltage protection diodes from leaky zeners to low-leakage JFET clamp
+    * [x] Add 5V LDO as supply for resistance amplifiers to restore gate voltage margin
+    * [x] Use smaller resistor values for resistance amp common-mode filter
+        * INA826 has significant input bias current (~25nA) which makes a nontrivial voltage across 20k resistance
+    * [x] Disable internal buffer for DAC to allow rail-to-rail operation
+        * Buffered mode min and max voltages are 20mV off the rails
+        * Can rely on external buffer that is already implemented for overvoltage protection
+* Controller Base Rev 16.0.1
+    * [x] Remove unnecessary clamping diodes
+    * [x] Remove unnecessary eth PHY crystal load caps
+    * [x] Clean up ethernet layout
+
+Software & Firmware
+* deimos_daq_rev6 firmware
+    * Rolled forward to latest `interpn` and `flaw` versions w/ perf improvements; ~30% increase in cycle timing margin
+* deimos
+    * Add rev 6 firmware and calc plugin
+* deimos_shared
+    * Add rev 6 packet formats
+
+## 2025-09-19 deimos 0.11.1, Deimos DAQ Rev 6.0.0 hardware
 
 Tooling
 * ubuntu 24.04
