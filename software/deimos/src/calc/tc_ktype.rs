@@ -35,9 +35,9 @@ use crate::{calc_config, calc_input_names, calc_output_names};
 /// init so that it does not cause additional cycle delay during the first operating cycle.
 pub static INTERPOLATOR: Lazy<MulticubicRegular<'static, f64, 2>> = Lazy::new(|| {
     MulticubicRegular::new(
-        &[SENSED_VOLTAGE_N, COLD_JUNCTION_N],
-        &[SENSED_VOLTAGE_START_V, COLD_JUNCTION_TEMP_START_K],
-        &[SENSED_VOLTAGE_STEP_V, COLD_JUNCTION_TEMP_STEP_K],
+        [SENSED_VOLTAGE_N, COLD_JUNCTION_N],
+        [SENSED_VOLTAGE_START_V, COLD_JUNCTION_TEMP_START_K],
+        [SENSED_VOLTAGE_STEP_V, COLD_JUNCTION_TEMP_STEP_K],
         &HOT_JUNCTION_TEMP_K,
         true,
     )
@@ -91,7 +91,7 @@ impl Calc for TcKtype {
         self.output_index = output_range.clone().next().unwrap();
 
         // Call the interpolator once to make sure it is initialized
-        INTERPOLATOR.interp_one(&[0.0, 0.0]).unwrap();
+        INTERPOLATOR.interp_one([0.0, 0.0]).unwrap();
     }
 
     fn terminate(&mut self) {
@@ -106,7 +106,7 @@ impl Calc for TcKtype {
         // An error here would indicate that we have encountered an unrepresentable number during interpolation.
         // As of writing, no method of producing an error here is known.
         let y = INTERPOLATOR
-            .interp_one(&[sensed_voltage, cold_junction_temp])
+            .interp_one([sensed_voltage, cold_junction_temp])
             .unwrap();
 
         tape[self.output_index] = y;
@@ -151,7 +151,7 @@ mod test {
         // Check the interpolator against a value from the table
         // with cold junction temperature inverted relative to the table
         let inp = [-3.18 / 1e3, -2.0 + 273.15];
-        let interped = INTERPOLATOR.interp_one(&inp).unwrap();
+        let interped = INTERPOLATOR.interp_one(inp).unwrap();
         let expected = -90.0 + 273.15;
         let rel_err = (interped - expected) / expected;
         assert!(rel_err.abs() < 1e-5);
