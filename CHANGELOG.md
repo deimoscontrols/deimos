@@ -33,6 +33,10 @@ Software & Firmware
 * deimos_shared
     * Add rev 6 packet formats
 
+Analysis
+* Added JFET diode clamp spice model
+
+
 ## 2025-09-19 deimos 0.11.1, Deimos DAQ Rev 6.0.0 hardware
 
 Tooling
