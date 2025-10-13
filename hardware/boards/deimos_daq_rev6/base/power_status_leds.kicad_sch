@@ -577,7 +577,7 @@
 		(at 184.912 82.042 180)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(uuid "43a6b7b7-1436-454a-ac0f-6dbff0792c0f")
@@ -851,6 +851,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/f8ee85d2-545a-41b5-afed-b6a262439b08"
+					(reference "#PWR139")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -858,7 +864,7 @@
 		(at 195.58 82.042 180)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(uuid "a3133fac-3b91-4fd5-b1cc-db00abd123e0")
@@ -930,7 +936,7 @@
 		(at 175.26 82.042 180)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(uuid "ac0395d9-36d7-4642-9d87-3a99a1518e8d")
@@ -1002,7 +1008,7 @@
 		(at 170.434 82.042 180)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(uuid "c8765f43-a844-4df7-a9dc-ffb1603863d7")
@@ -1058,6 +1064,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/f8ee85d2-545a-41b5-afed-b6a262439b08"
 					(reference "TP11001")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/f8ee85d2-545a-41b5-afed-b6a262439b08"
+					(reference "TP7002")
 					(unit 1)
 				)
 			)
@@ -1141,7 +1153,7 @@
 		(at 190.754 82.042 180)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(uuid "fd26fd18-57e6-4184-be67-f7f1ea165899")

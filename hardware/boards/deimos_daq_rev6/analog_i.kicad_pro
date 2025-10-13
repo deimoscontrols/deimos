@@ -721,10 +721,6 @@
       "3.3V buck"
     ],
     [
-      "a8b9daed-275a-4a60-a12d-4ffab5119e53",
-      "5V buck"
-    ],
-    [
       "b0b0bf52-ab0f-447d-a4ad-06c08cf2163a",
       "12V buck"
     ],
@@ -735,6 +731,10 @@
     [
       "bffed79e-b0f8-42ef-b35b-0bc5151b6608",
       "Ethernet"
+    ],
+    [
+      "23e19bde-060f-4059-96a5-ca43a6cc55da",
+      "12v_inverting"
     ],
     [
       "f31a785a-aa18-4b99-9461-7c34b37be0d7",

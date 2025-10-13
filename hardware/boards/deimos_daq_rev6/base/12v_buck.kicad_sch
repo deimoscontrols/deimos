@@ -1775,6 +1775,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "#PWR164")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -1848,6 +1854,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
 					(reference "C9003")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "C11006")
 					(unit 1)
 				)
 			)
@@ -2004,6 +2016,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "IC11001")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2067,6 +2085,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
 					(reference "#PWR115")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "#PWR161")
 					(unit 1)
 				)
 			)
@@ -2143,6 +2167,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
 					(reference "L9001")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "L11001")
 					(unit 1)
 				)
 			)
@@ -2225,6 +2255,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "R11005")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2301,6 +2337,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
 					(reference "C10002")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "C11004")
 					(unit 1)
 				)
 			)
@@ -2383,6 +2425,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "C11003")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2456,6 +2504,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
 					(reference "C9001")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "C11002")
 					(unit 1)
 				)
 			)
@@ -2537,6 +2591,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "R11004")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2603,6 +2663,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "#PWR158")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2666,6 +2732,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
 					(reference "#PWR112")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "#PWR150")
 					(unit 1)
 				)
 			)
@@ -2747,6 +2819,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "C11007")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2813,6 +2891,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "#PWR149")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2876,6 +2960,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
 					(reference "#PWR114")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "#PWR160")
 					(unit 1)
 				)
 			)
@@ -2955,6 +3045,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "C11005")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -3022,6 +3118,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "#PWR162")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -3085,6 +3187,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
 					(reference "#PWR117")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "#PWR163")
 					(unit 1)
 				)
 			)
@@ -3165,6 +3273,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
 					(reference "R10002")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "R11003")
 					(unit 1)
 				)
 			)

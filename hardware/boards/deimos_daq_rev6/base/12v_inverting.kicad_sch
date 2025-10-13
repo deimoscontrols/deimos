@@ -1854,6 +1854,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "C14002")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -1927,6 +1933,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/23e19bde-060f-4059-96a5-ca43a6cc55da"
 					(reference "C4008")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "C14006")
 					(unit 1)
 				)
 			)
@@ -2009,6 +2021,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "C14004")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2085,6 +2103,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/23e19bde-060f-4059-96a5-ca43a6cc55da"
 					(reference "C4006")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "C14003")
 					(unit 1)
 				)
 			)
@@ -2166,6 +2190,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "C14008")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2239,6 +2269,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/23e19bde-060f-4059-96a5-ca43a6cc55da"
 					(reference "C4011")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "C14005")
 					(unit 1)
 				)
 			)
@@ -2318,6 +2354,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "L14001")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2380,6 +2422,12 @@
 			(project ""
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/23e19bde-060f-4059-96a5-ca43a6cc55da"
 					(reference "#PWR4011")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "#PWR171")
 					(unit 1)
 				)
 			)
@@ -2462,6 +2510,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "R14003")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2529,6 +2583,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "#PWR172")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2593,6 +2653,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/23e19bde-060f-4059-96a5-ca43a6cc55da"
 					(reference "#PWR4004")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "#PWR174")
 					(unit 1)
 				)
 			)
@@ -2671,6 +2737,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/23e19bde-060f-4059-96a5-ca43a6cc55da"
 					(reference "R4003")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "R14004")
 					(unit 1)
 				)
 			)
@@ -2827,6 +2899,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "IC14001")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -2890,6 +2968,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/23e19bde-060f-4059-96a5-ca43a6cc55da"
 					(reference "#PWR4007")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "#PWR173")
 					(unit 1)
 				)
 			)
@@ -2966,6 +3050,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/23e19bde-060f-4059-96a5-ca43a6cc55da"
 					(reference "C4009")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "C14007")
 					(unit 1)
 				)
 			)
@@ -3047,6 +3137,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "R14005")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -3113,6 +3209,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "#PWR176")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -3176,6 +3278,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/23e19bde-060f-4059-96a5-ca43a6cc55da"
 					(reference "#PWR4005")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/23e19bde-060f-4059-96a5-ca43a6cc55da"
+					(reference "#PWR178")
 					(unit 1)
 				)
 			)
