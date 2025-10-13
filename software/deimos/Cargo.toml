@@ -20,7 +20,7 @@ deimos_shared = { path = "../deimos_shared", version = "0.5.1" }
 # Control loop prep
 chrono = { version = "0.4.39", features = ["std"], default-features = false }  # timestamp formatting
 core_affinity = "0.8.1"
-thread-priority = "2.1.0"
+thread-priority = "3.0.0"
 
 # Calcs
 flaw = "0.4.0"

@@ -16,6 +16,7 @@ pub use orchestrator::Orchestrator;
 // Specific calc implementations
 
 mod affine;
+mod butter;
 mod constant;
 mod inverse_affine;
 mod pid;
@@ -26,6 +27,7 @@ mod tc_ktype;
 pub mod sequence_machine;
 
 pub use affine::Affine;
+pub use butter::Butter2;
 pub use constant::Constant;
 pub use inverse_affine::InverseAffine;
 pub use pid::Pid;
@@ -75,6 +77,7 @@ where
 pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Calc>>> = Lazy::new(|| {
     BTreeMap::<String, Box<dyn Calc>>::from([
         Affine::prototype(),
+        Butter2::prototype(),
         Constant::prototype(),
         InverseAffine::prototype(),
         Pid::prototype(),
