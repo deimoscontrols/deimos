@@ -1,5 +1,5 @@
 use super::Peripheral;
-use crate::calc::{Affine, Calc, InverseAffine, RtdPt100, TcKtype};
+use crate::calc::{Affine, Butter2, Calc, InverseAffine, RtdPt100, TcKtype};
 use deimos_shared::OperatingMetrics;
 use deimos_shared::peripherals::{PeripheralId, deimos_daq_rev6::*, model_numbers};
 use std::collections::BTreeMap;
@@ -145,6 +145,11 @@ impl Peripheral for DeimosDaqRev6 {
             let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
             calcs.insert(resistance_calc_name, Box::new(resistance_calc));
             calcs.insert(temperature_calc_name.clone(), Box::new(temperature_calc));
+
+            let filtered_calc_name = format!("{name}_board_rtd_filtered");
+            let filtered_calc =
+                Butter2::new(format!("{temperature_calc_name}.temperature_K"), 1.0, true);
+            calcs.insert(filtered_calc_name, Box::new(filtered_calc));
         }
 
         // The sensor analog frontends occupy contiguous blocks of channels
@@ -200,7 +205,7 @@ impl Peripheral for DeimosDaqRev6 {
                 let voltage_calc = InverseAffine::new(input_name, slope, offset, true);
                 let temperature_calc = TcKtype::new(
                     format!("{voltage_calc_name}.y"),
-                    format!("{name}_board_rtd.temperature_K"),
+                    format!("{name}_board_rtd_filtered.y"),
                     true,
                 );
                 calcs.insert(voltage_calc_name, Box::new(voltage_calc));

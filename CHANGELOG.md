@@ -1,5 +1,17 @@
 # Changelog
 
+## 2025-10-13 deimos 0.11.3
+
+### Added
+
+* `calc::butter` module with `Butter2` second order butterworth filter calc
+* `branches` dep for branch hinting filter initialization
+
+### Changed
+
+* Apply 1Hz Butter2 filtered `board_rtd_filtered` channel in rev6 standard calcs
+* Use filtered board temperature for thermocouple cold-junction correction
+
 ## 2025-10-12 deimos 0.11.2, deimos_shared 0.5.1, Deimos DAQ Rev 6.0.1 hardware and firmware
 
 Tooling

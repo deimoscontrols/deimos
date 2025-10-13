@@ -18,7 +18,7 @@ use crate::{calc_config, calc_input_names, calc_output_names};
 /// interpolator's `new` function is not const, but we make sure to call it once during
 /// init so that it does not cause additional cycle delay during the first operating cycle.
 pub static INTERPOLATOR: Lazy<MulticubicRegular<'static, f64, 1>> = Lazy::new(|| {
-    MulticubicRegular::new(
+    MulticubicRegular::<'_, f64, 1>::new(
         [PROBE_RESISTANCE_N],
         [PROBE_RESISTANCE_START_OHM],
         [PROBE_RESISTANCE_STEP_OHM],
