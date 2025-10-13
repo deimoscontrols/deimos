@@ -70,11 +70,7 @@ impl Calc for Butter2 {
         self.output_index = output_range.clone().next().unwrap();
 
         let sample_rate_hz = 1e9f64 / f64::from(ctx.dt_ns);
-        let cutoff_ratio = self.cutoff_hz / sample_rate_hz;
-        assert!(
-            (MIN_CUTOFF_RATIO..=MAX_CUTOFF_RATIO).contains(&cutoff_ratio),
-            "Cutoff ratio {cutoff_ratio} out of supported range [{MIN_CUTOFF_RATIO}, {MAX_CUTOFF_RATIO}]"
-        );
+        let cutoff_ratio = (self.cutoff_hz / sample_rate_hz).max(MIN_CUTOFF_RATIO).min(MAX_CUTOFF_RATIO);
 
         let filter = butter2(cutoff_ratio).unwrap_or_else(|err| {
             panic!("Failed to construct butter2 filter for ratio {cutoff_ratio}: {err}")
