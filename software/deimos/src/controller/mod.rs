@@ -838,8 +838,20 @@ impl Controller {
                     })
             });
             //    Send to dispatcher
+            let mut dispatch_errors = Vec::new();
             for dispatcher in self.dispatchers.iter_mut() {
-                dispatcher.consume(time, timestamp, channel_values.clone())?;
+                if let Err(err) = dispatcher.consume(time, timestamp, channel_values.clone()) {
+                    dispatch_errors.push(err);
+                }
+            }
+
+            if !dispatch_errors.is_empty() {
+                let msg = dispatch_errors
+                    .into_iter()
+                    .map(|e| format!("\n  {e}"))
+                    .collect::<Vec<_>>()
+                    .join("");
+                return Err(format!("Dispatcher error(s): {msg}"));
             }
 
             // Update next target time
