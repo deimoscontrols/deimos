@@ -310,10 +310,9 @@ impl Controller {
                     &mut txbuf[..n],
                 );
                 let _ = self.sockets[*sid].send(*pid, &txbuf[..n]).map_err(|e| {
-                    err_rollup.push(format!(
-                        "Failed to send shutdown packet to `{}`: {e}",
-                        &ps.name
-                    ))
+                    let msg = format!("Failed to send shutdown packet to `{}`: {e}", &ps.name);
+                    error!("{msg}");
+                    err_rollup.push(msg)
                 });
             }
         }
@@ -639,6 +638,7 @@ impl Controller {
                                 "Lost contact with peripheral `{}` after {} missed cycles",
                                 &p.name, self.ctx.controller_loss_of_contact_limit
                             );
+                            error!("{reason}");
                             return Err(reason);
                         }
                     }
@@ -650,16 +650,20 @@ impl Controller {
                 let terminating = match criterion {
                     Termination::Timeout(d) => {
                         if &t >= d {
-                            Some(Ok(format!("Reached full duration {:?} at {:?}", &d, &t)))
+                            let msg = format!("Reached full duration {:?} at {:?}", &d, &t);
+                            info!("{msg}");
+                            Some(Ok(msg))
                         } else {
                             None
                         }
                     }
                     Termination::Scheduled(t_sched) => {
                         if t_sched >= &time {
-                            Some(Ok(format!(
+                            let msg = format!(
                                 "Reached scheduled termination time {t_sched:?} at {time:?}"
-                            )))
+                            );
+                            info!("{msg}");
+                            Some(Ok(msg))
                         } else {
                             None
                         }
@@ -841,6 +845,7 @@ impl Controller {
             let mut dispatch_errors = Vec::new();
             for dispatcher in self.dispatchers.iter_mut() {
                 if let Err(err) = dispatcher.consume(time, timestamp, channel_values.clone()) {
+                    error!("{err}");
                     dispatch_errors.push(err);
                 }
             }
