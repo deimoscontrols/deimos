@@ -274,11 +274,12 @@ impl Controller {
         timeout_ms: u16,
         plugins: &Option<PluginMap>,
     ) -> Result<BTreeMap<SocketAddr, Box<dyn Peripheral>>, String> {
-        // Ping with the longer desired timeout
+        // Ping with the longer desired timeout for hearing back from the peripherals,
+        // but a zero timeout for the peripherals returning to Binding
         self.bind(None, timeout_ms, 0, plugins)
     }
 
-    // Safe the peripherals and shut down the controller
+    /// Safe the peripherals and shut down the controller
     fn terminate(
         &mut self,
         state: &ControllerState,
@@ -286,19 +287,20 @@ impl Controller {
         txbuf: &mut [u8],
         packet_index: u64,
     ) {
-        // Send peripherals default state
+        // Send peripherals default state.
+        //
         // Send multiple times to each peripheral to reduce probability of
         // packet loss; in the event that the shutdown message is missed,
         // the peripheral will still return to its default state on reaching
         // its loss-of-contact limit.
         let i = packet_index;
         peripheral_input_buffer.fill(0.0);
+        let mut err_rollup: Vec<String> = Vec::new();
         for j in 0..3 {
             // Send 3x to each
             for (addr, ps) in state.peripheral_state.iter() {
                 let p = &self.peripherals[&ps.name];
                 let n = p.operating_roundtrip_input_size();
-                // TODO: log transmit errors
                 let (sid, pid) = addr;
                 p.emit_operating_roundtrip(
                     j + i,
@@ -307,16 +309,20 @@ impl Controller {
                     &peripheral_input_buffer[..n],
                     &mut txbuf[..n],
                 );
-                let _ = self.sockets[*sid].send(*pid, &txbuf[..n]);
+                let _ = self.sockets[*sid].send(*pid, &txbuf[..n]).map_err(|e| {
+                    err_rollup.push(format!(
+                        "Failed to send shutdown packet to `{}`: {e}",
+                        &ps.name
+                    ))
+                });
             }
         }
 
         // Reset dispatchers
-        let mut err_rollup = self
-            .dispatchers
+        self.dispatchers
             .iter_mut()
             .filter_map(|d| d.terminate().err())
-            .collect::<Vec<String>>();
+            .for_each(|e| err_rollup.push(e));
 
         // Reset calc orchestrator
         let _ = self
