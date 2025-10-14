@@ -377,7 +377,8 @@ impl Controller {
         let txbuf = &mut [0_u8; 1522][..];
 
         // Make sure sockets are configured and ports are bound
-        self.open_sockets().unwrap();
+        self.open_sockets()
+            .map_err(|e| format!("Failed to open sockets: {e}"))?;
 
         // Scan to get peripheral addresses
         info!("Scanning for available units");
@@ -396,10 +397,10 @@ impl Controller {
         info!("Initializing calc orchestrator");
         self.orchestrator
             .init(self.ctx.clone(), &self.peripherals)
-            .expect("Failed to initialize calc orchestrator");
+            .map_err(|e| format!("Failed to initialize calc orchestrator: {e}"))?;
         self.orchestrator
             .eval()
-            .expect("Failed to evaluate calc orchestrator during init");
+            .map_err(|e| format!("Failed to evaluate calc orchestrator during init: {e}"))?;
 
         // Set up dispatcher(s)
         // TODO: send metrics to calcs so that they can be used as calc inputs
@@ -471,12 +472,12 @@ impl Controller {
             for (sid, pid) in addresses.iter() {
                 let p = bound_peripherals
                     .get(&(*sid, *pid))
-                    .expect(&format!("Did not find {pid:?} in bound peripherals"));
+                    .ok_or(format!("Did not find {pid:?} in bound peripherals"))?;
                 let num_to_write = p.configuring_input_size();
                 p.emit_configuring(config_input, &mut txbuf[..num_to_write]);
                 self.sockets[*sid]
                     .send(*pid, &txbuf[..num_to_write])
-                    .expect(&format!("Failed to send configuration to {pid:?}"));
+                    .map_err(|e| format!("Failed to send configuration to {pid:?}: {e:?}"))?;
             }
 
             //    Wait for peripherals to acknowledge their configuration
@@ -554,7 +555,7 @@ impl Controller {
         //    If we reached the end of timeout into Operating and all peripherals
         //    acknowledged their configuration, continue to operating
         if !all_peripherals_acknowledged {
-            panic!("Some peripherals did not acknowledge their configuration");
+            return Err("Some peripherals did not acknowledge their configuration".to_string());
         }
 
         //    Init timing
@@ -802,9 +803,7 @@ impl Controller {
             }
 
             // Run calcs
-            self.orchestrator
-                .eval()
-                .expect("Calc orchestrator evaluation failed during run loop");
+            self.orchestrator.eval()?;
 
             // Send outputs to db
             //    Write metrics
@@ -820,9 +819,7 @@ impl Controller {
             });
             //    Send to dispatcher
             for dispatcher in self.dispatchers.iter_mut() {
-                dispatcher
-                    .consume(time, timestamp, channel_values.clone())
-                    .unwrap();
+                dispatcher.consume(time, timestamp, channel_values.clone())?;
             }
 
             // Update next target time
