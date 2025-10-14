@@ -15,6 +15,7 @@ use flaw::MedianFilter;
 
 use crate::{
     calc::Calc,
+    logging,
     peripheral::{Peripheral, PluginMap, parse_binding},
 };
 use deimos_shared::states::*;
@@ -26,6 +27,7 @@ use crate::socket::{Socket, SocketAddr};
 use context::{ControllerCtx, LossOfContactPolicy, Termination};
 use controller_state::ControllerState;
 use timing::TimingPID;
+use tracing::{debug, error, info, warn};
 
 /// The controller implements the control loop,
 /// synchronizes sample reporting time between the peripherals,
@@ -243,10 +245,10 @@ impl Controller {
                                 // Update the controller's address map
                                 available_peripherals.insert(addr, parsed);
                             }
-                            Err(e) => println!("{e}"),
+                            Err(e) => warn!("{e}"),
                         }
                     } else {
-                        println!("Received malformed response on socket {sid}")
+                        warn!("Received malformed binding response on socket {sid}");
                     }
                 }
             }
@@ -317,7 +319,7 @@ impl Controller {
         // Report errors
         // TODO: log this
         if !err_rollup.is_empty() {
-            println!("Encountered errors during termination: {err_rollup:?}");
+            warn!("Encountered errors during termination: {err_rollup:?}");
         }
     }
 
@@ -368,6 +370,9 @@ impl Controller {
             aux_core_cycle
         };
 
+        logging::init_logging(&self.ctx.op_dir)
+            .map_err(|err| format!("Failed to initialize logging: {err}"))?;
+
         // Buffer for writing bytes to send on sockets
         let txbuf = &mut [0_u8; 1522][..];
 
@@ -375,11 +380,11 @@ impl Controller {
         self.open_sockets().unwrap();
 
         // Scan to get peripheral addresses
-        println!("Scanning for available units");
+        info!("Scanning for available units");
         let available_peripherals = self.scan(100, plugins);
 
         // Initialize state using scanned addresses
-        println!("Initializing state");
+        info!("Initializing state");
         let mut controller_state = ControllerState::new(&self.peripherals, &available_peripherals);
         let addresses = controller_state
             .peripheral_state
@@ -388,7 +393,7 @@ impl Controller {
             .collect::<Vec<SocketAddr>>();
 
         // Initialize calc graph
-        println!("Initializing calc orchestrator");
+        info!("Initializing calc orchestrator");
         self.orchestrator
             .init(self.ctx.clone(), &self.peripherals)
             .expect("Failed to initialize calc orchestrator");
@@ -398,7 +403,7 @@ impl Controller {
 
         // Set up dispatcher(s)
         // TODO: send metrics to calcs so that they can be used as calc inputs
-        println!("Initializing dispatchers");
+        info!("Initializing dispatchers");
         let mut channel_names = Vec::new();
         let metric_channel_names = controller_state.get_names_to_write();
         let io_channel_names = self.orchestrator.get_dispatch_names();
@@ -413,13 +418,13 @@ impl Controller {
                 .init(&self.ctx, &channel_names, aux_core_cycle.next().unwrap().id)
                 .unwrap();
         }
-        println!("Dispatching data for {n_channels} channels.");
+        info!("Dispatching data for {n_channels} channels.");
 
         // Bind & configure
         let mut all_peripherals_acknowledged = false;
 
         'configuring_retry: for i in 0..10 {
-            println!("Binding peripherals");
+            info!("Binding peripherals");
 
             // If this is a retry, wait for peripherals to time out back to binding
             if i > 0 {
@@ -433,7 +438,7 @@ impl Controller {
                         + self.ctx.configuring_timeout_ms as u64 * 1000
                         + pad_ns,
                 );
-                println!("Waiting {:?} to retry configuring", &retry_wait);
+                debug!(?retry_wait, "Waiting to retry configuring");
                 thread::sleep(retry_wait);
             }
 
@@ -455,7 +460,7 @@ impl Controller {
 
             // Configure peripherals
             //    Send configuration to each peripheral
-            println!("Configuring peripherals");
+            info!("Configuring peripherals");
             let config_input = ConfiguringInput {
                 dt_ns: self.ctx.dt_ns,
                 timeout_to_operating_ns: self.ctx.timeout_to_operating_ns,
@@ -477,7 +482,7 @@ impl Controller {
             //    Wait for peripherals to acknowledge their configuration
             let operating_timeout = Duration::from_nanos(self.ctx.timeout_to_operating_ns as u64);
 
-            println!("Waiting for peripherals to acknowledge configuration");
+            info!("Waiting for peripherals to acknowledge configuration");
             while start_of_operating_countdown.elapsed() < operating_timeout {
                 for (sid, socket) in self.sockets.iter_mut().enumerate() {
                     if let Some((pid, _rxtime, buf)) = socket.recv() {
@@ -489,7 +494,7 @@ impl Controller {
                                 // Parse the (potential) peripheral's response
                                 let p = bound_peripherals.get(&(sid, pid)).unwrap();
                                 if amt != p.configuring_output_size() {
-                                    println!(
+                                    warn!(
                                         "Received malformed configuration response from peripheral {pid:?} on socket {sid}"
                                     );
                                     continue;
@@ -519,7 +524,7 @@ impl Controller {
                                 }
                             }
                             _ => {
-                                println!("Received response from peripheral not in address table")
+                                warn!("Received response from peripheral not in address table");
                             }
                         }
                     }
@@ -540,7 +545,7 @@ impl Controller {
                     .iter()
                     .filter_map(|(_k, v)| (!v.acknowledged_configuration).then_some(v.name.clone()))
                     .collect::<Vec<_>>();
-                println!(
+                warn!(
                     "Peripherals did not acknowledge configuration: {peripherals_not_acknowledged:?}"
                 );
             }
@@ -553,7 +558,7 @@ impl Controller {
         }
 
         //    Init timing
-        println!("Initializing timing controllers");
+        info!("Initializing timing controllers");
         let start_of_operating = Instant::now();
         let cycle_duration = Duration::from_nanos(self.ctx.dt_ns as u64);
         let mut target_time = cycle_duration;
@@ -582,7 +587,7 @@ impl Controller {
         let mut peripheral_input_buffer = [0.0_f64; 1522 / 8 + 8];
 
         //    Run timed loop
-        println!("Entering control loop");
+        info!("Entering control loop");
         let mut i: u64 = 0;
         controller_state.controller_metrics.cycle_time_margin_ns = self.ctx.dt_ns as f64;
         loop {
@@ -844,6 +849,6 @@ mod test {
         let reserialized = serde_json::to_string(&deserialized).unwrap();
 
         assert_eq!(serialized, reserialized);
-        println!("{serialized}");
+        debug!("Serialized controller state: {serialized}");
     }
 }

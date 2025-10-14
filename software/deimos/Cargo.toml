@@ -41,6 +41,11 @@ serde_json = { version = "^1", features = ["preserve_order"] }
 postgres = "0.19.10"
 postgres-types = "0.2.9"
 
+# Logging
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter", "chrono"] }
+
 [features]
 
 [[example]]

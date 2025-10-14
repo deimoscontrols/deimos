@@ -4,6 +4,7 @@
 pub mod calc;
 pub mod controller;
 pub mod dispatcher;
+pub mod logging;
 pub mod peripheral;
 pub mod socket;
 
