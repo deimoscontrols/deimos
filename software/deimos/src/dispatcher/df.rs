@@ -2,6 +2,7 @@
 //! Stores data in a simple library-agnostic in-memory format.
 
 use serde::{Deserialize, Serialize};
+use tracing::info;
 use std::{
     sync::{Arc, RwLock, RwLockWriteGuard},
     time::SystemTime,
@@ -150,6 +151,7 @@ impl Dispatcher for DataFrameDispatcher {
         channel_names: &[String],
         _core_assignment: usize,
     ) -> Result<(), String> {
+        info!("Initializing dataframe dispatcher");
         // Store channel names
         let channel_names = channel_names.to_vec();
 

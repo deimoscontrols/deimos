@@ -104,3 +104,4 @@ docs/_build/
 *.net
 *.raw
 *.plt
+# logs/*

@@ -7,6 +7,7 @@ use std::fs::File;
 use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
+use tracing::{info, warn};
 use std::sync::mpsc::{Sender, channel};
 use std::thread::{self, JoinHandle, spawn};
 
@@ -72,6 +73,8 @@ impl Dispatcher for CsvDispatcher {
         let total_len = 1024 * 1_024 * self.chunk_size_megabytes;
         let filepath = ctx.op_dir.join(format!("{}.csv", ctx.op_name));
 
+        info!("Initializing CSV dispatcher with file path: {:?}", &filepath);
+
         // Spawn worker
         self.worker = Some(WorkerHandle::new(
             filepath,
@@ -135,13 +138,19 @@ impl WorkerHandle {
         let _thread = spawn(move || {
             // Bind to assigned core, and set priority only if the core is not shared with the control loop
             {
-                core_affinity::set_for_current(core_affinity::CoreId {
+                let success = core_affinity::set_for_current(core_affinity::CoreId {
                     id: core_assignment,
                 });
+                if !success {
+                    warn!("Failed to set core affinity for CSV dispatcher");
+                }
+
                 if core_assignment > 0 {
-                    let _ = thread_priority::set_current_thread_priority(
+                    if let Err(e) = thread_priority::set_current_thread_priority(
                         thread_priority::ThreadPriority::Max,
-                    );
+                    ) {
+                        info!("Failed to set thread priority for CSV dispatcher: {e}");
+                    }
                 }
             }
 

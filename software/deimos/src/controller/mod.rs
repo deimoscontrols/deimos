@@ -340,7 +340,7 @@ impl Controller {
 
     pub fn run(&mut self, plugins: &Option<PluginMap>) -> Result<String, String> {
         // Start log file
-        let log_file = logging::init_logging(&self.ctx.op_dir, &self.ctx.op_name)
+        let (log_file, _logging_guards) = logging::init_logging(&self.ctx.op_dir, &self.ctx.op_name)
             .map_err(|err| format!("Failed to initialize logging: {err}"))?;
         let log_file_canonicalized = log_file
             .canonicalize()
@@ -371,31 +371,6 @@ impl Controller {
                 core_affinity::set_for_current(*core);
             }
 
-            // Set filled deadline scheduling to indicate that the control loop thread
-            // should stay fully occupied. This is not available on Windows, in which
-            // case, use max priority as a next-best option.
-            // If both options fail, continue as-is.
-            info!("Setting main Controller thread priority to fully-occupied realtime scheduling.");
-            if let Err(e) = thread_priority::set_current_thread_priority(
-                thread_priority::ThreadPriority::Deadline {
-                    runtime: Duration::from_nanos(1),
-                    deadline: Duration::from_nanos(1),
-                    period: Duration::from_nanos(1),
-                    flags: thread_priority::DeadlineFlags::RESET_ON_FORK, // Children do not inherit deadline scheduling
-                },
-            ) {
-                info!(
-                    "Unable to set realtime thread scheduling for main Controller thread; falling back on MAX priority: {e:?}"
-                );
-                if let Err(e2) = thread_priority::set_current_thread_priority(
-                    thread_priority::ThreadPriority::Max,
-                ) {
-                    warn!(
-                        "Unable to set thread priority for main Controller thread. Performance may be degraded: {e2:?}"
-                    )
-                }
-            };
-
             aux_core_cycle
         };
 
@@ -411,9 +386,10 @@ impl Controller {
         let available_peripherals = self
             .scan(100, plugins)
             .map_err(|e| format!("Failed to scan for peripherals: {e}"))?;
+        info!("Found available units: {:?}", &available_peripherals);
 
         // Initialize state using scanned addresses
-        info!("Initializing state");
+        info!("Initializing controller run state");
         let mut controller_state = ControllerState::new(&self.peripherals, &available_peripherals);
         let addresses = controller_state
             .peripheral_state

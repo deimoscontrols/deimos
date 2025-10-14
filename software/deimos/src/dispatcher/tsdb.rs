@@ -9,6 +9,7 @@ use std::time::{Duration, SystemTime};
 use postgres::{Client, NoTls, Statement};
 use postgres_types::{ToSql, Type};
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use crate::controller::context::ControllerCtx;
 
@@ -82,12 +83,18 @@ impl Dispatcher for TimescaleDbDispatcher {
         channel_names: &[String],
         core_assignment: usize,
     ) -> Result<(), String> {
+        info!(
+            "Initializing Timesdcale DB dispatcher: {}",
+            serde_json::to_string_pretty(&self)
+                .map_err(|e| format!("Failed to log dispatcher settings: {e}"))?
+        );
+
         // Shut down any existing workers by dropping their tx handle
         self.worker = None;
 
         // Get token / pw from environment
         let pw = std::env::var(&self.token_name)
-            .unwrap_or_else(|_| panic!("Did not find token name env var {}", &self.token_name));
+            .map_err(|e| format!("Did not find token name env var {}: {e}", &self.token_name))?;
 
         // Connect to database backend
         let mut client = init_timescaledb_client(&self.dbname, &self.host, &self.user, &pw)?;
