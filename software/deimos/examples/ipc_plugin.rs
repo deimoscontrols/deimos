@@ -123,9 +123,9 @@ fn main() {
     // Get collected dataframe
     let df = df_handle.try_read().unwrap();
     println!("Collected data: \n{:?}", df.headers());
-    for row in df.rows() {
-        println!("{row:?}");
-    }
+    println!("{:?}", df.rows().first().unwrap());
+    println!("...");
+    println!("{:?}", df.rows().last().unwrap());
 
     // Clear sockets
     let _ = std::fs::remove_dir_all("./sock");

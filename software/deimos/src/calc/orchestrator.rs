@@ -425,9 +425,17 @@ impl Orchestrator {
     /// Clear state to reset for another run
     pub fn terminate(&mut self) -> Result<(), String> {
         self.state = OrchestratorState::default();
-        for calc in self.calcs.values_mut() {
-            calc.terminate()?;
+        let mut errors = Vec::new();
+        for (name, calc) in self.calcs.iter_mut() {
+            if let Err(e) = calc.terminate() {
+                errors.push(format!("\n  {name}: {e}"));
+            }
         }
-        Ok(())
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(format!("Failed to terminate calcs: {}", errors.join("")))
+        }
     }
 }
