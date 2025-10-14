@@ -44,6 +44,8 @@ use deimos::{
     *,
 };
 
+use tracing::{error, info};
+
 fn main() {
     // Clear sockets
     let _ = std::fs::remove_dir_all("./sock");
@@ -86,7 +88,7 @@ fn main() {
 
     // Scan to trigger the controller to build the socket folder structure
     if let Err(err) = controller.scan(100, &plugins) {
-        eprintln!("Initial scan failed: {err}");
+        error!("Initial scan failed: {err}");
     }
 
     // Open a socket for the peripheral mockup
@@ -105,7 +107,7 @@ fn main() {
     let scan_result = controller
         .scan(100, &plugins)
         .expect("Failed to scan for peripherals");
-    println!("Scan found:\n{:?}", scan_result.values());
+    info!("Scan found:\n{:?}", scan_result.values());
 
     // Serialize and deserialize the controller (for demonstration purposes)
     {
@@ -115,17 +117,18 @@ fn main() {
 
     // Start the controller
     let exit_status = controller.run(&plugins);
-    println!("Controller exit status: {exit_status:?}");
+    info!("Controller exit status: {exit_status:?}");
 
     // Wait for the mockup to finish running
     mockup_thread.join().unwrap();
 
     // Get collected dataframe
     let df = df_handle.try_read().unwrap();
-    println!("Collected data: \n{:?}", df.headers());
-    println!("{:?}", df.rows().first().unwrap());
-    println!("...");
-    println!("{:?}", df.rows().last().unwrap());
+    info!("Collected data");
+    info!("{:?}", df.headers());
+    info!("{:?}", df.rows().first().unwrap());
+    info!("...");
+    info!("{:?}", df.rows().last().unwrap());
 
     // Clear sockets
     let _ = std::fs::remove_dir_all("./sock");
@@ -247,7 +250,7 @@ impl PState {
             loop {
                 state = match state.step() {
                     Self::Terminated => {
-                        println!("Peripheral -> Terminated");
+                        info!("Peripheral -> Terminated");
                         return;
                     }
                     x => x,
@@ -260,12 +263,12 @@ impl PState {
     fn step(self) -> Self {
         match self {
             Self::Binding { end, sock } => {
-                println!("Peripheral -> Binding");
+                info!("Peripheral -> Binding");
                 let buf = &mut vec![0_u8; 1522][..];
                 loop {
                     // Check for planned termination
                     if SystemTime::now() > end {
-                        println!("Peripheral reached full duration at {}", fmt_time(end));
+                        info!("Peripheral reached full duration at {}", fmt_time(end));
                         return Self::Terminated;
                     }
 
@@ -308,13 +311,13 @@ impl PState {
                 end,
                 sock,
             } => {
-                println!("Peripheral -> Configuring");
+                info!("Peripheral -> Configuring");
                 let buf = &mut vec![0_u8; 1522][..];
                 let start_of_configuring = Instant::now();
                 loop {
                     // Check for planned termination
                     if SystemTime::now() > end {
-                        println!("Peripheral reached full duration at {}", fmt_time(end));
+                        info!("Peripheral reached full duration at {}", fmt_time(end));
                         return Self::Terminated;
                     }
 
@@ -352,11 +355,11 @@ impl PState {
             } => {
                 let buf = &mut vec![0_u8; 1522][..];
                 let mut i = 0;
-                println!("Peripheral -> Operating");
+                info!("Peripheral -> Operating");
                 loop {
                     // Check for planned termination
                     if SystemTime::now() > end {
-                        println!("Peripheral reached full duration at {}", fmt_time(end));
+                        info!("Peripheral reached full duration at {}", fmt_time(end));
                         return Self::Terminated;
                     }
 
@@ -382,7 +385,7 @@ impl PState {
                 }
             }
             Self::Terminated => {
-                println!("Peripheral -> Terminated");
+                info!("Peripheral -> Terminated");
                 Self::Terminated
             }
         }

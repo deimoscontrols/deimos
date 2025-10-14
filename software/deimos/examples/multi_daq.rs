@@ -16,6 +16,7 @@ use controller::context::ControllerCtx;
 use deimos::calc::SequenceMachine;
 use deimos::calc::sequence_machine::{MachineCfg, ThreshOp, Timeout, Transition};
 use deimos::*;
+use tracing::info;
 
 fn main() {
     // Set op name
@@ -57,7 +58,7 @@ fn main() {
     let scanned_peripherals = controller
         .scan(10, &peripheral_plugins)
         .expect("Failed to scan for peripherals");
-    println!("Scan found: {scanned_peripherals:?}\n");
+    info!("Scan found: {scanned_peripherals:?}\n");
 
     // Associate peripherals
     controller.add_peripheral("p1", Box::new(AnalogIRev3 { serial_number: 1 }));
