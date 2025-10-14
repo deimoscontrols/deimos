@@ -49,20 +49,20 @@ impl Calc for InverseAffine {
         _: ControllerCtx,
         input_indices: Vec<usize>,
         output_range: Range<usize>,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), String> {
         self.input_index = input_indices[0];
         self.output_index = output_range.clone().next().unwrap();
         Ok(())
     }
 
-    fn terminate(&mut self) -> Result<(), &'static str> {
+    fn terminate(&mut self) -> Result<(), String> {
         self.input_index = usize::MAX;
         self.output_index = usize::MAX;
         Ok(())
     }
 
     /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), &'static str> {
+    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         let x = tape[self.input_index];
         let y = (x - self.offset) / self.slope;
 

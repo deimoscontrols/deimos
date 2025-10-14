@@ -704,7 +704,7 @@ impl Calc for SequenceMachine {
         ctx: ControllerCtx,
         input_indices: Vec<usize>,
         output_range: Range<usize>,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), String> {
         // Reload from folder, if linked
         if let Some(rel_path) = &self.cfg.link_folder {
             let folder = ctx.op_dir.join(rel_path);
@@ -743,7 +743,7 @@ impl Calc for SequenceMachine {
         Ok(())
     }
 
-    fn terminate(&mut self) -> Result<(), &'static str> {
+    fn terminate(&mut self) -> Result<(), String> {
         self.execution_state.input_indices.clear();
         self.execution_state.output_range = usize::MAX..usize::MAX;
         let start_time = self
@@ -756,7 +756,7 @@ impl Calc for SequenceMachine {
         Ok(())
     }
 
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), &'static str> {
+    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         // Increment sequence time
         self.execution_state.sequence_time_s += self.execution_state.dt_s;
         // Transition to the next sequence if needed, which may reset sequence time

@@ -109,13 +109,13 @@ pub trait Calc: Send + Sync + Debug {
         ctx: ControllerCtx,
         input_indices: Vec<usize>,
         output_range: Range<usize>,
-    ) -> Result<(), &'static str>;
+    ) -> Result<(), String>;
 
     /// Clear state to reset for another run
-    fn terminate(&mut self) -> Result<(), &'static str>;
+    fn terminate(&mut self) -> Result<(), String>;
 
     /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), &'static str>;
+    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String>;
 
     /// Map from input field names (like `v`, without prefix) to the state name
     /// that the input should draw from (like `peripheral_0.output_1`, with prefix)

@@ -70,7 +70,7 @@ impl Orchestrator {
     /// # Panics
     /// * If eval() is called before init()
     /// * If evaluation of individual calcs panics
-    pub fn eval(&mut self) -> Result<(), &'static str> {
+    pub fn eval(&mut self) -> Result<(), String> {
         // Evaluate calcs in order
         for name in self.state.eval_order.iter() {
             self.calcs
@@ -268,7 +268,7 @@ impl Orchestrator {
         &mut self,
         ctx: ControllerCtx,
         peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), String> {
         // These will be stored
         let mut peripheral_output_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
         let mut peripheral_input_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
@@ -418,7 +418,7 @@ impl Orchestrator {
     }
 
     /// Clear state to reset for another run
-    pub fn terminate(&mut self) -> Result<(), &'static str> {
+    pub fn terminate(&mut self) -> Result<(), String> {
         self.state = OrchestratorState::default();
         for calc in self.calcs.values_mut() {
             calc.terminate()?;

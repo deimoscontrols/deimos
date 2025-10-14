@@ -36,18 +36,18 @@ impl Calc for Constant {
         _: ControllerCtx,
         _: Vec<usize>,
         output_range: Range<usize>,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), String> {
         self.output_index = output_range.clone().next().unwrap();
         Ok(())
     }
 
-    fn terminate(&mut self) -> Result<(), &'static str> {
+    fn terminate(&mut self) -> Result<(), String> {
         self.output_index = usize::MAX;
         Ok(())
     }
 
     /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), &'static str> {
+    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         tape[self.output_index] = self.y;
         Ok(())
     }

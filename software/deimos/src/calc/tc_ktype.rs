@@ -91,7 +91,7 @@ impl Calc for TcKtype {
         _: ControllerCtx,
         input_indices: Vec<usize>,
         output_range: Range<usize>,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), String> {
         self.input_indices = input_indices;
         self.output_index = output_range.clone().next().unwrap();
 
@@ -100,14 +100,14 @@ impl Calc for TcKtype {
         Ok(())
     }
 
-    fn terminate(&mut self) -> Result<(), &'static str> {
+    fn terminate(&mut self) -> Result<(), String> {
         self.input_indices.clear();
         self.output_index = usize::MAX;
         Ok(())
     }
 
     /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), &'static str> {
+    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         let sensed_voltage = tape[self.input_indices[0]];
         let cold_junction_temp = tape[self.input_indices[1]];
         // An error here would indicate that we have encountered an unrepresentable number during interpolation.

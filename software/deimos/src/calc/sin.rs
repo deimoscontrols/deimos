@@ -62,13 +62,13 @@ impl Calc for Sin {
         ctx: ControllerCtx,
         _input_indices: Vec<usize>,
         output_range: Range<usize>,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), String> {
         self.output_index = output_range.clone().next().unwrap();
         self.rad_per_cycle = (ctx.dt_ns as f64 / 1e9) * 2.0 * f64::consts::PI / self.period_s;
         Ok(())
     }
 
-    fn terminate(&mut self) -> Result<(), &'static str> {
+    fn terminate(&mut self) -> Result<(), String> {
         self.output_index = usize::MAX;
         self.rad_per_cycle = 0.0;
         self.angle_rad = 0.0;
@@ -77,7 +77,7 @@ impl Calc for Sin {
     }
 
     /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), &'static str> {
+    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         self.angle_rad += self.rad_per_cycle;
         let y = (self.angle_rad.sin() + 1.0) * self.scale + self.low;
 

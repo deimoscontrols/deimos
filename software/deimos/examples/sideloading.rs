@@ -107,21 +107,21 @@ impl Calc for Speaker {
         ctx: ControllerCtx,
         _input_indices: Vec<usize>,
         output_range: Range<usize>,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), String> {
         self.output_index = output_range.clone().next().unwrap();
         self.endpoint = ctx.source_endpoint(&self.channel_name);
         self.prefix = ctx.user_ctx.get("speaker_prefix").unwrap().to_owned();
         Ok(())
     }
 
-    fn terminate(&mut self) -> Result<(), &'static str> {
+    fn terminate(&mut self) -> Result<(), String> {
         self.output_index = usize::MAX;
         self.endpoint = Endpoint::default();
         Ok(())
     }
 
     /// Run calcs for a cycle
-    fn eval(&mut self, _tape: &mut [f64]) -> Result<(), &'static str> {
+    fn eval(&mut self, _tape: &mut [f64]) -> Result<(), String> {
         // Send time on user channel with prefix
         let msg = Msg::Str(format!(
             "{} at {:?}",
@@ -190,20 +190,20 @@ impl Calc for Listener {
         ctx: ControllerCtx,
         _input_indices: Vec<usize>,
         output_range: Range<usize>,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), String> {
         self.output_index = output_range.clone().next().unwrap();
         self.endpoint = ctx.sink_endpoint(&self.channel_name);
         Ok(())
     }
 
-    fn terminate(&mut self) -> Result<(), &'static str> {
+    fn terminate(&mut self) -> Result<(), String> {
         self.output_index = usize::MAX;
         self.endpoint = Endpoint::default();
         Ok(())
     }
 
     /// Run calcs for a cycle
-    fn eval(&mut self, _tape: &mut [f64]) -> Result<(), &'static str> {
+    fn eval(&mut self, _tape: &mut [f64]) -> Result<(), String> {
         // Print the time if we received it
         let msg = match self.endpoint.rx().try_recv() {
             Ok(x) => x,

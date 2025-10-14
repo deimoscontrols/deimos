@@ -75,7 +75,7 @@ impl Calc for Pid {
         ctx: ControllerCtx,
         input_indices: Vec<usize>,
         output_range: Range<usize>,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), String> {
         assert!(
             ctx.dt_ns > 0,
             "dt_ns value of {} provided. dt_ns must be > 0",
@@ -88,7 +88,7 @@ impl Calc for Pid {
         Ok(())
     }
 
-    fn terminate(&mut self) -> Result<(), &'static str> {
+    fn terminate(&mut self) -> Result<(), String> {
         self.err = 0.0;
         self.dt_s = 1.0;
         self.integral = 0.0;
@@ -98,7 +98,7 @@ impl Calc for Pid {
     }
 
     /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), &'static str> {
+    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         // Consume latest error estimate
         let meas = tape[self.input_indices[0]];
         let setpoint = tape[self.input_indices[1]];

@@ -64,7 +64,7 @@ impl Calc for Butter2 {
         ctx: ControllerCtx,
         input_indices: Vec<usize>,
         output_range: Range<usize>,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), String> {
         assert!(
             ctx.dt_ns > 0,
             "dt_ns value of {} provided. dt_ns must be > 0",
@@ -88,7 +88,7 @@ impl Calc for Butter2 {
         Ok(())
     }
 
-    fn terminate(&mut self) -> Result<(), &'static str> {
+    fn terminate(&mut self) -> Result<(), String> {
         self.input_index = usize::MAX;
         self.output_index = usize::MAX;
         self.filt = SisoIirFilter::default();
@@ -96,7 +96,7 @@ impl Calc for Butter2 {
         Ok(())
     }
 
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), &'static str> {
+    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         let x = tape[self.input_index];
         let y = if branches::unlikely(!self.initialized) {
             // Pass through the first value to avoid excessive timing
