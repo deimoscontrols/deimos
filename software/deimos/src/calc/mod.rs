@@ -20,6 +20,7 @@ mod butter;
 mod constant;
 mod inverse_affine;
 mod pid;
+mod polynomial;
 mod rtd_pt100;
 mod sin;
 mod tc_ktype;
@@ -31,6 +32,7 @@ pub use butter::Butter2;
 pub use constant::Constant;
 pub use inverse_affine::InverseAffine;
 pub use pid::Pid;
+pub use polynomial::Polynomial;
 pub use rtd_pt100::RtdPt100;
 pub use sequence_machine::SequenceMachine;
 pub use sin::Sin;
@@ -81,6 +83,7 @@ pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Calc>>> = Lazy::new(|| {
         Constant::prototype(),
         InverseAffine::prototype(),
         Pid::prototype(),
+        Polynomial::prototype(),
         RtdPt100::prototype(),
         TcKtype::prototype(),
         Sin::prototype(),
