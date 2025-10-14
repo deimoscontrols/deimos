@@ -1,5 +1,24 @@
 # Changelog
 
+## 2025-10-13 deimos 0.12.0
+
+### Added
+
+* Add logging module with terminal and file logging setup using nonblocking `tracing` ecosystem
+
+### Changed
+
+* !Calc trait methods now return Result types
+* !Controller::{bind, scan} now return Result types and map previous panic behavior to errors
+* Orchestrator methods map more cases to Err instead of panic
+* Terminal printing in Controller and examples replaced with logging
+* Controller::terminate rolls up all errors before returning
+* In Controller::run, when attempting to send data to dispatchers, an attempt is made to send
+  data to every dispatcher before returning an error rollup if any errors occurred
+* In Controller::run, log malformed or unexpected packets that were previously ignored
+* Initialize tsdb dispatcher on main thread and propagate initialization errors instead of panicking worker thread
+* Propagate errors instead of panicking when possible in CSV dispatcher
+
 ## 2025-10-13 deimos 0.11.3
 
 ### Added

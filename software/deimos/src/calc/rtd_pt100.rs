@@ -63,21 +63,28 @@ impl RtdPt100 {
 #[typetag::serde]
 impl Calc for RtdPt100 {
     /// Reset internal state and register calc tape indices
-    fn init(&mut self, _: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
+    fn init(
+        &mut self,
+        _: ControllerCtx,
+        input_indices: Vec<usize>,
+        output_range: Range<usize>,
+    ) -> Result<(), String> {
         self.input_index = input_indices[0];
         self.output_index = output_range.clone().next().unwrap();
 
         // Call the interpolator once to make sure it is initialized
         INTERPOLATOR.interp_one([0.0]).unwrap();
+        Ok(())
     }
 
-    fn terminate(&mut self) {
+    fn terminate(&mut self) -> Result<(), String> {
         self.input_index = usize::MAX;
         self.output_index = usize::MAX;
+        Ok(())
     }
 
     /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) {
+    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         let sensed_resistance = tape[self.input_index];
 
         // An error here would indicate that we have encountered an unrepresentable number during interpolation.
@@ -85,6 +92,7 @@ impl Calc for RtdPt100 {
         let y = INTERPOLATOR.interp_one([sensed_resistance]).unwrap();
 
         tape[self.output_index] = y;
+        Ok(())
     }
 
     /// Map from input field names (like `v`, without prefix) to the state name

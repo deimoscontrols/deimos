@@ -57,24 +57,32 @@ impl Sin {
 #[typetag::serde]
 impl Calc for Sin {
     /// Reset internal state and register calc tape indices
-    fn init(&mut self, ctx: ControllerCtx, _input_indices: Vec<usize>, output_range: Range<usize>) {
+    fn init(
+        &mut self,
+        ctx: ControllerCtx,
+        _input_indices: Vec<usize>,
+        output_range: Range<usize>,
+    ) -> Result<(), String> {
         self.output_index = output_range.clone().next().unwrap();
         self.rad_per_cycle = (ctx.dt_ns as f64 / 1e9) * 2.0 * f64::consts::PI / self.period_s;
+        Ok(())
     }
 
-    fn terminate(&mut self) {
+    fn terminate(&mut self) -> Result<(), String> {
         self.output_index = usize::MAX;
         self.rad_per_cycle = 0.0;
         self.angle_rad = 0.0;
         self.scale = 0.0;
+        Ok(())
     }
 
     /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) {
+    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         self.angle_rad += self.rad_per_cycle;
         let y = (self.angle_rad.sin() + 1.0) * self.scale + self.low;
 
         tape[self.output_index] = y;
+        Ok(())
     }
 
     /// Map from input field names (like `v`, without prefix) to the state name

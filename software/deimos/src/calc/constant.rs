@@ -31,17 +31,25 @@ impl Constant {
 #[typetag::serde]
 impl Calc for Constant {
     /// Reset internal state and register calc tape indices
-    fn init(&mut self, _: ControllerCtx, _: Vec<usize>, output_range: Range<usize>) {
+    fn init(
+        &mut self,
+        _: ControllerCtx,
+        _: Vec<usize>,
+        output_range: Range<usize>,
+    ) -> Result<(), String> {
         self.output_index = output_range.clone().next().unwrap();
+        Ok(())
     }
 
-    fn terminate(&mut self) {
+    fn terminate(&mut self) -> Result<(), String> {
         self.output_index = usize::MAX;
+        Ok(())
     }
 
     /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) {
+    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         tape[self.output_index] = self.y;
+        Ok(())
     }
 
     /// Map from input field names (like `v`, without prefix) to the state name

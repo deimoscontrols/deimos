@@ -59,7 +59,12 @@ impl Butter2 {
 
 #[typetag::serde]
 impl Calc for Butter2 {
-    fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
+    fn init(
+        &mut self,
+        ctx: ControllerCtx,
+        input_indices: Vec<usize>,
+        output_range: Range<usize>,
+    ) -> Result<(), String> {
         assert!(
             ctx.dt_ns > 0,
             "dt_ns value of {} provided. dt_ns must be > 0",
@@ -70,24 +75,27 @@ impl Calc for Butter2 {
         self.output_index = output_range.clone().next().unwrap();
 
         let sample_rate_hz = 1e9f64 / f64::from(ctx.dt_ns);
-        let cutoff_ratio = (self.cutoff_hz / sample_rate_hz)
-            .max(MIN_CUTOFF_RATIO)
-            .min(MAX_CUTOFF_RATIO);
+        let cutoff_ratio =
+            (self.cutoff_hz / sample_rate_hz).clamp(MIN_CUTOFF_RATIO, MAX_CUTOFF_RATIO);
 
         let filter = butter2(cutoff_ratio).unwrap_or_else(|err| {
             panic!("Failed to construct butter2 filter for ratio {cutoff_ratio}: {err}")
         });
 
         self.filt = filter;
+        self.initialized = false;
+        Ok(())
     }
 
-    fn terminate(&mut self) {
+    fn terminate(&mut self) -> Result<(), String> {
         self.input_index = usize::MAX;
         self.output_index = usize::MAX;
         self.filt = SisoIirFilter::default();
+        self.initialized = false;
+        Ok(())
     }
 
-    fn eval(&mut self, tape: &mut [f64]) {
+    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         let x = tape[self.input_index];
         let y = if branches::unlikely(!self.initialized) {
             // Pass through the first value to avoid excessive timing
@@ -99,6 +107,7 @@ impl Calc for Butter2 {
             self.filt.update(x as f32) as f64
         };
         tape[self.output_index] = y;
+        Ok(())
     }
 
     fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {

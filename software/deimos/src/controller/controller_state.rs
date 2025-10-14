@@ -6,6 +6,7 @@ use deimos_shared::peripherals::PeripheralId;
 use crate::socket::SocketAddr;
 
 use super::peripheral_state::*;
+use tracing::warn;
 
 /// Controller metrics during operating state
 #[derive(Default)]
@@ -69,7 +70,7 @@ impl ControllerState {
             // Check if this is one of the peripherals we intend to operate
             let expected_this_peripheral = pid_name_map.contains_key(&p.id());
             if !expected_this_peripheral {
-                println!("Unexpected peripheral with id {:?}", &p.id());
+                warn!("Unexpected peripheral with id {:?}", &p.id());
                 continue;
             }
 

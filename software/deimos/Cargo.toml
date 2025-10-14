@@ -1,6 +1,6 @@
 [package]
 name = "deimos"
-version = "0.11.3"
+version = "0.12.0"
 edition = "2024"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "MIT OR Apache-2.0"
@@ -40,6 +40,11 @@ serde_json = { version = "^1", features = ["preserve_order"] }
 # Timescale DB / Postgres interface
 postgres = "0.19.10"
 postgres-types = "0.2.9"
+
+# Logging
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter", "chrono"] }
 
 [features]
 

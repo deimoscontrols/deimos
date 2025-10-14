@@ -70,7 +70,12 @@ impl Pid {
 #[typetag::serde]
 impl Calc for Pid {
     /// Reset internal state and register calc tape indices
-    fn init(&mut self, ctx: ControllerCtx, input_indices: Vec<usize>, output_range: Range<usize>) {
+    fn init(
+        &mut self,
+        ctx: ControllerCtx,
+        input_indices: Vec<usize>,
+        output_range: Range<usize>,
+    ) -> Result<(), String> {
         assert!(
             ctx.dt_ns > 0,
             "dt_ns value of {} provided. dt_ns must be > 0",
@@ -80,18 +85,20 @@ impl Calc for Pid {
         self.dt_s = (ctx.dt_ns as f64) / 1e9;
         self.input_indices = input_indices;
         self.output_index = output_range.clone().next().unwrap();
+        Ok(())
     }
 
-    fn terminate(&mut self) {
+    fn terminate(&mut self) -> Result<(), String> {
         self.err = 0.0;
         self.dt_s = 1.0;
         self.integral = 0.0;
         self.input_indices.clear();
         self.output_index = usize::MAX;
+        Ok(())
     }
 
     /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) {
+    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         // Consume latest error estimate
         let meas = tape[self.input_indices[0]];
         let setpoint = tape[self.input_indices[1]];
@@ -106,6 +113,7 @@ impl Calc for Pid {
         // Set the new output
         let y = self.kp * self.err + self.ki * self.integral + self.kd * derivative;
         tape[self.output_index] = y;
+        Ok(())
     }
 
     /// Map from input field names (like `v`, without prefix) to the state name

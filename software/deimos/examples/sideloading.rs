@@ -102,19 +102,26 @@ impl Speaker {
 #[typetag::serde]
 impl Calc for Speaker {
     /// Reset internal state and register calc tape indices
-    fn init(&mut self, ctx: ControllerCtx, _input_indices: Vec<usize>, output_range: Range<usize>) {
+    fn init(
+        &mut self,
+        ctx: ControllerCtx,
+        _input_indices: Vec<usize>,
+        output_range: Range<usize>,
+    ) -> Result<(), String> {
         self.output_index = output_range.clone().next().unwrap();
         self.endpoint = ctx.source_endpoint(&self.channel_name);
         self.prefix = ctx.user_ctx.get("speaker_prefix").unwrap().to_owned();
+        Ok(())
     }
 
-    fn terminate(&mut self) {
+    fn terminate(&mut self) -> Result<(), String> {
         self.output_index = usize::MAX;
         self.endpoint = Endpoint::default();
+        Ok(())
     }
 
     /// Run calcs for a cycle
-    fn eval(&mut self, _tape: &mut [f64]) {
+    fn eval(&mut self, _tape: &mut [f64]) -> Result<(), String> {
         // Send time on user channel with prefix
         let msg = Msg::Str(format!(
             "{} at {:?}",
@@ -124,6 +131,7 @@ impl Calc for Speaker {
         self.endpoint.tx().try_send(msg).unwrap(); // Will panic if buffer is full or channel is closed
 
         // We could write a dummy value to the tape here, but we don't need to
+        Ok(())
     }
 
     /// Map from input field names (like `v`, without prefix) to the state name
@@ -177,22 +185,29 @@ impl Listener {
 #[typetag::serde]
 impl Calc for Listener {
     /// Reset internal state and register calc tape indices
-    fn init(&mut self, ctx: ControllerCtx, _input_indices: Vec<usize>, output_range: Range<usize>) {
+    fn init(
+        &mut self,
+        ctx: ControllerCtx,
+        _input_indices: Vec<usize>,
+        output_range: Range<usize>,
+    ) -> Result<(), String> {
         self.output_index = output_range.clone().next().unwrap();
         self.endpoint = ctx.sink_endpoint(&self.channel_name);
+        Ok(())
     }
 
-    fn terminate(&mut self) {
+    fn terminate(&mut self) -> Result<(), String> {
         self.output_index = usize::MAX;
         self.endpoint = Endpoint::default();
+        Ok(())
     }
 
     /// Run calcs for a cycle
-    fn eval(&mut self, _tape: &mut [f64]) {
+    fn eval(&mut self, _tape: &mut [f64]) -> Result<(), String> {
         // Print the time if we received it
         let msg = match self.endpoint.rx().try_recv() {
             Ok(x) => x,
-            Err(_) => return,
+            Err(_) => return Ok(()),
         };
 
         match msg {
@@ -203,6 +218,7 @@ impl Calc for Listener {
         }
 
         // We could write a dummy value to the tape here, but we don't need to
+        Ok(())
     }
 
     /// Map from input field names (like `v`, without prefix) to the state name

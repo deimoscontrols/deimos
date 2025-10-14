@@ -79,7 +79,7 @@ impl Dispatcher for CsvDispatcher {
             total_len,
             self.overflow_behavior,
             core_assignment,
-        ));
+        )?);
 
         Ok(())
     }
@@ -91,13 +91,12 @@ impl Dispatcher for CsvDispatcher {
         channel_values: Vec<f64>,
     ) -> Result<(), String> {
         match &mut self.worker {
-            Some(worker) => {
-                worker.tx.send((time, timestamp, channel_values)).unwrap();
-            }
-            None => panic!("Dispatcher must be initialized before consuming data"),
+            Some(worker) => worker
+                .tx
+                .send((time, timestamp, channel_values))
+                .map_err(|e| format!("Failed to queue data to write to CSV: {e}")),
+            None => Err("Dispatcher must be initialized before consuming data".to_string()),
         }
-
-        Ok(())
     }
 
     fn terminate(&mut self) -> Result<(), String> {
@@ -121,14 +120,14 @@ impl WorkerHandle {
         total_size: usize,
         overflow_behavior: Overflow,
         core_assignment: usize,
-    ) -> Self {
+    ) -> Result<Self, String> {
         let (tx, rx) = channel::<(SystemTime, i64, Vec<f64>)>();
 
         let original_filename = path.file_stem().unwrap().to_str().unwrap().to_owned();
         let header_len = header.len();
 
         // Allocate first file and buffered writer
-        let mut writer = new_file(&path, &header, total_size);
+        let mut writer = new_file(&path, &header, total_size)?;
 
         let mut file_size = header_len;
         let mut shard_number: u64 = 0;
@@ -153,6 +152,8 @@ impl WorkerHandle {
             loop {
                 match rx.recv() {
                     Err(_) => {
+                        // If we are shutting down, flush the buffer and
+                        // trim the file length to release remaining reserved space
                         let _ = writer.flush();
                         let mut file = writer.into_inner().unwrap();
                         let len = get_file_loc(&mut file);
@@ -185,7 +186,7 @@ impl WorkerHandle {
                                     let path_new: PathBuf =
                                         path.parent().unwrap().join(filename_new);
 
-                                    writer = new_file(&path_new, &header, total_size);
+                                    writer = new_file(&path_new, &header, total_size).unwrap();
                                 }
                             }
                         }
@@ -204,7 +205,7 @@ impl WorkerHandle {
             }
         });
 
-        Self { tx, _thread }
+        Ok(Self { tx, _thread })
     }
 }
 
@@ -214,10 +215,13 @@ fn get_file_loc<T: Seek>(f: &mut T) -> u64 {
 }
 
 /// Create a new file with a fixed length, and return a buffered writer
-fn new_file(path: &PathBuf, header: &str, total_size: usize) -> BufWriter<File> {
-    let file = File::create(path).unwrap();
-    file.set_len(total_size as u64).unwrap();
+fn new_file(path: &PathBuf, header: &str, total_size: usize) -> Result<BufWriter<File>, String> {
+    let file = File::create(path).map_err(|e| format!("{e}"))?;
+    file.set_len(total_size as u64)
+        .map_err(|e| format!("{e}"))?;
     let mut writer: BufWriter<File> = BufWriter::new(file);
-    writer.write_all(header.as_bytes()).unwrap();
     writer
+        .write_all(header.as_bytes())
+        .map_err(|e| format!("{e}"))?;
+    Ok(writer)
 }

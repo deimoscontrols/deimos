@@ -70,19 +70,20 @@ impl Orchestrator {
     /// # Panics
     /// * If eval() is called before init()
     /// * If evaluation of individual calcs panics
-    pub fn eval(&mut self) {
+    pub fn eval(&mut self) -> Result<(), String> {
         // Evaluate calcs in order
         for name in self.state.eval_order.iter() {
             self.calcs
                 .get_mut(name)
                 .unwrap()
-                .eval(&mut self.state.calc_tape);
+                .eval(&mut self.state.calc_tape)?;
         }
 
         // Populate peripheral inputs
         for (dst_index, src_index) in self.state.peripheral_input_source_indices.iter().copied() {
             self.state.calc_tape[dst_index] = self.state.calc_tape[src_index];
         }
+        Ok(())
     }
 
     /// Consume the latest outputs from a single peripheral by name,
@@ -131,7 +132,7 @@ impl Orchestrator {
     pub fn add_calc(&mut self, name: &str, calc: Box<dyn Calc>) {
         let name = name.to_owned();
         if self.calcs.contains_key(&name) {
-            panic!("A calc with named `{name}` already exists.");
+            panic!("A calc named `{name}` already exists.");
         }
         self.calcs.insert(name, calc);
     }
@@ -177,7 +178,7 @@ impl Orchestrator {
     /// Determine the order to evaluate the calcs by traversing the calc graph
     /// and the evaluation depth of each calc. Eval depth is returned as a sequential
     /// grouping of calc names.
-    pub fn eval_order(&self) -> (Vec<CalcName>, Vec<Vec<CalcName>>) {
+    pub fn eval_order(&self) -> Result<(Vec<CalcName>, Vec<Vec<CalcName>>), String> {
         let mut eval_order: Vec<CalcName> = Vec::with_capacity(self.calcs.len());
         let mut eval_depth_groups: Vec<Vec<CalcName>> = Vec::new();
 
@@ -216,10 +217,9 @@ impl Orchestrator {
         while evaluated.values().any(|x| !x) {
             // Check depth
             traversal_iterations += 1;
-            assert!(
-                traversal_iterations <= max_depth,
-                "Calc graph contains a dependency cycle."
-            );
+            if traversal_iterations > max_depth {
+                return Err("Calc graph contains a dependency cycle.".to_string());
+            }
 
             // Loop over calcs and find the ones that are ready to evaluate next
             let mut any_new_evaluated = false;
@@ -255,11 +255,11 @@ impl Orchestrator {
             // that have not been evaluated yet, this means that at least one calc
             // depends on itself.
             if !any_new_evaluated {
-                panic!("Calc graph contains cyclic dependencies");
+                return Err("Calc graph contains cyclic dependencies".to_string());
             }
         }
 
-        (eval_order, eval_depth_groups)
+        Ok((eval_order, eval_depth_groups))
     }
 
     /// Set up calc tape and (re-)initialize individual calcs
@@ -267,7 +267,7 @@ impl Orchestrator {
         &mut self,
         ctx: ControllerCtx,
         peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
-    ) {
+    ) -> Result<(), String> {
         // These will be stored
         let mut peripheral_output_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
         let mut peripheral_input_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
@@ -286,20 +286,17 @@ impl Orchestrator {
         let node_names = node_names; // No longer mutable
 
         //   Make sure no calc or peripheral names contain `.`
-        assert!(
-            !node_names.iter().any(|x| x.contains(".")),
-            "Calc and peripheral names must not contain `.` characters"
-        );
+        if node_names.iter().any(|x| x.contains('.')) {
+            return Err("Calc and peripheral names must not contain `.` characters".to_string());
+        }
 
         //   Make sure there aren't any duplicate names
-        assert_eq!(
-            HashSet::<String>::from_iter(node_names.iter().cloned()).len(),
-            node_names.len(),
-            "Peripheral names must not overlap with calc names"
-        );
+        if HashSet::<String>::from_iter(node_names.iter().cloned()).len() != node_names.len() {
+            return Err("Peripheral names must not overlap with calc names".to_string());
+        }
 
         // Determine order to evaluate calcs
-        let eval_order = self.eval_order().0;
+        let eval_order = self.eval_order()?.0;
 
         // Build the calc and dispatch index maps using the calc order
         let mut fields_order = Vec::new();
@@ -349,7 +346,10 @@ impl Orchestrator {
         //    Calcs, in eval order
         for calc_name in &eval_order {
             // Unpack
-            let calc = self.calcs.get_mut(calc_name).unwrap();
+            let calc = self
+                .calcs
+                .get_mut(calc_name)
+                .ok_or_else(|| format!("Calc `{calc_name}` missing from registry"))?;
             let input_map = calc.get_input_map();
             let save_outputs = calc.get_save_outputs();
             let input_names = &calc.get_input_names();
@@ -360,10 +360,12 @@ impl Orchestrator {
             // been built so far
             let mut input_indices = Vec::new();
             for input_name in input_names {
-                let src_field = &input_map[input_name];
-                let src_index = *field_index_map
-                    .get(src_field)
-                    .unwrap_or_else(|| panic!("Did not find field index for {src_field}"));
+                let src_field = input_map.get(input_name).ok_or_else(|| {
+                    format!("Calc `{calc_name}` missing mapping for input `{input_name}`")
+                })?;
+                let src_index = *field_index_map.get(src_field).ok_or_else(|| {
+                    format!("Did not find field index for `{src_field}` while initializing `{calc_name}`")
+                })?;
                 input_indices.push(src_index);
             }
 
@@ -389,14 +391,18 @@ impl Orchestrator {
             }
 
             // Initialize this calc
-            calc.init(ctx.clone(), input_indices, output_range)
+            calc.init(ctx.clone(), input_indices, output_range)?;
         }
 
         // Find the indices of fields that will be given to the peripherals
         // as inputs
         for (peripheral_input_field, src_field) in &self.peripheral_input_sources {
-            let dst_index = field_index_map[peripheral_input_field];
-            let src_index = field_index_map[src_field];
+            let dst_index = *field_index_map.get(peripheral_input_field).ok_or_else(|| {
+                format!("Did not find field index for peripheral input `{peripheral_input_field}`")
+            })?;
+            let src_index = *field_index_map
+                .get(src_field)
+                .ok_or_else(|| format!("Did not find field index for source `{src_field}`"))?;
             peripheral_input_source_indices.push((dst_index, src_index));
         }
 
@@ -413,11 +419,23 @@ impl Orchestrator {
             peripheral_input_slices,
             peripheral_input_source_indices,
         };
+        Ok(())
     }
 
     /// Clear state to reset for another run
-    pub fn terminate(&mut self) {
+    pub fn terminate(&mut self) -> Result<(), String> {
         self.state = OrchestratorState::default();
-        self.calcs.values_mut().for_each(|c| c.terminate());
+        let mut errors = Vec::new();
+        for (name, calc) in self.calcs.iter_mut() {
+            if let Err(e) = calc.terminate() {
+                errors.push(format!("\n  {name}: {e}"));
+            }
+        }
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(format!("Failed to terminate calcs: {}", errors.join("")))
+        }
     }
 }

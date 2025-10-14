@@ -90,7 +90,7 @@ impl Dispatcher for TimescaleDbDispatcher {
             .unwrap_or_else(|_| panic!("Did not find token name env var {}", &self.token_name));
 
         // Connect to database backend
-        let mut client = init_timescaledb_client(&self.dbname, &self.host, &self.user, &pw);
+        let mut client = init_timescaledb_client(&self.dbname, &self.host, &self.user, &pw)?;
 
         // Set up table for this op
         init_timescaledb_table(
@@ -116,7 +116,7 @@ impl Dispatcher for TimescaleDbDispatcher {
             ctx.op_name.to_owned(),
             n_buffer,
             core_assignment,
-        ));
+        )?);
 
         Ok(())
     }
@@ -128,13 +128,12 @@ impl Dispatcher for TimescaleDbDispatcher {
         channel_values: Vec<f64>,
     ) -> Result<(), String> {
         match &mut self.worker {
-            Some(worker) => {
-                worker.tx.send((time, timestamp, channel_values)).unwrap();
-            }
-            None => panic!("Dispatcher must be initialized before consuming data"),
+            Some(worker) => worker
+                .tx
+                .send((time, timestamp, channel_values))
+                .map_err(|e| format!("Failed to queue data to send to postgres database: {e}")),
+            None => Err("Dispatcher must be initialized before consuming data".into()),
         }
-
-        Ok(())
     }
 
     fn terminate(&mut self) -> Result<(), String> {
@@ -162,9 +161,34 @@ impl WorkerHandle {
         table_name: String,
         n_buffer: usize,
         core_assignment: usize,
-    ) -> Self {
+    ) -> Result<Self, String> {
         let (tx, rx) = channel::<(SystemTime, i64, Vec<f64>)>();
         let channel_names: Vec<String> = channel_names.to_vec();
+
+        // Connect to database
+        // Client is not Send+Sync, so this has to be done here
+        let mut client = init_timescaledb_client(&dbname, &host, &user, &pw)?;
+
+        // Setting the columns to write explicitly isn't required as long as the schema matches,
+        // but this protects the case where the user has added more columns in the table
+        let channel_query = channel_names
+            .iter()
+            .map(|x| format!("\"{x}\""))
+            .collect::<Vec<String>>()
+            .join(" ,");
+
+        // Prep for large-batch COPY INTO
+        let copy_query =
+            format!("COPY {table_name} (timestamp, time, {channel_query}) FROM STDIN CSV");
+        // Buffers for large batch copy
+        let mut linebuf = String::new(); // Lines to send to database
+        let mut stringbuf = String::new(); // Active line being assembled
+        let mut n_lines_buffered = 0;
+
+        // Prep for small-batch INSERT
+        let prepared_query = prepare_timescaledb_query(&mut client, &table_name, &channel_names)?;
+
+        let use_copy = n_buffer > 1;
 
         // Run database I/O on a separate thread to avoid blocking controller
         let _thread = spawn(move || {
@@ -179,32 +203,6 @@ impl WorkerHandle {
                     );
                 }
             }
-
-            // Connect to database
-            // Client is not Send+Sync, so this has to be done here
-            let mut client = init_timescaledb_client(&dbname, &host, &user, &pw);
-
-            // Setting the columns to write explicitly isn't required as long as the schema matches,
-            // but this protects the case where the user has added more columns in the table
-            let channel_query = channel_names
-                .iter()
-                .map(|x| format!("\"{x}\""))
-                .collect::<Vec<String>>()
-                .join(" ,");
-
-            // Prep for large-batch COPY INTO
-            let copy_query =
-                format!("COPY {table_name} (timestamp, time, {channel_query}) FROM STDIN CSV");
-            // Buffers for large batch copy
-            let mut linebuf = String::new(); // Lines to send to database
-            let mut stringbuf = String::new(); // Active line being assembled
-            let mut n_lines_buffered = 0;
-
-            // Prep for small-batch INSERT
-            let prepared_query =
-                prepare_timescaledb_query(&mut client, &table_name, &channel_names);
-
-            let use_copy = n_buffer > 1;
 
             loop {
                 match rx.recv() {
@@ -266,19 +264,23 @@ impl WorkerHandle {
             }
         });
 
-        Self { tx, _thread }
+        Ok(Self { tx, _thread })
     }
 }
 
 /// Connect to the database.
-fn init_timescaledb_client(dbname: &str, host: &str, user: &str, pw: &str) -> Client {
+fn init_timescaledb_client(
+    dbname: &str,
+    host: &str,
+    user: &str,
+    pw: &str,
+) -> Result<Client, String> {
     // Connect to database backend
-
     Client::connect(
         &format!("dbname={dbname} host={host} user={user} password={pw}"),
         NoTls,
     )
-    .unwrap()
+    .map_err(|e| format!("Failed to connect postgres client: {e}"))
 }
 
 /// Check if a table for this op already exists;
@@ -338,7 +340,7 @@ fn prepare_timescaledb_query(
     client: &mut Client,
     table_name: &str,
     channel_names: &[String],
-) -> Statement {
+) -> Result<Statement, String> {
     // Pre-bake query for storing data
     let channel_query = channel_names
         .iter()
@@ -353,5 +355,13 @@ fn prepare_timescaledb_query(
         .collect::<Vec<String>>()
         .join(", ");
 
-    client.prepare_typed(&format!("INSERT INTO \"{table_name}\" (timestamp, time, {channel_query}) VALUES ({channel_template})"), &channel_types).unwrap()
+    client
+        .prepare_typed(
+            &format!(
+                "INSERT INTO \"{}\" (timestamp, time, {}) VALUES ({})",
+                table_name, channel_query, channel_template
+            ),
+            &channel_types,
+        )
+        .map_err(|e| format!("Failed to build prepared postgres query: {e}"))
 }
