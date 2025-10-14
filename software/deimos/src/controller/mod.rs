@@ -302,24 +302,24 @@ impl Controller {
         }
 
         // Reset dispatchers
-        let err_rollup = self
+        let mut err_rollup = self
             .dispatchers
             .iter_mut()
             .filter_map(|d| d.terminate().err())
             .collect::<Vec<String>>();
 
         // Reset calc orchestrator
-        self.orchestrator
+        let _ = self
+            .orchestrator
             .terminate()
-            .expect("Failed to terminate calc orchestrator");
+            .map_err(|e| err_rollup.push(e.to_string()));
 
         // Close sockets
         self.sockets.iter_mut().for_each(|sock| sock.close());
 
         // Report errors
-        // TODO: log this
         if !err_rollup.is_empty() {
-            warn!("Encountered errors during termination: {err_rollup:?}");
+            error!("Encountered errors during termination: {err_rollup:?}");
         }
     }
 
@@ -690,9 +690,9 @@ impl Controller {
                     .map_err(|e| format!("Unable to send on socket {sid}: {e}"))
                 {
                     Ok(_) => {}
-                    Err(_e) => {
-                        // TODO: log transmit errors
-                        // and consider a less passive response to transmission failure.
+                    Err(e) => {
+                        error!(e);
+                        // TODO: consider a less passive response to transmission failure.
                         //
                         // Right now, if transmission fails, the peripheral is responsible for
                         // registering that contact has been lost and will eventually exit the operating state,
@@ -726,6 +726,10 @@ impl Controller {
                         // Check if this peripheral is one we have bound
                         let addr = (sid, pid);
                         if !addresses.contains(&addr) {
+                            warn!(
+                                "Received packet from unbound peripheral at socket address `{:?}`",
+                                &addr
+                            );
                             continue;
                         }
 
@@ -735,8 +739,8 @@ impl Controller {
                         let n = p.operating_roundtrip_output_size();
 
                         // Check packet size
-                        // TODO: log malformed packets
                         if amt != n {
+                            warn!("Received malformed packet from peripheral `{}`", &ps.name);
                             continue;
                         }
 
