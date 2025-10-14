@@ -339,6 +339,15 @@ impl Controller {
     }
 
     pub fn run(&mut self, plugins: &Option<PluginMap>) -> Result<String, String> {
+        // Start log file
+        let log_file = logging::init_logging(&self.ctx.op_dir, &self.ctx.op_name)
+            .map_err(|err| format!("Failed to initialize logging: {err}"))?;
+        let log_file_canonicalized = log_file
+            .canonicalize()
+            .map_err(|e| format!("Failed to resolve log file path: {e}"))?;
+        info!("Controller starting op {}", &self.ctx.op_name);
+        info!("Logging to file {:?}", log_file_canonicalized);
+
         let core_ids = core_affinity::get_core_ids().unwrap_or_default();
         let mut aux_core_cycle = {
             // Set core affinity, if possible
@@ -366,6 +375,7 @@ impl Controller {
             // should stay fully occupied. This is not available on Windows, in which
             // case, use max priority as a next-best option.
             // If both options fail, continue as-is.
+            info!("Setting main Controller thread priority to fully-occupied realtime scheduling.");
             if let Err(e) = thread_priority::set_current_thread_priority(
                 thread_priority::ThreadPriority::Deadline {
                     runtime: Duration::from_nanos(1),
@@ -388,9 +398,6 @@ impl Controller {
 
             aux_core_cycle
         };
-
-        logging::init_logging(&self.ctx.op_dir, &self.ctx.op_name)
-            .map_err(|err| format!("Failed to initialize logging: {err}"))?;
 
         // Buffer for writing bytes to send on sockets
         let txbuf = &mut [0_u8; 1522][..];

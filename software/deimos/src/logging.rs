@@ -1,7 +1,7 @@
 use once_cell::sync::OnceCell;
 use std::{
     fs::{self, OpenOptions},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use tracing_appender::non_blocking::WorkerGuard;
@@ -23,17 +23,18 @@ impl LoggingGuards {
 
 static LOGGING_GUARDS: OnceCell<LoggingGuards> = OnceCell::new();
 
-pub fn init_logging(op_dir: &Path, op_name: &str) -> Result<(), String> {
+pub fn init_logging(op_dir: &Path, op_name: &str) -> Result<PathBuf, String> {
+    let log_dir = op_dir.join("logs");
+    fs::create_dir_all(&log_dir).map_err(|e| format!("Failed to create log directory: {e}"))?;
+    let log_path = log_dir.join(format!("{op_name}.log"));
+
     let _ = LOGGING_GUARDS.get_or_try_init(|| {
-        let log_dir = op_dir.join("logs");
-        fs::create_dir_all(&log_dir).map_err(|e| format!("Failed to create log directory: {e}"))?;
-        let log_path = log_dir.join(format!("{op_name}.log"));
         let logfile = OpenOptions::new()
             .create(true)
             .truncate(false)
             .append(true)
             .write(true)
-            .open(log_path)
+            .open(&log_path)
             .map_err(|e| format!("Failed to create log file: {e}"))?;
 
         let (stdout_writer, stdout_guard) = tracing_appender::non_blocking(std::io::stdout());
@@ -63,5 +64,5 @@ pub fn init_logging(op_dir: &Path, op_name: &str) -> Result<(), String> {
         Ok::<LoggingGuards, String>(LoggingGuards::new(stdout_guard, file_guard))
     })?;
 
-    Ok(())
+    Ok(log_path)
 }
