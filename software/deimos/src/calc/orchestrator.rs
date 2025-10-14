@@ -132,7 +132,7 @@ impl Orchestrator {
     pub fn add_calc(&mut self, name: &str, calc: Box<dyn Calc>) {
         let name = name.to_owned();
         if self.calcs.contains_key(&name) {
-            panic!("A calc with named `{name}` already exists.");
+            panic!("A calc named `{name}` already exists.");
         }
         self.calcs.insert(name, calc);
     }
