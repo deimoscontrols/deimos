@@ -54,7 +54,9 @@ fn main() {
     let mut controller = Controller::new(ctx);
 
     // Scan for peripherals on LAN
-    let scanned_peripherals = controller.scan(10, &peripheral_plugins);
+    let scanned_peripherals = controller
+        .scan(10, &peripheral_plugins)
+        .expect("Failed to scan for peripherals");
     println!("Scan found: {scanned_peripherals:?}\n");
 
     // Associate peripherals

@@ -85,7 +85,9 @@ fn main() {
     controller.add_peripheral("mockup", Box::new(p));
 
     // Scan to trigger the controller to build the socket folder structure
-    controller.scan(100, &plugins);
+    if let Err(err) = controller.scan(100, &plugins) {
+        eprintln!("Initial scan failed: {err}");
+    }
 
     // Open a socket for the peripheral mockup
     let sock = net::UnixDatagram::bind("./sock/per/mockup").unwrap();
@@ -100,7 +102,9 @@ fn main() {
     let mockup_thread = mockup.run();
 
     // Scan for peripherals to find the mockup
-    let scan_result = controller.scan(100, &plugins);
+    let scan_result = controller
+        .scan(100, &plugins)
+        .expect("Failed to scan for peripherals");
     println!("Scan found:\n{:?}", scan_result.values());
 
     // Serialize and deserialize the controller (for demonstration purposes)

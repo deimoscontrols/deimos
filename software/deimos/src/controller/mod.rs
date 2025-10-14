@@ -195,9 +195,9 @@ impl Controller {
         binding_timeout_ms: u16,
         configuring_timeout_ms: u16,
         plugins: &Option<PluginMap>,
-    ) -> BTreeMap<SocketAddr, Box<dyn Peripheral>> {
+    ) -> Result<BTreeMap<SocketAddr, Box<dyn Peripheral>>, String> {
         // Make sure sockets are configured and ports are bound
-        self.open_sockets().unwrap();
+        self.open_sockets()?;
 
         let mut buf = vec![0_u8; 1522];
         let mut available_peripherals = BTreeMap::new();
@@ -215,14 +215,22 @@ impl Controller {
             // Bind specific modules with a (hopefully) nonzero timeout
             //    Send unicast request to bind
             for (socket_id, peripheral_id) in addresses.iter() {
-                self.sockets[*socket_id]
+                let socket = self
+                    .sockets
+                    .get_mut(*socket_id)
+                    .ok_or_else(|| format!("Socket index {socket_id} out of range"))?;
+                socket
                     .send(*peripheral_id, &buf[..BindingInput::BYTE_LEN])
-                    .unwrap();
+                    .map_err(|e| {
+                        format!("Failed to send binding request to {peripheral_id:?}: {e}")
+                    })?;
             }
         } else {
             // Bind any modules on the local network
             for socket in self.sockets.iter_mut() {
-                socket.broadcast(&buf[..BindingInput::BYTE_LEN]).unwrap();
+                socket
+                    .broadcast(&buf[..BindingInput::BYTE_LEN])
+                    .map_err(|e| format!("Failed to broadcast binding request: {e}"))?;
             }
         }
 
@@ -241,7 +249,9 @@ impl Controller {
                                 let pid = parsed.id();
                                 let addr = (sid, pid);
                                 // Update the socket's address map
-                                socket.update_map(pid).unwrap();
+                                socket
+                                    .update_map(pid)
+                                    .map_err(|e| format!("Failed to update socket mapping: {e}"))?;
                                 // Update the controller's address map
                                 available_peripherals.insert(addr, parsed);
                             }
@@ -254,7 +264,7 @@ impl Controller {
             }
         }
 
-        available_peripherals
+        Ok(available_peripherals)
     }
 
     /// Scan the local network for peripherals that are available to bind,
@@ -263,7 +273,7 @@ impl Controller {
         &mut self,
         timeout_ms: u16,
         plugins: &Option<PluginMap>,
-    ) -> BTreeMap<SocketAddr, Box<dyn Peripheral>> {
+    ) -> Result<BTreeMap<SocketAddr, Box<dyn Peripheral>>, String> {
         // Ping with the longer desired timeout
         self.bind(None, timeout_ms, 0, plugins)
     }
@@ -382,7 +392,9 @@ impl Controller {
 
         // Scan to get peripheral addresses
         info!("Scanning for available units");
-        let available_peripherals = self.scan(100, plugins);
+        let available_peripherals = self
+            .scan(100, plugins)
+            .map_err(|e| format!("Failed to scan for peripherals: {e}"))?;
 
         // Initialize state using scanned addresses
         info!("Initializing state");
@@ -447,13 +459,15 @@ impl Controller {
             while self.sockets.iter_mut().any(|sock| sock.recv().is_some()) {}
 
             // Bind
-            let bound_peripherals = self.bind(
-                Some(&addresses),
-                // None,
-                self.ctx.binding_timeout_ms,
-                self.ctx.configuring_timeout_ms,
-                plugins,
-            );
+            let bound_peripherals = self
+                .bind(
+                    Some(&addresses),
+                    // None,
+                    self.ctx.binding_timeout_ms,
+                    self.ctx.configuring_timeout_ms,
+                    plugins,
+                )
+                .map_err(|e| format!("Failed to bind peripherals: {e}"))?;
 
             // Operating countdown starts as soon as peripherals receive binding input,
             // so start the clock now
