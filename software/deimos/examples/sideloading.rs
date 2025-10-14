@@ -14,6 +14,7 @@ use deimos::{
 };
 
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use std::{
     collections::BTreeMap,
@@ -212,7 +213,7 @@ impl Calc for Listener {
 
         match msg {
             Msg::Str(s) => {
-                println!("{s}");
+                info!("{s}");
             }
             x => panic!("Unexpected message type: {x:?}"),
         }

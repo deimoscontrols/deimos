@@ -366,7 +366,7 @@ impl Controller {
             // should stay fully occupied. This is not available on Windows, in which
             // case, use max priority as a next-best option.
             // If both options fail, continue as-is.
-            match thread_priority::set_current_thread_priority(
+            if let Err(e) = thread_priority::set_current_thread_priority(
                 thread_priority::ThreadPriority::Deadline {
                     runtime: Duration::from_nanos(1),
                     deadline: Duration::from_nanos(1),
@@ -374,18 +374,22 @@ impl Controller {
                     flags: thread_priority::DeadlineFlags::RESET_ON_FORK, // Children do not inherit deadline scheduling
                 },
             ) {
-                Ok(_) => (),
-                Err(_) => {
-                    let _ = thread_priority::set_current_thread_priority(
-                        thread_priority::ThreadPriority::Max,
-                    );
+                info!(
+                    "Unable to set realtime thread scheduling for main Controller thread; falling back on MAX priority: {e:?}"
+                );
+                if let Err(e2) = thread_priority::set_current_thread_priority(
+                    thread_priority::ThreadPriority::Max,
+                ) {
+                    warn!(
+                        "Unable to set thread priority for main Controller thread. Performance may be degraded: {e2:?}"
+                    )
                 }
             };
 
             aux_core_cycle
         };
 
-        logging::init_logging(&self.ctx.op_dir)
+        logging::init_logging(&self.ctx.op_dir, &self.ctx.op_name)
             .map_err(|err| format!("Failed to initialize logging: {err}"))?;
 
         // Buffer for writing bytes to send on sockets
