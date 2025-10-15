@@ -575,6 +575,7 @@ impl Controller {
         for addr in controller_state.peripheral_state.keys() {
             let max_clock_rate_err = 5e-2; // at least 5% tolerance for dev units using onboard clocks
             let ki = 0.00001 * (self.ctx.dt_ns as f64 / 10_000_000_f64);
+            // FUTURE: The timing controller gains are hand-tuned and could use more scrutiny
             let timing_controller = TimingPID {
                 kp: 0.005 * (self.ctx.dt_ns as f64 / 10_000_000_f64), // Tuned at 100Hz
                 ki,
@@ -739,10 +740,7 @@ impl Controller {
                         // Check if this peripheral is one we have bound
                         let addr = (sid, pid);
                         if !addresses.contains(&addr) {
-                            warn!(
-                                "Received packet from unbound peripheral at socket address `{:?}`",
-                                &addr
-                            );
+                            // To avoid being packet-flooded, we do nothing here
                             continue;
                         }
 
