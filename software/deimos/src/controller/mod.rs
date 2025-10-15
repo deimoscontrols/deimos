@@ -340,8 +340,9 @@ impl Controller {
 
     pub fn run(&mut self, plugins: &Option<PluginMap>) -> Result<String, String> {
         // Start log file
-        let (log_file, _logging_guards) = logging::init_logging(&self.ctx.op_dir, &self.ctx.op_name)
-            .map_err(|err| format!("Failed to initialize logging: {err}"))?;
+        let (log_file, _logging_guards) =
+            logging::init_logging(&self.ctx.op_dir, &self.ctx.op_name)
+                .map_err(|err| format!("Failed to initialize logging: {err}"))?;
         let log_file_canonicalized = log_file
             .canonicalize()
             .map_err(|e| format!("Failed to resolve log file path: {e}"))?;

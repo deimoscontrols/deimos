@@ -22,9 +22,11 @@ impl LoggingGuards {
     }
 }
 
-
 /// Set up file and terminal logging.
-pub(crate) fn init_logging(op_dir: &Path, op_name: &str) -> Result<(PathBuf, LoggingGuards), String> {
+pub(crate) fn init_logging(
+    op_dir: &Path,
+    op_name: &str,
+) -> Result<(PathBuf, LoggingGuards), String> {
     let log_dir = op_dir.join("logs");
     fs::create_dir_all(&log_dir).map_err(|e| format!("Failed to create log directory: {e}"))?;
     let log_path = log_dir.join(format!("{op_name}.log"));

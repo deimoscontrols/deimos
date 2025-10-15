@@ -2,11 +2,11 @@
 //! Stores data in a simple library-agnostic in-memory format.
 
 use serde::{Deserialize, Serialize};
-use tracing::info;
 use std::{
     sync::{Arc, RwLock, RwLockWriteGuard},
     time::SystemTime,
 };
+use tracing::info;
 
 use crate::controller::context::ControllerCtx;
 
@@ -139,7 +139,7 @@ impl DataFrameDispatcher {
     fn write(&self) -> Result<RwLockWriteGuard<'_, SimpleDataFrame>, String> {
         self.df
             .try_write()
-            .map_err(|_| "Unable to lock dataframe".to_string())
+            .map_err(|e| format!("Unable to lock dataframe: {e}"))
     }
 }
 

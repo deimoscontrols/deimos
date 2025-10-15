@@ -7,9 +7,9 @@ use std::fs::File;
 use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
 use std::sync::mpsc::{Sender, channel};
 use std::thread::{self, JoinHandle, spawn};
+use tracing::{info, warn};
 
 use crate::controller::context::ControllerCtx;
 
@@ -73,7 +73,10 @@ impl Dispatcher for CsvDispatcher {
         let total_len = 1024 * 1_024 * self.chunk_size_megabytes;
         let filepath = ctx.op_dir.join(format!("{}.csv", ctx.op_name));
 
-        info!("Initializing CSV dispatcher with file path: {:?}", &filepath);
+        info!(
+            "Initializing CSV dispatcher with file path: {:?}",
+            &filepath
+        );
 
         // Spawn worker
         self.worker = Some(WorkerHandle::new(
@@ -192,6 +195,7 @@ impl WorkerHandle {
                                     // Assemble new file name
                                     let filename_new =
                                         format!("{original_filename}_{shard_number}.csv");
+                                    info!("Reserving new CSV file at {}", &filename_new);
                                     let path_new: PathBuf =
                                         path.parent().unwrap().join(filename_new);
 
