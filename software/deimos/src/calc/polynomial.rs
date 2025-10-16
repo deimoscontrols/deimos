@@ -57,8 +57,7 @@ impl Calc for Polynomial {
         if self.coefficients.is_empty() {
             return Err("Polynomial coefficients cannot be empty".to_string());
         }
-        self.input_index = input_indices
-            .get(0)
+        self.input_index = input_indices.first()
             .copied()
             .ok_or_else(|| "Polynomial calc missing input index".to_string())?;
         self.output_index = output_range
