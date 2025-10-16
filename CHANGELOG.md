@@ -16,6 +16,8 @@
 * Instead of using every second core for auxiliary functions, reserve the first 2 cores
   for the main thread and cycle auxiliary functions over all the remaining cores
 * Improve logging and error handling
+  * Error instead of panic in SequenceMachine
+  * Log state transitions in SequenceMachine
 
 ## 2025-10-13 deimos 0.12.0
 
