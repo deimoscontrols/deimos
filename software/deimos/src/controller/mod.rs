@@ -357,12 +357,13 @@ impl Controller {
 
             // Make a cycle over the cores that are available for auxiliary functions
             // other than the control loop. Because many modern CPUs present one extra fake "core"
-            // per real core due to hyperthreading functionality, only every second core is
-            // assumed to represent a real independent computing resource.
+            // per real core due to hyperthreading functionality, the first two "cores" are both
+            // reserved for the main thread to avoid sharing resources between the hard-realtime
+            // part and the less timing-sensitive dispatchers.
             let aux_core_cycle = if n_cores > 2 {
-                core_ids[2..].iter().step_by(2).cycle()
+                core_ids[2..].iter().cycle()
             } else {
-                core_ids[0..1].iter().step_by(2).cycle()
+                core_ids[0..1].iter().cycle()
             };
 
             // Consume the first core for the control loop

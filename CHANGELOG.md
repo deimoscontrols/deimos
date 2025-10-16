@@ -1,5 +1,22 @@
 # Changelog
 
+## 2025-10-14 deimos 0.13.0
+
+### Added
+
+* Add polynomial calc
+
+### Changed
+
+* !Make logger guards local instead of global statics to allow reconfiguring logging between sequential ops
+* !Return log file location and guards from logger setup
+* Name log file after op
+* Append logs instead of truncating
+* Remove thread priority functionality that requires elevated permissions
+* Instead of using every second core for auxiliary functions, reserve the first 2 cores
+  for the main thread and cycle auxiliary functions over all the remaining cores
+* Improve logging and error handling
+
 ## 2025-10-13 deimos 0.12.0
 
 ### Added

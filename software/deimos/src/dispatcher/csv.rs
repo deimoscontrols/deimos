@@ -147,14 +147,6 @@ impl WorkerHandle {
                 if !success {
                     warn!("Failed to set core affinity for CSV dispatcher");
                 }
-
-                if core_assignment > 0 {
-                    if let Err(e) = thread_priority::set_current_thread_priority(
-                        thread_priority::ThreadPriority::Max,
-                    ) {
-                        info!("Failed to set thread priority for CSV dispatcher: {e}");
-                    }
-                }
             }
 
             // Make single-line buffer that will grow and

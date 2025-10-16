@@ -34,7 +34,6 @@ pub(crate) fn init_logging(
         .create(true)
         .truncate(false)
         .append(true)
-        .write(true)
         .open(&log_path)
         .map_err(|e| format!("Failed to create log file: {e}"))?;
 

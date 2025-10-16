@@ -204,11 +204,6 @@ impl WorkerHandle {
                 core_affinity::set_for_current(core_affinity::CoreId {
                     id: core_assignment,
                 });
-                if core_assignment > 0 {
-                    let _ = thread_priority::set_current_thread_priority(
-                        thread_priority::ThreadPriority::Max,
-                    );
-                }
             }
 
             loop {
