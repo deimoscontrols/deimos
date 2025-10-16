@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 
 use interpn::one_dim::{Interp1D, RectilinearGrid1D};
-use tracing::info;
+// use tracing::info;
 
 pub type StateName = String;
 
@@ -598,12 +598,12 @@ impl SequenceMachine {
         if sequence_time_s > self.current_sequence().get_end_time_s() {
             return match &self.cfg.timeouts[sequence_name] {
                 Timeout::Transition(target_sequence) => {
-                    info!("Transition `{target_sequence}` due to timeout");
+                    // info!("Transition `{target_sequence}` due to timeout");
                     self.transition(target_sequence.clone());
                     Ok(())
                 }
                 Timeout::Loop => {
-                    info!("Looping sequence `{sequence_name}` due to timeout");
+                    // info!("Looping sequence `{sequence_name}` due to timeout");
                     self.transition(sequence_name.clone());
                     Ok(())
                 }
@@ -642,7 +642,7 @@ impl SequenceMachine {
                 // If a sequence transition has been triggered, update the execution sequence
                 // to the start of the next sequence.
                 if should_transition {
-                    info!("Transition `{target_sequence}` due to {criterion:?}");
+                    // info!("Transition `{target_sequence}` due to {criterion:?}");
                     self.transition(target_sequence.clone());
                     return Ok(());
                 }
