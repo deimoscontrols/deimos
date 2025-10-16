@@ -14,11 +14,11 @@ The control program and the firmware-software shared library share a
 
 | Feature Category | Features |
 |------------------|----------|
-| Control Loop     | ✅ Fixed-dt roundtrip control loop<br>✅ Network scanning for available hardware<br>💡 Reconnect policy<br>✅ Planned loop termination |
-| Control Calcs    | ✅ User-defined custom calcs<br>✅ Explicit (acyclic) calc expression<br>💡 Cyclic expressions with explicit time-delay<br>💡 Prototype calc w/ rhai script-defined inner function |
-| Data Integrations| ✅ User-defined custom targets<br>✅ CSV<br>✅ TimescaleDB<br>💡 InfluxDB<br>💡 Zarr file<br>💡 Generic sqlite, postgres, etc.<br>✅ In-memory dataframe|
+| Control Loop     | ✅ Fixed-dt roundtrip control loop<br>✅ Network scanning for available hardware<br>✅ Planned loop termination<br>✅ Global event logging<br>💡 Reconnect policy|
+| Control Calcs    | ✅ User-defined custom calcs<br>✅ Explicit (acyclic) calc expression<br>✅ Low-pass filters<br>✅ Sequenced state machines<br>✅ Polynomial calibration curves<br>💡 Cyclic expressions with explicit time-delay<br>💡 Prototype calc w/ rhai script-defined inner function |
+| Data Integrations| ✅ User-defined custom targets<br>✅ CSV<br>✅ TimescaleDB<br>💡 InfluxDB<br>💡 Zarr file/bucket<br>💡 Generic sqlite, postgres, etc.<br>✅ In-memory dataframe|
 | Hardware Peripherals| ✅ Deimos DAQs<br>✅ User-defined custom hardware<br>✅ User-defined custom in-memory / IPC mockup|
-| Socket Interfaces<br>(peripheral I/O)| ✅ User-defined custom interfaces<br>✅ UDP/IPV4<br>💡 Thread channel<br>✅ Unix socket<br>💡 TCP<br>💡 UDP/IPV6 |
+| Socket Interfaces<br>(peripheral I/O)| ✅ User-defined custom interfaces<br>✅ UDP/IPV4<br>✅ Unix socket<br>✅ Thread channel sideloading<br>💡 TCP<br>💡 UDP/IPV6 |
 
 ## Concept of Operation
 

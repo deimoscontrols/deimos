@@ -6,6 +6,7 @@ use std::{
     sync::{Arc, RwLock, RwLockWriteGuard},
     time::SystemTime,
 };
+use tracing::info;
 
 use crate::controller::context::ControllerCtx;
 
@@ -138,7 +139,7 @@ impl DataFrameDispatcher {
     fn write(&self) -> Result<RwLockWriteGuard<'_, SimpleDataFrame>, String> {
         self.df
             .try_write()
-            .map_err(|_| "Unable to lock dataframe".to_string())
+            .map_err(|e| format!("Unable to lock dataframe: {e}"))
     }
 }
 
@@ -150,6 +151,7 @@ impl Dispatcher for DataFrameDispatcher {
         channel_names: &[String],
         _core_assignment: usize,
     ) -> Result<(), String> {
+        info!("Initializing dataframe dispatcher");
         // Store channel names
         let channel_names = channel_names.to_vec();
 

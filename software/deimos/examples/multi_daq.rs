@@ -150,6 +150,6 @@ fn main() {
     // std::fs::write("./multi_daq.json", &serialized_controller);
 
     // Run the control program
-    println!("Starting controller");
+    info!("Starting controller");
     controller.run(&peripheral_plugins).unwrap();
 }

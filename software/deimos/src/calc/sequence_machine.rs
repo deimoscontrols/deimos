@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 
 use interpn::one_dim::{Interp1D, RectilinearGrid1D};
+// use tracing::info;
 
 pub type StateName = String;
 
@@ -189,13 +190,19 @@ impl SequenceLookup {
         }
 
         // Run the interpolator at the first and last times
-        let first_time = self.time_s.first().ok_or("Empty sequence".to_string())?;
+        let first_time = self
+            .time_s
+            .first()
+            .ok_or_else(|| "Empty sequence".to_string())?;
         match self.eval_checked(*first_time) {
             Ok(_) => Ok(()),
             Err(x) => Err(x),
         }?;
 
-        let last_time = self.time_s.last().ok_or("Empty sequence".to_string())?;
+        let last_time = self
+            .time_s
+            .last()
+            .ok_or_else(|| "Empty sequence".to_string())?;
         match self.eval_checked(*last_time) {
             Ok(_) => Ok(()),
             Err(x) => Err(x),
@@ -299,7 +306,7 @@ impl Sequence {
         // Parse header row, discarding time column name
         let output_names: Vec<String> = lines
             .next()
-            .ok_or("Empty csv".to_string())?
+            .ok_or_else(|| "Empty csv".to_string())?
             .split(",")
             .skip(1)
             .map(|s| s.to_owned())
@@ -309,7 +316,7 @@ impl Sequence {
         let mut methods: Vec<InterpMethod> = Vec::new();
         for s in lines
             .next()
-            .ok_or("Empty csv".to_string())?
+            .ok_or_else(|| "Empty csv".to_string())?
             .split(",")
             .skip(1)
         {
@@ -342,7 +349,7 @@ impl Sequence {
             // Leftmost column is the time index
             let time = entries
                 .next()
-                .ok_or(format!("CSV read error on line {i}, empty line"))?
+                .ok_or_else(|| format!("CSV read error on line {i}, empty line"))?
                 .trim()
                 .parse::<f64>()
                 .map_err(|e| format!("Error parsing time value in CSV on line {i}: {e}"))?;
@@ -591,10 +598,12 @@ impl SequenceMachine {
         if sequence_time_s > self.current_sequence().get_end_time_s() {
             return match &self.cfg.timeouts[sequence_name] {
                 Timeout::Transition(target_sequence) => {
+                    // info!("Transition `{target_sequence}` due to timeout");
                     self.transition(target_sequence.clone());
                     Ok(())
                 }
                 Timeout::Loop => {
+                    // info!("Looping sequence `{sequence_name}` due to timeout");
                     self.transition(sequence_name.clone());
                     Ok(())
                 }
@@ -633,6 +642,7 @@ impl SequenceMachine {
                 // If a sequence transition has been triggered, update the execution sequence
                 // to the start of the next sequence.
                 if should_transition {
+                    // info!("Transition `{target_sequence}` due to {criterion:?}");
                     self.transition(target_sequence.clone());
                     return Ok(());
                 }
@@ -687,7 +697,12 @@ impl SequenceMachine {
         let mut sequences = BTreeMap::new();
         for fp in csv_files {
             // unwrap: ok because we already checked that this is a file with an extension
-            let name = fp.file_stem().unwrap().to_str().unwrap().to_owned();
+            let name = fp
+                .file_stem()
+                .ok_or_else(|| "Filename missing".to_string())?
+                .to_str()
+                .ok_or_else(|| "Filename is not valid unicode".to_string())?
+                .to_owned();
             let seq: Sequence = Sequence::from_csv_file(&fp)?;
             sequences.insert(name, seq);
         }
@@ -708,7 +723,8 @@ impl Calc for SequenceMachine {
         // Reload from folder, if linked
         if let Some(rel_path) = &self.cfg.link_folder {
             let folder = ctx.op_dir.join(rel_path);
-            *self = Self::load_folder(&folder).unwrap();
+            *self = Self::load_folder(&folder)
+                .map_err(|e| format!("Failed to load sequence machine from linked folder: {e}"))?;
         }
 
         // Reset execution sequence
@@ -739,8 +755,7 @@ impl Calc for SequenceMachine {
         }
 
         // Make sure lookup tables are usable, transitions refer to real sequences, etc
-        self.validate().unwrap();
-        Ok(())
+        self.validate()
     }
 
     fn terminate(&mut self) -> Result<(), String> {
@@ -749,7 +764,7 @@ impl Calc for SequenceMachine {
         let start_time = self
             .sequences
             .get(&self.cfg.entry)
-            .unwrap()
+            .ok_or_else(|| "Missing sequence".to_string())?
             .get_start_time_s();
         self.execution_state.sequence_time_s = start_time;
         self.execution_state.current_sequence = self.cfg.entry.clone();
@@ -760,8 +775,7 @@ impl Calc for SequenceMachine {
         // Increment sequence time
         self.execution_state.sequence_time_s += self.execution_state.dt_s;
         // Transition to the next sequence if needed, which may reset sequence time
-        self.check_transitions(self.execution_state.sequence_time_s, tape)
-            .unwrap();
+        self.check_transitions(self.execution_state.sequence_time_s, tape)?;
 
         // Update output values based on the current sequence
         self.current_sequence().eval(

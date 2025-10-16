@@ -339,6 +339,16 @@ impl Controller {
     }
 
     pub fn run(&mut self, plugins: &Option<PluginMap>) -> Result<String, String> {
+        // Start log file
+        let (log_file, _logging_guards) =
+            logging::init_logging(&self.ctx.op_dir, &self.ctx.op_name)
+                .map_err(|err| format!("Failed to initialize logging: {err}"))?;
+        let log_file_canonicalized = log_file
+            .canonicalize()
+            .map_err(|e| format!("Failed to resolve log file path: {e}"))?;
+        info!("Controller starting op {}", &self.ctx.op_name);
+        info!("Logging to file {:?}", log_file_canonicalized);
+
         let core_ids = core_affinity::get_core_ids().unwrap_or_default();
         let mut aux_core_cycle = {
             // Set core affinity, if possible
@@ -347,12 +357,13 @@ impl Controller {
 
             // Make a cycle over the cores that are available for auxiliary functions
             // other than the control loop. Because many modern CPUs present one extra fake "core"
-            // per real core due to hyperthreading functionality, only every second core is
-            // assumed to represent a real independent computing resource.
+            // per real core due to hyperthreading functionality, the first two "cores" are both
+            // reserved for the main thread to avoid sharing resources between the hard-realtime
+            // part and the less timing-sensitive dispatchers.
             let aux_core_cycle = if n_cores > 2 {
-                core_ids[2..].iter().step_by(2).cycle()
+                core_ids[2..].iter().cycle()
             } else {
-                core_ids[0..1].iter().step_by(2).cycle()
+                core_ids[0..1].iter().cycle()
             };
 
             // Consume the first core for the control loop
@@ -362,31 +373,8 @@ impl Controller {
                 core_affinity::set_for_current(*core);
             }
 
-            // Set filled deadline scheduling to indicate that the control loop thread
-            // should stay fully occupied. This is not available on Windows, in which
-            // case, use max priority as a next-best option.
-            // If both options fail, continue as-is.
-            match thread_priority::set_current_thread_priority(
-                thread_priority::ThreadPriority::Deadline {
-                    runtime: Duration::from_nanos(1),
-                    deadline: Duration::from_nanos(1),
-                    period: Duration::from_nanos(1),
-                    flags: thread_priority::DeadlineFlags::RESET_ON_FORK, // Children do not inherit deadline scheduling
-                },
-            ) {
-                Ok(_) => (),
-                Err(_) => {
-                    let _ = thread_priority::set_current_thread_priority(
-                        thread_priority::ThreadPriority::Max,
-                    );
-                }
-            };
-
             aux_core_cycle
         };
-
-        logging::init_logging(&self.ctx.op_dir)
-            .map_err(|err| format!("Failed to initialize logging: {err}"))?;
 
         // Buffer for writing bytes to send on sockets
         let txbuf = &mut [0_u8; 1522][..];
@@ -400,9 +388,10 @@ impl Controller {
         let available_peripherals = self
             .scan(100, plugins)
             .map_err(|e| format!("Failed to scan for peripherals: {e}"))?;
+        info!("Found available units: {:?}", &available_peripherals);
 
         // Initialize state using scanned addresses
-        info!("Initializing state");
+        info!("Initializing controller run state");
         let mut controller_state = ControllerState::new(&self.peripherals, &available_peripherals);
         let addresses = controller_state
             .peripheral_state
@@ -587,6 +576,7 @@ impl Controller {
         for addr in controller_state.peripheral_state.keys() {
             let max_clock_rate_err = 5e-2; // at least 5% tolerance for dev units using onboard clocks
             let ki = 0.00001 * (self.ctx.dt_ns as f64 / 10_000_000_f64);
+            // FUTURE: The timing controller gains are hand-tuned and could use more scrutiny
             let timing_controller = TimingPID {
                 kp: 0.005 * (self.ctx.dt_ns as f64 / 10_000_000_f64), // Tuned at 100Hz
                 ki,
@@ -751,10 +741,7 @@ impl Controller {
                         // Check if this peripheral is one we have bound
                         let addr = (sid, pid);
                         if !addresses.contains(&addr) {
-                            warn!(
-                                "Received packet from unbound peripheral at socket address `{:?}`",
-                                &addr
-                            );
+                            // To avoid being packet-flooded, we do nothing here
                             continue;
                         }
 

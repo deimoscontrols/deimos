@@ -9,6 +9,7 @@ use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::{Sender, channel};
 use std::thread::{self, JoinHandle, spawn};
+use tracing::{info, warn};
 
 use crate::controller::context::ControllerCtx;
 
@@ -71,6 +72,11 @@ impl Dispatcher for CsvDispatcher {
         // Preallocate output file
         let total_len = 1024 * 1_024 * self.chunk_size_megabytes;
         let filepath = ctx.op_dir.join(format!("{}.csv", ctx.op_name));
+
+        info!(
+            "Initializing CSV dispatcher with file path: {:?}",
+            &filepath
+        );
 
         // Spawn worker
         self.worker = Some(WorkerHandle::new(
@@ -135,13 +141,11 @@ impl WorkerHandle {
         let _thread = spawn(move || {
             // Bind to assigned core, and set priority only if the core is not shared with the control loop
             {
-                core_affinity::set_for_current(core_affinity::CoreId {
+                let success = core_affinity::set_for_current(core_affinity::CoreId {
                     id: core_assignment,
                 });
-                if core_assignment > 0 {
-                    let _ = thread_priority::set_current_thread_priority(
-                        thread_priority::ThreadPriority::Max,
-                    );
+                if !success {
+                    warn!("Failed to set core affinity for CSV dispatcher");
                 }
             }
 
@@ -183,6 +187,7 @@ impl WorkerHandle {
                                     // Assemble new file name
                                     let filename_new =
                                         format!("{original_filename}_{shard_number}.csv");
+                                    info!("Reserving new CSV file at {}", &filename_new);
                                     let path_new: PathBuf =
                                         path.parent().unwrap().join(filename_new);
 

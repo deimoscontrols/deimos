@@ -1,6 +1,6 @@
 [package]
 name = "deimos"
-version = "0.12.0"
+version = "0.13.0"
 edition = "2024"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "MIT OR Apache-2.0"
@@ -20,7 +20,6 @@ deimos_shared = { path = "../deimos_shared", version = "0.5.1" }
 # Control loop prep
 chrono = { version = "0.4.39", features = ["std"], default-features = false }  # timestamp formatting
 core_affinity = "0.8.1"
-thread-priority = "3.0.0"
 
 # Calcs
 flaw = "0.4.0"
@@ -42,9 +41,9 @@ postgres = "0.19.10"
 postgres-types = "0.2.9"
 
 # Logging
-tracing = "0.1"
-tracing-appender = "0.2"
-tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter", "chrono"] }
+tracing = "0.1.41"
+tracing-appender = "0.2.3"
+tracing-subscriber = { version = "0.3.20", features = ["fmt", "env-filter", "chrono"] }
 
 [features]
 
