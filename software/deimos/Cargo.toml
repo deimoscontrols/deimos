@@ -44,6 +44,8 @@ postgres-types = "0.2.9"
 tracing = "0.1.41"
 tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.20", features = ["fmt", "env-filter", "chrono"] }
+nalgebra = "0.34"
+levenberg-marquardt = "0.15.0"
 
 [features]
 
