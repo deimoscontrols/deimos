@@ -85,7 +85,7 @@ impl<'a> LeastSquaresProblem<f64, Dyn, Dyn> for PolynomialFitProblem<'a> {
     fn residuals(&self) -> Option<nalgebra::Vector<f64, Dyn, Self::ResidualStorage>> {
         let mut residuals = DVector::zeros(self.points.len());
         for (row, &(x, y)) in self.points.iter().enumerate() {
-            residuals[row] = polyval(x, &self.params.as_slice()) - y;
+            residuals[row] = polyval(x, self.params.as_slice()) - y;
         }
         Some(residuals)
     }
