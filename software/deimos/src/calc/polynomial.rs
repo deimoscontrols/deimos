@@ -1,9 +1,15 @@
 //! Evaluate an Nth order polynomial calibration curve.
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names};
+use crate::{
+    calc_config, calc_input_names, calc_output_names,
+    math::{polyfit, polyval},
+};
 
 /// Polynomial calibration: y = c0 + c1*x + c2*x^2 + ...
+/// with an attached note that should include traceability info
+/// like a sensor serial number.
+/// Coefficients ordered by increasing polynomial order.
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Polynomial {
     // User inputs
@@ -37,12 +43,21 @@ impl Polynomial {
         }
     }
 
-    fn eval_poly(&self, x: f64) -> f64 {
-        // Horner's method, coefficients assumed ascending order c0, c1, ...
-        self.coefficients
-            .iter()
-            .rev()
-            .fold(0.0, |acc, &coef| acc * x + coef)
+    pub fn fit_from_points(
+        input_name: &str,
+        points: &[(f64, f64)],
+        order: usize,
+        note: &str,
+        save_outputs: bool,
+    ) -> Result<Self, String> {
+        let coefficients = polyfit(points, order)?;
+
+        Ok(Self::new(
+            input_name.into(),
+            coefficients,
+            note.into(),
+            save_outputs,
+        ))
     }
 }
 
@@ -76,7 +91,7 @@ impl Calc for Polynomial {
 
     fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         let x = tape[self.input_index];
-        let y = self.eval_poly(x);
+        let y = polyval(x, &self.coefficients);
         tape[self.output_index] = y;
         Ok(())
     }
