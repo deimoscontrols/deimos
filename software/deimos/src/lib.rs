@@ -7,6 +7,7 @@ pub mod dispatcher;
 pub mod logging;
 pub mod peripheral;
 pub mod socket;
+pub mod math;
 
 pub use controller::{
     Controller,
