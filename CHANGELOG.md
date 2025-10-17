@@ -9,7 +9,7 @@
 ### Changed
 
 * `calc::Polynomial`
-  * Remove `eval_poly` method and defer to `math::polyval`, which uses mul_add operations
+  * !Remove `eval_poly` method and defer to `math::polyval`, which uses mul_add operations
   * Add `fit_from_points` method for initializing coeffs from calibration points
 
 ## 2025-10-14 deimos 0.13.0
