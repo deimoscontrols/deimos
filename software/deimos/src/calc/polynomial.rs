@@ -1,7 +1,10 @@
 //! Evaluate an Nth order polynomial calibration curve.
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names, math::{polyval, polyfit}};
+use crate::{
+    calc_config, calc_input_names, calc_output_names,
+    math::{polyfit, polyval},
+};
 
 /// Polynomial calibration: y = c0 + c1*x + c2*x^2 + ...
 /// with an attached note that should include traceability info
@@ -46,8 +49,7 @@ impl Polynomial {
         order: usize,
         note: &str,
         save_outputs: bool,
-    ) -> Result<Self, String>
-    {
+    ) -> Result<Self, String> {
         let coefficients = polyfit(points, order)?;
 
         Ok(Self::new(
