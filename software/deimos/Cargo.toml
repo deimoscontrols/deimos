@@ -1,6 +1,6 @@
 [package]
 name = "deimos"
-version = "0.14.0"
+version = "0.14.1"
 edition = "2024"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "MIT OR Apache-2.0"
@@ -13,6 +13,12 @@ readme = "./README.md"
 
 [package.metadata."docs.rs"]
 all-features = true
+
+[lib]
+name = "deimos"
+
+# Allow use in both python bindings and rust crate
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 deimos_shared = { path = "../deimos_shared", version = "0.5.1" }
@@ -47,7 +53,14 @@ tracing-subscriber = { version = "0.3.20", features = ["fmt", "env-filter", "chr
 nalgebra = "0.34"
 levenberg-marquardt = "0.15.0"
 
+# Python bindings
+pyo3 = { version = "0.27.0", features = ["extension-module", "abi3-py39", "generate-import-lib"], optional = true }
+#numpy = { version = "0.26.0", optional = true }
+
 [features]
+default = []
+#python = ["pyo3", "numpy"]
+python = ["pyo3"]
 
 [[example]]
 name = "multi_daq"
