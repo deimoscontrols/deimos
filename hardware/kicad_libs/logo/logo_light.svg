@@ -14,6 +14,12 @@
    xmlns:svg="http://www.w3.org/2000/svg">
   <defs
      id="defs1" />
+      <style type="text/css">
+        @media (prefers-color-scheme: light) {
+          svg { filter: invert(93%) hue-rotate(180deg); background-color: transparent !important; }
+          image { filter: invert(100%) hue-rotate(180deg) saturate(1.25); }
+        }
+      </style>
   <sodipodi:namedview
      id="namedview1"
      pagecolor="#ffffff"
