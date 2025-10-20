@@ -28,10 +28,12 @@ chrono = { version = "0.4.39", features = ["std"], default-features = false }  #
 core_affinity = "0.8.1"
 
 # Calcs
-flaw = "0.4.0"
-interpn = "0.6.1"
+flaw = { version = "0.5.0", default-features=false, features=["fma"] }
+interpn = { version = "0.6.1", default-features=false }
 once_cell = "1.20.2"
 branches = "0.3.0"
+nalgebra = "0.34"
+levenberg-marquardt = "0.15.0"
 
 # Sideloading support
 crossbeam = "0.8.4"
@@ -50,8 +52,6 @@ postgres-types = "0.2.9"
 tracing = "0.1.41"
 tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.20", features = ["fmt", "env-filter", "chrono"] }
-nalgebra = "0.34"
-levenberg-marquardt = "0.15.0"
 
 # Python bindings
 pyo3 = { version = "0.27.0", features = ["extension-module", "abi3-py39", "generate-import-lib"], optional = true }
