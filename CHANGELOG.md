@@ -1,5 +1,13 @@
 # Changelog
 
+## 2025-10-26 Deimos DAQ Rev 6.0.2 hardware
+
+### Changed
+
+* Deimos DAQ Rev 6
+    * Remove trace that bridged 3.3V and 1.024V rails due to autocleanup failure during hierarchical layout update
+    * Re-generate fab files
+
 ## 2025-10-16 deimos 0.14.0
 
 ### Added
