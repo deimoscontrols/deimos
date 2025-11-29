@@ -330,7 +330,7 @@ impl Sampler {
 
                     // Construct and initialize the new filter
                     let mut new_filter = filter_proto;
-                    new_filter.initialize(init_val);
+                    new_filter.set_steady_state(init_val);
 
                     // Swap the old and new adc_filters
                     *old_filter = new_filter;
@@ -358,7 +358,7 @@ impl Sampler {
 
                     // Construct and initialize the new filter
                     let mut new_filter = filter_proto;
-                    new_filter.initialize(init_val);
+                    new_filter.set_steady_state(init_val);
 
                     // Swap the old and new adc_filters
                     *old_filter = new_filter;

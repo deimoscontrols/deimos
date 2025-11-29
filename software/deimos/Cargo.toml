@@ -1,6 +1,6 @@
 [package]
 name = "deimos"
-version = "0.14.0"
+version = "0.15.0"
 edition = "2024"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "MIT OR Apache-2.0"
@@ -11,21 +11,27 @@ readme = "./README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+crate-type = ["rlib", "cdylib"]
+
 [package.metadata."docs.rs"]
 all-features = true
 
 [dependencies]
+# Packet formats shared with hardware
 deimos_shared = { path = "../deimos_shared", version = "0.5.1" }
 
 # Control loop prep
 chrono = { version = "0.4.39", features = ["std"], default-features = false }  # timestamp formatting
-core_affinity = "0.8.1"
+core_affinity = "0.8.3"
 
 # Calcs
-flaw = "0.4.0"
-interpn = "0.6.1"
-once_cell = "1.20.2"
+flaw = { version = "0.6.0", default-features = false, features = ["fma"] }
+interpn = { version = "0.8.2", default-features = false, features = ["fma"] }
+once_cell = "1.21.3"
 branches = "0.3.0"
+nalgebra = "0.34"
+levenberg-marquardt = "0.15.0"
 
 # Sideloading support
 crossbeam = "0.8.4"
@@ -44,10 +50,14 @@ postgres-types = "0.2.9"
 tracing = "0.1.41"
 tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.20", features = ["fmt", "env-filter", "chrono"] }
-nalgebra = "0.34"
-levenberg-marquardt = "0.15.0"
+
+# Python bindings
+pyo3 = { version = "0.27.2", features = ["extension-module", "abi3-py310", "generate-import-lib"], optional = true }
+#numpy = { version = "0.27.0", optional = true }
 
 [features]
+default = ["python"]
+python = ["pyo3"]
 
 [[example]]
 name = "multi_daq"

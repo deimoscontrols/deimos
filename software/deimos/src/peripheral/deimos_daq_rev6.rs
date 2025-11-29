@@ -31,8 +31,8 @@ impl Peripheral for DeimosDaqRev6 {
             names.push(format!("pwm{i}_freq").to_owned())
         }
 
+        names.push("dac0".to_string());
         names.push("dac1".to_string());
-        names.push("dac2".to_string());
 
         names
     }
@@ -159,7 +159,7 @@ impl Peripheral for DeimosDaqRev6 {
 
         // 4-20mA channels use a 75 ohm reference resistor and G=1 amp
         {
-            let mut n = 1;
+            let mut n = 0;
             for i in milliamp_4_20_range {
                 let input_name = format!("{name}.ain{i}");
                 let calc_name = format!("{name}_4_20_mA_{n}_A");
@@ -174,7 +174,7 @@ impl Peripheral for DeimosDaqRev6 {
 
         // Resistance sensors use a 250uA reference current and gain of 25.7
         {
-            let mut n = 1;
+            let mut n = 0;
             for i in rtd_range {
                 let input_name = format!("{name}.ain{i}");
                 let resistance_calc_name = format!("{name}_ohm_{n}");
@@ -193,7 +193,7 @@ impl Peripheral for DeimosDaqRev6 {
         // TCs use a gain of 25.7 as well, and an output offset
         // to allow measuring temperatures below 0C
         {
-            let mut n = 1;
+            let mut n = 0;
             for i in tc_range {
                 let slope = 25.7;
                 let offset = 1.024;
@@ -217,28 +217,28 @@ impl Peripheral for DeimosDaqRev6 {
         // Variety of raw voltages with different gains
         {
             let input_name = format!("{name}.ain12");
-            let voltage_calc_name = format!("{name}_0_2V5_1");
+            let voltage_calc_name = format!("{name}_0_2V5_0");
             let voltage_calc = Affine::new(input_name, 1.0, 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
         {
             let input_name = format!("{name}.ain15");
-            let voltage_calc_name = format!("{name}_0_2V5_2");
+            let voltage_calc_name = format!("{name}_0_2V5_1");
             let voltage_calc = Affine::new(input_name, 1.0, 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
         {
             let input_name = format!("{name}.ain16");
-            let voltage_calc_name = format!("{name}_0_15V_1");
+            let voltage_calc_name = format!("{name}_0_15V_0");
             let voltage_calc = Affine::new(input_name, 6.0, 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }
 
         {
             let input_name = format!("{name}.ain17");
-            let voltage_calc_name = format!("{name}_0_15V_2");
+            let voltage_calc_name = format!("{name}_0_15V_1");
             let voltage_calc = Affine::new(input_name, 6.0, 0.0, true);
             calcs.insert(voltage_calc_name, Box::new(voltage_calc));
         }

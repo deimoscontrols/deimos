@@ -13,7 +13,11 @@ pub use csv::CsvDispatcher;
 
 use crate::controller::context::ControllerCtx;
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 /// Choice of behavior when the current file is full
+#[cfg_attr(feature = "python", pyclass)]
 #[derive(Serialize, Deserialize, Default, Clone, Copy, Debug)]
 pub enum Overflow {
     /// Wrap back to the beginning of the file and

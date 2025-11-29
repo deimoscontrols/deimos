@@ -175,6 +175,7 @@ impl WorkerHandle {
                             match overflow_behavior {
                                 Overflow::Wrap => {
                                     writer.seek(SeekFrom::Start(header_len as u64)).unwrap();
+                                    info!("CSV file wrapped")
                                 }
                                 Overflow::Error => {
                                     panic!(
@@ -192,6 +193,8 @@ impl WorkerHandle {
                                         path.parent().unwrap().join(filename_new);
 
                                     writer = new_file(&path_new, &header, total_size).unwrap();
+
+                                    info!("CSV dispatcher moved to new file at {path_new:?}")
                                 }
                             }
                         }

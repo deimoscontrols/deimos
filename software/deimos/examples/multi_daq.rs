@@ -69,7 +69,7 @@ fn main() {
     controller.add_peripheral("p6", Box::new(AnalogIRev4 { serial_number: 4 }));
     // controller.add_peripheral("p7", Box::new(AnalogIRev4 { serial_number: 5 }));
     // controller.add_peripheral("p8", Box::new(AnalogIRev4 { serial_number: 6 }));
-    controller.add_peripheral("p8", Box::new(DeimosDaqRev6 { serial_number: 1 }));
+    controller.add_peripheral("p8", Box::new(DeimosDaqRev6 { serial_number: 5 }));
 
     // Set up database dispatchers
     let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(
@@ -92,21 +92,21 @@ fn main() {
     let dac1 = Sin::new(20.0, 0.0, 0.0, 2.5, true);
     let dac2 = Sin::new(20.0, 5.0, 0.0, 2.5 / 25.7, true);
     controller.add_calc("duty", Box::new(duty));
-    controller.add_calc("freq", Box::new(freq));
+    controller.add_calc("freq0", Box::new(freq));
     controller.add_calc("freq1", Box::new(freq1));
-    controller.add_calc("dac1", Box::new(dac1));
-    controller.add_calc("dac2", Box::new(dac2));
+    controller.add_calc("dac0", Box::new(dac1));
+    controller.add_calc("dac1", Box::new(dac2));
     controller.set_peripheral_input_source("p1.pwm0_duty", "duty.y");
-    controller.set_peripheral_input_source("p1.pwm0_freq", "freq.y");
+    controller.set_peripheral_input_source("p1.pwm0_freq", "freq0.y");
     controller.set_peripheral_input_source("p1.pwm1_duty", "duty.y");
     controller.set_peripheral_input_source("p1.pwm1_freq", "freq1.y");
     controller.set_peripheral_input_source("p1.pwm3_duty", "sequence_machine.duty");
-    controller.set_peripheral_input_source("p1.pwm3_freq", "freq.y");
+    controller.set_peripheral_input_source("p1.pwm3_freq", "freq0.y");
 
     controller.set_peripheral_input_source("p8.pwm0_duty", "duty.y");
-    controller.set_peripheral_input_source("p8.pwm0_freq", "freq.y");
+    controller.set_peripheral_input_source("p8.pwm0_freq", "freq0.y");
+    controller.set_peripheral_input_source("p8.dac0", "dac0.y");
     controller.set_peripheral_input_source("p8.dac1", "dac1.y");
-    controller.set_peripheral_input_source("p8.dac2", "dac2.y");
 
     let timeouts = BTreeMap::from([
         ("low".to_owned(), Timeout::Loop),
@@ -119,7 +119,7 @@ fn main() {
             BTreeMap::from([(
                 "high".to_owned(),
                 vec![Transition::ConstantThresh(
-                    "freq.y".to_owned(),
+                    "freq0.y".to_owned(),
                     ThreshOp::Gt { by: 0.0 },
                     100_000.0,
                 )],
@@ -151,5 +151,5 @@ fn main() {
 
     // Run the control program
     info!("Starting controller");
-    controller.run(&peripheral_plugins).unwrap();
+    controller.run(&peripheral_plugins, None).unwrap();
 }

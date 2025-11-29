@@ -277,9 +277,13 @@ fn init_timescaledb_client(
     user: &str,
     pw: &str,
 ) -> Result<Client, String> {
+    // Use provided port if it exists, otherwise the default port 5432
+    let (host, port) = split_host(host);
+    let port = port.unwrap_or("5432".to_string());
+
     // Connect to database backend
     Client::connect(
-        &format!("dbname={dbname} host={host} user={user} password={pw}"),
+        &format!("dbname={dbname} host={host} port={port} user={user} password={pw}"),
         NoTls,
     )
     .map_err(|e| format!("Failed to connect postgres client: {e}"))
@@ -366,4 +370,14 @@ fn prepare_timescaledb_query(
             &channel_types,
         )
         .map_err(|e| format!("Failed to build prepared postgres query: {e}"))
+}
+
+fn split_host(host: &str) -> (String, Option<String>) {
+    let parts: Vec<String> = host.split(":").map(|x| x.to_string()).collect();
+    let n = parts.len();
+    if n < 2 {
+        (host.to_string(), None)
+    } else {
+        (parts[..n-1].join(""), parts.last().cloned())
+    }
 }

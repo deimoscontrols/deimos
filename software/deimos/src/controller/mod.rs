@@ -8,6 +8,7 @@ mod timing;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::sync::atomic::AtomicBool;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -35,7 +36,7 @@ use tracing::{debug, error, info, warn};
 #[derive(Serialize, Deserialize)]
 pub struct Controller {
     // Input config, which is passed to appendages during their init
-    ctx: ControllerCtx,
+    pub ctx: ControllerCtx,
 
     // Appendages
     sockets: Vec<Box<dyn Socket>>,
@@ -338,7 +339,11 @@ impl Controller {
         }
     }
 
-    pub fn run(&mut self, plugins: &Option<PluginMap>) -> Result<String, String> {
+    pub fn run(
+        &mut self,
+        plugins: &Option<PluginMap>,
+        termination_signal: Option<&AtomicBool>,
+    ) -> Result<String, String> {
         // Start log file
         let (log_file, _logging_guards) =
             logging::init_logging(&self.ctx.op_dir, &self.ctx.op_name)
@@ -346,7 +351,7 @@ impl Controller {
         let log_file_canonicalized = log_file
             .canonicalize()
             .map_err(|e| format!("Failed to resolve log file path: {e}"))?;
-        info!("Controller starting op {}", &self.ctx.op_name);
+        info!("Controller starting op \"{}\"", &self.ctx.op_name);
         info!("Logging to file {:?}", log_file_canonicalized);
 
         let core_ids = core_affinity::get_core_ids().unwrap_or_default();
@@ -370,7 +375,10 @@ impl Controller {
             // While the last core is less likely to be overutilized, the first core is more
             // likely to be a high-performance core on a heterogeneous computing device
             if let Some(core) = core_ids.first() {
-                core_affinity::set_for_current(*core);
+                let succeeded = core_affinity::set_for_current(*core);
+                if !succeeded {
+                    warn!("Failed to set main thread core affinity");
+                }
             }
 
             aux_core_cycle
@@ -672,6 +680,24 @@ impl Controller {
                 }
             }
 
+            // Check external termination signal
+            if let Some(s) = termination_signal {
+                if s.load(std::sync::atomic::Ordering::Relaxed) {
+                    let msg = format!("External termination signal received at {t:?}");
+                    let reason = Ok(msg.clone());
+                    info!("{msg}");
+
+                    self.terminate(
+                        &controller_state,
+                        &mut peripheral_input_buffer,
+                        &mut txbuf[..],
+                        i,
+                    );
+
+                    return reason;
+                }
+            }
+
             // Send next input
             for (addr, ps) in controller_state.peripheral_state.iter_mut() {
                 let p = &self.peripherals[&ps.name];
@@ -752,7 +778,12 @@ impl Controller {
 
                         // Check packet size
                         if amt != n {
-                            warn!("Received malformed packet from peripheral `{}`", &ps.name);
+                            if i > 4 {
+                                // During the first few cycles, we might catch a configuration response
+                                // coming in late, which isn't concerning
+                                warn!("Received malformed packet from peripheral `{}`", &ps.name);
+                            }
+                            
                             continue;
                         }
 

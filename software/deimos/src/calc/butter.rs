@@ -100,7 +100,7 @@ impl Calc for Butter2 {
         let y = if branches::unlikely(!self.initialized) {
             // Pass through the first value to avoid excessive timing
             // on first cycle due to initialization
-            self.filt.initialize(x as f32);
+            self.filt.set_steady_state(x as f32);
             self.initialized = true;
             x
         } else {

@@ -116,7 +116,7 @@ fn main() {
     }
 
     // Start the controller
-    let exit_status = controller.run(&plugins);
+    let exit_status = controller.run(&plugins, None);
     info!("Controller exit status: {exit_status:?}");
 
     // Wait for the mockup to finish running
