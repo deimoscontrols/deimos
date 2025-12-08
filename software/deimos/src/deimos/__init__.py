@@ -1,6 +1,7 @@
-from .deimos import Controller, Peripheral
+from .deimos import calc, Controller, Peripheral
 
 __all__ = [
+    "calc",
     "Controller",
     "Peripheral"
 ]

@@ -1,9 +1,6 @@
 use pyo3::prelude::*;
 
-use crate::{
-    calc::{Affine, Calc, InverseAffine},
-    python::BackendErr,
-};
+use crate::{calc::Calc, python::BackendErr};
 
 use pythonize::depythonize;
 
@@ -19,10 +16,10 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Box<dyn Calc> {
     }
 }
 
-#[pymodule]
-#[pyo3(name = "calc")]
-pub(crate) fn calc<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
-    m.add_class::<Affine>()?;
+// #[pymodule]
+// #[pyo3(name = "calc")]
+// pub(crate) fn calc<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
+//     m.add_class::<Affine>()?;
 
-    Ok(())
-}
+//     Ok(())
+// }

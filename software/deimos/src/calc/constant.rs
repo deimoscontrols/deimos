@@ -1,10 +1,14 @@
 //! A calc that produces a constant value
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use super::*;
 use crate::{calc_config, calc_input_names, calc_output_names};
 
 /// Simplest calc that does anything at all
 #[derive(Serialize, Deserialize, Default, Debug)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct Constant {
     // User inputs
     y: f64,
@@ -25,6 +29,15 @@ impl Constant {
             save_outputs,
             output_index,
         }
+    }
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl Constant {
+    #[new]
+    fn py_new(y: f64, save_outputs: bool) -> PyResult<Self> {
+        Ok(Self::new(y, save_outputs))
     }
 }
 

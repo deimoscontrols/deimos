@@ -6,6 +6,7 @@ use pyo3::exceptions;
 use pyo3::prelude::*;
 
 use deimos_shared::peripherals::model_numbers;
+use pyo3::wrap_pymodule;
 
 // Dispatchers
 use crate::CsvDispatcher;
@@ -18,7 +19,7 @@ use crate::peripheral::AnalogIRev4;
 use crate::peripheral::DeimosDaqRev5;
 use crate::peripheral::DeimosDaqRev6;
 
-use crate::calc::Calc;
+use crate::calc::{Affine, Calc, InverseAffine};
 
 pub use crate::dispatcher::Overflow;
 mod calc;
@@ -338,11 +339,21 @@ impl Controller {
 
 #[pymodule]
 #[pyo3(name = "deimos")]
-fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
-    // m.add_function(wrap_pyfunction!(interpn_linear_regular_f64, m)?)?;
+fn deimos<'py>(py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_class::<Controller>()?;
     m.add_class::<Peripheral>()?;
     m.add_class::<Overflow>()?;
+
+    #[pymodule]
+    #[pyo3(name = "calc")]
+    mod calc_ {
+
+        #[pymodule_export]
+        pub use crate::calc::{Affine, Constant};
+
+    }
+
+    m.add_wrapped(wrap_pymodule!(calc_))?;
 
     Ok(())
 }

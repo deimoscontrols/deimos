@@ -30,6 +30,10 @@ c.add_timescaledb_dispatcher(
     retention_time_hours=1,
 )
 
+# Add a calc that runs in-the-loop
+five = deimos.calc.Constant(5.0, True)
+c.add_calc("five", five)
+
 # Run the control program
 if len(peripherals) > 0:
     c.run()
