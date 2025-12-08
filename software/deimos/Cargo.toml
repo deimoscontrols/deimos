@@ -52,12 +52,13 @@ tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.20", features = ["fmt", "env-filter", "chrono"] }
 
 # Python bindings
-pyo3 = { version = "0.27.2", features = ["extension-module", "abi3-py310", "generate-import-lib"], optional = true }
+pyo3 = { version = "0.27.2", features = ["extension-module", "abi3-py310", "generate-import-lib", "serde"], optional = true }
+pythonize = { version = "0.27.0", optional = true }
 #numpy = { version = "0.27.0", optional = true }
 
 [features]
 default = ["python"]
-python = ["pyo3"]
+python = ["pyo3", "pythonize"]
 
 [[example]]
 name = "multi_daq"

@@ -7,13 +7,18 @@ use pyo3::prelude::*;
 
 use deimos_shared::peripherals::model_numbers;
 
+// Dispatchers
 use crate::CsvDispatcher;
 use crate::TimescaleDbDispatcher;
+
+// Peripherals
 use crate::peripheral::AnalogIRev2;
 use crate::peripheral::AnalogIRev3;
 use crate::peripheral::AnalogIRev4;
 use crate::peripheral::DeimosDaqRev5;
 use crate::peripheral::DeimosDaqRev6;
+
+use crate::calc::Calc;
 
 pub use crate::dispatcher::Overflow;
 mod calc;
@@ -25,6 +30,7 @@ enum BackendErr {
     InvalidPathErr { msg: String },
     RunErr { msg: String },
     InvalidPeripheralErr { msg: String },
+    InvalidCalcErr { msg: String },
 }
 
 impl From<BackendErr> for PyErr {
@@ -35,6 +41,9 @@ impl From<BackendErr> for PyErr {
             }
             BackendErr::RunErr { msg: _ } => exceptions::PyIOError::new_err(format!("{:#?}", val)),
             BackendErr::InvalidPeripheralErr { msg: _ } => {
+                exceptions::PyValueError::new_err(format!("{:#?}", val))
+            }
+            BackendErr::InvalidCalcErr { msg: _ } => {
                 exceptions::PyValueError::new_err(format!("{:#?}", val))
             }
         }
@@ -284,7 +293,7 @@ impl Controller {
     }
 
     /// Write data to a CSV file in `op_dir` with name `{op}.csv`.
-    /// 
+    ///
     /// The file is pre-allocated to avoid resizing in the loop,
     /// then trimmed at the end of data collection if the final
     /// size is less than what was allocated.
@@ -295,12 +304,12 @@ impl Controller {
     }
 
     /// Send unencrypted data to a TimescaleDB postgres database.
-    /// 
+    ///
     /// The host can be either an IP address like `192.168.8.231`,
     /// an IP address with a port like `192.168.8.231:5432`,
     /// or a unix socket address like `/run/postgresql/`.
     /// If not port is specified, the default port 5432 is used.
-    /// 
+    ///
     /// `token_name` must match an environment variable containing the
     /// required auth credentials for the postgres user.
     fn add_timescaledb_dispatcher(
@@ -320,6 +329,10 @@ impl Controller {
             retention_time_hours,
         );
         self.controller.add_dispatcher(Box::new(d));
+    }
+
+    fn add_calc(&mut self, name: &str, calc: Box<dyn Calc>) {
+        self.controller.add_calc(name, calc);
     }
 }
 

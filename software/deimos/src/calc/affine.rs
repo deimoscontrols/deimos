@@ -1,10 +1,14 @@
 //! A slope and offset, y = ax + b
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use super::*;
 use crate::{calc_config, calc_input_names, calc_output_names};
 
 /// A slope and offset, y = ax + b
 #[derive(Default, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct Affine {
     // User inputs
     input_name: String,
@@ -36,6 +40,15 @@ impl Affine {
             input_index,
             output_index,
         }
+    }
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl Affine {
+    #[new]
+    fn py_new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> PyResult<Self> {
+        Ok(Self::new(input_name, slope, offset, save_outputs))
     }
 }
 
