@@ -19,7 +19,7 @@ use crate::peripheral::AnalogIRev4;
 use crate::peripheral::DeimosDaqRev5;
 use crate::peripheral::DeimosDaqRev6;
 
-use crate::calc::{Affine, Calc, InverseAffine};
+use crate::calc::Calc;
 
 pub use crate::dispatcher::Overflow;
 mod calc;
@@ -27,7 +27,7 @@ mod calc;
 
 #[derive(Debug)]
 #[allow(dead_code)]
-enum BackendErr {
+pub(crate) enum BackendErr {
     InvalidPathErr { msg: String },
     RunErr { msg: String },
     InvalidPeripheralErr { msg: String },
@@ -350,7 +350,6 @@ fn deimos<'py>(py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
 
         #[pymodule_export]
         pub use crate::calc::{Affine, Constant};
-
     }
 
     m.add_wrapped(wrap_pymodule!(calc_))?;
