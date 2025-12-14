@@ -1,13 +1,17 @@
 //! A second-order Butterworth low-pass filter
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names};
+use crate::{calc_config, calc_input_names, calc_output_names, py_calc_methods};
 use flaw::{
     SisoIirFilter, butter2,
     generated::butter::butter2::{MAX_CUTOFF_RATIO, MIN_CUTOFF_RATIO},
 };
 
 /// Single-input, single-output Butterworth low-pass filter implemented with `flaw::butter2`
+#[cfg_attr(feature = "python", pyclass)]
 #[derive(Default, Serialize, Deserialize)]
 pub struct Butter2 {
     // User inputs
@@ -56,6 +60,13 @@ impl Butter2 {
         }
     }
 }
+
+py_calc_methods!(Butter2,
+    #[new]
+    fn py_new(input_name: String, cutoff_hz: f64, save_outputs: bool) -> Self {
+        Self::new(input_name, cutoff_hz, save_outputs)
+    }
+);
 
 #[typetag::serde]
 impl Calc for Butter2 {

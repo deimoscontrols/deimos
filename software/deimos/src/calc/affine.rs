@@ -4,7 +4,7 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names};
+use crate::{calc_config, calc_input_names, calc_output_names, py_calc_methods};
 
 /// A slope and offset, y = ax + b
 #[derive(Default, Debug, Serialize, Deserialize)]
@@ -43,38 +43,12 @@ impl Affine {
     }
 }
 
-#[cfg(feature = "python")]
-#[pymethods]
-impl Affine {
+py_calc_methods!(Affine,
     #[new]
     fn py_new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> PyResult<Self> {
         Ok(Self::new(input_name, slope, offset, save_outputs))
     }
-
-    /// Serialize to a JSON string
-    fn to_json(&self) -> PyResult<String> {
-        // Serialize as Trait object to capture type tag,
-        // otherwise the type gets erased
-        let calc: &dyn Calc = self;
-        serde_json::to_string_pretty(calc).map_err(|e| {
-            crate::python::BackendErr::InvalidCalcErr {
-                msg: format!("Unable to serialize Calc object: {e}"),
-            }
-            .into()
-        })
-    }
-
-    /// Deserialize from JSON string
-    #[classmethod]
-    fn from_json(_cls: &Bound<'_, pyo3::types::PyType>, s: &str) -> PyResult<Self> {
-        serde_json::from_str::<Self>(s).map_err(|e| {
-            crate::python::BackendErr::InvalidCalcErr {
-                msg: format!("Unable to parse Calc object: {e}"),
-            }
-            .into()
-        })
-    }
-}
+);
 
 #[typetag::serde]
 impl Calc for Affine {

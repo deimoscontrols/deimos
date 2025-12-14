@@ -339,7 +339,7 @@ impl Controller {
 
 #[pymodule]
 #[pyo3(name = "deimos")]
-fn deimos<'py>(py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
+fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_class::<Controller>()?;
     m.add_class::<Peripheral>()?;
     m.add_class::<Overflow>()?;
@@ -349,7 +349,9 @@ fn deimos<'py>(py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     mod calc_ {
 
         #[pymodule_export]
-        pub use crate::calc::{Affine, Constant};
+        pub use crate::calc::{
+            Affine, Butter2, Constant, InverseAffine, Pid, Polynomial, RtdPt100, Sin, TcKtype,
+        };
     }
 
     m.add_wrapped(wrap_pymodule!(calc_))?;

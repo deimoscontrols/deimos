@@ -7,10 +7,13 @@
 //!   <https://srdata.nist.gov/its90/useofdatabase/use_of_database.html#Coefficients%20Tables>
 use once_cell::sync::Lazy;
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use interpn::MulticubicRegular;
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names};
+use crate::{calc_config, calc_input_names, calc_output_names, py_calc_methods};
 
 /// Temperature interpolator shared between all instances of the calc.
 ///
@@ -29,6 +32,7 @@ pub static INTERPOLATOR: Lazy<MulticubicRegular<'static, f64, 1>> = Lazy::new(||
 });
 
 /// Derive input voltage from amplifier output
+#[cfg_attr(feature = "python", pyclass)]
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct RtdPt100 {
     // User inputs
@@ -59,6 +63,13 @@ impl RtdPt100 {
         }
     }
 }
+
+py_calc_methods!(RtdPt100,
+    #[new]
+    fn py_new(resistance_name: String, save_outputs: bool) -> Self {
+        Self::new(resistance_name, save_outputs)
+    }
+);
 
 #[typetag::serde]
 impl Calc for RtdPt100 {

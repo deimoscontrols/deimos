@@ -1,8 +1,11 @@
 //! Evaluate an Nth order polynomial calibration curve.
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use super::*;
 use crate::{
-    calc_config, calc_input_names, calc_output_names,
+    calc_config, calc_input_names, calc_output_names, py_calc_methods,
     math::{polyfit, polyval},
 };
 
@@ -10,6 +13,7 @@ use crate::{
 /// with an attached note that should include traceability info
 /// like a sensor serial number.
 /// Coefficients ordered by increasing polynomial order.
+#[cfg_attr(feature = "python", pyclass)]
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Polynomial {
     // User inputs
@@ -60,6 +64,18 @@ impl Polynomial {
         ))
     }
 }
+
+py_calc_methods!(Polynomial,
+    #[new]
+    fn py_new(
+        input_name: String,
+        coefficients: Vec<f64>,
+        note: String,
+        save_outputs: bool,
+    ) -> Self {
+        Self::new(input_name, coefficients, note, save_outputs)
+    }
+);
 
 #[typetag::serde]
 impl Calc for Polynomial {

@@ -2,10 +2,14 @@
 
 use core::f64;
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names};
+use crate::{calc_config, calc_input_names, calc_output_names, py_calc_methods};
 
 /// Sin wave between `low` and `high` with a period of `period_s` and phase offset of `offset_s`
+#[cfg_attr(feature = "python", pyclass)]
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Sin {
     // User inputs
@@ -53,6 +57,13 @@ impl Sin {
         }
     }
 }
+
+py_calc_methods!(Sin,
+    #[new]
+    fn py_new(period_s: f64, offset_s: f64, low: f64, high: f64, save_outputs: bool) -> Self {
+        Self::new(period_s, offset_s, low, high, save_outputs)
+    }
+);
 
 #[typetag::serde]
 impl Calc for Sin {

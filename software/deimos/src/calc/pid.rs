@@ -1,9 +1,13 @@
 //! A PID controller with simple saturation for anti-windup
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names};
+use crate::{calc_config, calc_input_names, calc_output_names, py_calc_methods};
 
 /// A PID controller with simple saturation for anti-windup
+#[cfg_attr(feature = "python", pyclass)]
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Pid {
     // User inputs
@@ -66,6 +70,29 @@ impl Pid {
         }
     }
 }
+
+py_calc_methods!(Pid,
+    #[new]
+    fn py_new(
+        measurement_name: String,
+        setpoint_name: String,
+        kp: f64,
+        ki: f64,
+        kd: f64,
+        max_integral: f64,
+        save_outputs: bool,
+    ) -> Self {
+        Self::new(
+            measurement_name,
+            setpoint_name,
+            kp,
+            ki,
+            kd,
+            max_integral,
+            save_outputs,
+        )
+    }
+);
 
 #[typetag::serde]
 impl Calc for Pid {
