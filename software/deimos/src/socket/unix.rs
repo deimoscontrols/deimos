@@ -203,8 +203,8 @@ impl Socket for UnixSocket {
             // Try to send to each file, since we don't have a rigorous way to check
             // which ones are unix sockets and which ones are not
             for f in files {
-                // TODO log errors
-                let _ = sock.send_to(msg, &f);
+                sock.send_to(msg, &f)
+                    .map_err(|e| format!("Failed to send unix socket packet: {e}"))?;
             }
         }
 
