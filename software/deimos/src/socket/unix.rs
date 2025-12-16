@@ -151,7 +151,7 @@ impl Socket for UnixSocket {
                     let now = Instant::now();
 
                     if let Some(src_path) = addr.as_pathname() {
-                        // TODO: eliminate allocation here by copying into a reusable buffer
+                        // FUTURE: eliminate allocation here by copying into a reusable buffer
                         let src_path = src_path.to_owned();
                         (size, src_path, now)
                     } else {
