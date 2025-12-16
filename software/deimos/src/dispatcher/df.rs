@@ -10,14 +10,8 @@ use tracing::info;
 
 use crate::controller::context::ControllerCtx;
 
-use super::{Dispatcher, Overflow, fmt_time, header_columns};
+use super::{Dispatcher, Overflow, fmt_time, header_columns, Row};
 
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct Row {
-    pub system_time: String,
-    pub timestamp: i64,
-    pub channel_values: Vec<f64>,
-}
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct SimpleDataFrame {

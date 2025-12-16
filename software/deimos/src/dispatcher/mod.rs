@@ -7,6 +7,7 @@ mod tsdb;
 pub use tsdb::TimescaleDbDispatcher;
 mod df;
 pub use df::DataFrameDispatcher;
+mod latest;
 
 mod csv;
 pub use csv::CsvDispatcher;
@@ -30,6 +31,13 @@ pub enum Overflow {
 
     /// Error on overflow if neither wrapping nor creating a new file is viable
     Error,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+pub struct Row {
+    pub system_time: String,
+    pub timestamp: i64,
+    pub channel_values: Vec<f64>,
 }
 
 /// A data pipeline plugin that receives data from the control loop
