@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use super::*;
 use deimos_shared::peripherals::PeripheralId;
 
-/// Implementation of Socket trait for stdlib UDP socket on IPV4
+/// Implementation of Socket trait for stdlib unix socket
 #[derive(Serialize, Deserialize, Default)]
 pub struct UnixSocket {
     /// The name of the socket will be combined with the op directory

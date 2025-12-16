@@ -12,6 +12,8 @@ use pyo3::wrap_pymodule;
 use crate::CsvDispatcher;
 use crate::TimescaleDbDispatcher;
 
+use crate::UdpSocket;
+use crate::UnixSocket;
 // Peripherals
 use crate::peripheral::AnalogIRev2;
 use crate::peripheral::AnalogIRev3;
@@ -293,6 +295,10 @@ impl Controller {
         Ok(())
     }
 
+    fn add_calc(&mut self, name: &str, calc: Box<dyn Calc>) {
+        self.controller.add_calc(name, calc);
+    }
+
     /// Write data to a CSV file in `op_dir` with name `{op}.csv`.
     ///
     /// The file is pre-allocated to avoid resizing in the loop,
@@ -332,9 +338,21 @@ impl Controller {
         self.controller.add_dispatcher(Box::new(d));
     }
 
-    fn add_calc(&mut self, name: &str, calc: Box<dyn Calc>) {
-        self.controller.add_calc(name, calc);
+    /// Add a unix socket in {op_dir}/sock/{name} for
+    /// peripherals to send data to the controller.
+    /// 
+    /// Sockets for communicating to from the controller to 
+    /// each peripheral are expected in {op_dir}/sock/per/{...}.
+    fn add_unix_socket(&mut self, name: &str) {
+        self.controller.add_socket(Box::new(UnixSocket::new(&name)));
     }
+
+    /// Add a UDP socket receiving on port 12368, sending on port 12367.
+    /// The should not be needed often, since a fresh Controller comes with
+    /// a UDP socket by default.
+    fn add_udp_socket(&mut self) {
+        self.controller.add_socket(Box::new(UdpSocket::new()));
+    } 
 }
 
 #[pymodule]
