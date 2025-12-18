@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::controller::context::ControllerCtx;
 
-use super::{fmt_time, Dispatcher, Row};
+use super::{fmt_time, header_columns, Dispatcher, Row};
 
 /// Thread-safe cell holding the latest `Row` snapshot.
 #[derive(Clone, Default)]
@@ -36,17 +36,48 @@ impl RowCell {
     }
 }
 
+/// Cloneable handle for accessing the latest row and associated column metadata.
+#[derive(Clone, Default)]
+pub struct LatestValueHandle {
+    row: RowCell,
+    channel_names: Arc<RwLock<Vec<String>>>,
+}
+
+impl LatestValueHandle {
+    /// Get the latest row snapshot.
+    pub fn latest_row(&self) -> Arc<Row> {
+        self.row.load()
+    }
+
+    /// Get the most recently configured channel names.
+    pub fn channel_names(&self) -> Vec<String> {
+        self.channel_names
+            .read()
+            .map(|v| v.clone())
+            .unwrap_or_default()
+    }
+
+    /// Get header strings including timestamp/time and channel names.
+    pub fn headers(&self) -> Vec<String> {
+        header_columns(&self.channel_names())
+    }
+}
+
 /// Dispatcher that always keeps the latest row available via a shared handle.
 #[derive(Serialize, Deserialize, Default)]
 pub struct LatestValueDispatcher {
     #[serde(skip)]
-    latest: RowCell,
+    handle: LatestValueHandle,
 }
 
 impl LatestValueDispatcher {
-    pub fn new() -> (Self, RowCell) {
+    pub fn new() -> (Self, LatestValueHandle) {
         let cell = RowCell::new(Row::default());
-        (Self { latest: cell.clone() }, cell)
+        let handle = LatestValueHandle {
+            row: cell.clone(),
+            channel_names: Arc::new(RwLock::new(Vec::new())),
+        };
+        (Self { handle: handle.clone() }, handle)
     }
 }
 
@@ -55,11 +86,21 @@ impl Dispatcher for LatestValueDispatcher {
     fn init(
         &mut self,
         _ctx: &ControllerCtx,
-        _channel_names: &[String],
+        channel_names: &[String],
         _core_assignment: usize,
     ) -> Result<(), String> {
-        // Reset to a blank row at init; caller likely holds the handle already.
-        self.latest.store(Row::default());
+        // Store channel names for header generation.
+        if let Ok(mut w) = self.handle.channel_names.write() {
+            *w = channel_names.to_vec();
+        }
+
+        // Reset to a placeholder row at init.
+        // Populate channel_values to the correct length so readers can rely on the shape.
+        self.handle.row.store(Row {
+            system_time: fmt_time(SystemTime::UNIX_EPOCH),
+            timestamp: 0,
+            channel_values: vec![f64::NAN; channel_names.len()],
+        });
         Ok(())
     }
 
@@ -74,7 +115,7 @@ impl Dispatcher for LatestValueDispatcher {
             timestamp,
             channel_values,
         };
-        self.latest.store(row);
+        self.handle.row.store(row);
         Ok(())
     }
 

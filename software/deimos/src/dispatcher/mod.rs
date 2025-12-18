@@ -8,7 +8,7 @@ pub use tsdb::TimescaleDbDispatcher;
 mod df;
 pub use df::DataFrameDispatcher;
 mod latest;
-pub use latest::{LatestValueDispatcher, RowCell};
+pub use latest::{LatestValueDispatcher, LatestValueHandle, RowCell};
 
 mod csv;
 pub use csv::CsvDispatcher;
