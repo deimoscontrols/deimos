@@ -9,6 +9,8 @@ mod df;
 pub use df::DataFrameDispatcher;
 mod latest;
 pub use latest::{LatestValueDispatcher, LatestValueHandle, RowCell};
+mod channel_filter;
+pub use channel_filter::ChannelFilter;
 
 mod csv;
 pub use csv::CsvDispatcher;
