@@ -341,6 +341,30 @@ impl Controller {
         Ok(())
     }
 
+    /// Remove all calcs.
+    fn clear_calcs(&mut self) -> PyResult<()> {
+        self.ctrl()?.clear_calcs();
+        Ok(())
+    }
+
+    /// Remove all peripherals.
+    fn clear_peripherals(&mut self) -> PyResult<()> {
+        self.ctrl()?.clear_peripherals();
+        Ok(())
+    }
+
+    /// Remove all dispatchers.
+    fn clear_dispatchers(&mut self) -> PyResult<()> {
+        self.ctrl()?.clear_dispatchers();
+        Ok(())
+    }
+
+    /// Remove all sockets.
+    fn clear_sockets(&mut self) -> PyResult<()> {
+        self.ctrl()?.clear_sockets();
+        Ok(())
+    }
+
     /// Add a unix socket in {op_dir}/sock/{name} for
     /// peripherals to send data to the controller.
     ///
