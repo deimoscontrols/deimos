@@ -143,8 +143,7 @@ impl Controller {
             while !handle.is_finished() {
                 // Check for keyboard interrupt
                 if py.check_signals().is_err() {
-                    termination_signal
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
+                    termination_signal.store(true, std::sync::atomic::Ordering::Relaxed);
                 };
 
                 // Yield thread to minimize processor usage
@@ -367,7 +366,11 @@ impl Controller {
     /// then trimmed at the end of data collection if the final
     /// size is less than what was allocated.
     #[pyo3(signature=(chunk_size_megabytes=100, overflow_behavior=Overflow::Wrap))]
-    fn add_csv_dispatcher(&mut self, chunk_size_megabytes: usize, overflow_behavior: Overflow) -> PyResult<()> {
+    fn add_csv_dispatcher(
+        &mut self,
+        chunk_size_megabytes: usize,
+        overflow_behavior: Overflow,
+    ) -> PyResult<()> {
         let d = CsvDispatcher::new(chunk_size_megabytes, overflow_behavior);
         self.ctrl()?.add_dispatcher(Box::new(d));
         Ok(())
@@ -404,8 +407,8 @@ impl Controller {
 
     /// Add a unix socket in {op_dir}/sock/{name} for
     /// peripherals to send data to the controller.
-    /// 
-    /// Sockets for communicating to from the controller to 
+    ///
+    /// Sockets for communicating to from the controller to
     /// each peripheral are expected in {op_dir}/sock/per/{...}.
     fn add_unix_socket(&mut self, name: &str) -> PyResult<()> {
         self.ctrl()?.add_socket(Box::new(UnixSocket::new(&name)));
@@ -419,8 +422,6 @@ impl Controller {
         self.ctrl()?.add_socket(Box::new(UdpSocket::new()));
         Ok(())
     }
-
-
 }
 
 #[pyclass]
@@ -467,7 +468,11 @@ impl RunHandle {
     /// Get the latest row: (system_time, timestamp, channel_values)
     fn latest_row(&self) -> (String, i64, Vec<f64>) {
         let row = self.latest.latest_row();
-        (row.system_time.clone(), row.timestamp, row.channel_values.clone())
+        (
+            row.system_time.clone(),
+            row.timestamp,
+            row.channel_values.clone(),
+        )
     }
 
     /// Column headers including timestamp/time

@@ -71,7 +71,8 @@ impl Pid {
     }
 }
 
-py_calc_methods!(Pid,
+py_calc_methods!(
+    Pid,
     #[new]
     fn py_new(
         measurement_name: String,

@@ -783,7 +783,7 @@ impl Controller {
                                 // coming in late, which isn't concerning
                                 warn!("Received malformed packet from peripheral `{}`", &ps.name);
                             }
-                            
+
                             continue;
                         }
 

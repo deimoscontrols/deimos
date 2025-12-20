@@ -58,7 +58,8 @@ impl Sin {
     }
 }
 
-py_calc_methods!(Sin,
+py_calc_methods!(
+    Sin,
     #[new]
     fn py_new(period_s: f64, offset_s: f64, low: f64, high: f64, save_outputs: bool) -> Self {
         Self::new(period_s, offset_s, low, high, save_outputs)

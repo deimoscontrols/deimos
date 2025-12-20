@@ -22,20 +22,18 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Box<dyn Calc> {
             .into());
         }
 
-        let json_any = to_json
-            .call0()
-            .map_err(|e| BackendErr::InvalidCalcErr {
-                msg: format!("Calc.to_json() failed: {e}"),
-            })?;
-        let json_str: String = json_any
-            .extract()
-            .map_err(|e| BackendErr::InvalidCalcErr {
-                msg: format!("Calc.to_json() did not return a string: {e}"),
-            })?;
+        let json_any = to_json.call0().map_err(|e| BackendErr::InvalidCalcErr {
+            msg: format!("Calc.to_json() failed: {e}"),
+        })?;
+        let json_str: String = json_any.extract().map_err(|e| BackendErr::InvalidCalcErr {
+            msg: format!("Calc.to_json() did not return a string: {e}"),
+        })?;
 
-        serde_json::from_str(&json_str).map_err(|e| BackendErr::InvalidCalcErr {
-            msg: format!("Unable to process Calc object: {e}"),
-        }
-        .into())
+        serde_json::from_str(&json_str).map_err(|e| {
+            BackendErr::InvalidCalcErr {
+                msg: format!("Unable to process Calc object: {e}"),
+            }
+            .into()
+        })
     }
 }

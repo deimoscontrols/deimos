@@ -10,8 +10,7 @@ use tracing::info;
 
 use crate::controller::context::ControllerCtx;
 
-use super::{Dispatcher, Overflow, fmt_time, header_columns, Row};
-
+use super::{Dispatcher, Overflow, Row, fmt_time, header_columns};
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct SimpleDataFrame {

@@ -43,7 +43,8 @@ impl Affine {
     }
 }
 
-py_calc_methods!(Affine,
+py_calc_methods!(
+    Affine,
     #[new]
     fn py_new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> PyResult<Self> {
         Ok(Self::new(input_name, slope, offset, save_outputs))

@@ -13,7 +13,9 @@ pub use controller::{
     Controller,
     context::{ControllerCtx, LossOfContactPolicy, Termination},
 };
-pub use dispatcher::{ChannelFilter, CsvDispatcher, DecimationDispatcher, Dispatcher};
+pub use dispatcher::{
+    ChannelFilter, CsvDispatcher, DecimationDispatcher, Dispatcher, LowPassDispatcher,
+};
 pub use socket::{Socket, SocketAddr, SocketId, udp::UdpSocket, unix::UnixSocket};
 
 pub use dispatcher::DataFrameDispatcher;

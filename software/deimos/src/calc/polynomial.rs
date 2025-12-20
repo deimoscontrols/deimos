@@ -5,8 +5,9 @@ use pyo3::prelude::*;
 
 use super::*;
 use crate::{
-    calc_config, calc_input_names, calc_output_names, py_calc_methods,
+    calc_config, calc_input_names, calc_output_names,
     math::{polyfit, polyval},
+    py_calc_methods,
 };
 
 /// Polynomial calibration: y = c0 + c1*x + c2*x^2 + ...
@@ -65,7 +66,8 @@ impl Polynomial {
     }
 }
 
-py_calc_methods!(Polynomial,
+py_calc_methods!(
+    Polynomial,
     #[new]
     fn py_new(
         input_name: String,

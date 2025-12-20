@@ -32,7 +32,8 @@ impl Constant {
     }
 }
 
-py_calc_methods!(Constant,
+py_calc_methods!(
+    Constant,
     #[new]
     fn py_new(y: f64, save_outputs: bool) -> PyResult<Self> {
         Ok(Self::new(y, save_outputs))

@@ -64,7 +64,8 @@ impl RtdPt100 {
     }
 }
 
-py_calc_methods!(RtdPt100,
+py_calc_methods!(
+    RtdPt100,
     #[new]
     fn py_new(resistance_name: String, save_outputs: bool) -> Self {
         Self::new(resistance_name, save_outputs)

@@ -53,7 +53,9 @@ impl Dispatcher for DecimationDispatcher {
         channel_values: Vec<f64>,
     ) -> Result<(), String> {
         if !self.initialized {
-            return Err("DecimationDispatcher must be initialized before consuming data".to_string());
+            return Err(
+                "DecimationDispatcher must be initialized before consuming data".to_string(),
+            );
         }
 
         if self.remaining == 0 {

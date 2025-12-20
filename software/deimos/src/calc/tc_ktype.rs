@@ -87,7 +87,8 @@ impl TcKtype {
     }
 }
 
-py_calc_methods!(TcKtype,
+py_calc_methods!(
+    TcKtype,
     #[new]
     fn py_new(
         voltage_name: String,

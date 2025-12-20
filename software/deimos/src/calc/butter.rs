@@ -61,7 +61,8 @@ impl Butter2 {
     }
 }
 
-py_calc_methods!(Butter2,
+py_calc_methods!(
+    Butter2,
     #[new]
     fn py_new(input_name: String, cutoff_hz: f64, save_outputs: bool) -> Self {
         Self::new(input_name, cutoff_hz, save_outputs)

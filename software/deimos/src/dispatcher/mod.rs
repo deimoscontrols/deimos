@@ -13,6 +13,8 @@ mod channel_filter;
 pub use channel_filter::ChannelFilter;
 mod decimation;
 pub use decimation::DecimationDispatcher;
+mod low_pass;
+pub use low_pass::LowPassDispatcher;
 
 mod csv;
 pub use csv::CsvDispatcher;
