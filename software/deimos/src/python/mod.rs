@@ -4,6 +4,7 @@ use std::time::Duration;
 // use numpy::borrow::{PyReadonlyArray1, PyReadwriteArray1};
 use pyo3::exceptions;
 use pyo3::prelude::*;
+use std::collections::HashMap;
 
 use deimos_shared::peripherals::model_numbers;
 use pyo3::wrap_pymodule;
@@ -473,6 +474,35 @@ impl RunHandle {
     fn headers(&self) -> Vec<String> {
         self.latest.headers()
     }
+
+    /// Read the latest row mapped to header names
+    fn read(&self) -> LatestValues {
+        let headers = self.latest.headers();
+        let row = self.latest.latest_row();
+        let mut map = HashMap::new();
+        // First two headers are timestamp, time
+        if headers.len() >= 2 {
+            for (name, val) in headers.iter().skip(2).zip(row.channel_values.iter()) {
+                map.insert(name.clone(), *val);
+            }
+        }
+        LatestValues {
+            system_time: row.system_time.clone(),
+            timestamp: row.timestamp,
+            values: map,
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+struct LatestValues {
+    #[pyo3(get)]
+    system_time: String,
+    #[pyo3(get)]
+    timestamp: i64,
+    #[pyo3(get)]
+    values: HashMap<String, f64>,
 }
 
 #[pymodule]
@@ -482,6 +512,7 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_class::<Peripheral>()?;
     m.add_class::<Overflow>()?;
     m.add_class::<RunHandle>()?;
+    m.add_class::<LatestValues>()?;
 
     #[pymodule]
     #[pyo3(name = "calc")]
