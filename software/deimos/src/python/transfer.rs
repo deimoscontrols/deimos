@@ -1,8 +1,13 @@
+/// Glue for passing Deimos trait objects between Python and Rust via json.
+/// 
+/// These are never used in-the-loop, so they do not need to be exceptionally
+/// performant, only consistent and ergonomic.
+
 use pyo3::prelude::*;
 
 use crate::{calc::Calc, python::BackendErr};
 
-/// Glue for passing Calc objects from Python to Rust via json
+/// Glue for passing dyn Trait objects from Python to Rust via json
 /// to handle the fact that they are concrete types on the Python side,
 /// but dyn Trait objects on the Rust side.
 impl<'a, 'py> FromPyObject<'a, 'py> for Box<dyn Calc> {

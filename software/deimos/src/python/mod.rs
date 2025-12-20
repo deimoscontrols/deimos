@@ -27,7 +27,7 @@ use crate::peripheral::DeimosDaqRev6;
 use crate::calc::Calc;
 
 pub use crate::dispatcher::Overflow;
-mod calc;
+mod transfer;
 // mod dispatcher;
 
 #[derive(Debug)]
