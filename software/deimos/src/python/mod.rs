@@ -1,4 +1,4 @@
-use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, atomic::AtomicBool};
 use std::time::Duration;
 
 // use numpy::borrow::{PyReadonlyArray1, PyReadwriteArray1};
@@ -70,17 +70,41 @@ enum Peripheral {
 
 #[pyclass]
 struct Controller {
-    controller: crate::Controller,
-    latest_value_handle: LatestValueHandle,
+    controller: Option<crate::Controller>,
 }
 
 impl Controller {
-    fn ctx(&self) -> &crate::ControllerCtx {
-        &self.controller.ctx
+    fn ctrl(&mut self) -> PyResult<&mut crate::Controller> {
+        self.controller.as_mut().ok_or_else(|| {
+            BackendErr::RunErr {
+                msg: "Controller has been moved into a running thread".to_string(),
+            }
+            .into()
+        })
     }
 
-    fn ctx_mut(&mut self) -> &mut crate::ControllerCtx {
-        &mut self.controller.ctx
+    fn ctx(&self) -> PyResult<&crate::ControllerCtx> {
+        self.controller
+            .as_ref()
+            .ok_or_else(|| {
+                BackendErr::RunErr {
+                    msg: "Controller has been moved into a running thread".to_string(),
+                }
+                .into()
+            })
+            .map(|c| &c.ctx)
+    }
+
+    fn ctx_mut(&mut self) -> PyResult<&mut crate::ControllerCtx> {
+        self.controller
+            .as_mut()
+            .ok_or_else(|| {
+                BackendErr::RunErr {
+                    msg: "Controller has been moved into a running thread".to_string(),
+                }
+                .into()
+            })
+            .map(|c| &mut c.ctx)
     }
 }
 
@@ -97,29 +121,29 @@ impl Controller {
         ctx.op_dir = op_dir.to_string().into();
         ctx.dt_ns = (1e9 / rate_hz) as u32;
 
-        let mut controller = crate::Controller::new(ctx);
+        let controller = crate::Controller::new(ctx);
 
-        // Add a latest value dispatcher to cover the most common
-        // usage pattern from python
-        let (dispatcher, latest_value_handle) = LatestValueDispatcher::new();
-        controller.add_dispatcher(Box::new(dispatcher));
-
-        Ok(Self { controller, latest_value_handle })
+        Ok(Self {
+            controller: Some(controller),
+        })
     }
 
     /// Run the control program
     fn run(&mut self, py: Python<'_>) -> PyResult<String> {
         // Shared signal indicating whether the controller should exit
-        let termination_signal = AtomicBool::new(false);
+        let termination_signal = Arc::new(AtomicBool::new(false));
 
         std::thread::scope(|s| {
-            let handle = s.spawn(|| self.controller.run(&None, Some(&termination_signal)));
+            let ctrl = self.ctrl()?;
+            let term_for_thread = termination_signal.clone();
+            let handle = s.spawn(move || ctrl.run(&None, Some(&*term_for_thread)));
 
             // Wait without using too much processor time
             while !handle.is_finished() {
                 // Check for keyboard interrupt
                 if py.check_signals().is_err() {
-                    termination_signal.store(true, std::sync::atomic::Ordering::Relaxed);
+                    termination_signal
+                        .store(true, std::sync::atomic::Ordering::Relaxed);
                 };
 
                 // Yield thread to minimize processor usage
@@ -136,10 +160,31 @@ impl Controller {
         })
     }
 
+    /// Run the control program on a separate thread and return a handle for coordination.
+    fn run_nonblocking(&mut self) -> PyResult<RunHandle> {
+        let mut controller = self.controller.take().ok_or_else(|| BackendErr::RunErr {
+            msg: "Controller has already been moved into a running thread".to_string(),
+        })?;
+
+        // Attach a latest-value dispatcher to expose live data
+        let (latest_dispatcher, latest_handle) = LatestValueDispatcher::new();
+        controller.add_dispatcher(Box::new(latest_dispatcher));
+
+        let termination_signal = Arc::new(AtomicBool::new(false));
+        let term_for_thread = termination_signal.clone();
+        let handle = std::thread::spawn(move || controller.run(&None, Some(&*term_for_thread)));
+
+        Ok(RunHandle {
+            termination: termination_signal,
+            latest: latest_handle,
+            join: Some(handle),
+        })
+    }
+
     /// Scan the local network (and any other attached sockets) for available peripherals.
     #[pyo3(signature=(timeout_ms=10))]
     fn scan(&mut self, timeout_ms: u16) -> PyResult<Vec<Peripheral>> {
-        match self.controller.scan(timeout_ms, &None) {
+        match self.ctrl()?.scan(timeout_ms, &None) {
             Err(msg) => Err(BackendErr::RunErr { msg }.into()),
             Ok(map) => {
                 let mut peripherals = vec![];
@@ -186,21 +231,22 @@ impl Controller {
     }
 
     #[getter(op_name)]
-    fn op_name(&mut self) -> String {
-        self.ctx().op_name.clone()
+    fn op_name(&mut self) -> PyResult<String> {
+        Ok(self.ctx()?.op_name.clone())
     }
 
     #[setter(op_name)]
-    fn set_op_name(&mut self, v: &str) {
-        self.ctx_mut().op_name = v.to_string();
+    fn set_op_name(&mut self, v: &str) -> PyResult<()> {
+        self.ctx_mut()?.op_name = v.to_string();
+        Ok(())
     }
 
     #[getter(op_dir)]
     fn op_dir(&self) -> PyResult<String> {
-        if let Some(x) = self.ctx().op_dir.to_str() {
+        if let Some(x) = self.ctx()?.op_dir.to_str() {
             Ok(x.to_string())
         } else {
-            let invalid_string = self.ctx().op_dir.to_string_lossy();
+            let invalid_string = self.ctx()?.op_dir.to_string_lossy();
             Err(BackendErr::InvalidPathErr {
                 msg: format!(
                     "Unable to convert op_dir to valid string: {}",
@@ -212,82 +258,88 @@ impl Controller {
     }
 
     #[setter(op_dir)]
-    fn set_op_dir(&mut self, v: &str) {
-        self.ctx_mut().op_dir = v.to_string().into();
+    fn set_op_dir(&mut self, v: &str) -> PyResult<()> {
+        self.ctx_mut()?.op_dir = v.to_string().into();
+        Ok(())
     }
 
     #[getter(dt_ns)]
-    fn dt_ns(&self) -> u32 {
-        self.ctx().dt_ns
+    fn dt_ns(&self) -> PyResult<u32> {
+        Ok(self.ctx()?.dt_ns)
     }
 
     #[setter(dt_ns)]
-    fn set_dt_ns(&mut self, v: u32) {
-        self.ctx_mut().dt_ns = v;
+    fn set_dt_ns(&mut self, v: u32) -> PyResult<()> {
+        self.ctx_mut()?.dt_ns = v;
+        Ok(())
     }
 
     #[getter(rate_hz)]
-    fn rate_hz(&self) -> f64 {
-        1e9 / self.ctx().dt_ns as f64
+    fn rate_hz(&self) -> PyResult<f64> {
+        Ok(1e9 / self.ctx()?.dt_ns as f64)
     }
 
     #[setter(rate_hz)]
-    fn set_rate_hz(&mut self, v: f64) {
-        self.ctx_mut().dt_ns = (1e9 / v) as u32;
+    fn set_rate_hz(&mut self, v: f64) -> PyResult<()> {
+        self.ctx_mut()?.dt_ns = (1e9 / v) as u32;
+        Ok(())
     }
 
     #[getter(peripheral_loss_of_contact_limit)]
-    fn peripheral_loss_of_contact_limit(&self) -> u16 {
-        self.ctx().peripheral_loss_of_contact_limit
+    fn peripheral_loss_of_contact_limit(&self) -> PyResult<u16> {
+        Ok(self.ctx()?.peripheral_loss_of_contact_limit)
     }
 
     #[setter(peripheral_loss_of_contact_limit)]
-    fn set_peripheral_loss_of_contact_limit(&mut self, v: u16) {
-        self.ctx_mut().peripheral_loss_of_contact_limit = v
+    fn set_peripheral_loss_of_contact_limit(&mut self, v: u16) -> PyResult<()> {
+        self.ctx_mut()?.peripheral_loss_of_contact_limit = v;
+        Ok(())
     }
 
     #[getter(controller_loss_of_contact_limit)]
-    fn controller_loss_of_contact_limit(&self) -> u16 {
-        self.ctx().controller_loss_of_contact_limit
+    fn controller_loss_of_contact_limit(&self) -> PyResult<u16> {
+        Ok(self.ctx()?.controller_loss_of_contact_limit)
     }
 
     #[setter(controller_loss_of_contact_limit)]
-    fn set_controller_loss_of_contact_limit(&mut self, v: u16) {
-        self.ctx_mut().controller_loss_of_contact_limit = v
+    fn set_controller_loss_of_contact_limit(&mut self, v: u16) -> PyResult<()> {
+        self.ctx_mut()?.controller_loss_of_contact_limit = v;
+        Ok(())
     }
 
     #[pyo3(signature=(name, p, sn=None))]
     fn add_peripheral(&mut self, name: &str, p: &Peripheral, sn: Option<u64>) -> PyResult<()> {
+        let ctrl = self.ctrl()?;
         match p {
             Peripheral::AnalogIRev2 { serial_number } => {
                 let p = Box::new(AnalogIRev2 {
                     serial_number: sn.unwrap_or(*serial_number),
                 });
-                self.controller.add_peripheral(name, p);
+                ctrl.add_peripheral(name, p);
             }
             Peripheral::AnalogIRev3 { serial_number } => {
                 let p = Box::new(AnalogIRev3 {
                     serial_number: sn.unwrap_or(*serial_number),
                 });
-                self.controller.add_peripheral(name, p);
+                ctrl.add_peripheral(name, p);
             }
             Peripheral::AnalogIRev4 { serial_number } => {
                 let p = Box::new(AnalogIRev4 {
                     serial_number: sn.unwrap_or(*serial_number),
                 });
-                self.controller.add_peripheral(name, p);
+                ctrl.add_peripheral(name, p);
             }
             Peripheral::DeimosDaqRev5 { serial_number } => {
                 let p = Box::new(DeimosDaqRev5 {
                     serial_number: sn.unwrap_or(*serial_number),
                 });
-                self.controller.add_peripheral(name, p);
+                ctrl.add_peripheral(name, p);
             }
             Peripheral::DeimosDaqRev6 { serial_number } => {
                 let p = Box::new(DeimosDaqRev6 {
                     serial_number: sn.unwrap_or(*serial_number),
                 });
-                self.controller.add_peripheral(name, p);
+                ctrl.add_peripheral(name, p);
             }
             _ => {
                 return Err(BackendErr::InvalidPeripheralErr {
@@ -303,8 +355,9 @@ impl Controller {
         Ok(())
     }
 
-    fn add_calc(&mut self, name: &str, calc: Box<dyn Calc>) {
-        self.controller.add_calc(name, calc);
+    fn add_calc(&mut self, name: &str, calc: Box<dyn Calc>) -> PyResult<()> {
+        self.ctrl()?.add_calc(name, calc);
+        Ok(())
     }
 
     /// Write data to a CSV file in `op_dir` with name `{op}.csv`.
@@ -313,9 +366,10 @@ impl Controller {
     /// then trimmed at the end of data collection if the final
     /// size is less than what was allocated.
     #[pyo3(signature=(chunk_size_megabytes=100, overflow_behavior=Overflow::Wrap))]
-    fn add_csv_dispatcher(&mut self, chunk_size_megabytes: usize, overflow_behavior: Overflow) {
+    fn add_csv_dispatcher(&mut self, chunk_size_megabytes: usize, overflow_behavior: Overflow) -> PyResult<()> {
         let d = CsvDispatcher::new(chunk_size_megabytes, overflow_behavior);
-        self.controller.add_dispatcher(Box::new(d));
+        self.ctrl()?.add_dispatcher(Box::new(d));
+        Ok(())
     }
 
     /// Send unencrypted data to a TimescaleDB postgres database.
@@ -334,7 +388,7 @@ impl Controller {
         user: &str,
         token_name: &str,
         retention_time_hours: u64,
-    ) {
+    ) -> PyResult<()> {
         let d = TimescaleDbDispatcher::new(
             dbname,
             host,
@@ -343,7 +397,8 @@ impl Controller {
             Duration::from_nanos(1),
             retention_time_hours,
         );
-        self.controller.add_dispatcher(Box::new(d));
+        self.ctrl()?.add_dispatcher(Box::new(d));
+        Ok(())
     }
 
     /// Add a unix socket in {op_dir}/sock/{name} for
@@ -351,18 +406,73 @@ impl Controller {
     /// 
     /// Sockets for communicating to from the controller to 
     /// each peripheral are expected in {op_dir}/sock/per/{...}.
-    fn add_unix_socket(&mut self, name: &str) {
-        self.controller.add_socket(Box::new(UnixSocket::new(&name)));
+    fn add_unix_socket(&mut self, name: &str) -> PyResult<()> {
+        self.ctrl()?.add_socket(Box::new(UnixSocket::new(&name)));
+        Ok(())
     }
 
     /// Add a UDP socket receiving on port 12368, sending on port 12367.
     /// The should not be needed often, since a fresh Controller comes with
     /// a UDP socket by default.
-    fn add_udp_socket(&mut self) {
-        self.controller.add_socket(Box::new(UdpSocket::new()));
+    fn add_udp_socket(&mut self) -> PyResult<()> {
+        self.ctrl()?.add_socket(Box::new(UdpSocket::new()));
+        Ok(())
     }
 
 
+}
+
+#[pyclass]
+struct RunHandle {
+    termination: Arc<AtomicBool>,
+    latest: LatestValueHandle,
+    join: Option<std::thread::JoinHandle<Result<String, String>>>,
+}
+
+#[pymethods]
+impl RunHandle {
+    /// Signal the controller to stop
+    fn stop(&self) {
+        self.termination
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Check if the controller thread is still running
+    fn is_running(&self) -> bool {
+        self.join
+            .as_ref()
+            .map(|h| !h.is_finished())
+            .unwrap_or(false)
+    }
+
+    /// Wait for the controller thread to finish
+    fn join(&mut self) -> PyResult<String> {
+        match self.join.take() {
+            Some(h) => match h.join() {
+                Ok(Ok(msg)) => Ok(msg),
+                Ok(Err(e)) => Err(BackendErr::RunErr { msg: e }.into()),
+                Err(e) => Err(BackendErr::RunErr {
+                    msg: format!("Controller thread panicked: {e:?}"),
+                }
+                .into()),
+            },
+            None => Err(BackendErr::RunErr {
+                msg: "Controller thread already joined or not started".to_string(),
+            }
+            .into()),
+        }
+    }
+
+    /// Get the latest row: (system_time, timestamp, channel_values)
+    fn latest_row(&self) -> (String, i64, Vec<f64>) {
+        let row = self.latest.latest_row();
+        (row.system_time.clone(), row.timestamp, row.channel_values.clone())
+    }
+
+    /// Column headers including timestamp/time
+    fn headers(&self) -> Vec<String> {
+        self.latest.headers()
+    }
 }
 
 #[pymodule]
@@ -371,6 +481,7 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_class::<Controller>()?;
     m.add_class::<Peripheral>()?;
     m.add_class::<Overflow>()?;
+    m.add_class::<RunHandle>()?;
 
     #[pymodule]
     #[pyo3(name = "calc")]
