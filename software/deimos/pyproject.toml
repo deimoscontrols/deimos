@@ -10,14 +10,14 @@ authors = [{ name = "James Logan", email = "jlogan03@gmail.com" }]
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "numpy >= 1.21.2",
+    #"numpy >= 1.21.2",
 ]
 
 [project.urls]
@@ -25,18 +25,15 @@ repository = "https://github.com/deimoscontrols/deimos/software/deimos"
 documentation = "https://github.com/deimoscontrols/deimos/software/deimos"
 changelog = "https://github.com/deimoscontrols/deimos/blob/main/CHANGELOG.md"
 
-[project.optional-dependencies]
-pydantic = ["pydantic >= 2.2.0"]
-
 [dependency-groups]
 test = [
     "pytest >= 9",
     "pytest-cov >= 7.0.0",
     "ruff >= 0.14.7",
-    "pyright == 1.1.407",
+    "ty == 0.0.4",
     "mktestdocs == 0.2.1",
     "scipy >= 1.11.4",
-    "kaleido==0.2.1",
+    #"kaleido==0.2.1",
     "plotly>=5,<6",
 ]
 #bench = [
@@ -47,7 +44,7 @@ test = [
 doc = [
     "mkdocs >= 1.5.3",
     "mkdocstrings-python >= 1.7.5",
-    "mkdocs-material >= 9.4.10"
+    "mkdocs-material >= 9.7.1"
 ]
 
 [tool.uv]
