@@ -11,6 +11,8 @@ mod latest;
 pub use latest::{LatestValueDispatcher, LatestValueHandle, RowCell};
 mod channel_filter;
 pub use channel_filter::ChannelFilter;
+mod decimation;
+pub use decimation::DecimationDispatcher;
 
 mod csv;
 pub use csv::CsvDispatcher;
