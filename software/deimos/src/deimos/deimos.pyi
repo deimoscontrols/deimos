@@ -1,16 +1,13 @@
 from types import ModuleType
 from typing import ClassVar, Protocol, Self
 
-
 class CalcLike(Protocol):
     def to_json(self) -> str: ...
-
 
 class Overflow:
     Wrap: ClassVar[Overflow]
     NewFile: ClassVar[Overflow]
     Error: ClassVar[Overflow]
-
 
 class Peripheral:
     serial_number: int
@@ -23,45 +20,34 @@ class Peripheral:
     DeimosDaqRev5: ClassVar[type[_PeripheralDeimosDaqRev5]]
     DeimosDaqRev6: ClassVar[type[_PeripheralDeimosDaqRev6]]
 
-
 class _PeripheralExperimental(Peripheral):
     def __init__(self, serial_number: int) -> None: ...
-
 
 class _PeripheralUnknown(Peripheral):
     def __init__(self, serial_number: int) -> None: ...
 
-
 class _PeripheralAnalogIRev2(Peripheral):
     def __init__(self, serial_number: int) -> None: ...
-
 
 class _PeripheralAnalogIRev3(Peripheral):
     def __init__(self, serial_number: int) -> None: ...
 
-
 class _PeripheralAnalogIRev4(Peripheral):
     def __init__(self, serial_number: int) -> None: ...
-
 
 class _PeripheralDeimosDaqRev5(Peripheral):
     def __init__(self, serial_number: int) -> None: ...
 
-
 class _PeripheralDeimosDaqRev6(Peripheral):
     def __init__(self, serial_number: int) -> None: ...
-
 
 class LatestValues:
     @property
     def system_time(self) -> str: ...
-
     @property
     def timestamp(self) -> int: ...
-
     @property
     def values(self) -> dict[str, float]: ...
-
 
 class RunHandle:
     def stop(self) -> None: ...
@@ -70,7 +56,6 @@ class RunHandle:
     def latest_row(self) -> tuple[str, int, list[float]]: ...
     def headers(self) -> list[str]: ...
     def read(self) -> LatestValues: ...
-
 
 class Controller:
     def __init__(self, op_name: str, op_dir: str, rate_hz: float) -> None: ...
@@ -99,49 +84,35 @@ class Controller:
     ) -> None: ...
     def add_unix_socket(self, name: str) -> None: ...
     def add_udp_socket(self) -> None: ...
-
     @property
     def op_name(self) -> str: ...
-
     @op_name.setter
     def op_name(self, v: str) -> None: ...
-
     @property
     def op_dir(self) -> str: ...
-
     @op_dir.setter
     def op_dir(self, v: str) -> None: ...
-
     @property
     def dt_ns(self) -> int: ...
-
     @dt_ns.setter
     def dt_ns(self, v: int) -> None: ...
-
     @property
     def rate_hz(self) -> float: ...
-
     @rate_hz.setter
     def rate_hz(self, v: float) -> None: ...
-
     @property
     def peripheral_loss_of_contact_limit(self) -> int: ...
-
     @peripheral_loss_of_contact_limit.setter
     def peripheral_loss_of_contact_limit(self, v: int) -> None: ...
-
     @property
     def controller_loss_of_contact_limit(self) -> int: ...
-
     @controller_loss_of_contact_limit.setter
     def controller_loss_of_contact_limit(self, v: int) -> None: ...
-
 
 class _CalcBase:
     def to_json(self) -> str: ...
     @classmethod
     def from_json(cls, s: str) -> Self: ...
-
 
 class _CalcModule(ModuleType):
     class Affine(_CalcBase):
@@ -154,8 +125,10 @@ class _CalcModule(ModuleType):
         ) -> None: ...
 
     class Butter2(_CalcBase):
-        def __init__(self, input_name: str, cutoff_hz: float, save_outputs: bool) -> None: ...
-    
+        def __init__(
+            self, input_name: str, cutoff_hz: float, save_outputs: bool
+        ) -> None: ...
+
     class Constant(_CalcBase):
         def __init__(self, y: float, save_outputs: bool) -> None: ...
 
@@ -209,6 +182,5 @@ class _CalcModule(ModuleType):
             cold_junction_temperature_name: str,
             save_outputs: bool,
         ) -> None: ...
-
 
 calc: _CalcModule
