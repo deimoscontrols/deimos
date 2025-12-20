@@ -1,6 +1,7 @@
 //! Packetized socket interface for message-passing
 //! to/from peripherals on different I/O media.
 
+pub mod thread_channel;
 pub mod udp;
 pub mod unix;
 

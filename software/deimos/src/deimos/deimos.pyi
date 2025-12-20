@@ -190,6 +190,9 @@ class _SocketModule(ModuleType):
     class UdpSocket(_SocketBase):
         def __init__(self) -> None: ...
 
+    class ThreadChannelSocket(_SocketBase):
+        def __init__(self, name: str) -> None: ...
+
 socket: _SocketModule
 
 class _DispatcherModule(ModuleType):

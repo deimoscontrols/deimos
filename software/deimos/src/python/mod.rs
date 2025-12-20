@@ -9,9 +9,9 @@ use pyo3::wrap_pymodule;
 
 // Dispatchers
 use crate::Socket;
-use crate::peripheral::Peripheral;
 use crate::calc::Calc;
 use crate::dispatcher::Dispatcher;
+use crate::peripheral::Peripheral;
 
 use crate::dispatcher::LatestValueDispatcher;
 use crate::dispatcher::LatestValueHandle;
@@ -54,7 +54,9 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     #[pyo3(name = "socket")]
     mod socket_ {
         #[pymodule_export]
-        pub use crate::socket::{unix::UnixSocket, udp::UdpSocket};
+        pub use crate::socket::{
+            thread_channel::ThreadChannelSocket, udp::UdpSocket, unix::UnixSocket,
+        };
     }
 
     m.add_wrapped(wrap_pymodule!(socket_))?;
