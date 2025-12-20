@@ -14,6 +14,8 @@ use crate::TimescaleDbDispatcher;
 
 use crate::UdpSocket;
 use crate::UnixSocket;
+use crate::dispatcher::LatestValueDispatcher;
+use crate::dispatcher::LatestValueHandle;
 // Peripherals
 use crate::peripheral::AnalogIRev2;
 use crate::peripheral::AnalogIRev3;
@@ -69,6 +71,7 @@ enum Peripheral {
 #[pyclass]
 struct Controller {
     controller: crate::Controller,
+    latest_value_handle: LatestValueHandle,
 }
 
 impl Controller {
@@ -94,9 +97,14 @@ impl Controller {
         ctx.op_dir = op_dir.to_string().into();
         ctx.dt_ns = (1e9 / rate_hz) as u32;
 
-        let controller = crate::Controller::new(ctx);
+        let mut controller = crate::Controller::new(ctx);
 
-        Ok(Self { controller })
+        // Add a latest value dispatcher to cover the most common
+        // usage pattern from python
+        let (dispatcher, latest_value_handle) = LatestValueDispatcher::new();
+        controller.add_dispatcher(Box::new(dispatcher));
+
+        Ok(Self { controller, latest_value_handle })
     }
 
     /// Run the control program
@@ -352,7 +360,9 @@ impl Controller {
     /// a UDP socket by default.
     fn add_udp_socket(&mut self) {
         self.controller.add_socket(Box::new(UdpSocket::new()));
-    } 
+    }
+
+
 }
 
 #[pymodule]
