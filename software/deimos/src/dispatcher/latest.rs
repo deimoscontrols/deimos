@@ -1,11 +1,13 @@
+use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, RwLock};
+use std::thread::{JoinHandle, spawn};
 use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 
 use crate::controller::context::ControllerCtx;
 
-use super::{fmt_time, header_columns, Dispatcher, Row};
+use super::{Dispatcher, Row, fmt_time, header_columns};
 
 /// Thread-safe cell holding the latest `Row` snapshot.
 #[derive(Clone, Default)]
@@ -68,6 +70,8 @@ impl LatestValueHandle {
 pub struct LatestValueDispatcher {
     #[serde(skip)]
     handle: LatestValueHandle,
+    #[serde(skip)]
+    worker: Option<WorkerHandle>,
 }
 
 impl LatestValueDispatcher {
@@ -77,7 +81,13 @@ impl LatestValueDispatcher {
             row: cell.clone(),
             channel_names: Arc::new(RwLock::new(Vec::new())),
         };
-        (Self { handle: handle.clone() }, handle)
+        (
+            Self {
+                handle: handle.clone(),
+                worker: None,
+            },
+            handle,
+        )
     }
 }
 
@@ -87,8 +97,11 @@ impl Dispatcher for LatestValueDispatcher {
         &mut self,
         _ctx: &ControllerCtx,
         channel_names: &[String],
-        _core_assignment: usize,
+        core_assignment: usize,
     ) -> Result<(), String> {
+        // Stop any existing worker
+        self.worker = None;
+
         // Store channel names for header generation.
         if let Ok(mut w) = self.handle.channel_names.write() {
             *w = channel_names.to_vec();
@@ -101,6 +114,9 @@ impl Dispatcher for LatestValueDispatcher {
             timestamp: 0,
             channel_values: vec![f64::NAN; channel_names.len()],
         });
+
+        // Start worker to keep controller thread non-blocking.
+        self.worker = Some(WorkerHandle::new(self.handle.clone(), core_assignment)?);
         Ok(())
     }
 
@@ -110,16 +126,46 @@ impl Dispatcher for LatestValueDispatcher {
         timestamp: i64,
         channel_values: Vec<f64>,
     ) -> Result<(), String> {
-        let row = Row {
-            system_time: fmt_time(time),
-            timestamp,
-            channel_values,
-        };
-        self.handle.row.store(row);
-        Ok(())
+        match &mut self.worker {
+            Some(worker) => worker
+                .tx
+                .send((time, timestamp, channel_values))
+                .map_err(|e| format!("Failed to queue latest value: {e}")),
+            None => Err("Dispatcher must be initialized before consuming data".to_string()),
+        }
     }
 
     fn terminate(&mut self) -> Result<(), String> {
+        // Drop worker handle to signal shutdown
+        self.worker = None;
         Ok(())
+    }
+}
+
+struct WorkerHandle {
+    pub tx: Sender<(SystemTime, i64, Vec<f64>)>,
+    _thread: JoinHandle<()>,
+}
+
+impl WorkerHandle {
+    fn new(handle: LatestValueHandle, core_assignment: usize) -> Result<Self, String> {
+        let (tx, rx) = channel::<(SystemTime, i64, Vec<f64>)>();
+        let _thread = spawn(move || {
+            // Bind to assigned core
+            core_affinity::set_for_current(core_affinity::CoreId {
+                id: core_assignment,
+            });
+
+            while let Ok((time, timestamp, channel_values)) = rx.recv() {
+                let row = Row {
+                    system_time: fmt_time(time),
+                    timestamp,
+                    channel_values,
+                };
+                handle.row.store(row);
+            }
+        });
+
+        Ok(Self { tx, _thread })
     }
 }

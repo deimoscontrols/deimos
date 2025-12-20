@@ -199,12 +199,10 @@ impl WorkerHandle {
 
         // Run database I/O on a separate thread to avoid blocking controller
         let _thread = spawn(move || {
-            // Bind to assigned core, and set priority only if the core is not shared with the control loop
-            {
-                core_affinity::set_for_current(core_affinity::CoreId {
-                    id: core_assignment,
-                });
-            }
+            // Bind to assigned core
+            core_affinity::set_for_current(core_affinity::CoreId {
+                id: core_assignment,
+            });
 
             loop {
                 match rx.recv() {
@@ -378,6 +376,6 @@ fn split_host(host: &str) -> (String, Option<String>) {
     if n < 2 {
         (host.to_string(), None)
     } else {
-        (parts[..n-1].join(""), parts.last().cloned())
+        (parts[..n - 1].join(""), parts.last().cloned())
     }
 }
