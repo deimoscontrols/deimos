@@ -6,7 +6,11 @@ use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use crate::controller::context::ControllerCtx;
+use crate::py_json_methods;
 
 use super::*;
 use deimos_shared::peripherals::PeripheralId;
@@ -14,6 +18,7 @@ use deimos_shared::{CONTROLLER_RX_PORT, PERIPHERAL_RX_PORT};
 
 /// Implementation of Socket trait for stdlib UDP socket on IPV4
 #[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct UdpSocket {
     #[serde(skip)]
     socket: Option<std::net::UdpSocket>,
@@ -38,6 +43,15 @@ impl UdpSocket {
         }
     }
 }
+
+py_json_methods!(
+    UdpSocket,
+    Socket,
+    #[new]
+    fn py_new() -> PyResult<Self> {
+        Ok(Self::new())
+    }
+);
 
 #[typetag::serde]
 impl Socket for UdpSocket {

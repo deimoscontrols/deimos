@@ -9,11 +9,17 @@ use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
+use crate::py_json_methods;
+
 use super::*;
 use deimos_shared::peripherals::PeripheralId;
 
 /// Implementation of Socket trait for stdlib unix socket
 #[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct UnixSocket {
     /// The name of the socket will be combined with the op directory
     /// to make a socket address like {op_dir}/sock/{name} .
@@ -78,6 +84,15 @@ impl UnixSocket {
         self.ctx.op_dir.join("sock").join("per")
     }
 }
+
+py_json_methods!(
+    UnixSocket,
+    Socket,
+    #[new]
+    fn py_new(name: &str) -> PyResult<Self> {
+        Ok(Self::new(name))
+    }
+);
 
 #[typetag::serde]
 impl Socket for UnixSocket {

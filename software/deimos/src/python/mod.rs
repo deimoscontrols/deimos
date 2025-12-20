@@ -8,15 +8,13 @@ use std::collections::HashMap;
 use pyo3::wrap_pymodule;
 
 // Dispatchers
-use crate::UdpSocket;
-use crate::UnixSocket;
+use crate::Socket;
+use crate::peripheral::Peripheral;
+use crate::calc::Calc;
 use crate::dispatcher::Dispatcher;
+
 use crate::dispatcher::LatestValueDispatcher;
 use crate::dispatcher::LatestValueHandle;
-// Peripherals
-use crate::peripheral::Peripheral;
-
-use crate::calc::Calc;
 
 pub use crate::dispatcher::Overflow;
 mod transfer; // Glue
@@ -53,6 +51,15 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pymodule!(peripheral_))?;
 
     #[pymodule]
+    #[pyo3(name = "socket")]
+    mod socket_ {
+        #[pymodule_export]
+        pub use crate::socket::{unix::UnixSocket, udp::UdpSocket};
+    }
+
+    m.add_wrapped(wrap_pymodule!(socket_))?;
+
+    #[pymodule]
     #[pyo3(name = "dispatcher")]
     mod dispatcher_ {
         #[pymodule_export]
@@ -75,6 +82,7 @@ pub(crate) enum BackendErr {
     InvalidPeripheralErr { msg: String },
     InvalidCalcErr { msg: String },
     InvalidDispatcherErr { msg: String },
+    InvalidSocketErr { msg: String },
 }
 
 impl From<BackendErr> for PyErr {
@@ -91,6 +99,9 @@ impl From<BackendErr> for PyErr {
                 exceptions::PyValueError::new_err(format!("{:#?}", val))
             }
             BackendErr::InvalidDispatcherErr { msg: _ } => {
+                exceptions::PyValueError::new_err(format!("{:#?}", val))
+            }
+            BackendErr::InvalidSocketErr { msg: _ } => {
                 exceptions::PyValueError::new_err(format!("{:#?}", val))
             }
         }
@@ -341,6 +352,12 @@ impl Controller {
         Ok(())
     }
 
+    /// Add a socket via a JSON-serializable socket instance.
+    fn add_socket(&mut self, socket: Box<dyn Socket>) -> PyResult<()> {
+        self.ctrl()?.add_socket(socket);
+        Ok(())
+    }
+
     /// Remove all calcs.
     fn clear_calcs(&mut self) -> PyResult<()> {
         self.ctrl()?.clear_calcs();
@@ -362,24 +379,6 @@ impl Controller {
     /// Remove all sockets.
     fn clear_sockets(&mut self) -> PyResult<()> {
         self.ctrl()?.clear_sockets();
-        Ok(())
-    }
-
-    /// Add a unix socket in {op_dir}/sock/{name} for
-    /// peripherals to send data to the controller.
-    ///
-    /// Sockets for communicating to from the controller to
-    /// each peripheral are expected in {op_dir}/sock/per/{...}.
-    fn add_unix_socket(&mut self, name: &str) -> PyResult<()> {
-        self.ctrl()?.add_socket(Box::new(UnixSocket::new(&name)));
-        Ok(())
-    }
-
-    /// Add a UDP socket receiving on port 12368, sending on port 12367.
-    /// The should not be needed often, since a fresh Controller comes with
-    /// a UDP socket by default.
-    fn add_udp_socket(&mut self) -> PyResult<()> {
-        self.ctrl()?.add_socket(Box::new(UdpSocket::new()));
         Ok(())
     }
 }
