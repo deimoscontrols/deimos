@@ -1,7 +1,7 @@
 //! A calc that produces a constant value
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names, py_calc_methods};
+use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
@@ -32,7 +32,7 @@ impl Constant {
     }
 }
 
-py_calc_methods!(
+py_json_methods!(
     Constant,
     #[new]
     fn py_new(y: f64, save_outputs: bool) -> PyResult<Self> {

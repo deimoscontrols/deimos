@@ -4,7 +4,7 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names, py_calc_methods};
+use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
 use flaw::{
     SisoIirFilter, butter2,
     generated::butter::butter2::{MAX_CUTOFF_RATIO, MIN_CUTOFF_RATIO},
@@ -61,7 +61,7 @@ impl Butter2 {
     }
 }
 
-py_calc_methods!(
+py_json_methods!(
     Butter2,
     #[new]
     fn py_new(input_name: String, cutoff_hz: f64, save_outputs: bool) -> Self {

@@ -13,7 +13,7 @@ use pyo3::prelude::*;
 use interpn::MulticubicRegular;
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names, py_calc_methods};
+use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
 
 /// Temperature interpolator shared between all instances of the calc.
 ///
@@ -64,7 +64,7 @@ impl RtdPt100 {
     }
 }
 
-py_calc_methods!(
+py_json_methods!(
     RtdPt100,
     #[new]
     fn py_new(resistance_name: String, save_outputs: bool) -> Self {

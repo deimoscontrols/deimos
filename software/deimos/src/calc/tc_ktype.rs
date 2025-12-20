@@ -29,7 +29,7 @@ use pyo3::prelude::*;
 use interpn::MulticubicRegular;
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names, py_calc_methods};
+use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
 
 /// Cold-junction-correction interpolator shared between all instances of the calc.
 ///
@@ -87,7 +87,7 @@ impl TcKtype {
     }
 }
 
-py_calc_methods!(
+py_json_methods!(
     TcKtype,
     #[new]
     fn py_new(

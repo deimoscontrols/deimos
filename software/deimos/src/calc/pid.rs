@@ -4,7 +4,7 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names, py_calc_methods};
+use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
 
 /// A PID controller with simple saturation for anti-windup
 #[cfg_attr(feature = "python", pyclass)]
@@ -71,7 +71,7 @@ impl Pid {
     }
 }
 
-py_calc_methods!(
+py_json_methods!(
     Pid,
     #[new]
     fn py_new(

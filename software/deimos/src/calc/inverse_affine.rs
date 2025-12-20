@@ -4,7 +4,7 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names, py_calc_methods};
+use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
 
 /// Derive input voltage from linear amplifier reading
 ///
@@ -45,7 +45,7 @@ impl InverseAffine {
     }
 }
 
-py_calc_methods!(
+py_json_methods!(
     InverseAffine,
     #[new]
     fn py_new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> Self {
