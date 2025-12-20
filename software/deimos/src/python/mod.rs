@@ -37,6 +37,7 @@ pub(crate) enum BackendErr {
     RunErr { msg: String },
     InvalidPeripheralErr { msg: String },
     InvalidCalcErr { msg: String },
+    InvalidDispatcherErr { msg: String },
 }
 
 impl From<BackendErr> for PyErr {
@@ -50,6 +51,9 @@ impl From<BackendErr> for PyErr {
                 exceptions::PyValueError::new_err(format!("{:#?}", val))
             }
             BackendErr::InvalidCalcErr { msg: _ } => {
+                exceptions::PyValueError::new_err(format!("{:#?}", val))
+            }
+            BackendErr::InvalidDispatcherErr { msg: _ } => {
                 exceptions::PyValueError::new_err(format!("{:#?}", val))
             }
         }
