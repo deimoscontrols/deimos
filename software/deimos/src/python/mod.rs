@@ -476,7 +476,7 @@ impl RunHandle {
     }
 
     /// Read the latest row mapped to header names
-    fn read(&self) -> LatestValues {
+    fn read(&self) -> Snapshot {
         let headers = self.latest.headers();
         let row = self.latest.latest_row();
         let mut map = HashMap::new();
@@ -486,7 +486,7 @@ impl RunHandle {
                 map.insert(name.clone(), *val);
             }
         }
-        LatestValues {
+        Snapshot {
             system_time: row.system_time.clone(),
             timestamp: row.timestamp,
             values: map,
@@ -496,7 +496,7 @@ impl RunHandle {
 
 #[pyclass]
 #[derive(Clone)]
-struct LatestValues {
+struct Snapshot {
     #[pyo3(get)]
     system_time: String,
     #[pyo3(get)]
@@ -512,7 +512,7 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_class::<Peripheral>()?;
     m.add_class::<Overflow>()?;
     m.add_class::<RunHandle>()?;
-    m.add_class::<LatestValues>()?;
+    m.add_class::<Snapshot>()?;
 
     #[pymodule]
     #[pyo3(name = "calc")]
