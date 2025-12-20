@@ -5,7 +5,6 @@ use pyo3::exceptions;
 use pyo3::prelude::*;
 use std::collections::HashMap;
 
-use deimos_shared::peripherals::model_numbers;
 use pyo3::wrap_pymodule;
 
 // Dispatchers
@@ -15,19 +14,12 @@ use crate::dispatcher::Dispatcher;
 use crate::dispatcher::LatestValueDispatcher;
 use crate::dispatcher::LatestValueHandle;
 // Peripherals
-use crate::peripheral::AnalogIRev2;
-use crate::peripheral::AnalogIRev3;
-use crate::peripheral::AnalogIRev4;
-use crate::peripheral::DeimosDaqRev5;
-use crate::peripheral::DeimosDaqRev6;
 use crate::peripheral::Peripheral;
-use tracing::warn;
 
 use crate::calc::Calc;
 
 pub use crate::dispatcher::Overflow;
 mod transfer; // Glue
-
 
 #[pymodule]
 #[pyo3(name = "deimos")]
@@ -74,7 +66,6 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
 
     Ok(())
 }
-
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -224,41 +215,32 @@ impl Controller {
         match self.ctrl()?.scan(timeout_ms, &None) {
             Err(msg) => Err(BackendErr::RunErr { msg }.into()),
             Ok(map) => {
-                let mut peripherals = Vec::new();
+                let module = py
+                    .import("deimos")
+                    .and_then(|root| root.getattr("peripheral"))
+                    .map_err(|e| BackendErr::InvalidPeripheralErr {
+                        msg: format!("Failed to resolve peripheral module: {e}"),
+                    })?;
+                let mut peripherals = Vec::with_capacity(map.len());
 
-                for (_, id) in map.keys() {
-                    let m = id.model_number;
-                    let serial_number = id.serial_number;
-
-                    let obj = match m {
-                        model_numbers::ANALOG_I_REV_2_MODEL_NUMBER => {
-                            Some(Py::new(py, AnalogIRev2 { serial_number })?.into())
+                for peripheral in map.values() {
+                    let kind = peripheral.kind();
+                    let json = serde_json::to_string(peripheral).map_err(|e| {
+                        BackendErr::InvalidPeripheralErr {
+                            msg: format!("Failed to serialize {kind}: {e}"),
                         }
-                        model_numbers::ANALOG_I_REV_3_MODEL_NUMBER => {
-                            Some(Py::new(py, AnalogIRev3 { serial_number })?.into())
+                    })?;
+                    let cls = module.getattr(kind.as_str()).map_err(|e| {
+                        BackendErr::InvalidPeripheralErr {
+                            msg: format!("Missing Python class for {kind}: {e}"),
                         }
-                        model_numbers::ANALOG_I_REV_4_MODEL_NUMBER => {
-                            Some(Py::new(py, AnalogIRev4 { serial_number })?.into())
+                    })?;
+                    let obj = cls.call_method1("from_json", (json,)).map_err(|e| {
+                        BackendErr::InvalidPeripheralErr {
+                            msg: format!("Failed to construct {kind} from JSON: {e}"),
                         }
-                        model_numbers::DEIMOS_DAQ_REV_5_MODEL_NUMBER => {
-                            Some(Py::new(py, DeimosDaqRev5 { serial_number })?.into())
-                        }
-                        model_numbers::DEIMOS_DAQ_REV_6_MODEL_NUMBER => {
-                            Some(Py::new(py, DeimosDaqRev6 { serial_number })?.into())
-                        }
-                        _ => {
-                            warn!(
-                                model_number = m,
-                                serial_number,
-                                "Skipping unsupported peripheral model"
-                            );
-                            None
-                        }
-                    };
-
-                    if let Some(obj) = obj {
-                        peripherals.push(obj);
-                    }
+                    })?;
+                    peripherals.push(obj.unbind());
                 }
 
                 Ok(peripherals)

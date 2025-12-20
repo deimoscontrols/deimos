@@ -38,7 +38,7 @@ macro_rules! py_peripheral_methods {
             #[new]
             fn py_new(serial_number: u64) -> PyResult<Self> {
                 Ok(Self { serial_number })
-            }
+            },
             #[getter]
             fn serial_number(&self) -> u64 {
                 self.serial_number

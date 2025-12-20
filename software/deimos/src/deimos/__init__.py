@@ -1,3 +1,3 @@
-from .deimos import calc, dispatcher, Controller, Overflow
+from .deimos import calc, dispatcher, peripheral, Controller, Overflow
 
-__all__ = ["calc", "dispatcher", "Controller", "Overflow"]
+__all__ = ["calc", "dispatcher", "peripheral", "Controller", "Overflow"]

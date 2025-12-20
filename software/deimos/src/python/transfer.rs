@@ -16,24 +16,25 @@ macro_rules! impl_from_pyobject_json {
 
             fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
                 // Require a to_json() method on the Python instance
-                let to_json = obj.getattr("to_json").map_err(|e| BackendErr::$err_variant {
-                    msg: format!("{} object missing to_json(): {e}", $type_name),
-                })?;
+                let to_json = obj
+                    .getattr("to_json")
+                    .map_err(|e| BackendErr::$err_variant {
+                        msg: format!("{} object missing to_json(): {e}", $type_name),
+                    })?;
                 if !to_json.is_callable() {
-                    return Err(
-                        BackendErr::$err_variant {
-                            msg: format!("{}.to_json is not callable", $type_name),
-                        }
-                        .into(),
-                    );
+                    return Err(BackendErr::$err_variant {
+                        msg: format!("{}.to_json is not callable", $type_name),
+                    }
+                    .into());
                 }
 
                 let json_any = to_json.call0().map_err(|e| BackendErr::$err_variant {
                     msg: format!("{}.to_json() failed: {e}", $type_name),
                 })?;
-                let json_str: String = json_any.extract().map_err(|e| BackendErr::$err_variant {
-                    msg: format!("{}.to_json() did not return a string: {e}", $type_name),
-                })?;
+                let json_str: String =
+                    json_any.extract().map_err(|e| BackendErr::$err_variant {
+                        msg: format!("{}.to_json() did not return a string: {e}", $type_name),
+                    })?;
 
                 serde_json::from_str(&json_str).map_err(|e| {
                     BackendErr::$err_variant {
