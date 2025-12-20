@@ -4,7 +4,7 @@
 /// performant, only consistent and ergonomic.
 use pyo3::prelude::*;
 
-use crate::{calc::Calc, python::BackendErr};
+use crate::{calc::Calc, dispatcher::Dispatcher, python::BackendErr};
 
 macro_rules! impl_from_pyobject_json {
     ($trait:path, $err_variant:ident, $type_name:expr) => {
@@ -47,3 +47,4 @@ macro_rules! impl_from_pyobject_json {
 }
 
 impl_from_pyobject_json!(Calc, InvalidCalcErr, "Calc");
+impl_from_pyobject_json!(Dispatcher, InvalidCalcErr, "Dispatcher");
