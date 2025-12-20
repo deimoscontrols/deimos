@@ -28,6 +28,25 @@ pub use deimos_daq_rev6::DeimosDaqRev6;
 pub use deimos_shared::peripherals::PeripheralId;
 use once_cell::sync::Lazy;
 
+/// Generate Python bindings and JSON helpers for peripherals.
+#[macro_export]
+macro_rules! py_peripheral_methods {
+    ($ty:ident) => {
+        $crate::py_json_methods!(
+            $ty,
+            $crate::peripheral::Peripheral,
+            #[new]
+            fn py_new(serial_number: u64) -> PyResult<Self> {
+                Ok(Self { serial_number })
+            }
+            #[getter]
+            fn serial_number(&self) -> u64 {
+                self.serial_number
+            }
+        );
+    };
+}
+
 /// Plugin system for handling custom device models
 /// Takes the model number and serial number from a bind result
 /// and initializes a Peripheral representation.

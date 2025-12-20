@@ -20,11 +20,61 @@ use crate::peripheral::AnalogIRev3;
 use crate::peripheral::AnalogIRev4;
 use crate::peripheral::DeimosDaqRev5;
 use crate::peripheral::DeimosDaqRev6;
+use crate::peripheral::Peripheral;
+use tracing::warn;
 
 use crate::calc::Calc;
 
 pub use crate::dispatcher::Overflow;
 mod transfer; // Glue
+
+
+#[pymodule]
+#[pyo3(name = "deimos")]
+fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
+    m.add_class::<Controller>()?;
+    m.add_class::<Overflow>()?;
+    m.add_class::<RunHandle>()?;
+    m.add_class::<Snapshot>()?;
+
+    #[pymodule]
+    #[pyo3(name = "calc")]
+    mod calc_ {
+
+        #[pymodule_export]
+        pub use crate::calc::{
+            Affine, Butter2, Constant, InverseAffine, Pid, Polynomial, RtdPt100, Sin, TcKtype,
+        };
+    }
+
+    m.add_wrapped(wrap_pymodule!(calc_))?;
+
+    #[pymodule]
+    #[pyo3(name = "peripheral")]
+    mod peripheral_ {
+        #[pymodule_export]
+        pub use crate::peripheral::{
+            AnalogIRev2, AnalogIRev3, AnalogIRev4, DeimosDaqRev5, DeimosDaqRev6,
+        };
+    }
+
+    m.add_wrapped(wrap_pymodule!(peripheral_))?;
+
+    #[pymodule]
+    #[pyo3(name = "dispatcher")]
+    mod dispatcher_ {
+        #[pymodule_export]
+        pub use crate::dispatcher::{
+            ChannelFilter, CsvDispatcher, DataFrameDispatcher, DecimationDispatcher,
+            LatestValueDispatcher, LowPassDispatcher, TimescaleDbDispatcher,
+        };
+    }
+
+    m.add_wrapped(wrap_pymodule!(dispatcher_))?;
+
+    Ok(())
+}
+
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -54,19 +104,6 @@ impl From<BackendErr> for PyErr {
             }
         }
     }
-}
-
-#[pyclass]
-#[non_exhaustive]
-#[derive(Debug)]
-enum Peripheral {
-    Experimental { serial_number: u64 },
-    Unknown { serial_number: u64 },
-    AnalogIRev2 { serial_number: u64 },
-    AnalogIRev3 { serial_number: u64 },
-    AnalogIRev4 { serial_number: u64 },
-    DeimosDaqRev5 { serial_number: u64 },
-    DeimosDaqRev6 { serial_number: u64 },
 }
 
 #[pyclass]
@@ -183,46 +220,45 @@ impl Controller {
 
     /// Scan the local network (and any other attached sockets) for available peripherals.
     #[pyo3(signature=(timeout_ms=10))]
-    fn scan(&mut self, timeout_ms: u16) -> PyResult<Vec<Peripheral>> {
+    fn scan(&mut self, py: Python, timeout_ms: u16) -> PyResult<Vec<Py<PyAny>>> {
         match self.ctrl()?.scan(timeout_ms, &None) {
             Err(msg) => Err(BackendErr::RunErr { msg }.into()),
             Ok(map) => {
-                let mut peripherals = vec![];
+                let mut peripherals = Vec::new();
 
                 for (_, id) in map.keys() {
                     let m = id.model_number;
+                    let serial_number = id.serial_number;
 
-                    let p = match m {
-                        model_numbers::EXPERIMENTAL_MODEL_NUMBER => Peripheral::Experimental {
-                            serial_number: id.serial_number,
-                        },
-
-                        model_numbers::ANALOG_I_REV_2_MODEL_NUMBER => Peripheral::AnalogIRev2 {
-                            serial_number: id.serial_number,
-                        },
-
-                        model_numbers::ANALOG_I_REV_3_MODEL_NUMBER => Peripheral::AnalogIRev3 {
-                            serial_number: id.serial_number,
-                        },
-
-                        model_numbers::ANALOG_I_REV_4_MODEL_NUMBER => Peripheral::AnalogIRev4 {
-                            serial_number: id.serial_number,
-                        },
-
-                        model_numbers::DEIMOS_DAQ_REV_5_MODEL_NUMBER => Peripheral::DeimosDaqRev5 {
-                            serial_number: id.serial_number,
-                        },
-
-                        model_numbers::DEIMOS_DAQ_REV_6_MODEL_NUMBER => Peripheral::DeimosDaqRev6 {
-                            serial_number: id.serial_number,
-                        },
-
-                        _ => Peripheral::Unknown {
-                            serial_number: id.serial_number,
-                        },
+                    let obj = match m {
+                        model_numbers::ANALOG_I_REV_2_MODEL_NUMBER => {
+                            Some(Py::new(py, AnalogIRev2 { serial_number })?.into())
+                        }
+                        model_numbers::ANALOG_I_REV_3_MODEL_NUMBER => {
+                            Some(Py::new(py, AnalogIRev3 { serial_number })?.into())
+                        }
+                        model_numbers::ANALOG_I_REV_4_MODEL_NUMBER => {
+                            Some(Py::new(py, AnalogIRev4 { serial_number })?.into())
+                        }
+                        model_numbers::DEIMOS_DAQ_REV_5_MODEL_NUMBER => {
+                            Some(Py::new(py, DeimosDaqRev5 { serial_number })?.into())
+                        }
+                        model_numbers::DEIMOS_DAQ_REV_6_MODEL_NUMBER => {
+                            Some(Py::new(py, DeimosDaqRev6 { serial_number })?.into())
+                        }
+                        _ => {
+                            warn!(
+                                model_number = m,
+                                serial_number,
+                                "Skipping unsupported peripheral model"
+                            );
+                            None
+                        }
                     };
 
-                    peripherals.push(p);
+                    if let Some(obj) = obj {
+                        peripherals.push(obj);
+                    }
                 }
 
                 Ok(peripherals)
@@ -307,51 +343,8 @@ impl Controller {
         Ok(())
     }
 
-    #[pyo3(signature=(name, p, sn=None))]
-    fn add_peripheral(&mut self, name: &str, p: &Peripheral, sn: Option<u64>) -> PyResult<()> {
-        let ctrl = self.ctrl()?;
-        match p {
-            Peripheral::AnalogIRev2 { serial_number } => {
-                let p = Box::new(AnalogIRev2 {
-                    serial_number: sn.unwrap_or(*serial_number),
-                });
-                ctrl.add_peripheral(name, p);
-            }
-            Peripheral::AnalogIRev3 { serial_number } => {
-                let p = Box::new(AnalogIRev3 {
-                    serial_number: sn.unwrap_or(*serial_number),
-                });
-                ctrl.add_peripheral(name, p);
-            }
-            Peripheral::AnalogIRev4 { serial_number } => {
-                let p = Box::new(AnalogIRev4 {
-                    serial_number: sn.unwrap_or(*serial_number),
-                });
-                ctrl.add_peripheral(name, p);
-            }
-            Peripheral::DeimosDaqRev5 { serial_number } => {
-                let p = Box::new(DeimosDaqRev5 {
-                    serial_number: sn.unwrap_or(*serial_number),
-                });
-                ctrl.add_peripheral(name, p);
-            }
-            Peripheral::DeimosDaqRev6 { serial_number } => {
-                let p = Box::new(DeimosDaqRev6 {
-                    serial_number: sn.unwrap_or(*serial_number),
-                });
-                ctrl.add_peripheral(name, p);
-            }
-            _ => {
-                return Err(BackendErr::InvalidPeripheralErr {
-                    msg: format!(
-                        "Peripherals used by controller must be known, specific models, not {:?}",
-                        p
-                    ),
-                }
-                .into());
-            }
-        };
-
+    fn add_peripheral(&mut self, name: &str, p: Box<dyn Peripheral>) -> PyResult<()> {
+        self.ctrl()?.add_peripheral(name, p);
         Ok(())
     }
 
@@ -469,40 +462,4 @@ struct Snapshot {
     timestamp: i64,
     #[pyo3(get)]
     values: HashMap<String, f64>,
-}
-
-#[pymodule]
-#[pyo3(name = "deimos")]
-fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
-    m.add_class::<Controller>()?;
-    m.add_class::<Peripheral>()?;
-    m.add_class::<Overflow>()?;
-    m.add_class::<RunHandle>()?;
-    m.add_class::<Snapshot>()?;
-
-    #[pymodule]
-    #[pyo3(name = "calc")]
-    mod calc_ {
-
-        #[pymodule_export]
-        pub use crate::calc::{
-            Affine, Butter2, Constant, InverseAffine, Pid, Polynomial, RtdPt100, Sin, TcKtype,
-        };
-    }
-
-    m.add_wrapped(wrap_pymodule!(calc_))?;
-
-    #[pymodule]
-    #[pyo3(name = "dispatcher")]
-    mod dispatcher_ {
-        #[pymodule_export]
-        pub use crate::dispatcher::{
-            ChannelFilter, CsvDispatcher, DataFrameDispatcher, DecimationDispatcher,
-            LatestValueDispatcher, LowPassDispatcher, TimescaleDbDispatcher,
-        };
-    }
-
-    m.add_wrapped(wrap_pymodule!(dispatcher_))?;
-
-    Ok(())
 }

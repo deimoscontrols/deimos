@@ -7,42 +7,14 @@ class CalcLike(Protocol):
 class DispatcherLike(Protocol):
     def to_json(self) -> str: ...
 
+class PeripheralLike(Protocol):
+    serial_number: int
+    def to_json(self) -> str: ...
+
 class Overflow:
     Wrap: ClassVar[Overflow]
     NewFile: ClassVar[Overflow]
     Error: ClassVar[Overflow]
-
-class Peripheral:
-    serial_number: int
-
-    Experimental: ClassVar[type[_PeripheralExperimental]]
-    Unknown: ClassVar[type[_PeripheralUnknown]]
-    AnalogIRev2: ClassVar[type[_PeripheralAnalogIRev2]]
-    AnalogIRev3: ClassVar[type[_PeripheralAnalogIRev3]]
-    AnalogIRev4: ClassVar[type[_PeripheralAnalogIRev4]]
-    DeimosDaqRev5: ClassVar[type[_PeripheralDeimosDaqRev5]]
-    DeimosDaqRev6: ClassVar[type[_PeripheralDeimosDaqRev6]]
-
-class _PeripheralExperimental(Peripheral):
-    def __init__(self, serial_number: int) -> None: ...
-
-class _PeripheralUnknown(Peripheral):
-    def __init__(self, serial_number: int) -> None: ...
-
-class _PeripheralAnalogIRev2(Peripheral):
-    def __init__(self, serial_number: int) -> None: ...
-
-class _PeripheralAnalogIRev3(Peripheral):
-    def __init__(self, serial_number: int) -> None: ...
-
-class _PeripheralAnalogIRev4(Peripheral):
-    def __init__(self, serial_number: int) -> None: ...
-
-class _PeripheralDeimosDaqRev5(Peripheral):
-    def __init__(self, serial_number: int) -> None: ...
-
-class _PeripheralDeimosDaqRev6(Peripheral):
-    def __init__(self, serial_number: int) -> None: ...
 
 class Snapshot:
     @property
@@ -64,13 +36,8 @@ class Controller:
     def __init__(self, op_name: str, op_dir: str, rate_hz: float) -> None: ...
     def run(self) -> str: ...
     def run_nonblocking(self) -> RunHandle: ...
-    def scan(self, timeout_ms: int = 10) -> list[Peripheral]: ...
-    def add_peripheral(
-        self,
-        name: str,
-        p: Peripheral,
-        sn: int | None = None,
-    ) -> None: ...
+    def scan(self, timeout_ms: int = 10) -> list[PeripheralLike]: ...
+    def add_peripheral(self, name: str, p: PeripheralLike) -> None: ...
     def add_calc(self, name: str, calc: CalcLike) -> None: ...
     def add_dispatcher(self, dispatcher: DispatcherLike) -> None: ...
     def add_csv_dispatcher(
@@ -119,6 +86,12 @@ class _CalcBase:
     def from_json(cls, s: str) -> Self: ...
 
 class _DispatcherBase:
+    def to_json(self) -> str: ...
+    @classmethod
+    def from_json(cls, s: str) -> Self: ...
+
+class _PeripheralBase:
+    serial_number: int
     def to_json(self) -> str: ...
     @classmethod
     def from_json(cls, s: str) -> Self: ...
@@ -193,6 +166,24 @@ class _CalcModule(ModuleType):
         ) -> None: ...
 
 calc: _CalcModule
+
+class _PeripheralModule(ModuleType):
+    class AnalogIRev2(_PeripheralBase):
+        def __init__(self, serial_number: int) -> None: ...
+
+    class AnalogIRev3(_PeripheralBase):
+        def __init__(self, serial_number: int) -> None: ...
+
+    class AnalogIRev4(_PeripheralBase):
+        def __init__(self, serial_number: int) -> None: ...
+
+    class DeimosDaqRev5(_PeripheralBase):
+        def __init__(self, serial_number: int) -> None: ...
+
+    class DeimosDaqRev6(_PeripheralBase):
+        def __init__(self, serial_number: int) -> None: ...
+
+peripheral: _PeripheralModule
 
 class _DispatcherModule(ModuleType):
     class CsvDispatcher(_DispatcherBase):

@@ -10,7 +10,7 @@ here = Path(__file__).parent.absolute()
 c = deimos.Controller("test2", str(here), 5.0)
 
 # Scan for peripherals on the network
-peripherals = c.scan() 
+peripherals = c.scan()
 
 # Add peripherals to the control program
 print("Found peripherals on network:")
@@ -19,7 +19,8 @@ for i, p in enumerate(peripherals):
     c.add_peripheral(f"p{i + 1}", p)
 
 # Configure to write data to a CSV file
-c.add_csv_dispatcher()
+csv_dispatcher = deimos.dispatcher.CsvDispatcher(1, deimos.Overflow.Wrap)
+c.add_dispatcher(csv_dispatcher)
 
 # Add a calc that runs in-the-loop
 five = deimos.calc.Constant(5.0, True)

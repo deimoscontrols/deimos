@@ -6,10 +6,18 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
+use crate::py_peripheral_methods;
+
 #[derive(Serialize, Deserialize, Debug, Default)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct DeimosDaqRev5 {
     pub serial_number: u64,
 }
+
+py_peripheral_methods!(DeimosDaqRev5);
 
 #[typetag::serde]
 impl Peripheral for DeimosDaqRev5 {

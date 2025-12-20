@@ -8,10 +8,18 @@ use deimos_shared::states::OperatingMetrics;
 use deimos_shared::peripherals::{analog_i_rev_2::*, model_numbers};
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
+use crate::py_peripheral_methods;
+
 #[derive(Serialize, Deserialize, Debug, Default)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct AnalogIRev2 {
     pub serial_number: u64,
 }
+
+py_peripheral_methods!(AnalogIRev2);
 
 #[typetag::serde]
 impl Peripheral for AnalogIRev2 {
