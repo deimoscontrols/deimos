@@ -11,7 +11,11 @@ use std::sync::mpsc::{Sender, channel};
 use std::thread::{self, JoinHandle, spawn};
 use tracing::{info, warn};
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use crate::controller::context::ControllerCtx;
+use crate::py_json_methods;
 
 use super::{Dispatcher, Overflow, csv_header, csv_row_fixed_width};
 
@@ -33,6 +37,7 @@ use super::{Dispatcher, Overflow, csv_header, csv_row_fixed_width};
 ///
 /// Writes to disk on a separate thread to avoid blocking the control loop.
 #[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct CsvDispatcher {
     /// Size per file
     chunk_size_megabytes: usize,
@@ -54,6 +59,15 @@ impl CsvDispatcher {
         }
     }
 }
+
+py_json_methods!(
+    CsvDispatcher,
+    Dispatcher,
+    #[new]
+    fn py_new(chunk_size_megabytes: usize, overflow_behavior: Overflow) -> PyResult<Self> {
+        Ok(Self::new(chunk_size_megabytes, overflow_behavior))
+    }
+);
 
 #[typetag::serde]
 impl Dispatcher for CsvDispatcher {

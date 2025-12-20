@@ -8,7 +8,11 @@ use std::{
 };
 use tracing::info;
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use crate::controller::context::ControllerCtx;
+use crate::py_json_methods;
 
 use super::{Dispatcher, Overflow, Row, fmt_time, header_columns};
 
@@ -80,6 +84,7 @@ impl SimpleDataFrame {
 /// To avoid deadlocks, the dataframe is not updated until after
 /// the run is complete. The dataframe is cleared at the start of each run.
 #[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct DataFrameDispatcher {
     max_size_megabytes: usize,
     overflow_behavior: Overflow,
@@ -135,6 +140,16 @@ impl DataFrameDispatcher {
             .map_err(|e| format!("Unable to lock dataframe: {e}"))
     }
 }
+
+py_json_methods!(
+    DataFrameDispatcher,
+    Dispatcher,
+    #[new]
+    fn py_new(max_size_megabytes: usize, overflow_behavior: Overflow) -> PyResult<Self> {
+        let (dispatcher, _df_handle) = Self::new(max_size_megabytes, overflow_behavior, None);
+        Ok(dispatcher)
+    }
+);
 
 #[typetag::serde]
 impl Dispatcher for DataFrameDispatcher {

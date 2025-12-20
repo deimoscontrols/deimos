@@ -47,4 +47,4 @@ macro_rules! impl_from_pyobject_json {
 }
 
 impl_from_pyobject_json!(Calc, InvalidCalcErr, "Calc");
-impl_from_pyobject_json!(Dispatcher, InvalidCalcErr, "Dispatcher");
+impl_from_pyobject_json!(Dispatcher, InvalidDispatcherErr, "Dispatcher");

@@ -1,5 +1,4 @@
 use std::sync::{Arc, atomic::AtomicBool};
-use std::time::Duration;
 
 // use numpy::borrow::{PyReadonlyArray1, PyReadwriteArray1};
 use pyo3::exceptions;
@@ -10,11 +9,9 @@ use deimos_shared::peripherals::model_numbers;
 use pyo3::wrap_pymodule;
 
 // Dispatchers
-use crate::CsvDispatcher;
-use crate::TimescaleDbDispatcher;
-
 use crate::UdpSocket;
 use crate::UnixSocket;
+use crate::dispatcher::Dispatcher;
 use crate::dispatcher::LatestValueDispatcher;
 use crate::dispatcher::LatestValueHandle;
 // Peripherals
@@ -27,8 +24,7 @@ use crate::peripheral::DeimosDaqRev6;
 use crate::calc::Calc;
 
 pub use crate::dispatcher::Overflow;
-mod transfer;
-// mod dispatcher;
+mod transfer; // Glue
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -364,48 +360,9 @@ impl Controller {
         Ok(())
     }
 
-    /// Write data to a CSV file in `op_dir` with name `{op}.csv`.
-    ///
-    /// The file is pre-allocated to avoid resizing in the loop,
-    /// then trimmed at the end of data collection if the final
-    /// size is less than what was allocated.
-    #[pyo3(signature=(chunk_size_megabytes=100, overflow_behavior=Overflow::Wrap))]
-    fn add_csv_dispatcher(
-        &mut self,
-        chunk_size_megabytes: usize,
-        overflow_behavior: Overflow,
-    ) -> PyResult<()> {
-        let d = CsvDispatcher::new(chunk_size_megabytes, overflow_behavior);
-        self.ctrl()?.add_dispatcher(Box::new(d));
-        Ok(())
-    }
-
-    /// Send unencrypted data to a TimescaleDB postgres database.
-    ///
-    /// The host can be either an IP address like `192.168.8.231`,
-    /// an IP address with a port like `192.168.8.231:5432`,
-    /// or a unix socket address like `/run/postgresql/`.
-    /// If not port is specified, the default port 5432 is used.
-    ///
-    /// `token_name` must match an environment variable containing the
-    /// required auth credentials for the postgres user.
-    fn add_timescaledb_dispatcher(
-        &mut self,
-        dbname: &str,
-        host: &str,
-        user: &str,
-        token_name: &str,
-        retention_time_hours: u64,
-    ) -> PyResult<()> {
-        let d = TimescaleDbDispatcher::new(
-            dbname,
-            host,
-            user,
-            token_name,
-            Duration::from_nanos(1),
-            retention_time_hours,
-        );
-        self.ctrl()?.add_dispatcher(Box::new(d));
+    /// Add a dispatcher via a JSON-serializable dispatcher instance.
+    fn add_dispatcher(&mut self, dispatcher: Box<dyn Dispatcher>) -> PyResult<()> {
+        self.ctrl()?.add_dispatcher(dispatcher);
         Ok(())
     }
 
@@ -534,6 +491,18 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     }
 
     m.add_wrapped(wrap_pymodule!(calc_))?;
+
+    #[pymodule]
+    #[pyo3(name = "dispatcher")]
+    mod dispatcher_ {
+        #[pymodule_export]
+        pub use crate::dispatcher::{
+            ChannelFilter, CsvDispatcher, DataFrameDispatcher, DecimationDispatcher,
+            LatestValueDispatcher, LowPassDispatcher, TimescaleDbDispatcher,
+        };
+    }
+
+    m.add_wrapped(wrap_pymodule!(dispatcher_))?;
 
     Ok(())
 }

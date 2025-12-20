@@ -4,6 +4,9 @@ from typing import ClassVar, Protocol, Self
 class CalcLike(Protocol):
     def to_json(self) -> str: ...
 
+class DispatcherLike(Protocol):
+    def to_json(self) -> str: ...
+
 class Overflow:
     Wrap: ClassVar[Overflow]
     NewFile: ClassVar[Overflow]
@@ -69,6 +72,7 @@ class Controller:
         sn: int | None = None,
     ) -> None: ...
     def add_calc(self, name: str, calc: CalcLike) -> None: ...
+    def add_dispatcher(self, dispatcher: DispatcherLike) -> None: ...
     def add_csv_dispatcher(
         self,
         chunk_size_megabytes: int = 100,
@@ -110,6 +114,11 @@ class Controller:
     def controller_loss_of_contact_limit(self, v: int) -> None: ...
 
 class _CalcBase:
+    def to_json(self) -> str: ...
+    @classmethod
+    def from_json(cls, s: str) -> Self: ...
+
+class _DispatcherBase:
     def to_json(self) -> str: ...
     @classmethod
     def from_json(cls, s: str) -> Self: ...
@@ -184,3 +193,55 @@ class _CalcModule(ModuleType):
         ) -> None: ...
 
 calc: _CalcModule
+
+class _DispatcherModule(ModuleType):
+    class CsvDispatcher(_DispatcherBase):
+        def __init__(
+            self,
+            chunk_size_megabytes: int,
+            overflow_behavior: Overflow,
+        ) -> None: ...
+
+    class TimescaleDbDispatcher(_DispatcherBase):
+        def __init__(
+            self,
+            dbname: str,
+            host: str,
+            user: str,
+            token_name: str,
+            buffer_time_ns: int,
+            retention_time_hours: int,
+        ) -> None: ...
+
+    class DataFrameDispatcher(_DispatcherBase):
+        def __init__(
+            self,
+            max_size_megabytes: int,
+            overflow_behavior: Overflow,
+        ) -> None: ...
+
+    class LatestValueDispatcher(_DispatcherBase):
+        def __init__(self) -> None: ...
+
+    class ChannelFilter(_DispatcherBase):
+        def __init__(
+            self,
+            inner: DispatcherLike,
+            channels: list[str],
+        ) -> None: ...
+
+    class DecimationDispatcher(_DispatcherBase):
+        def __init__(
+            self,
+            inner: DispatcherLike,
+            nth: int,
+        ) -> None: ...
+
+    class LowPassDispatcher(_DispatcherBase):
+        def __init__(
+            self,
+            inner: DispatcherLike,
+            cutoff_hz: float,
+        ) -> None: ...
+
+dispatcher: _DispatcherModule

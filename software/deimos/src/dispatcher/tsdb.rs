@@ -11,7 +11,11 @@ use postgres_types::{ToSql, Type};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use crate::controller::context::ControllerCtx;
+use crate::py_json_methods;
 
 use super::{Dispatcher, csv_row};
 
@@ -27,6 +31,7 @@ use super::{Dispatcher, csv_row};
 /// Does not support TLS, and as a result, is recommended for communication with databases
 /// on the same internal network, not on the open web.
 #[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct TimescaleDbDispatcher {
     /// Name of the database. The table name will be the controller's op name.
     dbname: String,
@@ -73,6 +78,29 @@ impl TimescaleDbDispatcher {
         }
     }
 }
+
+py_json_methods!(
+    TimescaleDbDispatcher,
+    Dispatcher,
+    #[new]
+    fn py_new(
+        dbname: &str,
+        host: &str,
+        user: &str,
+        token_name: &str,
+        buffer_time_ns: u64,
+        retention_time_hours: u64,
+    ) -> PyResult<Self> {
+        Ok(Self::new(
+            dbname,
+            host,
+            user,
+            token_name,
+            Duration::from_nanos(buffer_time_ns),
+            retention_time_hours,
+        ))
+    }
+);
 
 #[typetag::serde]
 impl Dispatcher for TimescaleDbDispatcher {

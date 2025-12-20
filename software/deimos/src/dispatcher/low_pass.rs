@@ -4,17 +4,22 @@ use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use flaw::{
     SisoIirFilter, butter2,
     generated::butter::butter2::{MAX_CUTOFF_RATIO, MIN_CUTOFF_RATIO},
 };
 
 use crate::controller::context::ControllerCtx;
+use crate::py_json_methods;
 
 use super::Dispatcher;
 
 /// Wraps another dispatcher and applies a 2nd order Butterworth low-pass filter per channel.
 #[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct LowPassDispatcher {
     cutoff_hz: f64,
     inner: Box<dyn Dispatcher>,
@@ -55,6 +60,15 @@ impl LowPassDispatcher {
         Ok(filters)
     }
 }
+
+py_json_methods!(
+    LowPassDispatcher,
+    Dispatcher,
+    #[new]
+    fn py_new(inner: Box<dyn Dispatcher>, cutoff_hz: f64) -> PyResult<Self> {
+        Ok(Self::new(inner, cutoff_hz))
+    }
+);
 
 #[typetag::serde]
 impl Dispatcher for LowPassDispatcher {

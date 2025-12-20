@@ -5,12 +5,17 @@ use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use crate::controller::context::ControllerCtx;
+use crate::py_json_methods;
 
 use super::Dispatcher;
 
 /// Wraps another dispatcher and forwards every Nth row.
 #[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct DecimationDispatcher {
     nth: NonZeroUsize,
     inner: Box<dyn Dispatcher>,
@@ -31,6 +36,18 @@ impl DecimationDispatcher {
         }
     }
 }
+
+py_json_methods!(
+    DecimationDispatcher,
+    Dispatcher,
+    #[new]
+    fn py_new(inner: Box<dyn Dispatcher>, nth: usize) -> PyResult<Self> {
+        let nth = NonZeroUsize::new(nth).ok_or_else(|| {
+            pyo3::exceptions::PyValueError::new_err("Decimation factor must be >= 1")
+        })?;
+        Ok(Self::new(inner, nth))
+    }
+);
 
 #[typetag::serde]
 impl Dispatcher for DecimationDispatcher {

@@ -5,12 +5,17 @@ use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use crate::controller::context::ControllerCtx;
+use crate::py_json_methods;
 
 use super::Dispatcher;
 
 /// Wraps another dispatcher and forwards a subset of channels by name.
 #[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct ChannelFilter {
     channels: Vec<String>,
     inner: Box<dyn Dispatcher>,
@@ -56,6 +61,15 @@ impl ChannelFilter {
         Ok(indices)
     }
 }
+
+py_json_methods!(
+    ChannelFilter,
+    Dispatcher,
+    #[new]
+    fn py_new(inner: Box<dyn Dispatcher>, channels: Vec<String>) -> PyResult<Self> {
+        Ok(Self::new(inner, channels))
+    }
+);
 
 #[typetag::serde]
 impl Dispatcher for ChannelFilter {

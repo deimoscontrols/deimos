@@ -19,10 +19,17 @@ pub mod socket;
 ///         Self::new(arg)
 ///     }
 /// );
+///
+/// py_json_methods!(MyDispatcher, Dispatcher,
+///     #[new]
+///     fn py_new(arg: usize) -> Self {
+///         Self::new(arg)
+///     }
+/// );
 /// ```
 #[macro_export]
 macro_rules! py_json_methods {
-    ($ty:ident, $( $method:item )+ $(,)?) => {
+    ($ty:ident, $trait:path, $( $method:item )+ $(,)?) => {
         #[cfg(feature = "python")]
         #[pymethods]
         impl $ty {
@@ -30,10 +37,10 @@ macro_rules! py_json_methods {
                 $method
             )+
 
-            /// Serialize to typetagged JSON so Python can pass into add_calc
+            /// Serialize to typetagged JSON so Python can pass into trait handoff
             fn to_json(&self) -> PyResult<String> {
-                let calc: &dyn Calc = self;
-                serde_json::to_string(calc)
+                let payload: &dyn $trait = self;
+                serde_json::to_string(payload)
                     .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
             }
 
@@ -44,6 +51,9 @@ macro_rules! py_json_methods {
                     .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
             }
         }
+    };
+    ($ty:ident, $( $method:item )+ $(,)?) => {
+        $crate::py_json_methods!($ty, $crate::calc::Calc, $( $method )+);
     };
 }
 

@@ -5,7 +5,11 @@ use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use crate::controller::context::ControllerCtx;
+use crate::py_json_methods;
 
 use super::{Dispatcher, Row, fmt_time, header_columns};
 
@@ -67,6 +71,7 @@ impl LatestValueHandle {
 
 /// Dispatcher that always keeps the latest row available via a shared handle.
 #[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct LatestValueDispatcher {
     #[serde(skip)]
     handle: LatestValueHandle,
@@ -90,6 +95,16 @@ impl LatestValueDispatcher {
         )
     }
 }
+
+py_json_methods!(
+    LatestValueDispatcher,
+    Dispatcher,
+    #[new]
+    fn py_new() -> PyResult<Self> {
+        let (dispatcher, _handle) = Self::new();
+        Ok(dispatcher)
+    }
+);
 
 #[typetag::serde]
 impl Dispatcher for LatestValueDispatcher {
