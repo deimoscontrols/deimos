@@ -189,6 +189,23 @@ class _PeripheralModule(ModuleType):
             end_epoch_ns: int | None = None,
         ) -> None: ...
 
+    class MockupTransport:
+        @staticmethod
+        def thread_channel(name: str) -> Self: ...
+
+        @staticmethod
+        def unix_socket(name: str) -> Self: ...
+
+    class MockupDriver:
+        def __init__(
+            self,
+            inner: PeripheralLike,
+            transport: MockupTransport,
+            configuring_timeout_ms: int = 250,
+            end_epoch_ns: int | None = None,
+        ) -> None: ...
+        def run_with(self, controller: Controller) -> None: ...
+
 peripheral: _PeripheralModule
 
 class _SocketModule(ModuleType):

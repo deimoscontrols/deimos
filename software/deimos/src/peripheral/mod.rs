@@ -25,7 +25,7 @@ pub mod deimos_daq_rev6;
 pub use deimos_daq_rev6::DeimosDaqRev6;
 
 pub mod hootl_mockup;
-pub use hootl_mockup::HootlMockupPeripheral;
+pub use hootl_mockup::{HootlMockupPeripheral, MockupDriver, MockupTransport};
 
 pub use deimos_shared::peripherals::PeripheralId;
 use once_cell::sync::Lazy;

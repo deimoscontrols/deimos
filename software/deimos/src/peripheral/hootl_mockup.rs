@@ -1,20 +1,32 @@
 //! Peripheral wrapper that provides software-defined behavior with an internal state machine.
 
 use std::collections::BTreeMap;
+use std::os::unix::net;
+use std::path::PathBuf;
 use std::sync::Mutex;
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime};
 
 use serde::{Deserialize, Serialize};
 
 use deimos_shared::OperatingMetrics;
+use deimos_shared::peripherals::PeripheralId;
+use deimos_shared::states::{
+    BindingInput, BindingOutput, ByteStruct, ByteStructLen, ConfiguringInput, ConfiguringOutput,
+};
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
 use crate::calc::Calc;
+use crate::controller::channel::{Endpoint, Msg};
+use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
 use super::Peripheral;
+
+#[cfg(feature = "python")]
+use crate::python::{BackendErr, Controller as PyController};
 
 /// Peripheral wrapper that emits mock outputs using the ipc_mockup-style state machine.
 #[derive(Serialize, Deserialize, Debug)]
@@ -183,4 +195,345 @@ impl Peripheral for HootlMockupPeripheral {
     fn standard_calcs(&self, name: String) -> BTreeMap<String, Box<dyn Calc>> {
         self.inner.standard_calcs(name)
     }
+}
+
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "python", pyclass)]
+pub enum MockupTransport {
+    ThreadChannel { name: String },
+    UnixSocket { name: String },
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl MockupTransport {
+    #[staticmethod]
+    fn thread_channel(name: &str) -> Self {
+        Self::ThreadChannel {
+            name: name.to_owned(),
+        }
+    }
+
+    #[staticmethod]
+    fn unix_socket(name: &str) -> Self {
+        Self::UnixSocket {
+            name: name.to_owned(),
+        }
+    }
+}
+
+#[derive(Debug)]
+#[cfg_attr(feature = "python", pyclass)]
+pub struct MockupDriver {
+    peripheral_id: PeripheralId,
+    input_size: usize,
+    output_size: usize,
+    configuring_timeout: Duration,
+    end: Option<SystemTime>,
+    transport: MockupTransport,
+}
+
+impl MockupDriver {
+    pub fn new(inner: &dyn Peripheral, transport: MockupTransport) -> Self {
+        Self {
+            peripheral_id: inner.id(),
+            input_size: inner.operating_roundtrip_input_size(),
+            output_size: inner.operating_roundtrip_output_size(),
+            configuring_timeout: Duration::from_millis(250),
+            end: None,
+            transport,
+        }
+    }
+
+    pub fn with_configuring_timeout(mut self, timeout: Duration) -> Self {
+        self.configuring_timeout = timeout;
+        self
+    }
+
+    pub fn with_end(mut self, end: Option<SystemTime>) -> Self {
+        self.end = end;
+        self
+    }
+
+    pub fn run(&self, ctx: &ControllerCtx) -> Result<JoinHandle<()>, String> {
+        let mut runner = MockupRunner::new(self, ctx)?;
+        Ok(thread::spawn(move || runner.run_loop()))
+    }
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl MockupDriver {
+    #[new]
+    #[pyo3(signature=(inner, transport, configuring_timeout_ms=250, end_epoch_ns=None))]
+    fn py_new(
+        inner: Box<dyn Peripheral>,
+        transport: MockupTransport,
+        configuring_timeout_ms: u64,
+        end_epoch_ns: Option<u64>,
+    ) -> PyResult<Self> {
+        let mut driver = Self::new(inner.as_ref(), transport)
+            .with_configuring_timeout(Duration::from_millis(configuring_timeout_ms));
+        let end = match end_epoch_ns {
+            Some(ns) => Some(
+                SystemTime::UNIX_EPOCH
+                    .checked_add(Duration::from_nanos(ns))
+                    .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid end_epoch_ns"))?,
+            ),
+            None => None,
+        };
+        driver = driver.with_end(end);
+        Ok(driver)
+    }
+
+    fn run_with(&self, controller: &PyController) -> PyResult<()> {
+        let ctx = controller.ctx()?;
+        self.run(ctx)
+            .map(|_| ())
+            .map_err(|e| BackendErr::InvalidPeripheralErr { msg: e }.into())
+    }
+}
+
+struct MockupRunner {
+    peripheral_id: PeripheralId,
+    input_size: usize,
+    output_size: usize,
+    configuring_timeout: Duration,
+    end: Option<SystemTime>,
+    transport: TransportState,
+}
+
+impl MockupRunner {
+    fn new(driver: &MockupDriver, ctx: &ControllerCtx) -> Result<Self, String> {
+        let mut transport = TransportState::new(driver.transport.clone());
+        transport.open(ctx)?;
+        Ok(Self {
+            peripheral_id: driver.peripheral_id,
+            input_size: driver.input_size,
+            output_size: driver.output_size,
+            configuring_timeout: driver.configuring_timeout,
+            end: driver.end,
+            transport,
+        })
+    }
+
+    fn run_loop(&mut self) {
+        let mut buf = vec![0u8; 1522];
+        let mut state = DriverState::Binding;
+        let mut controller_addr: Option<PathBuf> = None;
+
+        loop {
+            if self.end.map_or(false, |end| SystemTime::now() > end) {
+                break;
+            }
+
+            match state {
+                DriverState::Binding => {
+                    if let Some((size, addr)) = self.transport.recv_packet(&mut buf) {
+                        if size != BindingInput::BYTE_LEN {
+                            continue;
+                        }
+                        let msg = BindingInput::read_bytes(&buf[..size]);
+                        let timeout = if msg.configuring_timeout_ms == 0 {
+                            self.configuring_timeout
+                        } else {
+                            Duration::from_millis(msg.configuring_timeout_ms as u64)
+                        };
+
+                        let resp = BindingOutput {
+                            peripheral_id: self.peripheral_id,
+                        };
+                        let mut out = vec![0u8; BindingOutput::BYTE_LEN];
+                        resp.write_bytes(&mut out);
+                        if self
+                            .transport
+                            .send_packet(&out, addr.as_ref(), self.peripheral_id)
+                            .is_ok()
+                        {
+                            controller_addr = addr;
+                            state = DriverState::Configuring {
+                                start: Instant::now(),
+                                timeout,
+                            };
+                        }
+                    } else {
+                        thread::sleep(Duration::from_millis(1));
+                    }
+                }
+                DriverState::Configuring { start, timeout } => {
+                    if start.elapsed() > timeout {
+                        state = DriverState::Binding;
+                        controller_addr = None;
+                        continue;
+                    }
+
+                    if let Some((size, _addr)) = self.transport.recv_packet(&mut buf) {
+                        if size != ConfiguringInput::BYTE_LEN {
+                            continue;
+                        }
+                        let resp = ConfiguringOutput {
+                            acknowledge: deimos_shared::states::AcknowledgeConfiguration::Ack,
+                        };
+                        let mut out = vec![0u8; ConfiguringOutput::BYTE_LEN];
+                        resp.write_bytes(&mut out);
+                        let _ = self
+                            .transport
+                            .send_packet(&out, controller_addr.as_ref(), self.peripheral_id);
+                        state = DriverState::Operating { counter: 0 };
+                    } else {
+                        thread::sleep(Duration::from_millis(1));
+                    }
+                }
+                DriverState::Operating { ref mut counter } => {
+                    if let Some((size, _addr)) = self.transport.recv_packet(&mut buf) {
+                        if size != self.input_size {
+                            continue;
+                        }
+
+                        let last_input_id = if size >= 8 {
+                            let mut bytes = [0u8; 8];
+                            bytes.copy_from_slice(&buf[..8]);
+                            u64::from_le_bytes(bytes)
+                        } else {
+                            0
+                        };
+
+                        let mut out = vec![0u8; self.output_size];
+                        if self.output_size >= OperatingMetrics::BYTE_LEN {
+                            let mut metrics = OperatingMetrics::default();
+                            metrics.id = *counter;
+                            metrics.last_input_id = last_input_id;
+                            metrics.write_bytes(&mut out[..OperatingMetrics::BYTE_LEN]);
+                        }
+
+                        let _ = self
+                            .transport
+                            .send_packet(&out, controller_addr.as_ref(), self.peripheral_id);
+                        *counter = counter.wrapping_add(1);
+                    } else {
+                        thread::sleep(Duration::from_millis(1));
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+enum DriverState {
+    Binding,
+    Configuring { start: Instant, timeout: Duration },
+    Operating { counter: u64 },
+}
+
+#[derive(Debug)]
+enum TransportState {
+    ThreadChannel {
+        name: String,
+        endpoint: Option<Endpoint>,
+    },
+    UnixSocket {
+        name: String,
+        socket: Option<net::UnixDatagram>,
+    },
+}
+
+impl TransportState {
+    fn new(transport: MockupTransport) -> Self {
+        match transport {
+            MockupTransport::ThreadChannel { name } => Self::ThreadChannel {
+                name,
+                endpoint: None,
+            },
+            MockupTransport::UnixSocket { name } => Self::UnixSocket { name, socket: None },
+        }
+    }
+
+    fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String> {
+        match self {
+            TransportState::ThreadChannel { name, endpoint } => {
+                *endpoint = Some(ctx.sink_endpoint(name));
+                Ok(())
+            }
+            TransportState::UnixSocket { name, socket } => {
+                let path = socket_path(&ctx.op_dir, name);
+                if let Some(parent) = path.parent() {
+                    std::fs::create_dir_all(parent)
+                        .map_err(|e| format!("Unable to create socket folders: {e}"))?;
+                }
+                let sock = net::UnixDatagram::bind(&path)
+                    .map_err(|e| format!("Unable to bind unix socket: {e}"))?;
+                sock.set_nonblocking(true)
+                    .map_err(|e| format!("Unable to set unix socket to nonblocking mode: {e}"))?;
+                *socket = Some(sock);
+                Ok(())
+            }
+        }
+    }
+
+    fn recv_packet(&mut self, buf: &mut [u8]) -> Option<(usize, Option<PathBuf>)> {
+        match self {
+            TransportState::ThreadChannel { endpoint, .. } => {
+                let endpoint = endpoint.as_ref()?;
+                let msg = endpoint.rx().try_recv().ok()?;
+                match msg {
+                    Msg::Packet(bytes) => {
+                        if bytes.len() < PeripheralId::BYTE_LEN {
+                            return None;
+                        }
+                        let payload = &bytes[PeripheralId::BYTE_LEN..];
+                        let size = payload.len().min(buf.len());
+                        buf[..size].copy_from_slice(&payload[..size]);
+                        Some((size, None))
+                    }
+                    _ => None,
+                }
+            }
+            TransportState::UnixSocket { socket, .. } => {
+                let sock = socket.as_mut()?;
+                match sock.recv_from(buf).ok() {
+                    Some((size, addr)) => {
+                        let path = addr.as_pathname()?.to_owned();
+                        Some((size, Some(path)))
+                    }
+                    None => None,
+                }
+            }
+        }
+    }
+
+    fn send_packet(
+        &mut self,
+        payload: &[u8],
+        addr: Option<&PathBuf>,
+        peripheral_id: PeripheralId,
+    ) -> Result<(), String> {
+        match self {
+            TransportState::ThreadChannel { endpoint, .. } => {
+                let endpoint = endpoint
+                    .as_ref()
+                    .ok_or_else(|| "Thread channel endpoint not initialized".to_string())?;
+                let mut bytes = vec![0u8; PeripheralId::BYTE_LEN + payload.len()];
+                peripheral_id.write_bytes(&mut bytes[..PeripheralId::BYTE_LEN]);
+                bytes[PeripheralId::BYTE_LEN..].copy_from_slice(payload);
+                endpoint
+                    .tx()
+                    .send(Msg::Packet(bytes))
+                    .map_err(|e| format!("Failed to send thread channel packet: {e}"))
+            }
+            TransportState::UnixSocket { socket, .. } => {
+                let sock = socket
+                    .as_ref()
+                    .ok_or_else(|| "Unix socket not initialized".to_string())?;
+                let addr = addr.ok_or_else(|| "Missing controller address".to_string())?;
+                sock.send_to(payload, addr)
+                    .map_err(|e| format!("Failed to send unix socket packet: {e}"))?;
+                Ok(())
+            }
+        }
+    }
+}
+
+fn socket_path(op_dir: &PathBuf, name: &str) -> PathBuf {
+    op_dir.join("sock").join("per").join(name)
 }

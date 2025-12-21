@@ -45,7 +45,7 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
         #[pymodule_export]
         pub use crate::peripheral::{
             AnalogIRev2, AnalogIRev3, AnalogIRev4, DeimosDaqRev5, DeimosDaqRev6,
-            HootlMockupPeripheral,
+            HootlMockupPeripheral, MockupDriver, MockupTransport,
         };
     }
 
@@ -112,7 +112,7 @@ impl From<BackendErr> for PyErr {
 }
 
 #[pyclass]
-struct Controller {
+pub(crate) struct Controller {
     controller: Option<crate::Controller>,
 }
 
@@ -126,7 +126,7 @@ impl Controller {
         })
     }
 
-    fn ctx(&self) -> PyResult<&crate::ControllerCtx> {
+    pub(crate) fn ctx(&self) -> PyResult<&crate::ControllerCtx> {
         self.controller
             .as_ref()
             .ok_or_else(|| {
