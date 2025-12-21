@@ -181,6 +181,14 @@ class _PeripheralModule(ModuleType):
     class DeimosDaqRev6(_PeripheralBase):
         def __init__(self, serial_number: int) -> None: ...
 
+    class HootlMockupPeripheral(_PeripheralBase):
+        def __init__(
+            self,
+            inner: PeripheralLike,
+            configuring_timeout_ms: int = 250,
+            end_epoch_ns: int | None = None,
+        ) -> None: ...
+
 peripheral: _PeripheralModule
 
 class _SocketModule(ModuleType):
