@@ -109,8 +109,12 @@ impl Socket for UnixSocket {
             std::fs::create_dir_all(self.peripheral_socket_dir())
                 .map_err(|e| format!("Unable to create socket folders: {e}"))?;
 
+            let path = self.path();
+            if path.exists() {
+                let _ = std::fs::remove_file(&path);
+            }
             // Bind the socket
-            let socket = net::UnixDatagram::bind(self.path())
+            let socket = net::UnixDatagram::bind(path)
                 .map_err(|e| format!("Unable to bind unix socket: {e}"))?;
             socket
                 .set_nonblocking(true)
