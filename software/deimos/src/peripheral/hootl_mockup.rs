@@ -17,6 +17,7 @@ use deimos_shared::states::{
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
+use tracing::{info, warn};
 
 use crate::calc::Calc;
 use crate::controller::channel::{Endpoint, Msg};
@@ -69,7 +70,9 @@ py_json_methods!(
             Some(ns) => Some(
                 SystemTime::UNIX_EPOCH
                     .checked_add(Duration::from_nanos(ns))
-                    .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid end_epoch_ns"))?,
+                    .ok_or_else(|| {
+                        pyo3::exceptions::PyValueError::new_err("Invalid end_epoch_ns")
+                    })?,
             ),
             None => None,
         };
@@ -161,7 +164,8 @@ impl Peripheral for HootlMockupPeripheral {
         inputs: &[f64],
         bytes: &mut [u8],
     ) {
-        self.inner.emit_operating_roundtrip(id, period_delta_ns, phase_delta_ns, inputs, bytes);
+        self.inner
+            .emit_operating_roundtrip(id, period_delta_ns, phase_delta_ns, inputs, bytes);
     }
 
     fn parse_operating_roundtrip(&self, bytes: &[u8], outputs: &mut [f64]) -> OperatingMetrics {
@@ -222,13 +226,6 @@ impl MockupTransport {
     }
 }
 
-#[derive(Debug)]
-#[cfg_attr(feature = "python", pyclass)]
-pub struct MockupDriver {
-    config: MockupConfig,
-    transport: MockupTransport,
-}
-
 #[derive(Clone, Debug)]
 struct MockupConfig {
     peripheral_id: PeripheralId,
@@ -236,6 +233,13 @@ struct MockupConfig {
     output_size: usize,
     configuring_timeout: Duration,
     end: Option<SystemTime>,
+}
+
+#[derive(Debug)]
+#[cfg_attr(feature = "python", pyclass)]
+pub struct MockupDriver {
+    config: MockupConfig,
+    transport: MockupTransport,
 }
 
 impl MockupDriver {
@@ -285,7 +289,9 @@ impl MockupDriver {
             Some(ns) => Some(
                 SystemTime::UNIX_EPOCH
                     .checked_add(Duration::from_nanos(ns))
-                    .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid end_epoch_ns"))?,
+                    .ok_or_else(|| {
+                        pyo3::exceptions::PyValueError::new_err("Invalid end_epoch_ns")
+                    })?,
             ),
             None => None,
         };
@@ -322,17 +328,14 @@ impl MockupRunner {
         let mut controller_addr: Option<PathBuf> = None;
 
         loop {
-            if self
-                .config
-                .end
-                .map_or(false, |end| SystemTime::now() > end)
-            {
+            if self.config.end.map_or(false, |end| SystemTime::now() > end) {
                 break;
             }
 
             match state {
                 DriverState::Binding => {
                     if let Some((size, addr)) = self.transport.recv_packet(&mut buf) {
+                        // Parse incoming packet
                         if size != BindingInput::BYTE_LEN {
                             continue;
                         }
@@ -342,23 +345,30 @@ impl MockupRunner {
                         } else {
                             Duration::from_millis(msg.configuring_timeout_ms as u64)
                         };
+                        info!("Mockup runner received binding input");
 
+                        // Build response packet
                         let resp = BindingOutput {
                             peripheral_id: self.config.peripheral_id,
                         };
                         let mut out = vec![0u8; BindingOutput::BYTE_LEN];
                         resp.write_bytes(&mut out);
-                        if self
-                            .transport
-                            .send_packet(&out, addr.as_ref(), self.config.peripheral_id)
-                            .is_ok()
-                        {
-                            controller_addr = addr;
-                            state = DriverState::Configuring {
-                                start: Instant::now(),
-                                timeout,
-                            };
+
+                        // Send response
+                        let send_status = self.transport.send_packet(
+                            &out,
+                            addr.as_ref(),
+                            self.config.peripheral_id,
+                        );
+                        if send_status.is_err() {
+                            warn!("Mockup runner failed to send binding response: {send_status:?}");
                         }
+
+                        controller_addr = addr;
+                        state = DriverState::Configuring {
+                            start: Instant::now(),
+                            timeout,
+                        };
                     } else {
                         thread::sleep(Duration::from_millis(1));
                     }
@@ -379,9 +389,11 @@ impl MockupRunner {
                         };
                         let mut out = vec![0u8; ConfiguringOutput::BYTE_LEN];
                         resp.write_bytes(&mut out);
-                        let _ = self
-                            .transport
-                            .send_packet(&out, controller_addr.as_ref(), self.config.peripheral_id);
+                        let _ = self.transport.send_packet(
+                            &out,
+                            controller_addr.as_ref(),
+                            self.config.peripheral_id,
+                        );
                         state = DriverState::Operating { counter: 0 };
                     } else {
                         thread::sleep(Duration::from_millis(1));
@@ -409,9 +421,11 @@ impl MockupRunner {
                             metrics.write_bytes(&mut out[..OperatingMetrics::BYTE_LEN]);
                         }
 
-                        let _ = self
-                            .transport
-                            .send_packet(&out, controller_addr.as_ref(), self.config.peripheral_id);
+                        let _ = self.transport.send_packet(
+                            &out,
+                            controller_addr.as_ref(),
+                            self.config.peripheral_id,
+                        );
                         *counter = counter.wrapping_add(1);
                     } else {
                         thread::sleep(Duration::from_millis(1));

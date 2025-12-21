@@ -137,10 +137,10 @@ impl Socket for UnixSocket {
         self.pids.clear();
         self.last_received_addr = None;
         self.ctx = ControllerCtx::default();
+        info!("Closed unix socket at {path:?}");
         // Attempt to delete socket file so that it is not left dangling.
         // This may fail on permissions.
         let file_remove_status = std::fs::remove_file(&path);
-        info!("Closed unix socket at {path:?}");
         if file_remove_status.is_err() {
             warn!("Failed to remove unix socket file: {file_remove_status:?}");
         }
@@ -227,6 +227,8 @@ impl Socket for UnixSocket {
 
             // Try to send to each file, since we don't have a rigorous way to check
             // which ones are unix sockets and which ones are not
+            let files: Vec<PathBuf> = files.collect();
+            info!("Unix socket broadcasting to {files:?}");
             for f in files {
                 sock.send_to(msg, &f)
                     .map_err(|e| format!("Failed to send unix socket packet: {e}"))?;
