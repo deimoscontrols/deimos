@@ -409,10 +409,15 @@ impl Controller {
                 .map(|(pname, _p)| pname.clone())
                 .collect();
             if missing_peripherals.len() > 0 {
+                // Report error
                 let msg = format!(
                     "Required peripherals not found on any sockets: {missing_peripherals:?}"
                 );
                 error!("{msg}");
+
+                // Close sockets and exit
+                self.sockets.iter_mut().for_each(|sock| sock.close());
+                
                 return Err(msg);
             }
         }

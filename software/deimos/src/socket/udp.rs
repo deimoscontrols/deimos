@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
+use tracing::info;
 
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
@@ -62,12 +63,14 @@ impl Socket for UdpSocket {
     fn open(&mut self, _ctx: &ControllerCtx) -> Result<(), String> {
         if self.socket.is_none() {
             // Socket populated on access
-            let socket = std::net::UdpSocket::bind(format!("0.0.0.0:{CONTROLLER_RX_PORT}"))
+            let addr = format!("0.0.0.0:{CONTROLLER_RX_PORT}");
+            let socket = std::net::UdpSocket::bind(&addr)
                 .map_err(|e| format!("Unable to bind UDP socket: {e}"))?;
             socket
                 .set_nonblocking(true)
                 .map_err(|e| format!("Unable to set UDP socket to nonblocking mode: {e}"))?;
             self.socket = Some(socket);
+            info!("Opened UDP socket at {addr:?}");
         } else {
             // If the socket is already open, do nothing
         }
@@ -81,6 +84,7 @@ impl Socket for UdpSocket {
         self.addrs.clear();
         self.pids.clear();
         self.last_received_addr = None;
+        info!("Closed UDP socket");
     }
 
     fn send(&mut self, id: PeripheralId, msg: &[u8]) -> Result<(), String> {

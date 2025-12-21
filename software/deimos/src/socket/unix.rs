@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
+use tracing::{info, warn};
 
 use crate::py_json_methods;
 
@@ -114,14 +115,15 @@ impl Socket for UnixSocket {
                 let _ = std::fs::remove_file(&path);
             }
             // Bind the socket
-            let socket = net::UnixDatagram::bind(path)
+            let socket = net::UnixDatagram::bind(&path)
                 .map_err(|e| format!("Unable to bind unix socket: {e}"))?;
             socket
                 .set_nonblocking(true)
                 .map_err(|e| format!("Unable to set unix socket to nonblocking mode: {e}"))?;
             self.socket = Some(socket);
+            info!("Opened unix socket at {path:?}");
         } else {
-            return Err("Socket already open".to_string());
+            return Err("Unix socket already open".to_string());
         }
 
         Ok(())
@@ -137,7 +139,11 @@ impl Socket for UnixSocket {
         self.ctx = ControllerCtx::default();
         // Attempt to delete socket file so that it is not left dangling.
         // This may fail on permissions.
-        let _ = std::fs::remove_file(path);
+        let file_remove_status = std::fs::remove_file(&path);
+        info!("Closed unix socket at {path:?}");
+        if file_remove_status.is_err() {
+            warn!("Failed to remove unix socket file: {file_remove_status:?}");
+        }
     }
 
     fn send(&mut self, id: PeripheralId, msg: &[u8]) -> Result<(), String> {
