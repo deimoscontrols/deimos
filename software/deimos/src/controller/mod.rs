@@ -7,7 +7,7 @@ mod peripheral_state;
 mod timing;
 
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::AtomicBool;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
@@ -398,6 +398,25 @@ impl Controller {
             .map_err(|e| format!("Failed to scan for peripherals: {e}"))?;
         info!("Found available units: {:?}", &available_peripherals);
 
+        // Check that all required peripherals are available
+        {
+            let peripheral_set =
+                BTreeSet::from_iter(available_peripherals.keys().map(|(_sid, pid)| *pid));
+            let missing_peripherals: Vec<String> = self
+                .peripherals
+                .iter()
+                .filter(|(_pname, p)| !peripheral_set.contains(&p.id()))
+                .map(|(pname, _p)| pname.clone())
+                .collect();
+            if missing_peripherals.len() > 0 {
+                let msg = format!(
+                    "Required peripherals not found on any sockets: {missing_peripherals:?}"
+                );
+                error!("{msg}");
+                return Err(msg);
+            }
+        }
+
         // Initialize state using scanned addresses
         info!("Initializing controller run state");
         let mut controller_state = ControllerState::new(&self.peripherals, &available_peripherals);
@@ -417,7 +436,7 @@ impl Controller {
             .map_err(|e| format!("Failed to evaluate calc orchestrator during init: {e}"))?;
 
         // Set up dispatcher(s)
-        // TODO: send metrics to calcs so that they can be used as calc inputs
+        // FUTURE: send metrics to calcs so that they can be used as calc inputs
         info!("Initializing dispatchers");
         let mut channel_names = Vec::new();
         let metric_channel_names = controller_state.get_names_to_write();
