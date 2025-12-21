@@ -89,6 +89,7 @@ impl TcKtype {
 
 py_json_methods!(
     TcKtype,
+    Calc,
     #[new]
     fn py_new(
         voltage_name: String,

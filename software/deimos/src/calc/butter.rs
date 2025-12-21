@@ -63,6 +63,7 @@ impl Butter2 {
 
 py_json_methods!(
     Butter2,
+    Calc,
     #[new]
     fn py_new(input_name: String, cutoff_hz: f64, save_outputs: bool) -> Self {
         Self::new(input_name, cutoff_hz, save_outputs)

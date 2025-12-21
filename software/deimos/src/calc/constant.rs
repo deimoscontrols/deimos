@@ -34,6 +34,7 @@ impl Constant {
 
 py_json_methods!(
     Constant,
+    Calc,
     #[new]
     fn py_new(y: f64, save_outputs: bool) -> PyResult<Self> {
         Ok(Self::new(y, save_outputs))

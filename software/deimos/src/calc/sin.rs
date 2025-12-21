@@ -60,6 +60,7 @@ impl Sin {
 
 py_json_methods!(
     Sin,
+    Calc,
     #[new]
     fn py_new(period_s: f64, offset_s: f64, low: f64, high: f64, save_outputs: bool) -> Self {
         Self::new(period_s, offset_s, low, high, save_outputs)

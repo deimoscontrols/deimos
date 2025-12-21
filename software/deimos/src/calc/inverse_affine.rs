@@ -47,6 +47,7 @@ impl InverseAffine {
 
 py_json_methods!(
     InverseAffine,
+    Calc,
     #[new]
     fn py_new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> Self {
         Self::new(input_name, slope, offset, save_outputs)

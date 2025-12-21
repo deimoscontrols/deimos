@@ -1,5 +1,4 @@
 //! Peripherals are timing-controlled external I/O modules, usually a DAQ
-
 use std::{any::type_name, collections::BTreeMap};
 
 use core::fmt::Debug;

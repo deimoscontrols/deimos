@@ -66,6 +66,7 @@ impl RtdPt100 {
 
 py_json_methods!(
     RtdPt100,
+    Calc,
     #[new]
     fn py_new(resistance_name: String, save_outputs: bool) -> Self {
         Self::new(resistance_name, save_outputs)

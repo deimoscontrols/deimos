@@ -13,7 +13,7 @@ pub mod socket;
 ///
 /// Usage:
 /// ```
-/// py_json_methods!(MyCalc,
+/// py_json_methods!(MyCalc, Calc,
 ///     #[new]
 ///     fn py_new(arg: f64) -> Self {
 ///         Self::new(arg)
@@ -29,7 +29,7 @@ pub mod socket;
 /// ```
 #[macro_export]
 macro_rules! py_json_methods {
-    ($ty:ident, $trait:path, $( $method:item )+ $(,)?) => {
+    ($ty:ident, $trait:path, $( $method:item ),+ $(,)?) => {
         #[cfg(feature = "python")]
         #[pymethods]
         impl $ty {
@@ -51,9 +51,6 @@ macro_rules! py_json_methods {
                     .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
             }
         }
-    };
-    ($ty:ident, $( $method:item )+ $(,)?) => {
-        $crate::py_json_methods!($ty, $crate::calc::Calc, $( $method )+);
     };
 }
 

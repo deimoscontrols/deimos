@@ -73,6 +73,7 @@ impl Pid {
 
 py_json_methods!(
     Pid,
+    Calc,
     #[new]
     fn py_new(
         measurement_name: String,

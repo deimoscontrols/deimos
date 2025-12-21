@@ -68,6 +68,7 @@ impl Polynomial {
 
 py_json_methods!(
     Polynomial,
+    Calc,
     #[new]
     fn py_new(
         input_name: String,
