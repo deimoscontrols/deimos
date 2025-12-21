@@ -259,7 +259,7 @@ impl Controller {
                             Err(e) => warn!("{e}"),
                         }
                     } else {
-                        warn!("Received malformed binding response on socket {sid}");
+                        warn!("Received malformed binding response on socket {sid} with {amt} bytes");
                     }
                 }
             }
@@ -417,7 +417,7 @@ impl Controller {
 
                 // Close sockets and exit
                 self.sockets.iter_mut().for_each(|sock| sock.close());
-                
+
                 return Err(msg);
             }
         }
