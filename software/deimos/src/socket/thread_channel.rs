@@ -12,7 +12,7 @@ use crate::controller::channel::{Endpoint, Msg};
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
-use super::Socket;
+use super::{Socket, SocketAddrToken};
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::states::{ByteStruct, ByteStructLen};
 
@@ -89,7 +89,7 @@ impl Socket for ThreadChannelSocket {
             .map_err(|e| format!("Failed to send user channel packet: {e}"))
     }
 
-    fn recv(&mut self) -> Option<(Option<PeripheralId>, Instant, &[u8])> {
+    fn recv(&mut self) -> Option<(Option<PeripheralId>, SocketAddrToken, Instant, &[u8])> {
         let endpoint = self.endpoint.as_ref()?;
         let msg = endpoint.rx().try_recv().ok()?;
         match msg {
@@ -101,7 +101,7 @@ impl Socket for ThreadChannelSocket {
                 self.rxbuf.clear();
                 self.rxbuf
                     .extend_from_slice(&bytes[PeripheralId::BYTE_LEN..]);
-                Some((Some(pid), Instant::now(), &self.rxbuf))
+                Some((Some(pid), 0, Instant::now(), &self.rxbuf))
             }
             _ => None,
         }
@@ -112,7 +112,7 @@ impl Socket for ThreadChannelSocket {
         self.send(PeripheralId::default(), msg)
     }
 
-    fn update_map(&mut self, _id: PeripheralId) -> Result<(), String> {
+    fn update_map(&mut self, _id: PeripheralId, _token: SocketAddrToken) -> Result<(), String> {
         Ok(())
     }
 }

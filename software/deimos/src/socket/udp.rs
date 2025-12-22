@@ -30,7 +30,11 @@ pub struct UdpSocket {
     #[serde(skip)]
     pids: BTreeMap<std::net::SocketAddr, PeripheralId>,
     #[serde(skip)]
-    last_received_addr: Option<std::net::SocketAddr>,
+    addr_tokens: BTreeMap<std::net::SocketAddr, SocketAddrToken>,
+    #[serde(skip)]
+    token_addrs: BTreeMap<SocketAddrToken, std::net::SocketAddr>,
+    #[serde(skip)]
+    next_addr_token: SocketAddrToken,
 }
 
 impl UdpSocket {
@@ -40,7 +44,9 @@ impl UdpSocket {
             socket: None,
             addrs: BTreeMap::new(),
             pids: BTreeMap::new(),
-            last_received_addr: None,
+            addr_tokens: BTreeMap::new(),
+            token_addrs: BTreeMap::new(),
+            next_addr_token: 0,
         }
     }
 }
@@ -86,7 +92,9 @@ impl Socket for UdpSocket {
         self.socket = None;
         self.addrs.clear();
         self.pids.clear();
-        self.last_received_addr = None;
+        self.addr_tokens.clear();
+        self.token_addrs.clear();
+        self.next_addr_token = 0;
         info!("Closed UDP socket");
     }
 
@@ -110,7 +118,7 @@ impl Socket for UdpSocket {
         Ok(())
     }
 
-    fn recv(&mut self) -> Option<(Option<PeripheralId>, Instant, &[u8])> {
+    fn recv(&mut self) -> Option<(Option<PeripheralId>, SocketAddrToken, Instant, &[u8])> {
         // Check if there is anything to receive,
         // and filter out packets from unexpected source port
         let (size, addr, time) = match self.socket.as_mut() {
@@ -129,12 +137,21 @@ impl Socket for UdpSocket {
             None => return None,
         };
 
-        self.last_received_addr = Some(addr);
+        let token = match self.addr_tokens.get(&addr).copied() {
+            Some(token) => token,
+            None => {
+                let token = self.next_addr_token;
+                self.next_addr_token = self.next_addr_token.wrapping_add(1);
+                self.addr_tokens.insert(addr, token);
+                self.token_addrs.insert(token, addr);
+                token
+            }
+        };
 
         // Check if we already know which peripheral this is
         let pid = self.pids.get(&addr).copied();
 
-        Some((pid, time, &self.rxbuf[..size]))
+        Some((pid, token, time, &self.rxbuf[..size]))
     }
 
     fn broadcast(&mut self, msg: &[u8]) -> Result<(), String> {
@@ -157,8 +174,8 @@ impl Socket for UdpSocket {
         Ok(())
     }
 
-    fn update_map(&mut self, id: PeripheralId) -> Result<(), String> {
-        if let Some(addr) = self.last_received_addr {
+    fn update_map(&mut self, id: PeripheralId, token: SocketAddrToken) -> Result<(), String> {
+        if let Some(addr) = self.token_addrs.get(&token).copied() {
             self.addrs.insert(id, addr);
             self.pids.insert(addr, id);
 
@@ -171,6 +188,8 @@ impl Socket for UdpSocket {
                     &self.addrs, &self.pids
                 ));
             }
+        } else {
+            return Err(format!("Unknown address token {token}"));
         }
 
         Ok(())

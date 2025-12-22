@@ -41,7 +41,11 @@ pub struct UnixSocket {
     #[serde(skip)]
     pids: BTreeMap<PathBuf, PeripheralId>,
     #[serde(skip)]
-    last_received_addr: Option<PathBuf>,
+    addr_tokens: BTreeMap<PathBuf, SocketAddrToken>,
+    #[serde(skip)]
+    token_addrs: BTreeMap<SocketAddrToken, PathBuf>,
+    #[serde(skip)]
+    next_addr_token: SocketAddrToken,
     #[serde(skip)]
     ctx: ControllerCtx,
 }
@@ -54,7 +58,9 @@ impl UnixSocket {
             socket: None,
             addrs: BTreeMap::new(),
             pids: BTreeMap::new(),
-            last_received_addr: None,
+            addr_tokens: BTreeMap::new(),
+            token_addrs: BTreeMap::new(),
+            next_addr_token: 0,
             ctx: ControllerCtx::default(),
         }
     }
@@ -104,7 +110,9 @@ impl Socket for UnixSocket {
     fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String> {
         if self.socket.is_none() {
             self.ctx = ctx.clone();
-            self.rxbuf = vec![0; 1522];
+            if self.rxbuf.len() < 1522 {
+                self.rxbuf.resize(1522, 0);
+            }
             // Create the socket folders if they don't already exist
             std::fs::create_dir_all(self.ctx.op_dir.join("sock"))
                 .map_err(|e| format!("Unable to create socket folders: {e}"))?;
@@ -136,7 +144,9 @@ impl Socket for UnixSocket {
         self.socket = None;
         self.addrs.clear();
         self.pids.clear();
-        self.last_received_addr = None;
+        self.addr_tokens.clear();
+        self.token_addrs.clear();
+        self.next_addr_token = 0;
         self.ctx = ControllerCtx::default();
         info!("Closed unix socket at {path:?}");
         // Attempt to delete socket file so that it is not left dangling.
@@ -167,7 +177,7 @@ impl Socket for UnixSocket {
         Ok(())
     }
 
-    fn recv(&mut self) -> Option<(Option<PeripheralId>, Instant, &[u8])> {
+    fn recv(&mut self) -> Option<(Option<PeripheralId>, SocketAddrToken, Instant, &[u8])> {
         // Check if there is anything to receive,
         // and filter out packets from unexpected source port
         let (size, src_path, time) = match self.socket.as_mut() {
@@ -189,12 +199,21 @@ impl Socket for UnixSocket {
             None => return None,
         };
 
-        self.last_received_addr = Some(src_path.to_owned());
+        let token = match self.addr_tokens.get(&src_path).copied() {
+            Some(token) => token,
+            None => {
+                let token = self.next_addr_token;
+                self.next_addr_token = self.next_addr_token.wrapping_add(1);
+                self.addr_tokens.insert(src_path.clone(), token);
+                self.token_addrs.insert(token, src_path.clone());
+                token
+            }
+        };
 
         // Check if we already know which peripheral this is
         let pid = self.pids.get(&src_path).copied();
 
-        Some((pid, time, &self.rxbuf[..size]))
+        Some((pid, token, time, &self.rxbuf[..size]))
     }
 
     fn broadcast(&mut self, msg: &[u8]) -> Result<(), String> {
@@ -239,8 +258,8 @@ impl Socket for UnixSocket {
         Ok(())
     }
 
-    fn update_map(&mut self, id: PeripheralId) -> Result<(), String> {
-        if let Some(addr) = &self.last_received_addr {
+    fn update_map(&mut self, id: PeripheralId, token: SocketAddrToken) -> Result<(), String> {
+        if let Some(addr) = self.token_addrs.get(&token) {
             self.addrs.insert(id, addr.clone());
             self.pids.insert(addr.clone(), id);
 
@@ -250,6 +269,8 @@ impl Socket for UnixSocket {
                     &self.addrs, &self.pids
                 ));
             }
+        } else {
+            return Err(format!("Unknown address token {token}"));
         }
 
         Ok(())

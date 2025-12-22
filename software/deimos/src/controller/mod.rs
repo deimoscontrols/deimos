@@ -238,7 +238,7 @@ impl Controller {
         // Collect binding responses
         while start_of_binding.elapsed().as_millis() <= binding_timeout_ms as u128 {
             for (sid, socket) in self.sockets.iter_mut().enumerate() {
-                if let Some((pid, _rxtime, recvd)) = socket.recv() {
+                if let Some((pid, token, _rxtime, recvd)) = socket.recv() {
                     // If this is from the right port and it's not capturing our own
                     // broadcast binding request, bind the module
                     // let recvd = &udp_buf[..BindingOutput::BYTE_LEN];
@@ -251,7 +251,7 @@ impl Controller {
                                 let addr = (sid, pid);
                                 // Update the socket's address map
                                 socket
-                                    .update_map(pid)
+                                    .update_map(pid, token)
                                     .map_err(|e| format!("Failed to update socket mapping: {e}"))?;
                                 // Update the controller's address map
                                 available_peripherals.insert(addr, parsed);
@@ -528,7 +528,7 @@ impl Controller {
             info!("Waiting for peripherals to acknowledge configuration");
             while start_of_operating_countdown.elapsed() < operating_timeout {
                 for (sid, socket) in self.sockets.iter_mut().enumerate() {
-                    if let Some((pid, _rxtime, buf)) = socket.recv() {
+                    if let Some((pid, _token, _rxtime, buf)) = socket.recv() {
                         let amt = buf.len();
 
                         // Make sure the packet is the right size and the peripheral ID is recognized
@@ -783,7 +783,7 @@ impl Controller {
                 // Otherwise, process incoming packets
 
                 for (sid, sock) in self.sockets.iter_mut().enumerate() {
-                    if let Some((pid, rxtime, buf)) = sock.recv() {
+                    if let Some((pid, _token, rxtime, buf)) = sock.recv() {
                         let amt = buf.len();
                         let pid = match pid {
                             Some(x) => x,
