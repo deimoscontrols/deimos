@@ -4,7 +4,7 @@ from deimos import Controller, peripheral, socket
 
 
 def main() -> None:
-    here =(Path(__file__).parent / "../../" / "op").resolve()
+    here =(Path(__file__).parent / "op").resolve()
     ctrl = Controller(
         op_name="mockup_demo", op_dir=str(here), rate_hz=100.0
     )
