@@ -209,18 +209,17 @@ pub enum MockupTransport {
     UnixSocket { name: String },
 }
 
-#[cfg(feature = "python")]
-#[pymethods]
+#[cfg_attr(feature = "python", pymethods)]
 impl MockupTransport {
     #[staticmethod]
-    fn thread_channel(name: &str) -> Self {
+    pub fn thread_channel(name: &str) -> Self {
         Self::ThreadChannel {
             name: name.to_owned(),
         }
     }
 
     #[staticmethod]
-    fn unix_socket(name: &str) -> Self {
+    pub fn unix_socket(name: &str) -> Self {
         Self::UnixSocket {
             name: name.to_owned(),
         }

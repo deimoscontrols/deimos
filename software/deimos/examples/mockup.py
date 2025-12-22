@@ -4,10 +4,8 @@ from deimos import Controller, peripheral, socket
 
 
 def main() -> None:
-    here =(Path(__file__).parent / "op").resolve()
-    ctrl = Controller(
-        op_name="mockup_demo", op_dir=str(here), rate_hz=100.0
-    )
+    here = Path(__file__).parent.resolve()
+    ctrl = Controller(op_name="mockup_demo", op_dir=str(here / "op"), rate_hz=100.0)
 
     ctrl.clear_sockets()
     ctrl.add_socket(socket.ThreadChannelSocket("mockup_chan"))
