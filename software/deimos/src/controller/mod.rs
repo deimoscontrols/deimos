@@ -208,10 +208,10 @@ impl Controller {
         };
         binding_msg.write_bytes(&mut buf[..BindingInput::BYTE_LEN]);
 
-        //    Start the clock at transmission
+        // Start the clock at transmission
         let start_of_binding = Instant::now();
 
-        //    Send binding requests
+        // Send binding requests
         if let Some(addresses) = addresses {
             // Bind specific modules with a (hopefully) nonzero timeout
             //    Send unicast request to bind
@@ -235,7 +235,7 @@ impl Controller {
             }
         }
 
-        //    Collect binding responses
+        // Collect binding responses
         while start_of_binding.elapsed().as_millis() <= binding_timeout_ms as u128 {
             for (sid, socket) in self.sockets.iter_mut().enumerate() {
                 if let Some((pid, _rxtime, recvd)) = socket.recv() {
@@ -259,7 +259,9 @@ impl Controller {
                             Err(e) => warn!("{e}"),
                         }
                     } else {
-                        warn!("Received malformed binding response on socket {sid} from {pid:?} with {amt} bytes");
+                        warn!(
+                            "Received malformed binding response on socket {sid} from {pid:?} with {amt} bytes"
+                        );
                     }
                 }
             }
@@ -351,7 +353,7 @@ impl Controller {
         let log_file_canonicalized = log_file
             .canonicalize()
             .map_err(|e| format!("Failed to resolve log file path: {e}"))?;
-        info!("Controller starting op \"{}\"", &self.ctx.op_name);
+        info!("Starting op \"{}\"", &self.ctx.op_name);
         info!("Logging to file {:?}", log_file_canonicalized);
 
         let core_ids = core_affinity::get_core_ids().unwrap_or_default();

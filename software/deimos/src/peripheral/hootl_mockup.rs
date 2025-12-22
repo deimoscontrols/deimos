@@ -18,7 +18,7 @@ use deimos_shared::states::{
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
-use tracing::{info, warn};
+use tracing::{info, warn, error};
 
 use crate::calc::Calc;
 use crate::controller::channel::{Endpoint, Msg};
@@ -349,7 +349,7 @@ impl MockupRunner {
                             self.config.peripheral_id,
                         );
                         if send_status.is_err() {
-                            warn!("Mockup runner failed to send binding response: {send_status:?}");
+                            warn!("Mockup runner failed to send packet: {send_status:?}");
                         }
 
                         controller_addr = addr;
@@ -377,11 +377,18 @@ impl MockupRunner {
                         };
                         let mut out = vec![0u8; ConfiguringOutput::BYTE_LEN];
                         resp.write_bytes(&mut out);
-                        let _ = self.transport.send_packet(
+
+                        let send_status = self.transport.send_packet(
                             &out,
                             controller_addr.as_ref(),
                             self.config.peripheral_id,
                         );
+                        if send_status.is_err() {
+                            error!("Mockup runner failed to send packet: {send_status:?}");
+                            state = DriverState::Binding;
+                            continue
+                        }
+                        
                         state = DriverState::Operating { counter: 0 };
                     } else {
                         thread::sleep(Duration::from_millis(1));
@@ -409,11 +416,17 @@ impl MockupRunner {
                             metrics.write_bytes(&mut out[..OperatingMetrics::BYTE_LEN]);
                         }
 
-                        let _ = self.transport.send_packet(
+                        let send_status = self.transport.send_packet(
                             &out,
                             controller_addr.as_ref(),
                             self.config.peripheral_id,
                         );
+                        if send_status.is_err() {
+                            error!("Mockup runner failed to send packet: {send_status:?}");
+                            state = DriverState::Binding;
+                            continue
+                        }
+
                         *counter = counter.wrapping_add(1);
                     } else {
                         thread::sleep(Duration::from_millis(1));
