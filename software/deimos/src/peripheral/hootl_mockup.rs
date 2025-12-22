@@ -1,8 +1,8 @@
 //! Peripheral wrapper that provides software-defined behavior with an internal state machine.
 
 use std::collections::BTreeMap;
-use std::os::unix::net::SocketAddr as UnixSocketAddr;
-use std::os::unix::net::UnixDatagram;
+use std::net::{Ipv4Addr, SocketAddr as UdpSocketAddr, UdpSocket};
+use std::os::unix::net::{SocketAddr as UnixSocketAddr, UnixDatagram};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::thread::{self, JoinHandle};
@@ -11,6 +11,7 @@ use std::time::{Duration, Instant, SystemTime};
 use serde::{Deserialize, Serialize};
 
 use deimos_shared::OperatingMetrics;
+use deimos_shared::PERIPHERAL_RX_PORT;
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::states::{
     BindingInput, BindingOutput, ByteStruct, ByteStructLen, ConfiguringInput, ConfiguringOutput,
@@ -207,8 +208,14 @@ impl Peripheral for HootlMockupPeripheral {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "python", pyclass)]
 pub enum MockupTransport {
-    ThreadChannel { name: String },
-    UnixSocket { name: String },
+    ThreadChannel {
+        name: String,
+    },
+    UnixSocket {
+        name: String,
+    },
+    /// UDP transport bound to PERIPHERAL_RX_PORT (one mockup at a time).
+    Udp(),
 }
 
 #[cfg_attr(feature = "python", pymethods)]
@@ -225,6 +232,11 @@ impl MockupTransport {
         Self::UnixSocket {
             name: name.to_owned(),
         }
+    }
+
+    #[staticmethod]
+    pub fn udp() -> Self {
+        Self::Udp()
     }
 }
 
@@ -318,7 +330,7 @@ impl MockupRunner {
     fn run_loop(&mut self) {
         let mut buf = vec![0u8; 1522];
         let mut state = DriverState::Binding;
-        let mut controller_addr: Option<UnixSocketAddr> = None;
+        let mut controller_addr: Option<TransportAddr> = None;
 
         loop {
             if self.config.end.map_or(false, |end| SystemTime::now() > end) {
@@ -456,6 +468,15 @@ enum TransportState {
         socket: Option<UnixDatagram>,
         path: Option<PathBuf>,
     },
+    UdpSocket {
+        socket: Option<UdpSocket>,
+    },
+}
+
+#[derive(Debug)]
+enum TransportAddr {
+    Unix(UnixSocketAddr),
+    Udp(UdpSocketAddr),
 }
 
 impl TransportState {
@@ -470,6 +491,7 @@ impl TransportState {
                 socket: None,
                 path: None,
             },
+            MockupTransport::Udp() => Self::UdpSocket { socket: None },
         }
     }
 
@@ -498,6 +520,15 @@ impl TransportState {
                 info!("Opened unix socket at {socket_path:?}");
                 Ok(())
             }
+            TransportState::UdpSocket { socket } => {
+                let sock = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, PERIPHERAL_RX_PORT))
+                    .map_err(|e| format!("Unable to bind UDP socket: {e}"))?;
+                sock.set_nonblocking(true)
+                    .map_err(|e| format!("Unable to set UDP socket to nonblocking mode: {e}"))?;
+                *socket = Some(sock);
+                info!("Opened UDP socket on 0.0.0.0:{PERIPHERAL_RX_PORT}");
+                Ok(())
+            }
         }
     }
 
@@ -515,10 +546,14 @@ impl TransportState {
                 }
                 info!("Closed unix socket at {path:?}");
             }
+            TransportState::UdpSocket { socket } => {
+                *socket = None;
+                info!("Closed UDP socket on 0.0.0.0:{PERIPHERAL_RX_PORT}");
+            }
         }
     }
 
-    fn recv_packet(&mut self, buf: &mut [u8]) -> Option<(usize, Option<UnixSocketAddr>)> {
+    fn recv_packet(&mut self, buf: &mut [u8]) -> Option<(usize, Option<TransportAddr>)> {
         match self {
             TransportState::ThreadChannel { endpoint, .. } => {
                 let endpoint = endpoint.as_ref()?;
@@ -539,7 +574,14 @@ impl TransportState {
             TransportState::UnixSocket { socket, .. } => {
                 let sock = socket.as_mut()?;
                 match sock.recv_from(buf).ok() {
-                    Some((size, addr)) => Some((size, Some(addr))),
+                    Some((size, addr)) => Some((size, Some(TransportAddr::Unix(addr)))),
+                    None => None,
+                }
+            }
+            TransportState::UdpSocket { socket } => {
+                let sock = socket.as_mut()?;
+                match sock.recv_from(buf).ok() {
+                    Some((size, addr)) => Some((size, Some(TransportAddr::Udp(addr)))),
                     None => None,
                 }
             }
@@ -549,7 +591,7 @@ impl TransportState {
     fn send_packet(
         &mut self,
         payload: &[u8],
-        addr: Option<&UnixSocketAddr>,
+        addr: Option<&TransportAddr>,
         peripheral_id: PeripheralId,
     ) -> Result<(), String> {
         match self {
@@ -569,9 +611,26 @@ impl TransportState {
                 let sock = socket
                     .as_ref()
                     .ok_or_else(|| "Unix socket not initialized".to_string())?;
-                let addr = addr.ok_or_else(|| "Missing controller address".to_string())?;
+                let addr = match addr {
+                    Some(TransportAddr::Unix(addr)) => addr,
+                    Some(_) => return Err("Unexpected controller address type".to_string()),
+                    None => return Err("Missing controller address".to_string()),
+                };
                 sock.send_to_addr(payload, addr)
                     .map_err(|e| format!("Failed to send unix socket packet: {e}"))?;
+                Ok(())
+            }
+            TransportState::UdpSocket { socket } => {
+                let sock = socket
+                    .as_ref()
+                    .ok_or_else(|| "UDP socket not initialized".to_string())?;
+                let addr = match addr {
+                    Some(TransportAddr::Udp(addr)) => addr,
+                    Some(_) => return Err("Unexpected controller address type".to_string()),
+                    None => return Err("Missing controller address".to_string()),
+                };
+                sock.send_to(payload, addr)
+                    .map_err(|e| format!("Failed to send UDP packet: {e}"))?;
                 Ok(())
             }
         }

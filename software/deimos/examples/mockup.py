@@ -10,9 +10,11 @@ def main() -> None:
     ctrl.clear_sockets()
     ctrl.add_socket(socket.ThreadChannelSocket("mockup_chan"))
     ctrl.add_socket(socket.UnixSocket("ctrl"))
+    ctrl.add_socket(socket.UdpSocket())
 
     ctrl.add_peripheral("mock_thread", peripheral.DeimosDaqRev6(1))
     ctrl.add_peripheral("mock_unix", peripheral.DeimosDaqRev6(2))
+    ctrl.add_peripheral("mock_udp", peripheral.DeimosDaqRev6(3))
 
     driver_thread = peripheral.MockupDriver(
         peripheral.DeimosDaqRev6(1),
@@ -22,8 +24,13 @@ def main() -> None:
         peripheral.DeimosDaqRev6(2),
         peripheral.MockupTransport.unix_socket("mockup_unix"),
     )
+    driver_udp = peripheral.MockupDriver(
+        peripheral.DeimosDaqRev6(3),
+        peripheral.MockupTransport.udp(),
+    )
     driver_thread.run_with(ctrl)
     driver_unix.run_with(ctrl)
+    driver_udp.run_with(ctrl)
 
     handle = ctrl.run_nonblocking()
     time.sleep(0.5)

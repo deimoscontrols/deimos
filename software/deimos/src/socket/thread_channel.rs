@@ -59,14 +59,20 @@ impl Socket for ThreadChannelSocket {
 
     fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String> {
         self.endpoint = Some(ctx.source_endpoint(&self.name));
-        info!("Opened thread channel socket on user channel {}", &self.name);
+        info!(
+            "Opened thread channel socket on user channel {}",
+            &self.name
+        );
         Ok(())
     }
 
     fn close(&mut self) {
         self.endpoint = None;
         self.rxbuf.clear();
-        info!("Closed thread channel socket on user channel {}", &self.name);
+        info!(
+            "Closed thread channel socket on user channel {}",
+            &self.name
+        );
     }
 
     fn send(&mut self, id: PeripheralId, msg: &[u8]) -> Result<(), String> {

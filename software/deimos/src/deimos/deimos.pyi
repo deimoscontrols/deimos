@@ -192,9 +192,10 @@ class _PeripheralModule(ModuleType):
     class MockupTransport:
         @staticmethod
         def thread_channel(name: str) -> Self: ...
-
         @staticmethod
         def unix_socket(name: str) -> Self: ...
+        @staticmethod
+        def udp() -> Self: ...
 
     class MockupDriver:
         def __init__(
