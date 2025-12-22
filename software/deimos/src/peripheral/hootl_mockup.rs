@@ -19,6 +19,8 @@ use deimos_shared::states::{
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 use tracing::error;
+use tracing::info;
+use tracing::warn;
 
 use crate::calc::Calc;
 use crate::controller::channel::{Endpoint, Msg};
@@ -431,6 +433,8 @@ impl MockupRunner {
                 }
             }
         }
+
+        self.transport.close();
     }
 }
 
@@ -450,6 +454,7 @@ enum TransportState {
     UnixSocket {
         name: String,
         socket: Option<UnixDatagram>,
+        path: Option<PathBuf>,
     },
 }
 
@@ -460,7 +465,11 @@ impl TransportState {
                 name,
                 endpoint: None,
             },
-            MockupTransport::UnixSocket { name } => Self::UnixSocket { name, socket: None },
+            MockupTransport::UnixSocket { name } => Self::UnixSocket {
+                name,
+                socket: None,
+                path: None,
+            },
         }
     }
 
@@ -468,23 +477,43 @@ impl TransportState {
         match self {
             TransportState::ThreadChannel { name, endpoint } => {
                 *endpoint = Some(ctx.sink_endpoint(name));
+                info!("Opened thread channel socket on user channel `{name}`");
                 Ok(())
             }
-            TransportState::UnixSocket { name, socket } => {
-                let path = socket_path(&ctx.op_dir, name);
-                if let Some(parent) = path.parent() {
+            TransportState::UnixSocket { name, socket, path } => {
+                let socket_path = socket_path(&ctx.op_dir, name);
+                if let Some(parent) = socket_path.parent() {
                     std::fs::create_dir_all(parent)
                         .map_err(|e| format!("Unable to create socket folders: {e}"))?;
                 }
-                if path.exists() {
-                    let _ = std::fs::remove_file(&path);
+                if socket_path.exists() {
+                    let _ = std::fs::remove_file(&socket_path);
                 }
-                let sock = UnixDatagram::bind(&path)
+                let sock = UnixDatagram::bind(&socket_path)
                     .map_err(|e| format!("Unable to bind unix socket: {e}"))?;
                 sock.set_nonblocking(true)
                     .map_err(|e| format!("Unable to set unix socket to nonblocking mode: {e}"))?;
                 *socket = Some(sock);
+                *path = Some(socket_path.clone());
+                info!("Opened unix socket at {socket_path:?}");
                 Ok(())
+            }
+        }
+    }
+
+    fn close(&mut self) {
+        match self {
+            TransportState::ThreadChannel { endpoint, .. } => {
+                *endpoint = None;
+            }
+            TransportState::UnixSocket { socket, path, .. } => {
+                *socket = None;
+                if let Some(path) = path.take() {
+                    if let Err(err) = std::fs::remove_file(&path) {
+                        warn!("Failed to remove unix socket file {path:?}: {err}");
+                    }
+                }
+                info!("Closed unix socket at {path:?}");
             }
         }
     }
