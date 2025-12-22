@@ -104,6 +104,7 @@ impl Socket for UnixSocket {
     fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String> {
         if self.socket.is_none() {
             self.ctx = ctx.clone();
+            self.rxbuf = vec![0; 1522];
             // Create the socket folders if they don't already exist
             std::fs::create_dir_all(self.ctx.op_dir.join("sock"))
                 .map_err(|e| format!("Unable to create socket folders: {e}"))?;

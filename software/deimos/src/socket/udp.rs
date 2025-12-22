@@ -62,6 +62,9 @@ impl Socket for UdpSocket {
 
     fn open(&mut self, _ctx: &ControllerCtx) -> Result<(), String> {
         if self.socket.is_none() {
+            if self.rxbuf.len() < 1522 {
+                self.rxbuf.resize(1522, 0);
+            }
             // Socket populated on access
             let addr = format!("0.0.0.0:{CONTROLLER_RX_PORT}");
             let socket = std::net::UdpSocket::bind(&addr)

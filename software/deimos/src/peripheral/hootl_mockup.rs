@@ -333,7 +333,6 @@ impl MockupRunner {
                         }
                         let msg = BindingInput::read_bytes(&buf[..size]);
                         let timeout = Duration::from_millis(msg.configuring_timeout_ms as u64);
-                        info!("Mockup runner received binding input");
 
                         // Build response packet
                         let resp = BindingOutput {
@@ -349,7 +348,8 @@ impl MockupRunner {
                             self.config.peripheral_id,
                         );
                         if send_status.is_err() {
-                            warn!("Mockup runner failed to send packet: {send_status:?}");
+                            error!("Mockup runner failed to send packet: {send_status:?}");
+                            break
                         }
 
                         controller_addr = addr;
@@ -385,8 +385,7 @@ impl MockupRunner {
                         );
                         if send_status.is_err() {
                             error!("Mockup runner failed to send packet: {send_status:?}");
-                            state = DriverState::Binding;
-                            continue
+                            break
                         }
                         
                         state = DriverState::Operating { counter: 0 };
@@ -423,8 +422,7 @@ impl MockupRunner {
                         );
                         if send_status.is_err() {
                             error!("Mockup runner failed to send packet: {send_status:?}");
-                            state = DriverState::Binding;
-                            continue
+                            break
                         }
 
                         *counter = counter.wrapping_add(1);
