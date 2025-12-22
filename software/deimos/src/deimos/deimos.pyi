@@ -201,7 +201,6 @@ class _PeripheralModule(ModuleType):
             self,
             inner: PeripheralLike,
             transport: MockupTransport,
-            configuring_timeout_ms: int = 250,
             end_epoch_ns: int | None = None,
         ) -> None: ...
         def run_with(self, controller: Controller) -> None: ...

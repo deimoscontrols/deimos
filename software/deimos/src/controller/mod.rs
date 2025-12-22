@@ -238,7 +238,7 @@ impl Controller {
         //    Collect binding responses
         while start_of_binding.elapsed().as_millis() <= binding_timeout_ms as u128 {
             for (sid, socket) in self.sockets.iter_mut().enumerate() {
-                if let Some((_pid, _rxtime, recvd)) = socket.recv() {
+                if let Some((pid, _rxtime, recvd)) = socket.recv() {
                     // If this is from the right port and it's not capturing our own
                     // broadcast binding request, bind the module
                     // let recvd = &udp_buf[..BindingOutput::BYTE_LEN];
@@ -259,7 +259,7 @@ impl Controller {
                             Err(e) => warn!("{e}"),
                         }
                     } else {
-                        warn!("Received malformed binding response on socket {sid} with {amt} bytes");
+                        warn!("Received malformed binding response on socket {sid} from {pid:?} with {amt} bytes");
                     }
                 }
             }

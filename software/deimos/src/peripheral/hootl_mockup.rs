@@ -1,7 +1,8 @@
 //! Peripheral wrapper that provides software-defined behavior with an internal state machine.
 
 use std::collections::BTreeMap;
-use std::os::unix::net;
+use std::os::unix::net::SocketAddr as UnixSocketAddr;
+use std::os::unix::net::UnixDatagram;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::thread::{self, JoinHandle};
@@ -231,7 +232,6 @@ struct MockupConfig {
     peripheral_id: PeripheralId,
     input_size: usize,
     output_size: usize,
-    configuring_timeout: Duration,
     end: Option<SystemTime>,
 }
 
@@ -249,16 +249,10 @@ impl MockupDriver {
                 peripheral_id: inner.id(),
                 input_size: inner.operating_roundtrip_input_size(),
                 output_size: inner.operating_roundtrip_output_size(),
-                configuring_timeout: Duration::from_millis(250),
                 end: None,
             },
             transport,
         }
-    }
-
-    pub fn with_configuring_timeout(mut self, timeout: Duration) -> Self {
-        self.config.configuring_timeout = timeout;
-        self
     }
 
     pub fn with_end(mut self, end: Option<SystemTime>) -> Self {
@@ -276,15 +270,13 @@ impl MockupDriver {
 #[pymethods]
 impl MockupDriver {
     #[new]
-    #[pyo3(signature=(inner, transport, configuring_timeout_ms=250, end_epoch_ns=None))]
+    #[pyo3(signature=(inner, transport, end_epoch_ns=None))]
     fn py_new(
         inner: Box<dyn Peripheral>,
         transport: MockupTransport,
-        configuring_timeout_ms: u64,
         end_epoch_ns: Option<u64>,
     ) -> PyResult<Self> {
-        let mut driver = Self::new(inner.as_ref(), transport)
-            .with_configuring_timeout(Duration::from_millis(configuring_timeout_ms));
+        let mut driver = Self::new(inner.as_ref(), transport);
         let end = match end_epoch_ns {
             Some(ns) => Some(
                 SystemTime::UNIX_EPOCH
@@ -325,7 +317,7 @@ impl MockupRunner {
     fn run_loop(&mut self) {
         let mut buf = vec![0u8; 1522];
         let mut state = DriverState::Binding;
-        let mut controller_addr: Option<PathBuf> = None;
+        let mut controller_addr: Option<UnixSocketAddr> = None;
 
         loop {
             if self.config.end.map_or(false, |end| SystemTime::now() > end) {
@@ -340,11 +332,7 @@ impl MockupRunner {
                             continue;
                         }
                         let msg = BindingInput::read_bytes(&buf[..size]);
-                        let timeout = if msg.configuring_timeout_ms == 0 {
-                            self.config.configuring_timeout
-                        } else {
-                            Duration::from_millis(msg.configuring_timeout_ms as u64)
-                        };
+                        let timeout = Duration::from_millis(msg.configuring_timeout_ms as u64);
                         info!("Mockup runner received binding input");
 
                         // Build response packet
@@ -356,7 +344,7 @@ impl MockupRunner {
 
                         // Send response
                         let send_status = self.transport.send_packet(
-                            &out,
+                            &out[..],
                             addr.as_ref(),
                             self.config.peripheral_id,
                         );
@@ -451,7 +439,7 @@ enum TransportState {
     },
     UnixSocket {
         name: String,
-        socket: Option<net::UnixDatagram>,
+        socket: Option<UnixDatagram>,
     },
 }
 
@@ -481,7 +469,7 @@ impl TransportState {
                 if path.exists() {
                     let _ = std::fs::remove_file(&path);
                 }
-                let sock = net::UnixDatagram::bind(&path)
+                let sock = UnixDatagram::bind(&path)
                     .map_err(|e| format!("Unable to bind unix socket: {e}"))?;
                 sock.set_nonblocking(true)
                     .map_err(|e| format!("Unable to set unix socket to nonblocking mode: {e}"))?;
@@ -491,7 +479,7 @@ impl TransportState {
         }
     }
 
-    fn recv_packet(&mut self, buf: &mut [u8]) -> Option<(usize, Option<PathBuf>)> {
+    fn recv_packet(&mut self, buf: &mut [u8]) -> Option<(usize, Option<UnixSocketAddr>)> {
         match self {
             TransportState::ThreadChannel { endpoint, .. } => {
                 let endpoint = endpoint.as_ref()?;
@@ -512,10 +500,7 @@ impl TransportState {
             TransportState::UnixSocket { socket, .. } => {
                 let sock = socket.as_mut()?;
                 match sock.recv_from(buf).ok() {
-                    Some((size, addr)) => {
-                        let path = addr.as_pathname()?.to_owned();
-                        Some((size, Some(path)))
-                    }
+                    Some((size, addr)) => Some((size, Some(addr))),
                     None => None,
                 }
             }
@@ -525,7 +510,7 @@ impl TransportState {
     fn send_packet(
         &mut self,
         payload: &[u8],
-        addr: Option<&PathBuf>,
+        addr: Option<&UnixSocketAddr>,
         peripheral_id: PeripheralId,
     ) -> Result<(), String> {
         match self {
@@ -546,7 +531,8 @@ impl TransportState {
                     .as_ref()
                     .ok_or_else(|| "Unix socket not initialized".to_string())?;
                 let addr = addr.ok_or_else(|| "Missing controller address".to_string())?;
-                sock.send_to(payload, addr)
+                sock
+                    .send_to_addr(payload, addr)
                     .map_err(|e| format!("Failed to send unix socket packet: {e}"))?;
                 Ok(())
             }
