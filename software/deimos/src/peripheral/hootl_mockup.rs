@@ -18,7 +18,7 @@ use deimos_shared::states::{
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
-use tracing::{info, warn, error};
+use tracing::error;
 
 use crate::calc::Calc;
 use crate::controller::channel::{Endpoint, Msg};
@@ -349,7 +349,7 @@ impl MockupRunner {
                         );
                         if send_status.is_err() {
                             error!("Mockup runner failed to send packet: {send_status:?}");
-                            break
+                            break;
                         }
 
                         controller_addr = addr;
@@ -385,9 +385,9 @@ impl MockupRunner {
                         );
                         if send_status.is_err() {
                             error!("Mockup runner failed to send packet: {send_status:?}");
-                            break
+                            break;
                         }
-                        
+
                         state = DriverState::Operating { counter: 0 };
                     } else {
                         thread::sleep(Duration::from_millis(1));
@@ -422,7 +422,7 @@ impl MockupRunner {
                         );
                         if send_status.is_err() {
                             error!("Mockup runner failed to send packet: {send_status:?}");
-                            break
+                            break;
                         }
 
                         *counter = counter.wrapping_add(1);
@@ -542,8 +542,7 @@ impl TransportState {
                     .as_ref()
                     .ok_or_else(|| "Unix socket not initialized".to_string())?;
                 let addr = addr.ok_or_else(|| "Missing controller address".to_string())?;
-                sock
-                    .send_to_addr(payload, addr)
+                sock.send_to_addr(payload, addr)
                     .map_err(|e| format!("Failed to send unix socket packet: {e}"))?;
                 Ok(())
             }
