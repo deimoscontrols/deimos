@@ -10,23 +10,19 @@ use serde_json;
 use interpn::one_dim::{Interp1D, RectilinearGrid1D};
 // use tracing::info;
 
-#[cfg(feature = "python")]
-use pyo3::prelude::*;
-
 pub type StateName = String;
 
 use super::*;
 
 /// Choice of behavior when a given sequence reaches the end of its lookup table
 #[derive(Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "python", pyclass)]
 #[non_exhaustive]
 pub enum Timeout {
     /// Transition to the next sequence
     Transition(StateName),
 
     /// Start over from the beginning of the table
-    Loop(),
+    Loop,
 
     /// Raise an error with a message
     Error(String),
@@ -34,33 +30,12 @@ pub enum Timeout {
 
 impl Default for Timeout {
     fn default() -> Self {
-        Self::Loop()
-    }
-}
-
-#[cfg(feature = "python")]
-#[pymethods]
-impl Timeout {
-    #[staticmethod]
-    pub fn transition(target: &str) -> Self {
-        Self::Transition(target.to_owned())
-    }
-
-    #[staticmethod]
-    #[pyo3(name = "loop")]
-    pub fn loop_() -> Self {
-        Self::Loop()
-    }
-
-    #[staticmethod]
-    pub fn error(msg: &str) -> Self {
-        Self::Error(msg.to_owned())
+        Self::Loop
     }
 }
 
 /// A logical operator used to evaluate whether a transition should occur.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "python", pyclass)]
 pub enum ThreshOp {
     /// Greater than
     Gt { by: f64 },
@@ -100,28 +75,8 @@ impl ThreshOp {
     }
 }
 
-#[cfg(feature = "python")]
-#[pymethods]
-impl ThreshOp {
-    #[staticmethod]
-    pub fn gt(by: f64) -> Self {
-        Self::Gt { by }
-    }
-
-    #[staticmethod]
-    pub fn lt(by: f64) -> Self {
-        Self::Lt { by }
-    }
-
-    #[staticmethod]
-    pub fn approx(rtol: f64, atol: f64) -> Self {
-        Self::Approx { rtol, atol }
-    }
-}
-
 /// Methods for checking whether a sequence transition should occur
 #[derive(Serialize, Deserialize, Debug)]
-#[cfg_attr(feature = "python", pyclass)]
 #[non_exhaustive]
 pub enum Transition {
     /// Transition if a value of some input exceeds a threshold value
@@ -166,43 +121,6 @@ impl Transition {
     }
 }
 
-#[cfg(feature = "python")]
-#[pymethods]
-impl Transition {
-    #[staticmethod]
-    pub fn constant_thresh(channel: &str, op: PyRef<'_, ThreshOp>, thresh: f64) -> Self {
-        Self::ConstantThresh(channel.to_owned(), op.clone(), thresh)
-    }
-
-    #[staticmethod]
-    pub fn channel_thresh(
-        channel: &str,
-        op: PyRef<'_, ThreshOp>,
-        thresh_channel: &str,
-    ) -> Self {
-        Self::ChannelThresh(
-            channel.to_owned(),
-            op.clone(),
-            thresh_channel.to_owned(),
-        )
-    }
-
-    #[staticmethod]
-    pub fn lookup_thresh(
-        channel: &str,
-        op: PyRef<'_, ThreshOp>,
-        method: &str,
-        time_s: Vec<f64>,
-        vals: Vec<f64>,
-    ) -> PyResult<Self> {
-        let method = InterpMethod::try_parse(method)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
-        let lookup = SequenceLookup::new(method, time_s, vals)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
-        Ok(Self::LookupThresh(channel.to_owned(), op.clone(), lookup))
-    }
-}
-
 /// Interpolation method for sequence lookups
 #[derive(Default, Debug, Serialize, Deserialize)]
 #[non_exhaustive]
@@ -244,7 +162,6 @@ impl InterpMethod {
 
 /// A lookup table defining one sequenced output from a Sequence
 #[derive(Serialize, Deserialize, Debug)]
-#[cfg_attr(feature = "python", pyclass)]
 pub struct SequenceLookup {
     /// Interpolation method
     method: InterpMethod,
@@ -322,28 +239,6 @@ impl SequenceLookup {
     /// Sample the lookup at a point in time
     pub fn eval(&self, sequence_time_s: f64) -> f64 {
         self.eval_checked(sequence_time_s).unwrap()
-    }
-}
-
-#[cfg(feature = "python")]
-#[pymethods]
-impl SequenceLookup {
-    #[new]
-    fn py_new(method: &str, time_s: Vec<f64>, vals: Vec<f64>) -> PyResult<Self> {
-        let method = InterpMethod::try_parse(method)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
-        Self::new(method, time_s, vals)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
-    }
-
-    fn eval_(&self, sequence_time_s: f64) -> PyResult<f64> {
-        self.eval_checked(sequence_time_s)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
-    }
-
-    fn validate_(&self) -> PyResult<()> {
-        SequenceLookup::validate(self)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
     }
 }
 
@@ -712,7 +607,7 @@ impl SequenceMachine {
                     self.transition(target_sequence.clone());
                     Ok(())
                 }
-                Timeout::Loop() => {
+                Timeout::Loop => {
                     // info!("Looping sequence `{sequence_name}` due to timeout");
                     self.transition(sequence_name.clone());
                     Ok(())

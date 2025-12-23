@@ -35,7 +35,6 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
         pub use crate::calc::{
             Affine, Butter2, Constant, InverseAffine, Pid, Polynomial, RtdPt100,
             Sin, TcKtype,
-            sequence_machine::{SequenceLookup, ThreshOp, Timeout, Transition},
         };
     }
 
