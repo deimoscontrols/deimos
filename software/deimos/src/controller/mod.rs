@@ -888,7 +888,16 @@ impl Controller {
             //    Send to dispatcher
             let mut dispatch_errors = Vec::new();
             for dispatcher in self.dispatchers.iter_mut() {
-                if let Err(err) = dispatcher.consume(time, timestamp, channel_values.clone()) {
+                let mut leased = self.ctx.dispatcher_buffer_pool.lease_or_create(|| {
+                    vec![0.0; n_channels]
+                });
+                let buf = leased.as_mut();
+                if buf.len() != n_channels {
+                    buf.clear();
+                    buf.resize(n_channels, 0.0);
+                }
+                buf.copy_from_slice(&channel_values);
+                if let Err(err) = dispatcher.consume(time, timestamp, leased) {
                     error!("{err}");
                     dispatch_errors.push(err);
                 }

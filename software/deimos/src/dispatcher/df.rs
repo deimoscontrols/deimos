@@ -11,6 +11,7 @@ use tracing::info;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
+use crate::buffer_pool::BufferLease;
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
@@ -181,14 +182,14 @@ impl Dispatcher for DataFrameDispatcher {
         &mut self,
         time: SystemTime,
         timestamp: i64,
-        channel_values: Vec<f64>,
+        channel_values: BufferLease<Vec<f64>>,
     ) -> Result<(), String> {
         // Store data
         let i = self.row_index;
         let row = Row {
             system_time: fmt_time(time),
             timestamp,
-            channel_values,
+            channel_values: channel_values.into_inner(),
         };
         self.df
             .write()

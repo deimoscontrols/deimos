@@ -2,6 +2,7 @@
 #![allow(clippy::needless_range_loop)]
 
 pub mod calc;
+pub mod buffer_pool;
 pub mod controller;
 pub mod dispatcher;
 pub mod logging;

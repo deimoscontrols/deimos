@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
+use crate::buffer_pool::BufferLease;
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
@@ -67,7 +68,7 @@ impl Dispatcher for DecimationDispatcher {
         &mut self,
         time: SystemTime,
         timestamp: i64,
-        channel_values: Vec<f64>,
+        channel_values: BufferLease<Vec<f64>>,
     ) -> Result<(), String> {
         if !self.initialized {
             return Err(

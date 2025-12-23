@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
+use crate::buffer_pool::{BufferLease, BufferPool};
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
@@ -24,6 +25,8 @@ pub struct ChannelFilter {
     indices: Vec<usize>,
     #[serde(skip)]
     initialized: bool,
+    #[serde(skip)]
+    buffer_pool: Option<BufferPool<Vec<f64>>>,
 }
 
 impl ChannelFilter {
@@ -33,6 +36,7 @@ impl ChannelFilter {
             inner,
             indices: Vec::new(),
             initialized: false,
+            buffer_pool: None,
         }
     }
 
@@ -87,6 +91,7 @@ impl Dispatcher for ChannelFilter {
 
         self.indices = indices;
         self.initialized = true;
+        self.buffer_pool = Some(ctx.dispatcher_buffer_pool.clone());
 
         self.inner.init(ctx, &filtered_names, core_assignment)
     }
@@ -95,21 +100,28 @@ impl Dispatcher for ChannelFilter {
         &mut self,
         time: SystemTime,
         timestamp: i64,
-        channel_values: Vec<f64>,
+        channel_values: BufferLease<Vec<f64>>,
     ) -> Result<(), String> {
         if !self.initialized {
             return Err("ChannelFilter must be initialized before consuming data".to_string());
         }
 
-        let mut filtered = Vec::with_capacity(self.indices.len());
+        let pool = self
+            .buffer_pool
+            .as_ref()
+            .ok_or_else(|| "ChannelFilter must be initialized before consuming data".to_string())?;
+        let mut filtered = pool.lease_or_create(Vec::new);
+        let buf = filtered.as_mut();
+        buf.clear();
+        buf.reserve(self.indices.len());
         for &idx in &self.indices {
-            let value = channel_values.get(idx).copied().ok_or_else(|| {
+            let value = channel_values.as_ref().get(idx).copied().ok_or_else(|| {
                 format!(
                     "Channel filter index {idx} out of bounds for {} values",
-                    channel_values.len()
+                    channel_values.as_ref().len()
                 )
             })?;
-            filtered.push(value);
+            buf.push(value);
         }
 
         self.inner.consume(time, timestamp, filtered)
@@ -119,6 +131,7 @@ impl Dispatcher for ChannelFilter {
         let result = self.inner.terminate();
         self.indices.clear();
         self.initialized = false;
+        self.buffer_pool = None;
         result
     }
 }

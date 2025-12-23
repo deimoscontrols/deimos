@@ -6,10 +6,24 @@ use std::time::{Duration, SystemTime};
 use std::{collections::BTreeMap, default::Default};
 
 use super::channel::{Channel, Endpoint};
+use crate::buffer_pool::{BufferPool, SocketBuffer, SOCKET_BUFFER_LEN};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
+
+const DEFAULT_SOCKET_BUFFER_POOL_CAPACITY: usize = 32;
+const DEFAULT_DISPATCHER_BUFFER_POOL_CAPACITY: usize = 8;
+
+fn default_socket_buffer_pool() -> BufferPool<SocketBuffer> {
+    BufferPool::with_factory(DEFAULT_SOCKET_BUFFER_POOL_CAPACITY, || {
+        Box::new([0u8; SOCKET_BUFFER_LEN])
+    })
+}
+
+fn default_dispatcher_buffer_pool() -> BufferPool<Vec<f64>> {
+    BufferPool::with_factory(DEFAULT_DISPATCHER_BUFFER_POOL_CAPACITY, Vec::new)
+}
 
 /// Criteria for exiting the control program
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -98,6 +112,14 @@ pub struct ControllerCtx {
     /// when a freerunning thread should terminate, as this will often result in
     /// a resource leak.
     pub user_channels: Arc<RwLock<BTreeMap<String, Channel>>>,
+
+    /// Shared buffer pool for socket I/O.
+    #[serde(skip, default = "default_socket_buffer_pool")]
+    pub socket_buffer_pool: BufferPool<SocketBuffer>,
+
+    /// Shared buffer pool for dispatcher outputs.
+    #[serde(skip, default = "default_dispatcher_buffer_pool")]
+    pub dispatcher_buffer_pool: BufferPool<Vec<f64>>,
 }
 
 impl ControllerCtx {
@@ -142,6 +164,8 @@ impl Default for ControllerCtx {
             loss_of_contact_policy: LossOfContactPolicy::Terminate,
             user_ctx: BTreeMap::new(),
             user_channels: Arc::new(RwLock::new(BTreeMap::new())),
+            socket_buffer_pool: default_socket_buffer_pool(),
+            dispatcher_buffer_pool: default_dispatcher_buffer_pool(),
         }
     }
 }

@@ -19,6 +19,7 @@ pub use low_pass::LowPassDispatcher;
 mod csv;
 pub use csv::CsvDispatcher;
 
+use crate::buffer_pool::BufferLease;
 use crate::controller::context::ControllerCtx;
 
 #[cfg(feature = "python")]
@@ -64,7 +65,7 @@ pub trait Dispatcher: Send + Sync {
         &mut self,
         time: SystemTime,
         timestamp: i64,
-        channel_values: Vec<f64>,
+        channel_values: BufferLease<Vec<f64>>,
     ) -> Result<(), String>;
 
     /// Shut down the dispatcher and reset internal state for the next run
@@ -91,7 +92,7 @@ pub fn fmt_time(time: SystemTime) -> String {
 }
 
 /// Format a CSV row that guarantees fixed width for a given number of columns
-pub fn csv_row_fixed_width(stringbuf: &mut String, vals: (SystemTime, i64, Vec<f64>)) {
+pub fn csv_row_fixed_width(stringbuf: &mut String, vals: (SystemTime, i64, &[f64])) {
     stringbuf.clear();
     let (time, timestamp, channel_values) = vals;
 
@@ -102,13 +103,13 @@ pub fn csv_row_fixed_width(stringbuf: &mut String, vals: (SystemTime, i64, Vec<f
     stringbuf.extend(format!("{timestamp_fixed_width},{t_iso8601}").chars());
     for c in channel_values {
         stringbuf.push(',');
-        stringbuf.push_str(&fmt_f64(c));
+        stringbuf.push_str(&fmt_f64(*c));
     }
     stringbuf.push('\n');
 }
 
 /// Smaller-size and faster-eval CSV row that does not guarantee fixed width
-pub fn csv_row(stringbuf: &mut String, vals: (SystemTime, i64, Vec<f64>)) {
+pub fn csv_row(stringbuf: &mut String, vals: (SystemTime, i64, &[f64])) {
     stringbuf.clear();
     let (time, timestamp, channel_values) = vals;
 
@@ -117,7 +118,7 @@ pub fn csv_row(stringbuf: &mut String, vals: (SystemTime, i64, Vec<f64>)) {
     // Timestamp and floats need some effort to maintain fixed width
     stringbuf.extend(format!("{timestamp},{t_iso8601}").chars());
     for c in channel_values {
-        stringbuf.push_str(&format!(",{c}"));
+        stringbuf.push_str(&format!(",{}", *c));
     }
     stringbuf.push('\n');
 }

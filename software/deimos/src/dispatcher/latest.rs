@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
+use crate::buffer_pool::BufferLease;
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
@@ -139,7 +140,7 @@ impl Dispatcher for LatestValueDispatcher {
         &mut self,
         time: SystemTime,
         timestamp: i64,
-        channel_values: Vec<f64>,
+        channel_values: BufferLease<Vec<f64>>,
     ) -> Result<(), String> {
         match &mut self.worker {
             Some(worker) => worker
@@ -158,13 +159,13 @@ impl Dispatcher for LatestValueDispatcher {
 }
 
 struct WorkerHandle {
-    pub tx: Sender<(SystemTime, i64, Vec<f64>)>,
+    pub tx: Sender<(SystemTime, i64, BufferLease<Vec<f64>>)>,
     _thread: JoinHandle<()>,
 }
 
 impl WorkerHandle {
     fn new(handle: LatestValueHandle, core_assignment: usize) -> Result<Self, String> {
-        let (tx, rx) = channel::<(SystemTime, i64, Vec<f64>)>();
+        let (tx, rx) = channel::<(SystemTime, i64, BufferLease<Vec<f64>>)>();
         let _thread = spawn(move || {
             // Bind to assigned core
             core_affinity::set_for_current(core_affinity::CoreId {
@@ -175,7 +176,7 @@ impl WorkerHandle {
                 let row = Row {
                     system_time: fmt_time(time),
                     timestamp,
-                    channel_values,
+                    channel_values: channel_values.into_inner(),
                 };
                 handle.row.store(row);
             }
