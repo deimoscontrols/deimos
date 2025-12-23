@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 const DEFAULT_SOCKET_BUFFER_POOL_CAPACITY: usize = 32;
 const DEFAULT_DISPATCHER_BUFFER_POOL_CAPACITY: usize = 8;
 
@@ -27,6 +30,7 @@ fn default_dispatcher_buffer_pool() -> BufferPool<Vec<f64>> {
 
 /// Criteria for exiting the control program
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[cfg_attr(feature = "python", pyclass)]
 #[non_exhaustive]
 pub enum Termination {
     /// A duration after which the control program should terminate.
@@ -43,8 +47,31 @@ pub enum Termination {
     // Calc(String)
 }
 
+#[cfg(feature = "python")]
+#[pymethods]
+impl Termination {
+    #[staticmethod]
+    pub fn timeout_ms(ms: u64) -> Self {
+        Self::Timeout(Duration::from_millis(ms))
+    }
+
+    #[staticmethod]
+    pub fn timeout_ns(ns: u64) -> Self {
+        Self::Timeout(Duration::from_nanos(ns))
+    }
+
+    #[staticmethod]
+    pub fn scheduled_epoch_ns(ns: u64) -> PyResult<Self> {
+        let when = SystemTime::UNIX_EPOCH
+            .checked_add(Duration::from_nanos(ns))
+            .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid epoch nanoseconds"))?;
+        Ok(Self::Scheduled(when))
+    }
+}
+
 /// Response to losing contact with a peripheral
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[cfg_attr(feature = "python", pyclass)]
 #[non_exhaustive]
 pub enum LossOfContactPolicy {
     /// Terminate the control program

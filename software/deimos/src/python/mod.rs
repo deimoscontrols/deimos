@@ -74,6 +74,15 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
 
     m.add_wrapped(wrap_pymodule!(dispatcher_))?;
 
+    #[pymodule]
+    #[pyo3(name = "context")]
+    mod context_ {
+        #[pymodule_export]
+        pub use crate::controller::context::{LossOfContactPolicy, Termination};
+    }
+
+    m.add_wrapped(wrap_pymodule!(context_))?;
+
     Ok(())
 }
 
@@ -336,6 +345,48 @@ impl Controller {
     #[setter(controller_loss_of_contact_limit)]
     fn set_controller_loss_of_contact_limit(&mut self, v: u16) -> PyResult<()> {
         self.ctx_mut()?.controller_loss_of_contact_limit = v;
+        Ok(())
+    }
+
+    #[getter(termination_criteria)]
+    fn termination_criteria(&self, py: Python<'_>) -> PyResult<Vec<Py<crate::Termination>>> {
+        self.ctx()?
+            .termination_criteria
+            .iter()
+            .cloned()
+            .map(|term| Py::new(py, term))
+            .collect()
+    }
+
+    #[setter(termination_criteria)]
+    fn set_termination_criteria(
+        &mut self,
+        py: Python<'_>,
+        v: Vec<Py<crate::Termination>>,
+    ) -> PyResult<()> {
+        let criteria = v
+            .into_iter()
+            .map(|term| term.borrow(py).clone())
+            .collect();
+        self.ctx_mut()?.termination_criteria = criteria;
+        Ok(())
+    }
+
+    #[getter(loss_of_contact_policy)]
+    fn loss_of_contact_policy(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<Py<crate::LossOfContactPolicy>> {
+        Py::new(py, self.ctx()?.loss_of_contact_policy.clone())
+    }
+
+    #[setter(loss_of_contact_policy)]
+    fn set_loss_of_contact_policy(
+        &mut self,
+        py: Python<'_>,
+        v: Py<crate::LossOfContactPolicy>,
+    ) -> PyResult<()> {
+        self.ctx_mut()?.loss_of_contact_policy = v.borrow(py).clone();
         Ok(())
     }
 

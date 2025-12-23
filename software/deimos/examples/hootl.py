@@ -5,12 +5,15 @@ to test the software's interface with hardware.
 
 import time
 from pathlib import Path
-from deimos import Controller, peripheral, socket
+from deimos import Controller, context, peripheral, socket
 
 
 def main() -> None:
     here = Path(__file__).parent.resolve()
     ctrl = Controller(op_name="mockup_demo", op_dir=str(here / "op"), rate_hz=100.0)
+    ctrl.termination_criteria = [
+        context.Termination.timeout_ns(1_000_000_000)
+    ]
 
     ctrl.clear_sockets()
     ctrl.add_socket(socket.ThreadChannelSocket("mockup_chan"))
@@ -37,16 +40,18 @@ def main() -> None:
     driver_unix.run_with(ctrl)
     driver_udp.run_with(ctrl)
 
+    handle = ctrl.run_nonblocking()
     try:
-        handle = ctrl.run_nonblocking()
         time.sleep(0.5)
 
         # Make sure we had stable communication with all the peripheral mockups
         for k, v in handle.read().values.items():
             if "loss_of_contact_counter" in k:
                 assert v == 0.0, f"Missed packet: {k} = {v:.0f}"
-    finally:
+    except Exception:
         handle.stop()
+        raise
+    finally:
         handle.join()
 
 

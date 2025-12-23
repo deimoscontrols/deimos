@@ -24,7 +24,7 @@ use crate::{
 use deimos_shared::states::*;
 
 use crate::calc::{FieldName, Orchestrator, PeripheralInputName};
-use crate::dispatcher::Dispatcher;
+use crate::dispatcher::{Dispatcher, fmt_time};
 use crate::socket::udp::UdpSocket;
 use crate::socket::{
     Socket, SocketAddr, SocketPacket, SocketWorkerCommand, SocketWorkerEvent, SocketWorkerHandle,
@@ -859,7 +859,9 @@ impl Controller {
                     Termination::Scheduled(t_sched) => {
                         if t_sched >= &time {
                             let msg = format!(
-                                "Reached scheduled termination time {t_sched:?} at {time:?}"
+                                "Reached scheduled termination time {} at {} after {i} cycles",
+                                fmt_time(*t_sched),
+                                fmt_time(time)
                             );
                             info!("{msg}");
                             Some(Ok(msg))

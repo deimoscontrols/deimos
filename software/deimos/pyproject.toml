@@ -29,15 +29,15 @@ changelog = "https://github.com/deimoscontrols/deimos/blob/main/CHANGELOG.md"
 test = [
     "pytest >= 9",
     "pytest-cov >= 7.0.0",
-    "ruff >= 0.14.7",
-    "ty == 0.0.4",
-    "mktestdocs == 0.2.1",
+    "ruff >= 0.14.10",
+    "ty == 0.0.5",
+    "mktestdocs == 0.2.5",
     "scipy >= 1.11.4",
     "plotly>=5,<6",
 ]
 doc = [
-    "mkdocs >= 1.5.3",
-    "mkdocstrings-python >= 1.7.5",
+    "mkdocs >= 1.6.1",
+    "mkdocstrings-python >= 2.0.1",
     "mkdocs-material >= 9.7.1"
 ]
 
