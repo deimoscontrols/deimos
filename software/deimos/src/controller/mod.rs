@@ -238,7 +238,7 @@ impl Controller {
         // Collect binding responses
         while start_of_binding.elapsed().as_millis() <= binding_timeout_ms as u128 {
             for (sid, socket) in self.sockets.iter_mut().enumerate() {
-                if let Some(packet) = socket.recv() {
+                if let Some(packet) = socket.recv(Duration::ZERO) {
                     // If this is from the right port and it's not capturing our own
                     // broadcast binding request, bind the module
                     // let recvd = &udp_buf[..BindingOutput::BYTE_LEN];
@@ -484,7 +484,11 @@ impl Controller {
             }
 
             // Clear buffers
-            while self.sockets.iter_mut().any(|sock| sock.recv().is_some()) {}
+            while self
+                .sockets
+                .iter_mut()
+                .any(|sock| sock.recv(Duration::ZERO).is_some())
+            {}
 
             // Bind
             let bound_peripherals = self
@@ -528,7 +532,7 @@ impl Controller {
             info!("Waiting for peripherals to acknowledge configuration");
             while start_of_operating_countdown.elapsed() < operating_timeout {
                 for (sid, socket) in self.sockets.iter_mut().enumerate() {
-                    if let Some(packet) = socket.recv() {
+                    if let Some(packet) = socket.recv(Duration::ZERO) {
                         let amt = packet.size;
 
                         // Make sure the packet is the right size and the peripheral ID is recognized
@@ -783,7 +787,7 @@ impl Controller {
                 // Otherwise, process incoming packets
 
                 for (sid, sock) in self.sockets.iter_mut().enumerate() {
-                    if let Some(packet) = sock.recv() {
+                    if let Some(packet) = sock.recv(Duration::ZERO) {
                         let amt = packet.size;
                         let pid = match packet.pid {
                             Some(x) => x,

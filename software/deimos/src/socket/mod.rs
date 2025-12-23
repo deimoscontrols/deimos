@@ -5,7 +5,7 @@ pub mod thread_channel;
 pub mod udp;
 pub mod unix;
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::buffer_pool::{BufferLease, SocketBuffer};
 use crate::controller::context::ControllerCtx;
@@ -52,7 +52,7 @@ pub trait Socket: Send + Sync {
 
     /// Receive a packet, if available, along with an address token
     /// and a timestamp indicating when the packet was received.
-    fn recv(&mut self) -> Option<SocketPacket>;
+    fn recv(&mut self, timeout: Duration) -> Option<SocketPacket>;
 
     /// Send a packet to every reachable peripheral
     fn broadcast(&mut self, msg: &[u8]) -> Result<(), String>;

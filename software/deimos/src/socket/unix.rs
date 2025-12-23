@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 use std::os::unix::net; //{SocketAddr, UnixDatagram};
 use std::path::PathBuf;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
@@ -125,9 +125,6 @@ impl Socket for UnixSocket {
             // Bind the socket
             let socket = net::UnixDatagram::bind(&path)
                 .map_err(|e| format!("Unable to bind unix socket: {e}"))?;
-            socket
-                .set_nonblocking(true)
-                .map_err(|e| format!("Unable to set unix socket to nonblocking mode: {e}"))?;
             self.socket = Some(socket);
             info!("Opened unix socket at {path:?}");
         } else {
@@ -177,17 +174,23 @@ impl Socket for UnixSocket {
         Ok(())
     }
 
-    fn recv(&mut self) -> Option<SocketPacket> {
+    fn recv(&mut self, timeout: Duration) -> Option<SocketPacket> {
         // Check if there is anything to receive,
         // and filter out packets from unexpected source port
         let sock = self.socket.as_mut()?;
         let pool = self.buffer_pool.as_ref()?;
         let mut lease = pool.lease_or_create(|| Box::new([0u8; SOCKET_BUFFER_LEN]));
+        let timeout = if timeout.is_zero() {
+            Duration::from_nanos(1)
+        } else {
+            timeout
+        };
+        let _ = sock.set_read_timeout(Some(timeout));
         let (size, src_path, time) = match {
             let buf = lease.as_mut();
-            sock.recv_from(&mut buf[..]).ok()
+            sock.recv_from(&mut buf[..])
         } {
-            Some((size, addr)) => {
+            Ok((size, addr)) => {
                 // Mark the time ASAP
                 let now = Instant::now();
 
@@ -199,7 +202,12 @@ impl Socket for UnixSocket {
                     return None;
                 }
             }
-            None => return None,
+            Err(err) => {
+                match err.kind() {
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut => return None,
+                    _ => return None,
+                }
+            }
         };
 
         let token = match self.addr_tokens.get(&src_path).copied() {

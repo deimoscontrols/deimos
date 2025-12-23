@@ -1,6 +1,6 @@
 //! Socket implementation backed by a controller user channel.
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
@@ -91,10 +91,14 @@ impl Socket for ThreadChannelSocket {
             .map_err(|e| format!("Failed to send user channel packet: {e}"))
     }
 
-    fn recv(&mut self) -> Option<SocketPacket> {
+    fn recv(&mut self, timeout: Duration) -> Option<SocketPacket> {
         let endpoint = self.endpoint.as_ref()?;
         let pool = self.buffer_pool.as_ref()?;
-        let msg = endpoint.rx().try_recv().ok()?;
+        let msg = if timeout.is_zero() {
+            endpoint.rx().try_recv().ok()?
+        } else {
+            endpoint.rx().recv_timeout(timeout).ok()?
+        };
         match msg {
             Msg::Packet(bytes) => {
                 if bytes.len() < PeripheralId::BYTE_LEN {

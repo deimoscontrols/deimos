@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::net::Ipv4Addr;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
@@ -74,9 +74,6 @@ impl Socket for UdpSocket {
             let addr = format!("0.0.0.0:{CONTROLLER_RX_PORT}");
             let socket = std::net::UdpSocket::bind(&addr)
                 .map_err(|e| format!("Unable to bind UDP socket: {e}"))?;
-            socket
-                .set_nonblocking(true)
-                .map_err(|e| format!("Unable to set UDP socket to nonblocking mode: {e}"))?;
             self.socket = Some(socket);
             info!("Opened UDP socket at {addr:?}");
         } else {
@@ -118,17 +115,23 @@ impl Socket for UdpSocket {
         Ok(())
     }
 
-    fn recv(&mut self) -> Option<SocketPacket> {
+    fn recv(&mut self, timeout: Duration) -> Option<SocketPacket> {
         // Check if there is anything to receive,
         // and filter out packets from unexpected source port
         let sock = self.socket.as_mut()?;
         let pool = self.buffer_pool.as_ref()?;
         let mut lease = pool.lease_or_create(|| Box::new([0u8; SOCKET_BUFFER_LEN]));
+        let timeout = if timeout.is_zero() {
+            Duration::from_nanos(1)
+        } else {
+            timeout
+        };
+        let _ = sock.set_read_timeout(Some(timeout));
         let (size, addr, time) = match {
             let buf = lease.as_mut();
-            sock.recv_from(&mut buf[..]).ok()
+            sock.recv_from(&mut buf[..])
         } {
-            Some((size, addr)) => {
+            Ok((size, addr)) => {
                 // Mark the time ASAP
                 let now = Instant::now();
                 // Make sure the source port is consistent with a peripheral
@@ -137,7 +140,12 @@ impl Socket for UdpSocket {
                 }
                 (size, addr, now)
             }
-            None => return None,
+            Err(err) => {
+                match err.kind() {
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut => return None,
+                    _ => return None,
+                }
+            }
         };
 
         let token = match self.addr_tokens.get(&addr).copied() {
