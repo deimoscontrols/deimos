@@ -241,7 +241,7 @@ impl MockupTransport {
 }
 
 #[derive(Clone, Debug)]
-struct MockupConfig {
+struct HootlConfig {
     peripheral_id: PeripheralId,
     input_size: usize,
     output_size: usize,
@@ -250,15 +250,15 @@ struct MockupConfig {
 
 #[derive(Debug)]
 #[cfg_attr(feature = "python", pyclass)]
-pub struct MockupDriver {
-    config: MockupConfig,
+pub struct HootlDriver {
+    config: HootlConfig,
     transport: MockupTransport,
 }
 
-impl MockupDriver {
+impl HootlDriver {
     pub fn new(inner: &dyn Peripheral, transport: MockupTransport) -> Self {
         Self {
-            config: MockupConfig {
+            config: HootlConfig {
                 peripheral_id: inner.id(),
                 input_size: inner.operating_roundtrip_input_size(),
                 output_size: inner.operating_roundtrip_output_size(),
@@ -274,14 +274,14 @@ impl MockupDriver {
     }
 
     pub fn run(&self, ctx: &ControllerCtx) -> Result<JoinHandle<()>, String> {
-        let mut runner = MockupRunner::new(self, ctx)?;
+        let mut runner = HootlRunner::new(self, ctx)?;
         Ok(thread::spawn(move || runner.run_loop()))
     }
 }
 
 #[cfg(feature = "python")]
 #[pymethods]
-impl MockupDriver {
+impl HootlDriver {
     #[new]
     #[pyo3(signature=(inner, transport, end_epoch_ns=None))]
     fn py_new(
@@ -312,13 +312,13 @@ impl MockupDriver {
     }
 }
 
-struct MockupRunner {
-    config: MockupConfig,
+struct HootlRunner {
+    config: HootlConfig,
     transport: TransportState,
 }
 
-impl MockupRunner {
-    fn new(driver: &MockupDriver, ctx: &ControllerCtx) -> Result<Self, String> {
+impl HootlRunner {
+    fn new(driver: &HootlDriver, ctx: &ControllerCtx) -> Result<Self, String> {
         let mut transport = TransportState::new(driver.transport.clone());
         transport.open(ctx)?;
         Ok(Self {
@@ -361,7 +361,7 @@ impl MockupRunner {
                             self.config.peripheral_id,
                         );
                         if send_status.is_err() {
-                            error!("Mockup runner failed to send packet: {send_status:?}");
+                            error!("Hootl runner failed to send packet: {send_status:?}");
                             break;
                         }
 
@@ -397,7 +397,7 @@ impl MockupRunner {
                             self.config.peripheral_id,
                         );
                         if send_status.is_err() {
-                            error!("Mockup runner failed to send packet: {send_status:?}");
+                            error!("Hootl runner failed to send packet: {send_status:?}");
                             break;
                         }
 
@@ -434,7 +434,7 @@ impl MockupRunner {
                             self.config.peripheral_id,
                         );
                         if send_status.is_err() {
-                            error!("Mockup runner failed to send packet: {send_status:?}");
+                            error!("Hootl runner failed to send packet: {send_status:?}");
                             break;
                         }
 

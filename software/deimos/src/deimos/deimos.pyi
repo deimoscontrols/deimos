@@ -197,7 +197,7 @@ class _PeripheralModule(ModuleType):
         @staticmethod
         def udp() -> Self: ...
 
-    class MockupDriver:
+    class HootlDriver:
         def __init__(
             self,
             inner: PeripheralLike,

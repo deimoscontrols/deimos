@@ -21,15 +21,15 @@ def main() -> None:
     ctrl.add_peripheral("mock_unix", peripheral.DeimosDaqRev6(2))
     ctrl.add_peripheral("mock_udp", peripheral.DeimosDaqRev6(3))
 
-    driver_thread = peripheral.MockupDriver(
+    driver_thread = peripheral.HootlDriver(
         peripheral.DeimosDaqRev6(1),
         peripheral.MockupTransport.thread_channel("mockup_chan"),
     )
-    driver_unix = peripheral.MockupDriver(
+    driver_unix = peripheral.HootlDriver(
         peripheral.DeimosDaqRev6(2),
         peripheral.MockupTransport.unix_socket("mockup_unix"),
     )
-    driver_udp = peripheral.MockupDriver(
+    driver_udp = peripheral.HootlDriver(
         peripheral.DeimosDaqRev6(3),
         peripheral.MockupTransport.udp(),
     )
