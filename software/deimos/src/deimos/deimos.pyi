@@ -102,7 +102,39 @@ class _SocketBase:
     @classmethod
     def from_json(cls, s: str) -> Self: ...
 
+class ThreshOp:
+    @staticmethod
+    def gt(by: float) -> Self: ...
+    @staticmethod
+    def lt(by: float) -> Self: ...
+    @staticmethod
+    def approx(rtol: float, atol: float) -> Self: ...
+
 class _CalcModule(ModuleType):
+    ThreshOp = ThreshOp
+
+    class Timeout:
+        @staticmethod
+        def transition(target: str) -> Self: ...
+        @staticmethod
+        def loop() -> Self: ...
+        @staticmethod
+        def error(msg: str) -> Self: ...
+
+    class Transition:
+        @staticmethod
+        def constant_thresh(channel: str, op: ThreshOp, thresh: float) -> Self: ...
+        @staticmethod
+        def channel_thresh(channel: str, op: ThreshOp, thresh_channel: str) -> Self: ...
+        @staticmethod
+        def lookup_thresh(
+            channel: str,
+            op: ThreshOp,
+            method: str,
+            time_s: list[float],
+            vals: list[float],
+        ) -> Self: ...
+
     class Affine(_CalcBase):
         def __init__(
             self,
