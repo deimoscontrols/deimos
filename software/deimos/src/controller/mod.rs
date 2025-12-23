@@ -238,20 +238,20 @@ impl Controller {
         // Collect binding responses
         while start_of_binding.elapsed().as_millis() <= binding_timeout_ms as u128 {
             for (sid, socket) in self.sockets.iter_mut().enumerate() {
-                if let Some((pid, token, _rxtime, recvd)) = socket.recv() {
+                if let Some(packet) = socket.recv() {
                     // If this is from the right port and it's not capturing our own
                     // broadcast binding request, bind the module
                     // let recvd = &udp_buf[..BindingOutput::BYTE_LEN];
-                    let amt = recvd.len();
+                    let amt = packet.size;
                     if amt == BindingOutput::BYTE_LEN {
-                        let binding_response = BindingOutput::read_bytes(recvd);
+                        let binding_response = BindingOutput::read_bytes(packet.payload());
                         match parse_binding(&binding_response, plugins) {
                             Ok(parsed) => {
                                 let pid = parsed.id();
                                 let addr = (sid, pid);
                                 // Update the socket's address map
                                 socket
-                                    .update_map(pid, token)
+                                    .update_map(pid, packet.token)
                                     .map_err(|e| format!("Failed to update socket mapping: {e}"))?;
                                 // Update the controller's address map
                                 available_peripherals.insert(addr, parsed);
@@ -260,7 +260,7 @@ impl Controller {
                         }
                     } else {
                         warn!(
-                            "Received malformed binding response on socket {sid} from {pid:?} with {amt} bytes"
+                            "Received malformed binding response on socket {sid} with {amt} bytes"
                         );
                     }
                 }
@@ -528,11 +528,11 @@ impl Controller {
             info!("Waiting for peripherals to acknowledge configuration");
             while start_of_operating_countdown.elapsed() < operating_timeout {
                 for (sid, socket) in self.sockets.iter_mut().enumerate() {
-                    if let Some((pid, _token, _rxtime, buf)) = socket.recv() {
-                        let amt = buf.len();
+                    if let Some(packet) = socket.recv() {
+                        let amt = packet.size;
 
                         // Make sure the packet is the right size and the peripheral ID is recognized
-                        match pid {
+                        match packet.pid {
                             Some(pid) => {
                                 // Parse the (potential) peripheral's response
                                 let p = bound_peripherals.get(&(sid, pid)).unwrap();
@@ -542,7 +542,7 @@ impl Controller {
                                     );
                                     continue;
                                 }
-                                let ack = ConfiguringOutput::read_bytes(buf);
+                                let ack = ConfiguringOutput::read_bytes(packet.payload());
                                 let addr = (sid, pid);
 
                                 // Check if this is peripheral belongs to this controller
@@ -783,9 +783,9 @@ impl Controller {
                 // Otherwise, process incoming packets
 
                 for (sid, sock) in self.sockets.iter_mut().enumerate() {
-                    if let Some((pid, _token, rxtime, buf)) = sock.recv() {
-                        let amt = buf.len();
-                        let pid = match pid {
+                    if let Some(packet) = sock.recv() {
+                        let amt = packet.size;
+                        let pid = match packet.pid {
                             Some(x) => x,
                             None => continue,
                         };
@@ -819,7 +819,7 @@ impl Controller {
                         let metrics = self.orchestrator.consume_peripheral_outputs(
                             &ps.name,
                             &mut |outputs: &mut [f64]| {
-                                p.parse_operating_roundtrip(&buf[..n], outputs)
+                                p.parse_operating_roundtrip(&packet.payload()[..n], outputs)
                             },
                         );
 
@@ -828,7 +828,7 @@ impl Controller {
                             // Process metrics for this peripheral
                             ps.metrics.operating_metrics = metrics;
                             ps.metrics.last_received_time_ns =
-                                (rxtime - start_of_operating).as_nanos() as i64;
+                                (packet.time - start_of_operating).as_nanos() as i64;
 
                             // Reset cycles since last contact
                             ps.metrics.loss_of_contact_counter = 0.0;

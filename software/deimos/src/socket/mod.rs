@@ -7,6 +7,7 @@ pub mod unix;
 
 use std::time::Instant;
 
+use crate::buffer_pool::{BufferLease, SocketBuffer};
 use crate::controller::context::ControllerCtx;
 use deimos_shared::peripherals::PeripheralId;
 
@@ -18,6 +19,20 @@ pub type SocketAddr = (usize, PeripheralId);
 
 /// Opaque token for a socket-specific address seen by recv().
 pub type SocketAddrToken = u64;
+
+pub struct SocketPacket {
+    pub pid: Option<PeripheralId>,
+    pub token: SocketAddrToken,
+    pub time: Instant,
+    pub buffer: BufferLease<SocketBuffer>,
+    pub size: usize,
+}
+
+impl SocketPacket {
+    pub fn payload(&self) -> &[u8] {
+        &self.buffer.as_ref()[..self.size]
+    }
+}
 
 /// Packetized socket interface for message-passing
 /// to/from peripherals on different I/O media.
@@ -37,7 +52,7 @@ pub trait Socket: Send + Sync {
 
     /// Receive a packet, if available, along with an address token
     /// and a timestamp indicating when the packet was received.
-    fn recv(&mut self) -> Option<(Option<PeripheralId>, SocketAddrToken, Instant, &[u8])>;
+    fn recv(&mut self) -> Option<SocketPacket>;
 
     /// Send a packet to every reachable peripheral
     fn broadcast(&mut self, msg: &[u8]) -> Result<(), String>;

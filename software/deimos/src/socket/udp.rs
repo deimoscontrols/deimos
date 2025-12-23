@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use pyo3::prelude::*;
 use tracing::info;
 
+use crate::buffer_pool::{BufferPool, SocketBuffer, SOCKET_BUFFER_LEN};
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
@@ -24,7 +25,7 @@ pub struct UdpSocket {
     #[serde(skip)]
     socket: Option<std::net::UdpSocket>,
     #[serde(skip)]
-    rxbuf: Vec<u8>,
+    buffer_pool: Option<BufferPool<SocketBuffer>>,
     #[serde(skip)]
     addrs: BTreeMap<PeripheralId, std::net::SocketAddr>,
     #[serde(skip)]
@@ -40,8 +41,8 @@ pub struct UdpSocket {
 impl UdpSocket {
     pub fn new() -> Self {
         Self {
-            rxbuf: vec![0; 1522],
             socket: None,
+            buffer_pool: None,
             addrs: BTreeMap::new(),
             pids: BTreeMap::new(),
             addr_tokens: BTreeMap::new(),
@@ -66,11 +67,9 @@ impl Socket for UdpSocket {
         self.socket.is_some()
     }
 
-    fn open(&mut self, _ctx: &ControllerCtx) -> Result<(), String> {
+    fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String> {
         if self.socket.is_none() {
-            if self.rxbuf.len() < 1522 {
-                self.rxbuf.resize(1522, 0);
-            }
+            self.buffer_pool = Some(ctx.socket_buffer_pool.clone());
             // Socket populated on access
             let addr = format!("0.0.0.0:{CONTROLLER_RX_PORT}");
             let socket = std::net::UdpSocket::bind(&addr)
@@ -90,6 +89,7 @@ impl Socket for UdpSocket {
     fn close(&mut self) {
         // Drop inner socket, releasing port
         self.socket = None;
+        self.buffer_pool = None;
         self.addrs.clear();
         self.pids.clear();
         self.addr_tokens.clear();
@@ -118,22 +118,25 @@ impl Socket for UdpSocket {
         Ok(())
     }
 
-    fn recv(&mut self) -> Option<(Option<PeripheralId>, SocketAddrToken, Instant, &[u8])> {
+    fn recv(&mut self) -> Option<SocketPacket> {
         // Check if there is anything to receive,
         // and filter out packets from unexpected source port
-        let (size, addr, time) = match self.socket.as_mut() {
-            Some(sock) => match sock.recv_from(&mut self.rxbuf).ok() {
-                Some((size, addr)) => {
-                    // Mark the time ASAP
-                    let now = Instant::now();
-                    // Make sure the source port is consistent with a peripheral
-                    if addr.port() != PERIPHERAL_RX_PORT {
-                        return None;
-                    }
-                    (size, addr, now)
+        let sock = self.socket.as_mut()?;
+        let pool = self.buffer_pool.as_ref()?;
+        let mut lease = pool.lease_or_create(|| Box::new([0u8; SOCKET_BUFFER_LEN]));
+        let (size, addr, time) = match {
+            let buf = lease.as_mut();
+            sock.recv_from(&mut buf[..]).ok()
+        } {
+            Some((size, addr)) => {
+                // Mark the time ASAP
+                let now = Instant::now();
+                // Make sure the source port is consistent with a peripheral
+                if addr.port() != PERIPHERAL_RX_PORT {
+                    return None;
                 }
-                None => return None,
-            },
+                (size, addr, now)
+            }
             None => return None,
         };
 
@@ -151,7 +154,13 @@ impl Socket for UdpSocket {
         // Check if we already know which peripheral this is
         let pid = self.pids.get(&addr).copied();
 
-        Some((pid, token, time, &self.rxbuf[..size]))
+        Some(SocketPacket {
+            pid,
+            token,
+            time,
+            buffer: lease,
+            size,
+        })
     }
 
     fn broadcast(&mut self, msg: &[u8]) -> Result<(), String> {
