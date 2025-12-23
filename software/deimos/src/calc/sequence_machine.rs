@@ -18,7 +18,7 @@ pub type StateName = String;
 use super::*;
 
 /// Choice of behavior when a given sequence reaches the end of its lookup table
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "python", pyclass)]
 #[non_exhaustive]
 pub enum Timeout {
@@ -26,11 +26,16 @@ pub enum Timeout {
     Transition(StateName),
 
     /// Start over from the beginning of the table
-    #[default]
     Loop(),
 
     /// Raise an error with a message
     Error(String),
+}
+
+impl Default for Timeout {
+    fn default() -> Self {
+        Self::Loop()
+    }
 }
 
 #[cfg(feature = "python")]
@@ -239,6 +244,7 @@ impl InterpMethod {
 
 /// A lookup table defining one sequenced output from a Sequence
 #[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct SequenceLookup {
     /// Interpolation method
     method: InterpMethod,
@@ -316,6 +322,28 @@ impl SequenceLookup {
     /// Sample the lookup at a point in time
     pub fn eval(&self, sequence_time_s: f64) -> f64 {
         self.eval_checked(sequence_time_s).unwrap()
+    }
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl SequenceLookup {
+    #[new]
+    fn py_new(method: &str, time_s: Vec<f64>, vals: Vec<f64>) -> PyResult<Self> {
+        let method = InterpMethod::try_parse(method)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+        Self::new(method, time_s, vals)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+    }
+
+    fn eval_(&self, sequence_time_s: f64) -> PyResult<f64> {
+        self.eval_checked(sequence_time_s)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+    }
+
+    fn validate_(&self) -> PyResult<()> {
+        SequenceLookup::validate(self)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
     }
 }
 
