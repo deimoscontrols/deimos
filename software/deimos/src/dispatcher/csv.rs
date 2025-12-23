@@ -180,7 +180,10 @@ impl WorkerHandle {
                         return;
                     }
                     Ok((time, timestamp, channel_values)) => {
-                        csv_row_fixed_width(&mut stringbuf, (time, timestamp, channel_values.as_ref()));
+                        csv_row_fixed_width(
+                            &mut stringbuf,
+                            (time, timestamp, channel_values.as_ref()),
+                        );
 
                         // Make sure there is space in the file,
                         // otherwise wrap back to the beginning and overwrite

@@ -1,3 +1,8 @@
+"""
+A showcase of drivers for imitating hardware from software
+to test the software's interface with hardware.
+"""
+
 import time
 from pathlib import Path
 from deimos import Controller, peripheral, socket
@@ -32,10 +37,17 @@ def main() -> None:
     driver_unix.run_with(ctrl)
     driver_udp.run_with(ctrl)
 
-    handle = ctrl.run_nonblocking()
-    time.sleep(0.5)
-    handle.stop()
-    handle.join()
+    try:
+        handle = ctrl.run_nonblocking()
+        time.sleep(0.5)
+
+        # Make sure we had stable communication with all the peripheral mockups
+        for k, v in handle.read().values.items():
+            if "loss_of_contact_counter" in k:
+                assert v == 0.0, f"Missed packet: {k} = {v:.0f}"
+    finally:
+        handle.stop()
+        handle.join()
 
 
 if __name__ == "__main__":

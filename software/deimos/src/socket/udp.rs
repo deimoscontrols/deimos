@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use pyo3::prelude::*;
 use tracing::info;
 
-use crate::buffer_pool::{BufferPool, SocketBuffer, SOCKET_BUFFER_LEN};
+use crate::buffer_pool::{BufferPool, SOCKET_BUFFER_LEN, SocketBuffer};
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
@@ -126,7 +126,7 @@ impl Socket for UdpSocket {
         } else {
             timeout
         };
-        let _ = sock.set_read_timeout(Some(timeout));
+        let _ = sock.set_read_timeout(Some(timeout)); // Guaranteed nonzero duration
         let (size, addr, time) = match {
             let buf = lease.as_mut();
             sock.recv_from(&mut buf[..])
@@ -140,12 +140,10 @@ impl Socket for UdpSocket {
                 }
                 (size, addr, now)
             }
-            Err(err) => {
-                match err.kind() {
-                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut => return None,
-                    _ => return None,
-                }
-            }
+            Err(err) => match err.kind() {
+                std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut => return None,
+                _ => return None,
+            },
         };
 
         let token = match self.addr_tokens.get(&addr).copied() {

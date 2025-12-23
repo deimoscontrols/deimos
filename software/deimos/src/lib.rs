@@ -1,8 +1,8 @@
 #![doc = include_str!("../README.md")]
 #![allow(clippy::needless_range_loop)]
 
-pub mod calc;
 pub mod buffer_pool;
+pub mod calc;
 pub mod controller;
 pub mod dispatcher;
 pub mod logging;

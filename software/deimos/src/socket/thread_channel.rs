@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use pyo3::prelude::*;
 use tracing::info;
 
-use crate::buffer_pool::{BufferPool, SocketBuffer, SOCKET_BUFFER_LEN};
+use crate::buffer_pool::{BufferPool, SOCKET_BUFFER_LEN, SocketBuffer};
 use crate::controller::channel::{Endpoint, Msg};
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;

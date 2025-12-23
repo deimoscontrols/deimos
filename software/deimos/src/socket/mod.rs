@@ -4,6 +4,7 @@
 pub mod thread_channel;
 pub mod udp;
 pub mod unix;
+pub mod worker;
 
 use std::time::{Duration, Instant};
 
@@ -19,6 +20,8 @@ pub type SocketAddr = (usize, PeripheralId);
 
 /// Opaque token for a socket-specific address seen by recv().
 pub type SocketAddrToken = u64;
+
+pub use worker::{SocketWorker, SocketWorkerCommand, SocketWorkerEvent, SocketWorkerHandle};
 
 pub struct SocketPacket {
     pub pid: Option<PeripheralId>,

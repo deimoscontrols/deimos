@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use pyo3::prelude::*;
 use tracing::{info, warn};
 
-use crate::buffer_pool::{BufferPool, SocketBuffer, SOCKET_BUFFER_LEN};
+use crate::buffer_pool::{BufferPool, SOCKET_BUFFER_LEN, SocketBuffer};
 use crate::py_json_methods;
 
 use super::*;
@@ -202,12 +202,10 @@ impl Socket for UnixSocket {
                     return None;
                 }
             }
-            Err(err) => {
-                match err.kind() {
-                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut => return None,
-                    _ => return None,
-                }
-            }
+            Err(err) => match err.kind() {
+                std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut => return None,
+                _ => return None,
+            },
         };
 
         let token = match self.addr_tokens.get(&src_path).copied() {

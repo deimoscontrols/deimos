@@ -92,15 +92,11 @@ impl<T> BufferLease<T> {
     }
 
     pub fn as_ref(&self) -> &T {
-        self.item
-            .as_ref()
-            .expect("BufferLease missing item")
+        self.item.as_ref().expect("BufferLease missing item")
     }
 
     pub fn as_mut(&mut self) -> &mut T {
-        self.item
-            .as_mut()
-            .expect("BufferLease missing item")
+        self.item.as_mut().expect("BufferLease missing item")
     }
 
     pub fn into_inner(mut self) -> T {

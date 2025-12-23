@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime};
 use std::{collections::BTreeMap, default::Default};
 
 use super::channel::{Channel, Endpoint};
-use crate::buffer_pool::{BufferPool, SocketBuffer, SOCKET_BUFFER_LEN};
+use crate::buffer_pool::{BufferPool, SOCKET_BUFFER_LEN, SocketBuffer};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;

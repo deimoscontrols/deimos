@@ -12,9 +12,11 @@ use std::sync::atomic::AtomicBool;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
+use crossbeam::channel::{Receiver, RecvTimeoutError, unbounded};
 use flaw::MedianFilter;
 
 use crate::{
+    buffer_pool::SOCKET_BUFFER_LEN,
     calc::Calc,
     logging,
     peripheral::{Peripheral, PluginMap, parse_binding},
@@ -24,7 +26,9 @@ use deimos_shared::states::*;
 use crate::calc::{FieldName, Orchestrator, PeripheralInputName};
 use crate::dispatcher::Dispatcher;
 use crate::socket::udp::UdpSocket;
-use crate::socket::{Socket, SocketAddr};
+use crate::socket::{
+    Socket, SocketAddr, SocketPacket, SocketWorkerCommand, SocketWorkerEvent, SocketWorkerHandle,
+};
 use context::{ControllerCtx, LossOfContactPolicy, Termination};
 use controller_state::ControllerState;
 use timing::TimingPID;
@@ -171,6 +175,41 @@ impl Controller {
         Ok(())
     }
 
+    fn spawn_socket_workers(
+        &mut self,
+        recv_timeout: Duration,
+    ) -> (Vec<SocketWorkerHandle>, Receiver<SocketWorkerEvent>) {
+        let (event_tx, event_rx) = unbounded();
+        let sockets = std::mem::take(&mut self.sockets);
+        let mut workers = Vec::with_capacity(sockets.len());
+        for (sid, socket) in sockets.into_iter().enumerate() {
+            workers.push(SocketWorkerHandle::spawn(
+                sid,
+                socket,
+                self.ctx.clone(),
+                recv_timeout,
+                event_tx.clone(),
+            ));
+        }
+        drop(event_tx);
+        (workers, event_rx)
+    }
+
+    fn stop_socket_workers(&mut self, socket_workers: Vec<SocketWorkerHandle>) {
+        for worker in &socket_workers {
+            let _ = worker.cmd_tx.send(SocketWorkerCommand::Close);
+        }
+
+        let mut sockets = Vec::with_capacity(socket_workers.len());
+        for worker in socket_workers {
+            match worker.join() {
+                Ok(socket) => sockets.push(socket),
+                Err(err) => error!("{err}"),
+            }
+        }
+        self.sockets = sockets;
+    }
+
     /// Request specific peripherals to bind or scan the network,
     /// giving `binding_timeout_ms` for peripherals to respond
     /// and requesting a window of `configuring_timeout_ms` after binding
@@ -200,7 +239,11 @@ impl Controller {
         // Make sure sockets are configured and ports are bound
         self.open_sockets()?;
 
-        let mut buf = vec![0_u8; 1522];
+        let mut binding_buf = self
+            .ctx
+            .socket_buffer_pool
+            .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
+        let buf = binding_buf.as_mut();
         let mut available_peripherals = BTreeMap::new();
 
         let binding_msg = BindingInput {
@@ -287,7 +330,6 @@ impl Controller {
         &mut self,
         state: &ControllerState,
         peripheral_input_buffer: &mut [f64],
-        txbuf: &mut [u8],
         packet_index: u64,
     ) {
         // Send peripherals default state.
@@ -299,6 +341,11 @@ impl Controller {
         let i = packet_index;
         peripheral_input_buffer.fill(0.0);
         let mut err_rollup: Vec<String> = Vec::new();
+        let mut txbuf = self
+            .ctx
+            .socket_buffer_pool
+            .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
+        let buf = txbuf.as_mut();
         for j in 0..3 {
             // Send 3x to each
             for (addr, ps) in state.peripheral_state.iter() {
@@ -310,9 +357,9 @@ impl Controller {
                     0,
                     0,
                     &peripheral_input_buffer[..n],
-                    &mut txbuf[..n],
+                    &mut buf[..n],
                 );
-                let _ = self.sockets[*sid].send(*pid, &txbuf[..n]).map_err(|e| {
+                let _ = self.sockets[*sid].send(*pid, &buf[..n]).map_err(|e| {
                     let msg = format!("Failed to send shutdown packet to `{}`: {e}", &ps.name);
                     error!("{msg}");
                     err_rollup.push(msg)
@@ -338,6 +385,122 @@ impl Controller {
         // Report errors
         if !err_rollup.is_empty() {
             error!("Encountered errors during termination: {err_rollup:?}");
+        }
+    }
+
+    fn terminate_with_workers(
+        &mut self,
+        state: &ControllerState,
+        peripheral_input_buffer: &mut [f64],
+        packet_index: u64,
+        socket_workers: &[SocketWorkerHandle],
+    ) {
+        peripheral_input_buffer.fill(0.0);
+        let mut err_rollup: Vec<String> = Vec::new();
+        for j in 0..3 {
+            for (addr, ps) in state.peripheral_state.iter() {
+                let p = &self.peripherals[&ps.name];
+                let n = p.operating_roundtrip_input_size();
+                let (sid, pid) = addr;
+                let mut lease = self
+                    .ctx
+                    .socket_buffer_pool
+                    .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
+                let buf = lease.as_mut();
+                p.emit_operating_roundtrip(
+                    j + packet_index,
+                    0,
+                    0,
+                    &peripheral_input_buffer[..n],
+                    &mut buf[..n],
+                );
+                let send_result = socket_workers
+                    .get(*sid)
+                    .ok_or_else(|| format!("Socket worker index {sid} out of range"))
+                    .and_then(|worker| {
+                        worker
+                            .cmd_tx
+                            .send(SocketWorkerCommand::Send {
+                                id: *pid,
+                                buffer: lease,
+                                size: n,
+                            })
+                            .map_err(|e| format!("Failed to send shutdown packet: {e}"))
+                    });
+                if let Err(err) = send_result {
+                    let msg = format!("Failed to send shutdown packet to `{}`: {err}", &ps.name);
+                    error!("{msg}");
+                    err_rollup.push(msg);
+                }
+            }
+        }
+
+        self.dispatchers
+            .iter_mut()
+            .filter_map(|d| d.terminate().err())
+            .for_each(|e| err_rollup.push(e));
+
+        let _ = self
+            .orchestrator
+            .terminate()
+            .map_err(|e| err_rollup.push(e.to_string()));
+
+        if !err_rollup.is_empty() {
+            error!("Encountered errors during termination: {err_rollup:?}");
+        }
+    }
+
+    fn process_socket_packet(
+        &mut self,
+        controller_state: &mut ControllerState,
+        addresses: &[SocketAddr],
+        start_of_operating: Instant,
+        socket_id: usize,
+        packet: SocketPacket,
+        cycle_index: u64,
+    ) {
+        let amt = packet.size;
+        let pid = match packet.pid {
+            Some(x) => x,
+            None => return,
+        };
+
+        let addr = (socket_id, pid);
+        if !addresses.contains(&addr) {
+            // To avoid being packet-flooded, we do nothing here
+            return;
+        }
+
+        let ps = match controller_state.peripheral_state.get_mut(&addr) {
+            Some(ps) => ps,
+            None => return,
+        };
+        let p = &self.peripherals[&ps.name];
+        let n = p.operating_roundtrip_output_size();
+
+        if amt != n {
+            if cycle_index > 4 {
+                // During the first few cycles, we might catch a configuration response
+                // coming in late, which isn't concerning
+                warn!("Received malformed packet from peripheral `{}`", &ps.name);
+            }
+            return;
+        }
+
+        let last_packet_id = ps.metrics.operating_metrics.id;
+        let metrics = self
+            .orchestrator
+            .consume_peripheral_outputs(&ps.name, &mut |outputs: &mut [f64]| {
+                p.parse_operating_roundtrip(&packet.payload()[..n], outputs)
+            });
+
+        if metrics.id > last_packet_id {
+            ps.metrics.operating_metrics = metrics;
+            ps.metrics.last_received_time_ns = (packet.time - start_of_operating).as_nanos() as i64;
+            ps.metrics.loss_of_contact_counter = 0.0;
+            let cycle_lag_count =
+                (metrics.last_input_id as i64) - (cycle_index.saturating_sub(1) as i64);
+            ps.metrics.cycle_lag_count = cycle_lag_count as f64;
         }
     }
 
@@ -385,9 +548,6 @@ impl Controller {
 
             aux_core_cycle
         };
-
-        // Buffer for writing bytes to send on sockets
-        let txbuf = &mut [0_u8; 1522][..];
 
         // Make sure sockets are configured and ports are bound
         self.open_sockets()
@@ -515,14 +675,20 @@ impl Controller {
                 mode: Mode::Roundtrip,
             };
 
+            let mut config_buf = self
+                .ctx
+                .socket_buffer_pool
+                .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
+            let buf = config_buf.as_mut();
+
             for (sid, pid) in addresses.iter() {
                 let p = bound_peripherals
                     .get(&(*sid, *pid))
                     .ok_or(format!("Did not find {pid:?} in bound peripherals"))?;
                 let num_to_write = p.configuring_input_size();
-                p.emit_configuring(config_input, &mut txbuf[..num_to_write]);
+                p.emit_configuring(config_input, &mut buf[..num_to_write]);
                 self.sockets[*sid]
-                    .send(*pid, &txbuf[..num_to_write])
+                    .send(*pid, &buf[..num_to_write])
                     .map_err(|e| format!("Failed to send configuration to {pid:?}: {e:?}"))?;
             }
 
@@ -604,6 +770,10 @@ impl Controller {
             return Err("Some peripherals did not acknowledge their configuration".to_string());
         }
 
+        // Keep worker recv timeouts short so outbound commands are serviced promptly.
+        let worker_timeout = Duration::from_nanos((self.ctx.dt_ns as u64 / 10).max(50_000));
+        let (mut socket_workers, socket_events) = self.spawn_socket_workers(worker_timeout);
+
         //    Init timing
         info!("Initializing timing controllers");
         let start_of_operating = Instant::now();
@@ -656,12 +826,13 @@ impl Controller {
                         if p.metrics.loss_of_contact_counter
                             >= self.ctx.controller_loss_of_contact_limit as f64
                         {
-                            self.terminate(
+                            self.terminate_with_workers(
                                 &controller_state,
                                 &mut peripheral_input_buffer,
-                                &mut txbuf[..],
                                 i,
+                                &socket_workers,
                             );
+                            self.stop_socket_workers(socket_workers);
                             let reason = format!(
                                 "Lost contact with peripheral `{}` after {} missed cycles",
                                 &p.name, self.ctx.controller_loss_of_contact_limit
@@ -699,13 +870,13 @@ impl Controller {
                 };
 
                 if let Some(reason) = terminating {
-                    self.terminate(
+                    self.terminate_with_workers(
                         &controller_state,
                         &mut peripheral_input_buffer,
-                        &mut txbuf[..],
                         i,
+                        &socket_workers,
                     );
-
+                    self.stop_socket_workers(socket_workers);
                     return reason;
                 }
             }
@@ -717,13 +888,13 @@ impl Controller {
                     let reason = Ok(msg.clone());
                     info!("{msg}");
 
-                    self.terminate(
+                    self.terminate_with_workers(
                         &controller_state,
                         &mut peripheral_input_buffer,
-                        &mut txbuf[..],
                         i,
+                        &socket_workers,
                     );
-
+                    self.stop_socket_workers(socket_workers);
                     return reason;
                 }
             }
@@ -748,33 +919,45 @@ impl Controller {
                     });
                 //    Form packet to send to this peripheral
                 let (sid, pid) = addr;
+                let mut lease = self
+                    .ctx
+                    .socket_buffer_pool
+                    .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
+                let buf = lease.as_mut();
                 p.emit_operating_roundtrip(
                     i,
                     period_delta_ns,
                     phase_delta_ns,
                     &peripheral_input_buffer[..n],
-                    &mut txbuf[..n],
+                    &mut buf[..n],
                 );
                 //    Transmit the packet
-                match self.sockets[*sid]
-                    .send(*pid, &txbuf[..n])
-                    .map_err(|e| format!("Unable to send on socket {sid}: {e}"))
-                {
-                    Ok(_) => {}
-                    Err(e) => {
-                        error!(e);
-                        // TODO: consider a less passive response to transmission failure.
-                        //
-                        // Right now, if transmission fails, the peripheral is responsible for
-                        // registering that contact has been lost and will eventually exit the operating state,
-                        // after which the controller will start its loss of contact counter for that peripheral,
-                        // potentially doubling the number of cycles without active control compared to the loss of contact limit.
-                        //
-                        // That said, some resilience is required here, because transmission will fail a few times per day
-                        // in a typical configuration while the control server's DHCP IP address lease is renewed.
-                        // This can be prevented by setting up indefinite leases on a managed router, but we shouldn't
-                        // expect that level of micromanagement from a typical user.
-                    }
+                let send_result = socket_workers
+                    .get(*sid)
+                    .ok_or_else(|| format!("Socket worker index {sid} out of range"))
+                    .and_then(|worker| {
+                        worker
+                            .cmd_tx
+                            .send(SocketWorkerCommand::Send {
+                                id: *pid,
+                                buffer: lease,
+                                size: n,
+                            })
+                            .map_err(|e| format!("Unable to send on socket {sid}: {e}"))
+                    });
+                if let Err(e) = send_result {
+                    error!(e);
+                    // TODO: consider a less passive response to transmission failure.
+                    //
+                    // Right now, if transmission fails, the peripheral is responsible for
+                    // registering that contact has been lost and will eventually exit the operating state,
+                    // after which the controller will start its loss of contact counter for that peripheral,
+                    // potentially doubling the number of cycles without active control compared to the loss of contact limit.
+                    //
+                    // That said, some resilience is required here, because transmission will fail a few times per day
+                    // in a typical configuration while the control server's DHCP IP address lease is renewed.
+                    // This can be prevented by setting up indefinite leases on a managed router, but we shouldn't
+                    // expect that level of micromanagement from a typical user.
                 }
             }
 
@@ -783,69 +966,79 @@ impl Controller {
             for ps in controller_state.peripheral_state.values_mut() {
                 ps.metrics.loss_of_contact_counter += 1.0;
             }
+            let mut worker_error: Option<String> = None;
             while t < target_time {
-                // Otherwise, process incoming packets
-
-                for (sid, sock) in self.sockets.iter_mut().enumerate() {
-                    if let Some(packet) = sock.recv(Duration::ZERO) {
-                        let amt = packet.size;
-                        let pid = match packet.pid {
-                            Some(x) => x,
-                            None => continue,
-                        };
-
-                        // Check if this peripheral is one we have bound
-                        let addr = (sid, pid);
-                        if !addresses.contains(&addr) {
-                            // To avoid being packet-flooded, we do nothing here
-                            continue;
+                let timeout = target_time.saturating_sub(t);
+                match socket_events.recv_timeout(timeout) {
+                    Ok(event) => match event {
+                        SocketWorkerEvent::Packet { socket_id, packet } => {
+                            self.process_socket_packet(
+                                &mut controller_state,
+                                &addresses,
+                                start_of_operating,
+                                socket_id,
+                                packet,
+                                i,
+                            );
                         }
-
-                        // Get the info for the peripheral at this address
-                        let ps = controller_state.peripheral_state.get_mut(&addr).unwrap();
-                        let p = &self.peripherals[&ps.name];
-                        let n = p.operating_roundtrip_output_size();
-
-                        // Check packet size
-                        if amt != n {
-                            if i > 4 {
-                                // During the first few cycles, we might catch a configuration response
-                                // coming in late, which isn't concerning
-                                warn!("Received malformed packet from peripheral `{}`", &ps.name);
-                            }
-
-                            continue;
+                        SocketWorkerEvent::Error { socket_id, error } => {
+                            worker_error =
+                                Some(format!("Socket worker {socket_id} error: {error}"));
                         }
-
-                        // Parse packet,
-                        // running the parsing inside the calc consumer to avoid copying
-                        let last_packet_id = ps.metrics.operating_metrics.id;
-                        let metrics = self.orchestrator.consume_peripheral_outputs(
-                            &ps.name,
-                            &mut |outputs: &mut [f64]| {
-                                p.parse_operating_roundtrip(&packet.payload()[..n], outputs)
-                            },
-                        );
-
-                        // If this packet is in-order, take it
-                        if metrics.id > last_packet_id {
-                            // Process metrics for this peripheral
-                            ps.metrics.operating_metrics = metrics;
-                            ps.metrics.last_received_time_ns =
-                                (packet.time - start_of_operating).as_nanos() as i64;
-
-                            // Reset cycles since last contact
-                            ps.metrics.loss_of_contact_counter = 0.0;
-
-                            // Check if this peripheral is sync'd to the controller
-                            let cycle_lag_count =
-                                (metrics.last_input_id as i64) - (i.saturating_sub(1) as i64);
-                            ps.metrics.cycle_lag_count = cycle_lag_count as f64;
+                        SocketWorkerEvent::Closed { socket_id } => {
+                            worker_error = Some(format!("Socket worker {socket_id} closed"));
                         }
+                    },
+                    Err(RecvTimeoutError::Timeout) => break,
+                    Err(RecvTimeoutError::Disconnected) => {
+                        worker_error = Some("Socket worker channel disconnected".to_string());
+                        break;
+                    }
+                }
+
+                if worker_error.is_some() {
+                    break;
+                }
+
+                while let Ok(event) = socket_events.try_recv() {
+                    match event {
+                        SocketWorkerEvent::Packet { socket_id, packet } => {
+                            self.process_socket_packet(
+                                &mut controller_state,
+                                &addresses,
+                                start_of_operating,
+                                socket_id,
+                                packet,
+                                i,
+                            );
+                        }
+                        SocketWorkerEvent::Error { socket_id, error } => {
+                            worker_error =
+                                Some(format!("Socket worker {socket_id} error: {error}"));
+                            break;
+                        }
+                        SocketWorkerEvent::Closed { socket_id } => {
+                            worker_error = Some(format!("Socket worker {socket_id} closed"));
+                            break;
+                        }
+                    }
+                    if worker_error.is_some() {
+                        break;
                     }
                 }
 
                 t = start_of_operating.elapsed();
+            }
+
+            if let Some(err) = worker_error {
+                self.terminate_with_workers(
+                    &controller_state,
+                    &mut peripheral_input_buffer,
+                    i,
+                    &socket_workers,
+                );
+                self.stop_socket_workers(socket_workers);
+                return Err(err);
             }
 
             // Calculate timing deltas
@@ -875,7 +1068,10 @@ impl Controller {
             }
 
             // Run calcs
-            self.orchestrator.eval()?;
+            if let Err(err) = self.orchestrator.eval() {
+                self.stop_socket_workers(socket_workers);
+                return Err(err);
+            }
 
             // Send outputs to db
             //    Write metrics
@@ -892,9 +1088,10 @@ impl Controller {
             //    Send to dispatcher
             let mut dispatch_errors = Vec::new();
             for dispatcher in self.dispatchers.iter_mut() {
-                let mut leased = self.ctx.dispatcher_buffer_pool.lease_or_create(|| {
-                    vec![0.0; n_channels]
-                });
+                let mut leased = self
+                    .ctx
+                    .dispatcher_buffer_pool
+                    .lease_or_create(|| vec![0.0; n_channels]);
                 let buf = leased.as_mut();
                 if buf.len() != n_channels {
                     buf.clear();
@@ -913,6 +1110,7 @@ impl Controller {
                     .map(|e| format!("\n  {e}"))
                     .collect::<Vec<_>>()
                     .join("");
+                self.stop_socket_workers(socket_workers);
                 return Err(format!("Dispatcher error(s): {msg}"));
             }
 
