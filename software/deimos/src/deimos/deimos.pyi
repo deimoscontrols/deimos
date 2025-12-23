@@ -173,6 +173,14 @@ class _CalcModule(ModuleType):
 
 calc: _CalcModule
 
+class MockupTransport:
+    @staticmethod
+    def thread_channel(name: str) -> Self: ...
+    @staticmethod
+    def unix_socket(name: str) -> Self: ...
+    @staticmethod
+    def udp() -> Self: ...
+
 class _PeripheralModule(ModuleType):
     class AnalogIRev2(_PeripheralBase):
         def __init__(self, serial_number: int) -> None: ...
@@ -197,13 +205,7 @@ class _PeripheralModule(ModuleType):
             end_epoch_ns: int | None = None,
         ) -> None: ...
 
-    class MockupTransport:
-        @staticmethod
-        def thread_channel(name: str) -> Self: ...
-        @staticmethod
-        def unix_socket(name: str) -> Self: ...
-        @staticmethod
-        def udp() -> Self: ...
+    MockupTransport = MockupTransport
 
     class HootlDriver:
         def __init__(
