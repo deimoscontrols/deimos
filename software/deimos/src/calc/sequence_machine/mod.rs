@@ -314,6 +314,26 @@ impl SequenceMachine {
 
         Self::new(cfg, sequences)
     }
+
+    /// Save a configuration json and sequence CSV files to a folder.
+    pub fn save_folder(&self, path: &dyn AsRef<Path>) -> Result<(), String> {
+        let dir = path.as_ref();
+        std::fs::create_dir_all(dir)
+            .map_err(|e| format!("Unable to create folder {:?}: {e}", dir))?;
+
+        let cfg_path = dir.join("cfg.json");
+        let cfg_json = serde_json::to_string_pretty(&self.cfg)
+            .map_err(|e| format!("Failed to serialize config json: {e}"))?;
+        std::fs::write(&cfg_path, cfg_json)
+            .map_err(|e| format!("Failed to write config json: {e}"))?;
+
+        for (name, seq) in self.sequences.iter() {
+            let csv_path = dir.join(format!("{name}.csv"));
+            seq.save_csv(&csv_path)?;
+        }
+
+        Ok(())
+    }
 }
 
 #[typetag::serde]
@@ -480,8 +500,8 @@ impl SequenceMachine {
     }
 
     /// Deserialize from typetagged JSON
-    #[classmethod]
-    fn from_json(_cls: &Bound<'_, pyo3::types::PyType>, s: &str) -> PyResult<Self> {
+    #[staticmethod]
+    fn from_json(s: &str) -> PyResult<Self> {
         serde_json::from_str::<Self>(s)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
@@ -560,5 +580,32 @@ impl SequenceMachine {
         self.cfg.timeouts.insert(name.clone(), timeout);
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SequenceMachine;
+    use std::path::PathBuf;
+
+    /// Check that we can save and load the human-readable folder format
+    /// without losing or corrupting information
+    #[test]
+    fn roundtrip_sequence_machine_folder() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let src_dir = root.join("examples").join("machine");
+        let tmp_dir = std::env::temp_dir().join("deimos_sequence_roundtrip");
+
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+
+        let original = SequenceMachine::load_folder(&src_dir).unwrap();
+        let original_json = serde_json::to_string_pretty(&original).unwrap();
+
+        original.save_folder(&tmp_dir).unwrap();
+        let roundtrip = SequenceMachine::load_folder(&tmp_dir).unwrap();
+        let roundtrip_json = serde_json::to_string_pretty(&roundtrip).unwrap();
+
+        assert_eq!(original_json, roundtrip_json);
     }
 }

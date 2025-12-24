@@ -33,6 +33,18 @@ impl Sequence {
         t
     }
 
+    /// Get sorted, unique time points across all lookups.
+    pub fn get_times(&self) -> Vec<f64> {
+        let mut time_points: Vec<f64> = self
+            .data
+            .values()
+            .flat_map(|lookup| lookup.time_s.iter().copied())
+            .collect();
+        time_points.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        time_points.dedup_by(|a, b| a == b);
+        time_points
+    }
+
     /// Check for misconfiguration
     pub fn validate(&self) -> Result<(), String> {
         let mut start_time = None;
@@ -83,109 +95,73 @@ impl Sequence {
 
     /// Load sequence from a CSV string
     pub fn from_csv_str(data_csv: &str) -> Result<Self, String> {
-        let mut lines = data_csv.lines();
+        let mut rdr = csv::ReaderBuilder::new()
+            .has_headers(false)
+            .from_reader(data_csv.as_bytes());
+        let mut records = rdr.records();
 
-        // Parse header row, discarding time column name
-        let output_names: Vec<String> = lines
-            .next()
-            .ok_or_else(|| "Empty csv".to_string())?
-            .split(",")
-            .skip(1)
-            .map(|s| s.to_owned())
-            .collect();
-
-        // Parse interpolation methods
-        let mut methods: Vec<InterpMethod> = Vec::new();
-        for s in lines
-            .next()
-            .ok_or_else(|| "Empty csv".to_string())?
-            .split(",")
-            .skip(1)
-        {
-            let m = InterpMethod::try_parse(s.trim())?;
-            methods.push(m);
+        let header = next_nonempty_record(&mut records, "Empty csv")?;
+        let output_names: Vec<String> = header.iter().skip(1).map(|s| s.to_owned()).collect();
+        if output_names.is_empty() {
+            return Err("CSV missing output columns".to_string());
         }
 
-        // Parse values from remaining lines
+        let method_record = next_nonempty_record(&mut records, "Empty csv")?;
+        let expected_len = output_names.len() + 1;
+        if method_record.len() < expected_len {
+            return Err("CSV missing method column".to_string());
+        }
+        if method_record.len() > expected_len {
+            return Err("CSV has an extra method column".to_string());
+        }
+
+        let mut methods: Vec<InterpMethod> = Vec::with_capacity(output_names.len());
+        for s in method_record.iter().skip(1) {
+            methods.push(InterpMethod::try_parse(s.trim())?);
+        }
+
         let mut vals = vec![vec![]; methods.len()];
         let mut time_s = vec![vec![]; methods.len()];
-        for (i, line) in lines.enumerate() {
-            let mut entries = line.split(",");
-            let ne = line.chars().filter(|c| *c == ',').count() + 1; // Size hint is not exact for split
-            let ne_expected = methods.len() + 1; // Expected number of entries per line
-
-            // If the line is empty, skip to the next line.
-            if ne == 0 {
+        for (i, result) in records.enumerate() {
+            let record = result.map_err(|e| format!("CSV read error on line {i}: {e}"))?;
+            if record.len() == 0 {
                 continue;
             }
-
-            // If the line is not empty but doesn't contain exactly one entry for each column,
-            // we can't be sure that we are interpreting the user's intent correctly
-            if ne < ne_expected {
+            if record.len() < expected_len {
                 return Err(format!("CSV missing column on line {i}"));
             }
-            if ne > ne_expected {
+            if record.len() > expected_len {
                 return Err(format!("CSV has an extra column on line {i}"));
             }
 
-            // Leftmost column is the time index
-            let time = entries
-                .next()
-                .ok_or_else(|| format!("CSV read error on line {i}, empty line"))?
+            let time_entry = record
+                .get(0)
+                .ok_or_else(|| format!("CSV read error on line {i}, empty line"))?;
+            let time = time_entry
                 .trim()
                 .parse::<f64>()
                 .map_err(|e| format!("Error parsing time value in CSV on line {i}: {e}"))?;
 
-            // Parse column values
-            for (j, entry) in entries.enumerate() {
-                // Whitespace-only entries are null
-                if entry.trim() == "" {
+            for (j, entry) in record.iter().skip(1).enumerate() {
+                if entry.trim().is_empty() {
                     continue;
                 }
-
-                // Entries that are not empty or whitespace should be valid numbers
-                let v = entry.parse::<f64>().map_err(|e| {
+                let v = entry.trim().parse::<f64>().map_err(|e| {
                     format!("CSV parse error on line {i} column {j} with entry {entry}: {e:?}")
                 })?;
-
                 time_s[j].push(time);
                 vals[j].push(v);
             }
         }
 
-        // Make sure all the columns have the same start time
-        let start_time = time_s[0][0];
-        for i in 0..methods.len() {
-            let n = &output_names[i];
-            if time_s[i][0] != start_time {
-                return Err(format!(
-                    "Value at start time missing for column {i} (`{n}`)"
-                ));
-            }
-        }
-
-        // Make sure time is sorted
-        for (i, t) in time_s.iter().enumerate() {
-            let n = &output_names[i];
-            if !t.is_sorted() {
-                return Err(format!("Out-of-order sequence for column {i} (`{n}`)"));
-            }
-        }
-
-        // Pack parsed values
         let mut data = BTreeMap::new();
-        methods.reverse();
-        time_s.reverse();
-        vals.reverse();
-        for i in 0..methods.len() {
-            data.insert(
-                output_names[i].clone(),
-                SequenceLookup {
-                    method: methods.pop().unwrap(),
-                    time_s: time_s.pop().unwrap(),
-                    vals: vals.pop().unwrap(),
-                },
-            );
+        for ((name, method), (times, vals)) in output_names
+            .into_iter()
+            .zip(methods)
+            .zip(time_s.into_iter().zip(vals))
+        {
+            let lookup = SequenceLookup::new(method, times, vals)?;
+            data.insert(name, lookup);
         }
 
         Ok(Self { data })
@@ -197,4 +173,78 @@ impl Sequence {
             std::fs::read_to_string(path).map_err(|e| format!("CSV file read error: {e}"))?;
         Self::from_csv_str(&csv_str)
     }
+
+    /// Save sequence to a CSV file
+    pub fn save_csv(&self, path: &dyn AsRef<Path>) -> Result<(), String> {
+        // Start a writer for arbitrary data.
+        // We have two header rows, so we'll write our headers manually.
+        let mut writer = csv::WriterBuilder::new()
+            .has_headers(false)
+            .from_path(path)
+            .map_err(|e| format!("CSV file write error: {e}"))?;
+
+        // Get references to column data
+        let output_names = self.data.keys();
+        let lookups: Vec<&SequenceLookup> = self.data.values().collect();
+
+        // Build first header row
+        let mut header: Vec<&str> = vec!["time_s"];
+        output_names.for_each(|n| header.push(n));
+        writer
+            .write_record(header)
+            .map_err(|e| format!("CSV write error: {e}"))?;
+
+        // Build second header row
+        let mut method_row = Vec::with_capacity(lookups.len() + 1);
+        method_row.push("method".to_string());
+        for lookup in lookups.iter() {
+            method_row.push(lookup.method.to_str().to_string());
+        }
+        writer
+            .write_record(method_row)
+            .map_err(|e| format!("CSV write error: {e}"))?;
+
+        // Get unique time points across all columns
+        let time_points: Vec<f64> = self.get_times();
+
+        // Write data values at each time, leaving null if no data is present.
+        let mut indices = vec![0usize; lookups.len()];
+        for time in time_points {
+            let mut record = Vec::with_capacity(lookups.len() + 1);
+            record.push(time.to_string());
+            for (idx, lookup) in lookups.iter().enumerate() {
+                let pos = indices[idx];
+                if pos < lookup.time_s.len() && lookup.time_s[pos] == time {
+                    record.push(lookup.vals[pos].to_string());
+                    indices[idx] += 1;
+                } else {
+                    record.push(String::new());
+                }
+            }
+            writer
+                .write_record(record)
+                .map_err(|e| format!("CSV write error: {e}"))?;
+        }
+
+        // Push to file
+        writer
+            .flush()
+            .map_err(|e| format!("CSV write error: {e}"))?;
+        Ok(())
+    }
+}
+
+/// Find the next non-empty CSV record, returning a consistent error on EOF.
+fn next_nonempty_record<R: std::io::Read>(
+    records: &mut csv::StringRecordsIter<R>,
+    empty_error: &str,
+) -> Result<csv::StringRecord, String> {
+    for result in records {
+        let record = result.map_err(|e| e.to_string())?;
+        if record.len() == 0 {
+            continue;
+        }
+        return Ok(record);
+    }
+    Err(empty_error.to_string())
 }

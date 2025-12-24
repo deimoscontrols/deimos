@@ -218,25 +218,43 @@ pub enum MockupTransport {
     Udp(),
 }
 
-#[cfg_attr(feature = "python", pymethods)]
 impl MockupTransport {
-    #[staticmethod]
     pub fn thread_channel(name: &str) -> Self {
         Self::ThreadChannel {
             name: name.to_owned(),
         }
     }
 
-    #[staticmethod]
     pub fn unix_socket(name: &str) -> Self {
         Self::UnixSocket {
             name: name.to_owned(),
         }
     }
 
-    #[staticmethod]
     pub fn udp() -> Self {
         Self::Udp()
+    }
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl MockupTransport {
+    #[staticmethod]
+    #[pyo3(name = "thread_channel")]
+    fn py_thread_channel(name: &str) -> Self {
+        Self::thread_channel(name)
+    }
+
+    #[staticmethod]
+    #[pyo3(name = "unix_socket")]
+    fn py_unix_socket(name: &str) -> Self {
+        Self::unix_socket(name)
+    }
+
+    #[staticmethod]
+    #[pyo3(name = "udp")]
+    fn py_udp() -> Self {
+        Self::udp()
     }
 }
 

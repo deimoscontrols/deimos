@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 
 /// Interpolation method for sequence lookups
 #[derive(Default, Debug, Serialize, Deserialize)]
-#[non_exhaustive]
 pub enum InterpMethod {
     /// Linear interpolation inside the grid. Outside the grid,
     /// the nearest value is held constant to prevent runaway extrapolation.
@@ -37,6 +36,16 @@ impl InterpMethod {
             "right" => Ok(Self::Right),
             "nearest" => Ok(Self::Nearest),
             _ => Err(format!("Unable to process method: `{s}`")),
+        }
+    }
+
+    /// Convert an interpolation method into the CSV string representation.
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            InterpMethod::Linear => "linear",
+            InterpMethod::Left => "left",
+            InterpMethod::Right => "right",
+            InterpMethod::Nearest => "nearest",
         }
     }
 }
