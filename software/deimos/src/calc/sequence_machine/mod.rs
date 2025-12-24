@@ -456,3 +456,33 @@ impl Calc for SequenceMachine {
         Err("No settable config fields".to_string())
     }
 }
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl SequenceMachine {
+    #[new]
+    fn py_new() -> Self {
+        let mut cfg = MachineCfg::default();
+        cfg.save_outputs = true;
+
+        Self {
+            cfg,
+            sequences: BTreeMap::new(),
+            execution_state: ExecutionState::default()
+        }
+    }
+
+    /// Serialize to typetagged JSON so Python can pass into trait handoff
+    fn to_json(&self) -> PyResult<String> {
+        let payload: &dyn Calc = self;
+        serde_json::to_string(payload)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// Deserialize from typetagged JSON
+    #[classmethod]
+    fn from_json(_cls: &Bound<'_, pyo3::types::PyType>, s: &str) -> PyResult<Self> {
+        serde_json::from_str::<Self>(s)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+}

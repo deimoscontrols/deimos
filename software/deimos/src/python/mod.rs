@@ -1,9 +1,8 @@
 use std::sync::{Arc, atomic::AtomicBool};
+use std::collections::HashMap;
 
-// use numpy::borrow::{PyReadonlyArray1, PyReadwriteArray1};
 use pyo3::exceptions;
 use pyo3::prelude::*;
-use std::collections::HashMap;
 
 use pyo3::wrap_pymodule;
 

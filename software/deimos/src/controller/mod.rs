@@ -331,74 +331,20 @@ impl Controller {
         state: &ControllerState,
         peripheral_input_buffer: &mut [f64],
         packet_index: u64,
+        socket_workers: &[SocketWorkerHandle],
     ) {
+        peripheral_input_buffer.fill(0.0);
+        let mut err_rollup: Vec<String> = Vec::new();
+
         // Send peripherals default state.
         //
         // Send multiple times to each peripheral to reduce probability of
         // packet loss; in the event that the shutdown message is missed,
         // the peripheral will still return to its default state on reaching
         // its loss-of-contact limit.
-        let i = packet_index;
-        peripheral_input_buffer.fill(0.0);
-        let mut err_rollup: Vec<String> = Vec::new();
-        let mut txbuf = self
-            .ctx
-            .socket_buffer_pool
-            .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
-        let buf = txbuf.as_mut();
-        for j in 0..3 {
-            // Send 3x to each
-            for (addr, ps) in state.peripheral_state.iter() {
-                let p = &self.peripherals[&ps.name];
-                let n = p.operating_roundtrip_input_size();
-                let (sid, pid) = addr;
-                p.emit_operating_roundtrip(
-                    j + i,
-                    0,
-                    0,
-                    &peripheral_input_buffer[..n],
-                    &mut buf[..n],
-                );
-                let _ = self.sockets[*sid].send(*pid, &buf[..n]).map_err(|e| {
-                    let msg = format!("Failed to send shutdown packet to `{}`: {e}", &ps.name);
-                    error!("{msg}");
-                    err_rollup.push(msg)
-                });
-            }
-        }
-
-        // Reset dispatchers
-        self.dispatchers
-            .iter_mut()
-            .filter_map(|d| d.terminate().err())
-            .for_each(|e| err_rollup.push(e));
-
-        // Reset calc orchestrator
-        let _ = self
-            .orchestrator
-            .terminate()
-            .map_err(|e| err_rollup.push(e.to_string()));
-
-        // Close sockets
-        self.sockets.iter_mut().for_each(|sock| sock.close());
-
-        // Report errors
-        if !err_rollup.is_empty() {
-            error!("Encountered errors during termination: {err_rollup:?}");
-        }
-    }
-
-    fn terminate_with_workers(
-        &mut self,
-        state: &ControllerState,
-        peripheral_input_buffer: &mut [f64],
-        packet_index: u64,
-        socket_workers: &[SocketWorkerHandle],
-    ) {
-        peripheral_input_buffer.fill(0.0);
-        let mut err_rollup: Vec<String> = Vec::new();
         for j in 0..3 {
             for (addr, ps) in state.peripheral_state.iter() {
+                // Build default state packet
                 let p = &self.peripherals[&ps.name];
                 let n = p.operating_roundtrip_input_size();
                 let (sid, pid) = addr;
@@ -414,6 +360,8 @@ impl Controller {
                     &peripheral_input_buffer[..n],
                     &mut buf[..n],
                 );
+
+                // Transmit default state packet
                 let send_result = socket_workers
                     .get(*sid)
                     .ok_or_else(|| format!("Socket worker index {sid} out of range"))
@@ -435,16 +383,19 @@ impl Controller {
             }
         }
 
+        // Reset dispatchers
         self.dispatchers
             .iter_mut()
             .filter_map(|d| d.terminate().err())
             .for_each(|e| err_rollup.push(e));
 
+        // Reset calc orchestrator
         let _ = self
             .orchestrator
             .terminate()
             .map_err(|e| err_rollup.push(e.to_string()));
 
+        // Log all errors encountered during shutdown
         if !err_rollup.is_empty() {
             error!("Encountered errors during termination: {err_rollup:?}");
         }
@@ -772,7 +723,7 @@ impl Controller {
 
         // Keep worker recv timeouts short so outbound commands are serviced promptly.
         let worker_timeout = Duration::from_nanos((self.ctx.dt_ns as u64 / 10).max(50_000));
-        let (mut socket_workers, socket_events) = self.spawn_socket_workers(worker_timeout);
+        let (socket_workers, socket_events) = self.spawn_socket_workers(worker_timeout);
 
         //    Init timing
         info!("Initializing timing controllers");
@@ -826,7 +777,7 @@ impl Controller {
                         if p.metrics.loss_of_contact_counter
                             >= self.ctx.controller_loss_of_contact_limit as f64
                         {
-                            self.terminate_with_workers(
+                            self.terminate(
                                 &controller_state,
                                 &mut peripheral_input_buffer,
                                 i,
@@ -872,7 +823,7 @@ impl Controller {
                 };
 
                 if let Some(reason) = terminating {
-                    self.terminate_with_workers(
+                    self.terminate(
                         &controller_state,
                         &mut peripheral_input_buffer,
                         i,
@@ -890,7 +841,7 @@ impl Controller {
                     let reason = Ok(msg.clone());
                     info!("{msg}");
 
-                    self.terminate_with_workers(
+                    self.terminate(
                         &controller_state,
                         &mut peripheral_input_buffer,
                         i,
@@ -1033,7 +984,7 @@ impl Controller {
             }
 
             if let Some(err) = worker_error {
-                self.terminate_with_workers(
+                self.terminate(
                     &controller_state,
                     &mut peripheral_input_buffer,
                     i,
