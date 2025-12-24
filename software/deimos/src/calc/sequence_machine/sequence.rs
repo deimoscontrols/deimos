@@ -169,7 +169,7 @@ impl Sequence {
             data.insert(name, lookup);
         }
 
-        // Build sequence 
+        // Build sequence
         let sequence = Self { data };
         sequence.validate()?;
 
@@ -183,14 +183,13 @@ impl Sequence {
         Self::from_csv_str(&csv_str)
     }
 
-    /// Save sequence to a CSV file
-    pub fn save_csv(&self, path: &dyn AsRef<Path>) -> Result<(), String> {
+    /// Serialize sequence to a CSV string
+    pub fn to_csv_str(&self) -> Result<String, String> {
         // Start a writer for arbitrary data.
         // We have two header rows, so we'll write our headers manually.
         let mut writer = csv::WriterBuilder::new()
             .has_headers(false)
-            .from_path(path)
-            .map_err(|e| format!("CSV file write error: {e}"))?;
+            .from_writer(Vec::new());
 
         // Get references to column data
         let output_names = self.data.keys();
@@ -235,10 +234,20 @@ impl Sequence {
                 .map_err(|e| format!("CSV write error: {e}"))?;
         }
 
-        // Push to file
+        // Flush and return the CSV data
         writer
             .flush()
             .map_err(|e| format!("CSV write error: {e}"))?;
+        let data = writer
+            .into_inner()
+            .map_err(|e| format!("CSV write error: {e}"))?;
+        String::from_utf8(data).map_err(|e| format!("CSV write error: {e}"))
+    }
+
+    /// Save sequence to a CSV file
+    pub fn to_csv(&self, path: &dyn AsRef<Path>) -> Result<(), String> {
+        let csv_str = self.to_csv_str()?;
+        std::fs::write(path, csv_str).map_err(|e| format!("CSV file write error: {e}"))?;
         Ok(())
     }
 }

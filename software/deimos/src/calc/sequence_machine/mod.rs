@@ -329,7 +329,7 @@ impl SequenceMachine {
 
         for (name, seq) in self.sequences.iter() {
             let csv_path = dir.join(format!("{name}.csv"));
-            seq.save_csv(&csv_path)?;
+            seq.to_csv(&csv_path)?;
         }
 
         Ok(())

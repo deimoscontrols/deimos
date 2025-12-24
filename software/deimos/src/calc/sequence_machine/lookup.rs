@@ -39,7 +39,7 @@ impl InterpMethod {
         }
     }
 
-    /// Convert an interpolation method into the CSV string representation.
+    /// Simple string representation compatible with [Self::try_parse]
     pub fn to_str(&self) -> &'static str {
         match self {
             InterpMethod::Linear => "linear",
