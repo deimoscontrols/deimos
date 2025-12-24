@@ -95,17 +95,20 @@ impl Sequence {
 
     /// Load sequence from a CSV string
     pub fn from_csv_str(data_csv: &str) -> Result<Self, String> {
+        // General reader with manully-handled headers
         let mut rdr = csv::ReaderBuilder::new()
             .has_headers(false)
             .from_reader(data_csv.as_bytes());
         let mut records = rdr.records();
 
+        // Column names
         let header = next_nonempty_record(&mut records, "Empty csv")?;
         let output_names: Vec<String> = header.iter().skip(1).map(|s| s.to_owned()).collect();
         if output_names.is_empty() {
             return Err("CSV missing output columns".to_string());
         }
 
+        // Interpolation methods
         let method_record = next_nonempty_record(&mut records, "Empty csv")?;
         let expected_len = output_names.len() + 1;
         if method_record.len() < expected_len {
@@ -117,9 +120,10 @@ impl Sequence {
 
         let mut methods: Vec<InterpMethod> = Vec::with_capacity(output_names.len());
         for s in method_record.iter().skip(1) {
-            methods.push(InterpMethod::try_parse(s.trim())?);
+            methods.push(InterpMethod::try_parse(s)?);
         }
 
+        // Time and data values
         let mut vals = vec![vec![]; methods.len()];
         let mut time_s = vec![vec![]; methods.len()];
         for (i, result) in records.enumerate() {
@@ -154,6 +158,7 @@ impl Sequence {
             }
         }
 
+        // Build lookups
         let mut data = BTreeMap::new();
         for ((name, method), (times, vals)) in output_names
             .into_iter()
@@ -164,7 +169,11 @@ impl Sequence {
             data.insert(name, lookup);
         }
 
-        Ok(Self { data })
+        // Build sequence 
+        let sequence = Self { data };
+        sequence.validate()?;
+
+        Ok(sequence)
     }
 
     /// Load sequence from a CSV file
