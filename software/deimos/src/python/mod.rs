@@ -33,8 +33,7 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
 
         #[pymodule_export]
         pub use crate::calc::{
-            Affine, Butter2, Constant, InverseAffine, Pid, Polynomial, RtdPt100,
-            Sin, TcKtype,
+            Affine, Butter2, Constant, InverseAffine, Pid, Polynomial, RtdPt100, Sin, TcKtype,
         };
     }
 
@@ -45,8 +44,8 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     mod peripheral_ {
         #[pymodule_export]
         pub use crate::peripheral::{
-            AnalogIRev2, AnalogIRev3, AnalogIRev4, DeimosDaqRev5, DeimosDaqRev6,
-            HootlMockupPeripheral, HootlDriver, MockupTransport,
+            AnalogIRev2, AnalogIRev3, AnalogIRev4, DeimosDaqRev5, DeimosDaqRev6, HootlDriver,
+            HootlMockupPeripheral, MockupTransport,
         };
     }
 
@@ -365,19 +364,13 @@ impl Controller {
         py: Python<'_>,
         v: Vec<Py<crate::Termination>>,
     ) -> PyResult<()> {
-        let criteria = v
-            .into_iter()
-            .map(|term| term.borrow(py).clone())
-            .collect();
+        let criteria = v.into_iter().map(|term| term.borrow(py).clone()).collect();
         self.ctx_mut()?.termination_criteria = criteria;
         Ok(())
     }
 
     #[getter(loss_of_contact_policy)]
-    fn loss_of_contact_policy(
-        &self,
-        py: Python<'_>,
-    ) -> PyResult<Py<crate::LossOfContactPolicy>> {
+    fn loss_of_contact_policy(&self, py: Python<'_>) -> PyResult<Py<crate::LossOfContactPolicy>> {
         Py::new(py, self.ctx()?.loss_of_contact_policy.clone())
     }
 
