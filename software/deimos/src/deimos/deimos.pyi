@@ -1,5 +1,5 @@
 from types import ModuleType
-from typing import ClassVar, Protocol, Self
+from typing import ClassVar, Protocol, Self, Literal
 
 class CalcLike(Protocol):
     def to_json(self) -> str: ...
@@ -102,6 +102,13 @@ class _SocketBase:
     @classmethod
     def from_json(cls, s: str) -> Self: ...
 
+InterpMethod = Literal["linear", "left", "right", "nearest"]
+Time = list[float]
+Value = list[float]
+Name = str
+Sequence = dict[Name, tuple[Time, Value, InterpMethod]]
+TimeoutTargetState = str
+
 class _CalcModule(ModuleType):
     class Affine(_CalcBase):
         def __init__(
@@ -173,6 +180,7 @@ class _CalcModule(ModuleType):
 
     class SequenceMachineInner(_CalcBase):
         def __init__(self) -> None: ...
+        def add_sequence(self, data: Sequence, timeout: TimeoutTargetState | None) -> None: ...
 
 calc: _CalcModule
 

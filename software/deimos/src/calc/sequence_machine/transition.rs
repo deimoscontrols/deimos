@@ -11,9 +11,6 @@ pub enum Timeout {
 
     /// Start over from the beginning of the table
     Loop,
-
-    /// Raise an error with a message
-    Error(String),
 }
 
 impl Default for Timeout {

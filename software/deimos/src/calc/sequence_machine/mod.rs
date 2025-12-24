@@ -72,7 +72,7 @@ pub struct MachineCfg {
 /// Unlike most calcs, the names of the inputs and outputs of this calc
 /// are not known at compile-time, and are assembled from inputs instead.
 #[derive(Serialize, Deserialize, Debug)]
-#[cfg_attr(feature = "python", pyclass(subclass, name="SequenceMachineInner"))]
+#[cfg_attr(feature = "python", pyclass(subclass, name = "SequenceMachineInner"))]
 pub struct SequenceMachine {
     /// State transition criteria and other configuration
     cfg: MachineCfg,
@@ -213,7 +213,6 @@ impl SequenceMachine {
                     self.transition(sequence_name.clone());
                     Ok(())
                 }
-                Timeout::Error(msg) => Err(msg.clone()),
             };
         }
 
@@ -468,7 +467,7 @@ impl SequenceMachine {
         Self {
             cfg,
             sequences: BTreeMap::new(),
-            execution_state: ExecutionState::default()
+            execution_state: ExecutionState::default(),
         }
     }
 
@@ -484,5 +483,13 @@ impl SequenceMachine {
     fn from_json(_cls: &Bound<'_, pyo3::types::PyType>, s: &str) -> PyResult<Self> {
         serde_json::from_str::<Self>(s)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    fn add_sequence(
+        &mut self,
+        sequence: BTreeMap<String, (Vec<f64>, Vec<f64>, String)>,
+        timeout: Option<String>,
+    ) -> PyResult<()> {
+        Ok(())
     }
 }
