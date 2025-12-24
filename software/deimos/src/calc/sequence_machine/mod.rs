@@ -460,9 +460,10 @@ impl Calc for SequenceMachine {
 #[pymethods]
 impl SequenceMachine {
     #[new]
-    fn py_new() -> Self {
+    fn py_new(entry: String) -> Self {
         let mut cfg = MachineCfg::default();
         cfg.save_outputs = true;
+        cfg.entry = entry;
 
         Self {
             cfg,
@@ -487,9 +488,77 @@ impl SequenceMachine {
 
     fn add_sequence(
         &mut self,
-        sequence: BTreeMap<String, (Vec<f64>, Vec<f64>, String)>,
+        name: String,
+        tables: BTreeMap<String, (Vec<f64>, Vec<f64>, String)>,
         timeout: Option<String>,
     ) -> PyResult<()> {
+        // Data is required
+        if tables.is_empty() {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Sequence data is empty".to_string(),
+            ));
+        }
+
+        // Check if this sequence is already defined
+        if self.sequences.contains_key(&name) {
+            return Err(pyo3::exceptions::PyKeyError::new_err(format!(
+                "Sequence already exists: {name}"
+            )));
+        }
+
+        // Build lookups from data
+        let mut data = BTreeMap::new();
+        for (name, (time_s, vals, method)) in tables {
+            // Parse interpolation method
+            let method = InterpMethod::try_parse(&method).map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!(
+                    "Output `{name}` has invalid interp method: {e}"
+                ))
+            })?;
+
+            // Build interpolator
+            let lookup = SequenceLookup::new(method, time_s, vals).map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!(
+                    "Output `{name}` has invalid lookup data: {e}"
+                ))
+            })?;
+            data.insert(name, lookup);
+        }
+
+        if let Some(existing) = self.sequences.values().next() {
+            // Make sure all the sequences have the same columns
+            let expected: HashSet<String> = existing.data.keys().cloned().collect();
+            let provided: HashSet<String> = data.keys().cloned().collect();
+
+            // If the columns don't match, give an informative error
+            if expected != provided {
+                let mut missing: Vec<String> = expected.difference(&provided).cloned().collect();
+                let mut extra: Vec<String> = provided.difference(&expected).cloned().collect();
+
+                // List discrepancies in a consistent order to avoid confusing messages during troubleshooting
+                missing.sort();
+                extra.sort();
+
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Sequence outputs must match existing sequences. Missing: {missing:?}. Extra: {extra:?}"
+                )));
+            }
+        }
+
+        // Build and validate the combined sequence
+        let sequence = Sequence { data };
+        sequence.validate().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid Sequence: {e:?}"))
+        })?;
+
+        // Add the sequence and its timeout setting to the machine
+        self.sequences.insert(name.clone(), sequence);
+        let timeout = match timeout {
+            Some(target_state) => Timeout::Transition(target_state),
+            None => Timeout::Loop,
+        };
+        self.cfg.timeouts.insert(name.clone(), timeout);
+
         Ok(())
     }
 }

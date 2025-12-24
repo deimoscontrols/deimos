@@ -35,8 +35,21 @@ impl Sequence {
 
     /// Check for misconfiguration
     pub fn validate(&self) -> Result<(), String> {
+        let mut start_time = None;
         for lookup in self.data.values() {
             lookup.validate()?;
+
+            let time = lookup
+                .time_s
+                .first()
+                .ok_or_else(|| "Sequence lookup has empty time values".to_string())?;
+            if let Some(expected) = start_time {
+                if *time != expected {
+                    return Err("Sequence outputs must share the same start time".to_string());
+                }
+            } else {
+                start_time = Some(*time);
+            }
         }
 
         Ok(())
