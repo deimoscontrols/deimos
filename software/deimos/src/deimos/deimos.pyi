@@ -171,7 +171,7 @@ class _CalcModule(ModuleType):
             save_outputs: bool,
         ) -> None: ...
 
-    class SequenceMachine(_CalcBase):
+    class SequenceMachineInner(_CalcBase):
         def __init__(self) -> None: ...
 
 calc: _CalcModule

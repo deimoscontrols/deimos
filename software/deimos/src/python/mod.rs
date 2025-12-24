@@ -1,5 +1,5 @@
-use std::sync::{Arc, atomic::AtomicBool};
 use std::collections::HashMap;
+use std::sync::{Arc, atomic::AtomicBool};
 
 use pyo3::exceptions;
 use pyo3::prelude::*;
@@ -32,7 +32,8 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
 
         #[pymodule_export]
         pub use crate::calc::{
-            Affine, Butter2, Constant, InverseAffine, Pid, Polynomial, RtdPt100, Sin, TcKtype,
+            Affine, Butter2, Constant, InverseAffine, Pid, Polynomial, RtdPt100, SequenceMachine,
+            Sin, TcKtype,
         };
     }
 

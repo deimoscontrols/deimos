@@ -19,3 +19,7 @@ __all__ = [
     "Termination",
     "LossOfContactPolicy",
 ]
+
+class SequenceMachine(calc.SequenceMachineInner):
+    def __init__(self):
+        super().__init__()
