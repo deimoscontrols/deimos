@@ -635,30 +635,36 @@ impl Controller {
                 loss_of_contact_limit: self.ctx.peripheral_loss_of_contact_limit,
                 mode: Mode::Roundtrip,
             };
-            // Track configuring window deadlines for each peripheral.
+            //     Track configuring window deadlines for peripherals that receive config packets.
             let configuring_deadline = start_of_operating_countdown
                 + Duration::from_millis(self.ctx.configuring_timeout_ms as u64);
-            for ps in controller_state.peripheral_state.values_mut() {
-                ps.conn_state = ConnState::Configuring {
-                    configuring_timeout: configuring_deadline,
-                };
-            }
 
+            //     Get buffer segment
             let mut config_buf = self
                 .ctx
                 .socket_buffer_pool
                 .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
             let buf = config_buf.as_mut();
 
-            for (sid, pid) in addresses.iter() {
+            for addr in addresses.iter() {
+                //     Write configuring packet for this peripheral
+                let (sid, pid) = addr;
                 let p = bound_peripherals
                     .get(&(*sid, *pid))
                     .ok_or(format!("Did not find {pid:?} in bound peripherals"))?;
                 let num_to_write = p.configuring_input_size();
                 p.emit_configuring(config_input, &mut buf[..num_to_write]);
+
+                //     Transmit configuring packet
                 self.sockets[*sid]
                     .send(*pid, &buf[..num_to_write])
                     .map_err(|e| format!("Failed to send configuration to {pid:?}: {e:?}"))?;
+
+                //     Log expected peripheral state transition
+                let ps = controller_state.peripheral_state.get_mut(addr).unwrap();
+                ps.conn_state = ConnState::Configuring {
+                    configuring_timeout: configuring_deadline,
+                };
             }
 
             //    Wait for peripherals to acknowledge their configuration
