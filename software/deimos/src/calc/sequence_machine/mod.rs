@@ -534,6 +534,60 @@ impl SequenceMachine {
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
+    fn get_entry(&self) -> PyResult<String> {
+        Ok(self.cfg.entry.clone())
+    }
+
+    fn set_entry(&mut self, entry: String) -> PyResult<()> {
+        if !self.sequences.is_empty() && !self.sequences.contains_key(&entry) {
+            return Err(pyo3::exceptions::PyKeyError::new_err(format!(
+                "Unknown entry sequence: {entry}"
+            )));
+        }
+        self.cfg.entry = entry;
+        Ok(())
+    }
+
+    fn get_timeout(&self, sequence: String) -> PyResult<Option<String>> {
+        let timeout = self
+            .cfg
+            .timeouts
+            .get(&sequence)
+            .ok_or_else(|| {
+                pyo3::exceptions::PyKeyError::new_err(format!(
+                    "Unknown sequence: {sequence}"
+                ))
+            })?;
+
+        match timeout {
+            Timeout::Loop => Ok(None),
+            Timeout::Transition(target) => Ok(Some(target.clone())),
+        }
+    }
+
+    fn set_timeout(&mut self, sequence: String, target: Option<String>) -> PyResult<()> {
+        if !self.sequences.contains_key(&sequence) {
+            return Err(pyo3::exceptions::PyKeyError::new_err(format!(
+                "Unknown sequence: {sequence}"
+            )));
+        }
+
+        let timeout = match target {
+            Some(target_sequence) => {
+                if !self.sequences.contains_key(&target_sequence) {
+                    return Err(pyo3::exceptions::PyKeyError::new_err(format!(
+                        "Unknown target sequence: {target_sequence}"
+                    )));
+                }
+                Timeout::Transition(target_sequence)
+            }
+            None => Timeout::Loop,
+        };
+
+        self.cfg.timeouts.insert(sequence, timeout);
+        Ok(())
+    }
+
     fn add_sequence(
         &mut self,
         name: String,
