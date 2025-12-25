@@ -114,7 +114,6 @@ impl DataFrameDispatcher {
         // Check if the overflow behavior is valid
         match overflow_behavior {
             Overflow::Wrap => (),
-            Overflow::Error => (),
             x => unimplemented!("Overflow behavior {x:?} is not available for DataFrameDispatcher"),
         }
 
