@@ -178,6 +178,34 @@ impl SequenceMachine {
         Ok(())
     }
 
+    fn add_transition(
+        &mut self,
+        source_sequence: String,
+        target_sequence: String,
+        transition: Transition,
+    ) -> Result<(), String> {
+        if !self.sequences.contains_key(&source_sequence) {
+            return Err(format!(
+                "Unknown source sequence: {source_sequence}"
+            ));
+        }
+        if !self.sequences.contains_key(&target_sequence) {
+            return Err(format!(
+                "Unknown target sequence: {target_sequence}"
+            ));
+        }
+
+        self.cfg
+            .transitions
+            .entry(source_sequence)
+            .or_insert_with(BTreeMap::new)
+            .entry(target_sequence)
+            .or_insert_with(Vec::new)
+            .push(transition);
+
+        Ok(())
+    }
+
     /// Get a reference to the sequence indicated in execution_state.current_sequence
     fn current_sequence(&self) -> &Sequence {
         &self.sequences[&self.execution_state.current_sequence]
@@ -477,37 +505,6 @@ impl Calc for SequenceMachine {
 }
 
 #[cfg(feature = "python")]
-impl SequenceMachine {
-    fn add_transition_internal(
-        &mut self,
-        source_sequence: String,
-        target_sequence: String,
-        transition: Transition,
-    ) -> PyResult<()> {
-        if !self.sequences.contains_key(&source_sequence) {
-            return Err(pyo3::exceptions::PyKeyError::new_err(format!(
-                "Unknown source sequence: {source_sequence}"
-            )));
-        }
-        if !self.sequences.contains_key(&target_sequence) {
-            return Err(pyo3::exceptions::PyKeyError::new_err(format!(
-                "Unknown target sequence: {target_sequence}"
-            )));
-        }
-
-        self.cfg
-            .transitions
-            .entry(source_sequence)
-            .or_insert_with(BTreeMap::new)
-            .entry(target_sequence)
-            .or_insert_with(Vec::new)
-            .push(transition);
-
-        Ok(())
-    }
-}
-
-#[cfg(feature = "python")]
 #[pymethods]
 impl SequenceMachine {
     #[new]
@@ -632,7 +629,8 @@ impl SequenceMachine {
 
         // Add to machine
         let transition = Transition::ConstantThresh(channel, op, threshold);
-        self.add_transition_internal(source_sequence, target_sequence, transition)
+        self.add_transition(source_sequence, target_sequence, transition)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
     }
 
     /// Add a channel threshold transition for a sequence.
@@ -650,7 +648,8 @@ impl SequenceMachine {
 
         // Add to machine
         let transition = Transition::ChannelThresh(channel, op, threshold_channel);
-        self.add_transition_internal(source_sequence, target_sequence, transition)
+        self.add_transition(source_sequence, target_sequence, transition)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
     }
 
     /// Add a lookup threshold transition for a sequence.
@@ -679,7 +678,8 @@ impl SequenceMachine {
 
         // Add to machine
         let transition = Transition::LookupThresh(channel, op, lookup);
-        self.add_transition_internal(source_sequence, target_sequence, transition)
+        self.add_transition(source_sequence, target_sequence, transition)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
     }
 }
 
