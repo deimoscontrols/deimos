@@ -534,6 +534,21 @@ impl SequenceMachine {
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
+    #[staticmethod]
+    #[pyo3(name = "load_folder")]
+    fn py_load_folder(path: &str) -> PyResult<Self> {
+        let path = Path::new(path);
+        Self::load_folder(&path)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+    }
+
+    #[pyo3(name = "save_folder")]
+    fn py_save_folder(&self, path: &str) -> PyResult<()> {
+        let path = Path::new(path);
+        Self::save_folder(self, &path)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+    }
+
     fn get_entry(&self) -> PyResult<String> {
         Ok(self.cfg.entry.clone())
     }
@@ -545,6 +560,15 @@ impl SequenceMachine {
             )));
         }
         self.cfg.entry = entry;
+        Ok(())
+    }
+
+    fn get_link_folder(&self) -> PyResult<Option<String>> {
+        Ok(self.cfg.link_folder.clone())
+    }
+
+    fn set_link_folder(&mut self, link_folder: Option<String>) -> PyResult<()> {
+        self.cfg.link_folder = link_folder;
         Ok(())
     }
 
