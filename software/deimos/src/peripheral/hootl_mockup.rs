@@ -31,7 +31,7 @@ use crate::py_json_methods;
 use super::Peripheral;
 
 #[cfg(feature = "python")]
-use crate::python::{BackendErr, Controller as PyController};
+use crate::python::{BackendErr, controller::Controller as PyController};
 
 /// Peripheral wrapper that emits mock outputs using the ipc_mockup-style state machine.
 #[derive(Serialize, Deserialize, Debug)]
