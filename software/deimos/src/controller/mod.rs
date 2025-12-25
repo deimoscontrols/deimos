@@ -973,7 +973,7 @@ impl Controller {
 
         //    Set up peripheral I/O buffers
         //    with maximum size of a standard packet
-        let mut peripheral_input_buffer = [0.0_f64; 1522 / 8 + 8];
+        let mut peripheral_input_buffer = [0.0_f64; 1522];
 
         //    Run timed loop
         info!("Entering control loop");
@@ -1370,45 +1370,6 @@ impl Controller {
                 // Exit if any sockets have failed
                 if worker_error.is_some() {
                     break;
-                }
-
-                // TODO: check if we need this duplicated here, and if so,
-                // reduce code duplication
-                while let Ok(event) = socket_events.try_recv() {
-                    match event {
-                        SocketWorkerEvent::Packet { socket_id, packet } => {
-                            let handled = self.handle_reconnect_packet(
-                                &mut controller_state,
-                                &socket_workers,
-                                socket_id,
-                                &packet,
-                                reconnect_step_timeout,
-                            );
-                            if handled {
-                                continue;
-                            }
-                            self.process_socket_packet(
-                                &mut controller_state,
-                                &addresses,
-                                start_of_operating,
-                                socket_id,
-                                packet,
-                                i,
-                            );
-                        }
-                        SocketWorkerEvent::Error { socket_id, error } => {
-                            worker_error =
-                                Some(format!("Socket worker {socket_id} error: {error}"));
-                            break;
-                        }
-                        SocketWorkerEvent::Closed { socket_id } => {
-                            worker_error = Some(format!("Socket worker {socket_id} closed"));
-                            break;
-                        }
-                    }
-                    if worker_error.is_some() {
-                        break;
-                    }
                 }
 
                 t = start_of_operating.elapsed();
