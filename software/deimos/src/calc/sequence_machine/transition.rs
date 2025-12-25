@@ -54,6 +54,29 @@ impl ThreshOp {
             ThreshOp::Approx { atol } => (v - thresh).abs() < *atol,
         }
     }
+
+    /// Attempt to parse from a string operation and a value.
+    /// Equivalent string representations:
+    /// "gt" | ">" => [ThreshOp::Gt]{ by: param }
+    /// "lt" | "<" => [ThreshOp::Lt]{ by: param }
+    /// "approx" | "~" | "~=" => [ThreshOp::Approx]{ atol: param }
+    pub fn try_parse(op: (&str, f64)) -> Result<Self, String> {
+        let param = op.1;
+        let op = op.0.trim().to_ascii_lowercase();
+        
+        if param.is_nan() {
+            return Err(format!("Threshold op parameter must not be a NaN value"))
+        }
+
+        match op.as_str() {
+            "gt" | ">" => Ok(Self::Gt { by: param }),
+            "lt" | "<" => Ok(Self::Lt { by: param }),
+            "approx" | "~" | "~=" => Ok(Self::Approx { atol: param }),
+            _ => Err(format!(
+                "Invalid threshold op `{op}`. Expected `gt`, `lt`, or `approx`"
+            )),
+        }
+    }
 }
 
 /// Methods for checking whether a sequence transition should occur

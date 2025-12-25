@@ -477,19 +477,6 @@ impl Calc for SequenceMachine {
 }
 
 #[cfg(feature = "python")]
-fn parse_thresh_op(op: &str, op_param: f64) -> Result<ThreshOp, String> {
-    let op = op.trim().to_ascii_lowercase();
-    match op.as_str() {
-        "gt" | ">" => Ok(ThreshOp::Gt { by: op_param }),
-        "lt" | "<" => Ok(ThreshOp::Lt { by: op_param }),
-        "approx" => Ok(ThreshOp::Approx { atol: op_param }),
-        _ => Err(format!(
-            "Invalid threshold op `{op}`. Expected `gt`, `lt`, or `approx`"
-        )),
-    }
-}
-
-#[cfg(feature = "python")]
 impl SequenceMachine {
     fn add_transition_internal(
         &mut self,
@@ -633,15 +620,17 @@ impl SequenceMachine {
     /// Add a constant threshold transition for a sequence.
     fn add_constant_thresh_transition(
         &mut self,
-        source_sequence: String,
-        target_sequence: String,
+        source_target: (String, String),
         channel: String,
-        op: String,
-        op_param: f64,
+        op: (&str, f64),
         threshold: f64,
     ) -> PyResult<()> {
-        let op = parse_thresh_op(&op, op_param)
+        // Unpack and parse
+        let (source_sequence, target_sequence) = source_target;
+        let op = ThreshOp::try_parse(op)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+
+        // Add to machine
         let transition = Transition::ConstantThresh(channel, op, threshold);
         self.add_transition_internal(source_sequence, target_sequence, transition)
     }
@@ -649,41 +638,46 @@ impl SequenceMachine {
     /// Add a channel threshold transition for a sequence.
     fn add_channel_thresh_transition(
         &mut self,
-        source_sequence: String,
-        target_sequence: String,
-        value_channel: String,
-        op: String,
-        op_param: f64,
+        source_target: (String, String),
+        channel: String,
+        op: (&str, f64),
         threshold_channel: String,
     ) -> PyResult<()> {
-        let op = parse_thresh_op(&op, op_param)
+        // Unpack and parse
+        let (source_sequence, target_sequence) = source_target;
+        let op = ThreshOp::try_parse(op)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
-        let transition = Transition::ChannelThresh(value_channel, op, threshold_channel);
+
+        // Add to machine
+        let transition = Transition::ChannelThresh(channel, op, threshold_channel);
         self.add_transition_internal(source_sequence, target_sequence, transition)
     }
 
     /// Add a lookup threshold transition for a sequence.
     fn add_lookup_thresh_transition(
         &mut self,
-        source_sequence: String,
-        target_sequence: String,
+        source_target: (String, String),
         channel: String,
-        op: String,
-        op_param: f64,
-        lookup_time_s: Vec<f64>,
-        lookup_vals: Vec<f64>,
-        lookup_method: String,
+        op: (&str, f64),
+        threshold_lookup: (Vec<f64>, Vec<f64>, &str)
     ) -> PyResult<()> {
-        let op = parse_thresh_op(&op, op_param)
+        // Unpack and parse
+        let (source_sequence, target_sequence) = source_target;
+        let (time_s, vals, method) = threshold_lookup;
+        let op = ThreshOp::try_parse(op)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
-        let method = InterpMethod::try_parse(&lookup_method).map_err(|e| {
+        let method = InterpMethod::try_parse(&method).map_err(|e| {
             pyo3::exceptions::PyValueError::new_err(format!(
                 "Lookup has invalid interp method: {e}"
             ))
         })?;
-        let lookup = SequenceLookup::new(method, lookup_time_s, lookup_vals).map_err(|e| {
+
+        // Build lookup interpolator
+        let lookup = SequenceLookup::new(method, time_s, vals).map_err(|e| {
             pyo3::exceptions::PyValueError::new_err(format!("Lookup has invalid data: {e}"))
         })?;
+
+        // Add to machine
         let transition = Transition::LookupThresh(channel, op, lookup);
         self.add_transition_internal(source_sequence, target_sequence, transition)
     }
