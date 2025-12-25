@@ -31,6 +31,7 @@ use crate::socket::{
 };
 use context::{ControllerCtx, LossOfContactPolicy, Termination};
 use controller_state::ControllerState;
+use peripheral_state::ConnState;
 use timing::TimingPID;
 use tracing::{debug, error, info, warn};
 
@@ -595,6 +596,15 @@ impl Controller {
                 thread::sleep(retry_wait);
             }
 
+            // Track binding window deadlines for each peripheral.
+            let binding_deadline =
+                Instant::now() + Duration::from_millis(self.ctx.binding_timeout_ms as u64);
+            for ps in controller_state.peripheral_state.values_mut() {
+                ps.conn_state = ConnState::Binding {
+                    binding_timeout: binding_deadline,
+                };
+            }
+
             // Clear buffers
             while self
                 .sockets
@@ -625,6 +635,14 @@ impl Controller {
                 loss_of_contact_limit: self.ctx.peripheral_loss_of_contact_limit,
                 mode: Mode::Roundtrip,
             };
+            // Track configuring window deadlines for each peripheral.
+            let configuring_deadline = start_of_operating_countdown
+                + Duration::from_millis(self.ctx.configuring_timeout_ms as u64);
+            for ps in controller_state.peripheral_state.values_mut() {
+                ps.conn_state = ConnState::Configuring {
+                    configuring_timeout: configuring_deadline,
+                };
+            }
 
             let mut config_buf = self
                 .ctx
@@ -701,6 +719,14 @@ impl Controller {
             }
 
             if all_peripherals_acknowledged {
+                // Track operating transition deadlines for each peripheral.
+                let operating_deadline = start_of_operating_countdown
+                    + Duration::from_nanos(self.ctx.timeout_to_operating_ns as u64);
+                for ps in controller_state.peripheral_state.values_mut() {
+                    ps.conn_state = ConnState::Operating {
+                        operating_timeout: operating_deadline,
+                    };
+                }
                 break 'configuring_retry;
             } else {
                 // Figure out which peripherals were missing
