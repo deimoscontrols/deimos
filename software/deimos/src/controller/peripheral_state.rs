@@ -38,6 +38,7 @@ pub(crate) enum ConnState {
     Binding { binding_timeout: Instant },
     Configuring { configuring_timeout: Instant },
     Operating { operating_timeout: Instant },
+    Disconnected,
 }
 
 /// Peripheral-specific metrics, readings, channel names, etc

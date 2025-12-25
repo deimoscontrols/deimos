@@ -807,27 +807,34 @@ impl Controller {
 
             // Check for loss of contact
             match self.ctx.loss_of_contact_policy {
-                LossOfContactPolicy::Terminate => {
-                    for p in controller_state.peripheral_state.values() {
-                        if p.metrics.loss_of_contact_counter
-                            >= self.ctx.controller_loss_of_contact_limit as f64
-                        {
-                            self.terminate(
-                                &controller_state,
-                                &mut peripheral_input_buffer,
-                                i,
-                                &socket_workers,
-                            );
-                            self.stop_socket_workers(socket_workers);
-                            let reason = format!(
-                                "Lost contact with peripheral `{}` after {} missed cycles",
-                                &p.name, self.ctx.controller_loss_of_contact_limit
-                            );
-                            error!("{reason}");
-                            return Err(reason);
+                LossOfContactPolicy::Terminate() => {
+                    let mut lost_name: Option<String> = None;
+                    let limit = self.ctx.controller_loss_of_contact_limit as f64;
+                    for p in controller_state.peripheral_state.values_mut() {
+                        if p.metrics.loss_of_contact_counter >= limit {
+                            p.conn_state = ConnState::Disconnected;
+                            if lost_name.is_none() {
+                                lost_name = Some(p.name.clone());
+                            }
                         }
                     }
-                }
+                    if let Some(name) = lost_name {
+                        self.terminate(
+                            &controller_state,
+                            &mut peripheral_input_buffer,
+                            i,
+                            &socket_workers,
+                        );
+                        self.stop_socket_workers(socket_workers);
+                        let reason = format!(
+                            "Lost contact with peripheral `{}` after {} missed cycles",
+                            name, self.ctx.controller_loss_of_contact_limit
+                        );
+                        error!("{reason}");
+                        return Err(reason);
+                    }
+                },
+                _ => unimplemented!()
             }
 
             // Check termination criteria

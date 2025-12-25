@@ -75,15 +75,14 @@ impl Termination {
 #[non_exhaustive]
 pub enum LossOfContactPolicy {
     /// Terminate the control program
-    Terminate,
-    // TODO: implement reconnection
+    Terminate(),
 
-    // /// Attempt to reconnect indefinitely
-    // Reconnect,
+    /// Attempt to reconnect indefinitely
+    Reconnect(),
 
-    // /// Attempt to reconnect until some time has elapsed,
-    // /// then terminate if unsuccessful
-    // ReconnectWithTimeout(Duration)
+    /// Attempt to reconnect until some time has elapsed,
+    /// then terminate if unsuccessful
+    ReconnectWithTimeout(Duration)
 }
 
 /// Operation context, provided to appendages during init
@@ -188,7 +187,7 @@ impl Default for ControllerCtx {
             peripheral_loss_of_contact_limit: 10,
             controller_loss_of_contact_limit: 10,
             termination_criteria: Vec::new(),
-            loss_of_contact_policy: LossOfContactPolicy::Terminate,
+            loss_of_contact_policy: LossOfContactPolicy::Terminate(),
             user_ctx: BTreeMap::new(),
             user_channels: Arc::new(RwLock::new(BTreeMap::new())),
             socket_buffer_pool: default_socket_buffer_pool(),
