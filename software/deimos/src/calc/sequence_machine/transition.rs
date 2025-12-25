@@ -28,8 +28,8 @@ pub enum ThreshOp {
     /// Less than
     Lt { by: f64 },
 
-    /// Approximately equal
-    Approx { rtol: f64, atol: f64 },
+    /// Approximately equal within an absolute tolerance
+    Approx { atol: f64 },
 }
 
 impl Default for ThreshOp {
@@ -51,11 +51,7 @@ impl ThreshOp {
         match self {
             ThreshOp::Gt { by } => v > thresh + by,
             ThreshOp::Lt { by } => v < thresh - by,
-            ThreshOp::Approx { rtol, atol } => {
-                let drel = rtol * thresh.abs();
-                let dtot = drel + atol;
-                (v - thresh).abs() < dtot
-            }
+            ThreshOp::Approx { atol } => (v - thresh).abs() < *atol,
         }
     }
 }
