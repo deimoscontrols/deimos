@@ -427,6 +427,9 @@ impl Controller {
             Some(ps) => ps,
             None => return,
         };
+        if !matches!(ps.conn_state, ConnState::Operating { .. }) {
+            return;
+        }
         let p = &self.peripherals[&ps.name];
         let n = p.operating_roundtrip_output_size();
 
@@ -454,6 +457,172 @@ impl Controller {
                 (metrics.last_input_id as i64) - (cycle_index.saturating_sub(1) as i64);
             ps.metrics.cycle_lag_count = cycle_lag_count as f64;
         }
+    }
+
+    /// Check if a packet is a reconnection attempt (Binding or Configuring response)
+    /// and, if so, update peripheral reconnection state and address maps.
+    /// Returns `true` if this was a reconnection packet and `false` otherwise.
+    fn handle_reconnect_packet(
+        &mut self,
+        controller_state: &mut ControllerState,
+        socket_workers: &[SocketWorkerHandle],
+        socket_id: usize,
+        packet: &SocketPacket,
+        reconnect_step_timeout: Duration,
+    ) -> bool {
+        let now = Instant::now();
+
+        // Handle Binding response
+        if packet.size == BindingOutput::BYTE_LEN {
+            // Parse
+            let binding_response = BindingOutput::read_bytes(packet.payload());
+            let pid = binding_response.peripheral_id;
+            let addr = (socket_id, pid);
+
+            // Check if this is a response from one of our attached peripherals.
+            // It might be from a peripheral on the network that is not associated with this control program.
+            let ps = match controller_state.peripheral_state.get_mut(&addr) {
+                Some(ps) => ps,
+                None => return false, // Indicate that this was not a reconnection packet
+            };
+
+            // Check if we were expecting a Binding response from this peripheral.
+            // This might be a Binding response arriving late after we've already
+            // transitioned to Configuring.
+            let reconnect_deadline = match ps.conn_state {
+                ConnState::Binding {
+                    reconnect_deadline, ..
+                } => reconnect_deadline,
+                _ => return false, // Indicate that this was not a reconnection packet
+            };
+
+            // Update address maps.
+            // If the peripheral's IP address was reassigned or it was physically
+            // connected to a different location in the network, its address might have changed.
+            let update_result = socket_workers
+                .get(socket_id)
+                .ok_or_else(|| format!("Socket worker index {socket_id} out of range"))
+                .and_then(|worker| {
+                    worker
+                        .cmd_tx
+                        .send(SocketWorkerCommand::UpdateMap {
+                            id: pid,
+                            token: packet.token,
+                        })
+                        .map_err(|e| format!("Unable to update socket {socket_id} map: {e}"))
+                });
+
+            // If we're unable to talk to its socket to update the address map,
+            // mark it as Disconnected again.
+            if let Err(err) = update_result {
+                error!("{err}");
+                ps.conn_state = ConnState::Disconnected {
+                    deadline: reconnect_deadline,
+                };
+                return true;
+            }
+
+            // Build Configuring packet
+            let config_input = ConfiguringInput {
+                dt_ns: self.ctx.dt_ns,
+                timeout_to_operating_ns: self.ctx.timeout_to_operating_ns,
+                loss_of_contact_limit: self.ctx.peripheral_loss_of_contact_limit,
+                mode: Mode::Roundtrip,
+            };
+            let p = &self.peripherals[&ps.name];
+            let num_to_write = p.configuring_input_size();
+            let mut lease = self
+                .ctx
+                .socket_buffer_pool
+                .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
+            let buf = lease.as_mut();
+            p.emit_configuring(config_input, &mut buf[..num_to_write]);
+
+            // Transmit Configuring packet
+            let send_result = socket_workers
+                .get(socket_id)
+                .ok_or_else(|| format!("Socket worker index {socket_id} out of range"))
+                .and_then(|worker| {
+                    worker
+                        .cmd_tx
+                        .send(SocketWorkerCommand::Send {
+                            id: pid,
+                            buffer: lease,
+                            size: num_to_write,
+                        })
+                        .map_err(|e| format!("Unable to send config to socket {socket_id}: {e}"))
+                });
+
+            // Mark disconnected if the socket fails
+            if let Err(err) = send_result {
+                error!("{err}");
+                ps.conn_state = ConnState::Disconnected {
+                    deadline: reconnect_deadline,
+                };
+                return true;
+            }
+
+            // Update peripheral state
+            ps.acknowledged_configuration = false;
+            ps.conn_state = ConnState::Configuring {
+                configuring_timeout: now + reconnect_step_timeout,
+                reconnect_deadline,
+            };
+
+            // Indicate that this was a reconnection packet
+            return true;
+        }
+
+        // Handle Configuring response
+        if packet.size == ConfiguringOutput::BYTE_LEN {
+            // Get this peripheral's state info
+            let pid = match packet.pid {
+                Some(pid) => pid,
+                None => return false,
+            };
+            let addr = (socket_id, pid);
+            let ps = match controller_state.peripheral_state.get_mut(&addr) {
+                Some(ps) => ps,
+                None => return false, // Indicate that this was not a reconnection packet
+            };
+
+            // Check if we were expecting a Configuring response from this peripheral.
+            // It's possible that this is arriving late after we've already transitioned
+            // to another state.
+            let reconnect_deadline = match ps.conn_state {
+                ConnState::Configuring {
+                    reconnect_deadline, ..
+                } => reconnect_deadline,
+                _ => return false, // Indicate that this was not a reconnection packet
+            };
+
+            // Check whether the configuration was acknowledged by the peripheral.
+            // If not, mark it as Disconnected again.
+            let ack = ConfiguringOutput::read_bytes(packet.payload());
+            match ack.acknowledge {
+                AcknowledgeConfiguration::Ack => {
+                    ps.acknowledged_configuration = true;
+                    ps.metrics.loss_of_contact_counter = 0.0;
+                    ps.conn_state = ConnState::Operating {
+                        operating_timeout: now
+                            + Duration::from_nanos(self.ctx.timeout_to_operating_ns as u64),
+                    };
+                }
+                _ => {
+                    warn!("Peripheral {addr:?} rejected configuration during reconnect");
+                    ps.conn_state = ConnState::Disconnected {
+                        deadline: reconnect_deadline,
+                    };
+                }
+            }
+
+            // Indicate that this was a reconnection packet
+            return true;
+        }
+
+        // If it didn't match a Binding or Configuring response,
+        // indicate that this was not a reconnection packet
+        false
     }
 
     pub fn run(
@@ -602,6 +771,7 @@ impl Controller {
             for ps in controller_state.peripheral_state.values_mut() {
                 ps.conn_state = ConnState::Binding {
                     binding_timeout: binding_deadline,
+                    reconnect_deadline: None,
                 };
             }
 
@@ -664,6 +834,7 @@ impl Controller {
                 let ps = controller_state.peripheral_state.get_mut(addr).unwrap();
                 ps.conn_state = ConnState::Configuring {
                     configuring_timeout: configuring_deadline,
+                    reconnect_deadline: None,
                 };
             }
 
@@ -764,6 +935,20 @@ impl Controller {
         info!("Initializing timing controllers");
         let start_of_operating = Instant::now();
         let cycle_duration = Duration::from_nanos(self.ctx.dt_ns as u64);
+        let reconnect_step_timeout = {
+            let min_timeout = Duration::from_millis(10);
+            let dt_timeout = Duration::from_nanos(self.ctx.dt_ns as u64 * 3);
+            if dt_timeout > min_timeout {
+                dt_timeout
+            } else {
+                min_timeout
+            }
+        };
+        let reconnect_step_timeout_ms =
+            reconnect_step_timeout.as_millis().min(u16::MAX as u128) as u16;
+        let mut reconnect_broadcasts: BTreeMap<usize, Instant> = BTreeMap::new();
+        let mut reconnect_targets: Vec<Vec<(SocketAddr, Option<Instant>)>> =
+            (0..socket_workers.len()).map(|_| Vec::new()).collect();
         let mut target_time = cycle_duration;
         let mut peripheral_timing: BTreeMap<SocketAddr, (TimingPID, MedianFilter<i64, 7>)> =
             BTreeMap::new();
@@ -807,12 +992,13 @@ impl Controller {
 
             // Check for loss of contact
             match self.ctx.loss_of_contact_policy {
+                // Exit on loss of contact
                 LossOfContactPolicy::Terminate() => {
                     let mut lost_name: Option<String> = None;
                     let limit = self.ctx.controller_loss_of_contact_limit as f64;
                     for p in controller_state.peripheral_state.values_mut() {
                         if p.metrics.loss_of_contact_counter >= limit {
-                            p.conn_state = ConnState::Disconnected;
+                            p.conn_state = ConnState::Disconnected { deadline: None };
                             if lost_name.is_none() {
                                 lost_name = Some(p.name.clone());
                             }
@@ -833,8 +1019,80 @@ impl Controller {
                         error!("{reason}");
                         return Err(reason);
                     }
-                },
-                _ => unimplemented!()
+                }
+                // Non-blocking reconnection attempt
+                LossOfContactPolicy::Reconnect(reconnect_timeout) => {
+                    let now = Instant::now();
+                    let limit = self.ctx.controller_loss_of_contact_limit as f64;
+                    let mut expired_name: Option<String> = None;
+                    for p in controller_state.peripheral_state.values_mut() {
+                        // Check loss of contact
+                        if p.metrics.loss_of_contact_counter >= limit
+                            && matches!(p.conn_state, ConnState::Operating { .. })
+                        {
+                            let deadline = reconnect_timeout.map(|d| now + d);
+                            p.conn_state = ConnState::Disconnected { deadline };
+                        }
+
+                        // Check binding and configuring deadlines
+                        match p.conn_state {
+                            ConnState::Binding {
+                                binding_timeout,
+                                reconnect_deadline,
+                            } => {
+                                if now >= binding_timeout {
+                                    p.conn_state = ConnState::Disconnected {
+                                        deadline: reconnect_deadline,
+                                    };
+                                }
+                            }
+                            ConnState::Configuring {
+                                configuring_timeout,
+                                reconnect_deadline,
+                            } => {
+                                if now >= configuring_timeout {
+                                    p.conn_state = ConnState::Disconnected {
+                                        deadline: reconnect_deadline,
+                                    };
+                                }
+                            }
+                            _ => {}
+                        }
+
+                        // Check overall reconnection deadline (if there is one)
+                        let deadline = match p.conn_state {
+                            ConnState::Binding {
+                                reconnect_deadline, ..
+                            } => reconnect_deadline,
+                            ConnState::Configuring {
+                                reconnect_deadline, ..
+                            } => reconnect_deadline,
+                            ConnState::Disconnected { deadline } => deadline,
+                            ConnState::Operating { .. } => None,
+                        };
+                        if let Some(deadline) = deadline {
+                            if now >= deadline {
+                                expired_name = Some(p.name.clone());
+                            }
+                        }
+                    }
+
+                    // Exit if any reconnection attempts have passed the overall
+                    // reconnection deadline
+                    if let Some(name) = expired_name {
+                        self.terminate(
+                            &controller_state,
+                            &mut peripheral_input_buffer,
+                            i,
+                            &socket_workers,
+                        );
+                        self.stop_socket_workers(socket_workers);
+                        let reason =
+                            format!("Reconnect timeout exceeded for peripheral `{}`", name);
+                        error!("{reason}");
+                        return Err(reason);
+                    }
+                }
             }
 
             // Check termination criteria
@@ -861,7 +1119,7 @@ impl Controller {
                         } else {
                             None
                         }
-                    } // _ => Some(Err(format!("Unimplemented termination criterion"))),
+                    }
                 };
 
                 if let Some(reason) = terminating {
@@ -894,8 +1152,111 @@ impl Controller {
                 }
             }
 
-            // Send next input
+            // Periodically broadcast bind requests on sockets with Disconnected peripherals.
+            // To avoid overwhelming the network, we only do this once per reconnect attempt window
+            // per socket.
+            if let LossOfContactPolicy::Reconnect(_) = self.ctx.loss_of_contact_policy {
+                let now = Instant::now();
+
+                // Figure out which peripherals are reconnecting on which sockets
+                for (addr, ps) in controller_state.peripheral_state.iter_mut() {
+                    // Only visit peripherals in Disconnected state
+                    let deadline = match ps.conn_state {
+                        ConnState::Disconnected { deadline } => deadline,
+                        _ => continue,
+                    };
+
+                    // If we're already past the reconnection deadline, skip this one
+                    if deadline.map_or(false, |deadline| now >= deadline) {
+                        continue;
+                    }
+
+                    // If this is a Disconnected peripheral inside its reconnection window,
+                    // add it to the list to attempt reconnection.
+                    if let Some(targets) = reconnect_targets.get_mut(addr.0) {
+                        targets.push((*addr, deadline));
+                    }
+                }
+
+                // Send bind requests
+                for (sid, targets) in reconnect_targets.iter_mut().enumerate() {
+                    // Don't spam sockets that don't have any peripherals reconnecting
+                    if targets.is_empty() {
+                        continue; // Go to the next socket
+                    }
+
+                    // Check if it has been long enough since our last broadcast on this socket.
+                    // If not, skip broadcasting on this socket until a later cycle.
+                    if let Some(last) = reconnect_broadcasts.get(&sid).copied() {
+                        if now.duration_since(last) < reconnect_step_timeout {
+                            continue; // Go to the next socket
+                        }
+                    }
+
+                    // Build binding packet
+                    let binding_msg = BindingInput {
+                        configuring_timeout_ms: reconnect_step_timeout_ms,
+                    };
+                    let mut binding_buf = self
+                        .ctx
+                        .socket_buffer_pool
+                        .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
+                    binding_msg.write_bytes(&mut binding_buf.as_mut()[..BindingInput::BYTE_LEN]);
+
+                    // Send broadcast binding packet on this socket only
+                    let send_result = socket_workers
+                        .get(sid)
+                        .ok_or_else(|| format!("Socket worker index {sid} out of range"))
+                        .and_then(|worker| {
+                            worker
+                                .cmd_tx
+                                .send(SocketWorkerCommand::Broadcast {
+                                    buffer: binding_buf,
+                                    size: BindingInput::BYTE_LEN,
+                                })
+                                .map_err(|e| {
+                                    format!("Unable to broadcast binding on socket {sid}: {e}")
+                                })
+                        });
+
+                    // If we have lost the ability to transmit on this socket,
+                    // log the error, but let the loss of contact logic handle
+                    // whether this means the controller should exit.
+                    if let Err(err) = send_result {
+                        error!("{err}");
+                        continue;
+                    }
+
+                    // Log this time as the most recent broadcast on this socket
+                    reconnect_broadcasts.insert(sid, now);
+
+                    // Transition affected reconnecting peripherals on this socket to Binding
+                    let binding_deadline = now + reconnect_step_timeout;
+                    for (addr, deadline) in targets.iter().copied() {
+                        if let Some(ps) = controller_state.peripheral_state.get_mut(&addr) {
+                            ps.acknowledged_configuration = false;
+                            ps.conn_state = ConnState::Binding {
+                                binding_timeout: binding_deadline,
+                                reconnect_deadline: deadline,
+                            };
+                        }
+                    }
+                }
+
+                // Clear list of peripherals that are actively reconnecting
+                // so that it can be repopulated fresh on the next cycle.
+                reconnect_targets
+                    .iter_mut()
+                    .for_each(|targets| targets.clear());
+            }
+
+            // Send next control input
             for (addr, ps) in controller_state.peripheral_state.iter_mut() {
+                // Don't spam Operating inputs to peripherals that are in the process
+                // of being reconnected
+                if !matches!(ps.conn_state, ConnState::Operating { .. }) {
+                    continue;
+                }
                 let p = &self.peripherals[&ps.name];
 
                 // Send packet
@@ -942,9 +1303,7 @@ impl Controller {
                     });
                 if let Err(e) = send_result {
                     error!(e);
-                    // TODO: consider a less passive response to transmission failure.
-                    //
-                    // Right now, if transmission fails, the peripheral is responsible for
+                    // If transmission fails, the peripheral is responsible for
                     // registering that contact has been lost and will eventually exit the operating state,
                     // after which the controller will start its loss of contact counter for that peripheral,
                     // potentially doubling the number of cycles without active control compared to the loss of contact limit.
@@ -963,10 +1322,27 @@ impl Controller {
             }
             let mut worker_error: Option<String> = None;
             while t < target_time {
+                // Set maximum time to wait for next packet to end at the next target time
                 let timeout = target_time.saturating_sub(t);
+
+                // Wait for the next packet
                 match socket_events.recv_timeout(timeout) {
                     Ok(event) => match event {
                         SocketWorkerEvent::Packet { socket_id, packet } => {
+                            // Check if this is a reconnection attempt, and if so,
+                            // handle the peripheral state transition and address map update.
+                            let was_reconnection = self.handle_reconnect_packet(
+                                &mut controller_state,
+                                &socket_workers,
+                                socket_id,
+                                &packet,
+                                reconnect_step_timeout,
+                            );
+                            if was_reconnection {
+                                continue;
+                            }
+
+                            // If this is not a reconnection attempt, process normally.
                             self.process_socket_packet(
                                 &mut controller_state,
                                 &addresses,
@@ -991,13 +1367,26 @@ impl Controller {
                     }
                 }
 
+                // Exit if any sockets have failed
                 if worker_error.is_some() {
                     break;
                 }
 
+                // TODO: check if we need this duplicated here, and if so,
+                // reduce code duplication
                 while let Ok(event) = socket_events.try_recv() {
                     match event {
                         SocketWorkerEvent::Packet { socket_id, packet } => {
+                            let handled = self.handle_reconnect_packet(
+                                &mut controller_state,
+                                &socket_workers,
+                                socket_id,
+                                &packet,
+                                reconnect_step_timeout,
+                            );
+                            if handled {
+                                continue;
+                            }
                             self.process_socket_packet(
                                 &mut controller_state,
                                 &addresses,
@@ -1025,6 +1414,7 @@ impl Controller {
                 t = start_of_operating.elapsed();
             }
 
+            // Exit if any socket has failed
             if let Some(err) = worker_error {
                 self.terminate(
                     &controller_state,

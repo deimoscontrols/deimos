@@ -42,9 +42,6 @@ pub enum Termination {
 
     /// Schedule termination at a specific "realtime" date or time.
     Scheduled(SystemTime),
-    // TODO: add machinery to Orchestrator to support extracting values during run
-    // /// Terminate on any nonzero output of this calc output.
-    // Calc(String)
 }
 
 #[cfg(feature = "python")]
@@ -77,12 +74,10 @@ pub enum LossOfContactPolicy {
     /// Terminate the control program
     Terminate(),
 
-    /// Attempt to reconnect indefinitely
-    Reconnect(),
-
     /// Attempt to reconnect until some time has elapsed,
-    /// then terminate if unsuccessful
-    ReconnectWithTimeout(Duration)
+    /// then terminate if unsuccessful. If no timeout is set,
+    /// attempt reconnection indefinitely.
+    Reconnect(Option<Duration>),
 }
 
 /// Operation context, provided to appendages during init

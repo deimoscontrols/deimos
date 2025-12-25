@@ -35,10 +35,16 @@ pub(crate) struct PeripheralMetrics {
 }
 
 pub(crate) enum ConnState {
-    Binding { binding_timeout: Instant },
-    Configuring { configuring_timeout: Instant },
+    Binding {
+        binding_timeout: Instant,
+        reconnect_deadline: Option<Instant>,
+    },
+    Configuring {
+        configuring_timeout: Instant,
+        reconnect_deadline: Option<Instant>,
+    },
     Operating { operating_timeout: Instant },
-    Disconnected,
+    Disconnected { deadline: Option<Instant> },
 }
 
 /// Peripheral-specific metrics, readings, channel names, etc
@@ -102,6 +108,7 @@ impl PeripheralState {
         let acknowledged_configuration = false;
         let conn_state = ConnState::Binding {
             binding_timeout: Instant::now() + Duration::from_millis(ctx.binding_timeout_ms as u64),
+            reconnect_deadline: None,
         };
         let id = p.id();
 
