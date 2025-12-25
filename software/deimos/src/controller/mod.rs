@@ -663,6 +663,7 @@ impl Controller {
 
             //    Wait for peripherals to acknowledge their configuration
             let operating_timeout = Duration::from_nanos(self.ctx.timeout_to_operating_ns as u64);
+            let operating_deadline = start_of_operating_countdown + operating_timeout;
 
             info!("Waiting for peripherals to acknowledge configuration");
             while start_of_operating_countdown.elapsed() < operating_timeout {
@@ -692,11 +693,15 @@ impl Controller {
                                 // Check status
                                 match ack.acknowledge {
                                     AcknowledgeConfiguration::Ack => {
-                                        controller_state
+                                        let ps = controller_state
                                             .peripheral_state
                                             .get_mut(&addr)
-                                            .unwrap()
-                                            .acknowledged_configuration = true;
+                                            .unwrap();
+                                        ps.acknowledged_configuration = true;
+                                        // Move this peripheral to operating once it acknowledges.
+                                        ps.conn_state = ConnState::Operating {
+                                            operating_timeout: operating_deadline,
+                                        };
                                     }
                                     _ => {
                                         return Err(format!(
@@ -720,8 +725,6 @@ impl Controller {
 
             if all_peripherals_acknowledged {
                 // Track operating transition deadlines for each peripheral.
-                let operating_deadline = start_of_operating_countdown
-                    + Duration::from_nanos(self.ctx.timeout_to_operating_ns as u64);
                 for ps in controller_state.peripheral_state.values_mut() {
                     ps.conn_state = ConnState::Operating {
                         operating_timeout: operating_deadline,
