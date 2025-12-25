@@ -21,5 +21,5 @@ __all__ = [
 ]
 
 class SequenceMachine(calc.SequenceMachineInner):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, entry: str):
+        super().__init__(entry)
