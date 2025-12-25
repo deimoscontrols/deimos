@@ -5,6 +5,7 @@ use deimos_shared::peripherals::PeripheralId;
 
 use crate::socket::SocketAddr;
 
+use super::context::ControllerCtx;
 use super::peripheral_state::*;
 use tracing::warn;
 
@@ -47,6 +48,7 @@ impl ControllerState {
     pub fn new(
         peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
         bind_result: &BTreeMap<SocketAddr, Box<dyn Peripheral>>,
+        ctx: &ControllerCtx,
     ) -> Self {
         // Map IDs to names
         let mut state = Self::default();
@@ -77,7 +79,7 @@ impl ControllerState {
             // If this is an expected unit, add an entry for its state
             let (_sid, pid) = addr;
             let name = pid_name_map[pid];
-            let ps = PeripheralState::new(name, *addr, p);
+            let ps = PeripheralState::new(name, *addr, p, ctx);
             state.peripheral_state.insert(*addr, ps);
         }
 

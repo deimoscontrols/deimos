@@ -537,7 +537,8 @@ impl Controller {
 
         // Initialize state using scanned addresses
         info!("Initializing controller run state");
-        let mut controller_state = ControllerState::new(&self.peripherals, &available_peripherals);
+        let mut controller_state =
+            ControllerState::new(&self.peripherals, &available_peripherals, &self.ctx);
         let addresses = controller_state
             .peripheral_state
             .keys()
@@ -605,7 +606,6 @@ impl Controller {
             let bound_peripherals = self
                 .bind(
                     Some(&addresses),
-                    // None,
                     self.ctx.binding_timeout_ms,
                     self.ctx.configuring_timeout_ms,
                     plugins,
