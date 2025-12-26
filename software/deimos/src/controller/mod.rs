@@ -609,6 +609,7 @@ impl Controller {
                 AcknowledgeConfiguration::Ack => {
                     ps.acknowledged_configuration = true;
                     ps.metrics.loss_of_contact_counter = 0.0;
+                    ps.metrics.operating_metrics = OperatingMetrics::default();
                     ps.conn_state = ConnState::Operating();
                 }
                 _ => {
@@ -984,15 +985,21 @@ impl Controller {
         let mut i: u64 = 0;
         controller_state.controller_metrics.cycle_time_margin_ns = self.ctx.dt_ns as f64;
         loop {
-            i += 1;
-            let mut t = start_of_operating.elapsed();
-            let tmean = (target_time - cycle_duration / 2).as_nanos() as i64; // Time to drive peripheral packet arrivals toward
             let time = SystemTime::now();
+            let mut t = start_of_operating.elapsed();
+
+            i += 1;
+            let tmean = (target_time - cycle_duration / 2).as_nanos() as i64; // Time to drive peripheral packet arrivals toward
             let timestamp = target_time.as_nanos() as i64;
 
             // Record timing margin
-            controller_state.controller_metrics.cycle_time_margin_ns =
-                (target_time.as_secs_f64() - t.as_secs_f64()) * 1e9;
+            {
+                let controller_timing_margin = (target_time.as_secs_f64() - t.as_secs_f64()) * 1e9;
+                controller_state.controller_metrics.cycle_time_margin_ns = controller_timing_margin;
+                if controller_timing_margin < 0.0 {
+                    warn!("Controller missed cycle deadline");
+                }
+            }
 
             // Check for loss of contact
             match self.ctx.loss_of_contact_policy {
