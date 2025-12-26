@@ -72,14 +72,6 @@ impl SocketWorker {
     }
 
     pub fn run(mut self) -> Box<dyn Socket> {
-        // Set core affinity
-        let core_ids = core_affinity::get_core_ids().unwrap_or_default();
-        if let Some(core_id) = core_ids.get(3) {
-            if !core_affinity::set_for_current(*core_id) {
-                warn!("Failed to set core affinity for socket worker");
-            }
-        }
-
         // Open socket
         if !self.socket.is_open() {
             if let Err(err) = self.socket.open(&self.ctx) {
