@@ -485,9 +485,8 @@ impl Controller {
                 Some(ps) => ps,
                 None => return false, // Indicate that this was not a reconnection packet
             };
-            ps.metrics.loss_of_contact_counter = 0.0;
 
-            info!("Processed Binding response from {pid:?}");
+            info!("Processed Binding response from peripheral {}", ps.name);
 
             // Check if we were expecting a Binding response from this peripheral.
             // This might be a Binding response arriving late after we've already
@@ -572,7 +571,7 @@ impl Controller {
                 reconnect_deadline,
             };
 
-            info!("Sent Configuring input packet to peripheral {pid:?}");
+            info!("Sent Configuring input packet to peripheral {}", ps.name);
 
             // Indicate that this was a reconnection packet
             return true;
@@ -590,7 +589,6 @@ impl Controller {
                 Some(ps) => ps,
                 None => return false, // Indicate that this was not a reconnection packet
             };
-            ps.metrics.loss_of_contact_counter = 0.0;
 
             // Check if we were expecting a Configuring response from this peripheral.
             // It's possible that this is arriving late after we've already transitioned
@@ -613,14 +611,14 @@ impl Controller {
                     ps.conn_state = ConnState::Operating();
                 }
                 _ => {
-                    warn!("Peripheral {addr:?} rejected configuration during reconnect");
+                    warn!("Peripheral {} rejected configuration during reconnect", ps.name);
                     ps.conn_state = ConnState::Disconnected {
                         deadline: reconnect_deadline,
                     };
                 }
             }
 
-            info!("Processed Configuring response from {pid:?}");
+            info!("Peripheral {} ackwnowledged configuration and reentered Operating state", ps.name);
 
             // Indicate that this was a reconnection packet
             return true;
@@ -933,7 +931,7 @@ impl Controller {
         // Spawn threads to manage blocking comms on each socket.
         // Keep worker recv timeouts short so outbound commands are serviced promptly.
         info!("Spawning socket workers");
-        let worker_timeout = Duration::from_nanos((self.ctx.dt_ns as u64 / 10).max(50_000));
+        let worker_timeout = Duration::from_nanos((self.ctx.dt_ns as u64 / 1000).max(10_000));
         let (socket_workers, socket_events) = self.spawn_socket_workers(worker_timeout);
 
         //    Init timing
@@ -1053,7 +1051,10 @@ impl Controller {
                                     p.conn_state = ConnState::Disconnected {
                                         deadline: reconnect_deadline,
                                     };
-                                    warn!("Did not receive Binding response from {}", p.name);
+                                    // We don't warn here, because if the disconnected state
+                                    // persists for a while (like if someone is moving a peripheral
+                                    // from one room to another), logging here every few milliseconds
+                                    // would produce large and unhelpful log files.
                                 }
                             }
                             ConnState::Configuring {
@@ -1237,8 +1238,6 @@ impl Controller {
                         error!("{err}");
                         continue;
                     }
-
-                    info!("Sent Binding broadcast on socket {sid}");
 
                     // Log this time as the most recent broadcast on this socket
                     reconnect_broadcasts.insert(sid, now);
