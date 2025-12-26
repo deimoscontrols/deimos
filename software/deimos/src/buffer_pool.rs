@@ -6,9 +6,16 @@ use crossbeam::channel::{Receiver, Sender, bounded};
 
 /// Default buffer length for socket receive buffers.
 pub const SOCKET_BUFFER_LEN: usize = 1522;
+pub const DEFAULT_SOCKET_BUFFER_POOL_CAPACITY: usize = 32;
 
 /// Sized socket buffer type.
 pub type SocketBuffer = Box<[u8; SOCKET_BUFFER_LEN]>;
+
+pub fn default_socket_buffer_pool() -> BufferPool<SocketBuffer> {
+    BufferPool::with_factory(DEFAULT_SOCKET_BUFFER_POOL_CAPACITY, || {
+        Box::new([0u8; SOCKET_BUFFER_LEN])
+    })
+}
 
 pub struct BufferPool<T> {
     inner: Arc<BufferPoolInner<T>>,

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use pyo3::prelude::*;
 use tracing::info;
 
-use crate::buffer_pool::{BufferPool, SOCKET_BUFFER_LEN, SocketBuffer};
+use crate::buffer_pool::{BufferPool, SOCKET_BUFFER_LEN, SocketBuffer, default_socket_buffer_pool};
 use crate::controller::channel::{Endpoint, Msg};
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
@@ -60,7 +60,7 @@ impl Socket for ThreadChannelSocket {
 
     fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String> {
         self.endpoint = Some(ctx.source_endpoint(&self.name));
-        self.buffer_pool = Some(ctx.socket_buffer_pool.clone());
+        self.buffer_pool = Some(default_socket_buffer_pool());
         info!(
             "Opened thread channel socket on user channel {}",
             &self.name

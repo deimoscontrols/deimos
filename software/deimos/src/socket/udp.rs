@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use pyo3::prelude::*;
 use tracing::info;
 
-use crate::buffer_pool::{BufferPool, SOCKET_BUFFER_LEN, SocketBuffer};
+use crate::buffer_pool::{BufferPool, SOCKET_BUFFER_LEN, SocketBuffer, default_socket_buffer_pool};
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
@@ -67,9 +67,9 @@ impl Socket for UdpSocket {
         self.socket.is_some()
     }
 
-    fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String> {
+    fn open(&mut self, _ctx: &ControllerCtx) -> Result<(), String> {
         if self.socket.is_none() {
-            self.buffer_pool = Some(ctx.socket_buffer_pool.clone());
+            self.buffer_pool = Some(default_socket_buffer_pool());
             // Socket populated on access
             let addr = format!("0.0.0.0:{CONTROLLER_RX_PORT}");
             let socket = std::net::UdpSocket::bind(&addr)

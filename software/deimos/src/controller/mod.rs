@@ -16,7 +16,12 @@ use crossbeam::channel::{Receiver, RecvTimeoutError, unbounded};
 use flaw::MedianFilter;
 
 use crate::{
-    buffer_pool::SOCKET_BUFFER_LEN,
+    buffer_pool::{
+        BufferPool,
+        SOCKET_BUFFER_LEN,
+        SocketBuffer,
+        default_socket_buffer_pool,
+    },
     calc::Calc,
     logging,
     peripheral::{Peripheral, PluginMap, parse_binding},
@@ -240,10 +245,9 @@ impl Controller {
         // Make sure sockets are configured and ports are bound
         self.open_sockets()?;
 
-        let mut binding_buf = self
-            .ctx
-            .socket_buffer_pool
-            .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
+        let socket_buffer_pool = default_socket_buffer_pool();
+        let mut binding_buf =
+            socket_buffer_pool.lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
         let buf = binding_buf.as_mut();
         let mut available_peripherals = BTreeMap::new();
 
@@ -332,6 +336,7 @@ impl Controller {
         state: &ControllerState,
         peripheral_input_buffer: &mut [f64],
         packet_index: u64,
+        socket_buffer_pool: &BufferPool<SocketBuffer>,
         socket_workers: &[SocketWorkerHandle],
     ) {
         peripheral_input_buffer.fill(0.0);
@@ -349,10 +354,8 @@ impl Controller {
                 let p = &self.peripherals[&ps.name];
                 let n = p.operating_roundtrip_input_size();
                 let (sid, pid) = addr;
-                let mut lease = self
-                    .ctx
-                    .socket_buffer_pool
-                    .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
+                let mut lease =
+                    socket_buffer_pool.lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
                 let buf = lease.as_mut();
                 p.emit_operating_roundtrip(
                     j + packet_index,
@@ -466,6 +469,7 @@ impl Controller {
         &mut self,
         controller_state: &mut ControllerState,
         socket_workers: &[SocketWorkerHandle],
+        socket_buffer_pool: &BufferPool<SocketBuffer>,
         socket_id: usize,
         packet: &SocketPacket,
         reconnect_step_timeout: Duration,
@@ -533,10 +537,8 @@ impl Controller {
             };
             let p = &self.peripherals[&ps.name];
             let num_to_write = p.configuring_input_size();
-            let mut lease = self
-                .ctx
-                .socket_buffer_pool
-                .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
+            let mut lease =
+                socket_buffer_pool.lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
             let buf = lease.as_mut();
             p.emit_configuring(config_input, &mut buf[..num_to_write]);
 
@@ -675,6 +677,9 @@ impl Controller {
 
             aux_core_cycle
         };
+
+        // Pre-allocated reusable byte buffer pool for transmitting on sockets
+        let socket_buffer_pool = default_socket_buffer_pool();
 
         // Make sure sockets are configured and ports are bound
         info!("Opening peripheral comm sockets");
@@ -817,10 +822,8 @@ impl Controller {
                 + Duration::from_millis(self.ctx.configuring_timeout_ms as u64);
 
             //     Get buffer segment
-            let mut config_buf = self
-                .ctx
-                .socket_buffer_pool
-                .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
+            let mut config_buf =
+                socket_buffer_pool.lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
             let buf = config_buf.as_mut();
 
             for addr in addresses.iter() {
@@ -966,7 +969,6 @@ impl Controller {
                 kp: 0.005 * (self.ctx.dt_ns as f64 / 10_000_000_f64), // Tuned at 100Hz
                 ki,
                 kd: 0.001 / (self.ctx.dt_ns as f64 / 10_000_000_f64),
-
                 v: 0.0,
                 integral: 0.0,
                 max_integral: max_clock_rate_err * (self.ctx.dt_ns as f64) / ki,
@@ -979,7 +981,7 @@ impl Controller {
 
         //    Set up peripheral I/O buffers
         //    with maximum size of a standard packet
-        let mut peripheral_input_buffer = [0.0_f64; 1522];
+        let mut peripheral_input_buffer = [0.0_f64; 1522 / 8 + 1];
 
         //    Run timed loop
         info!("Entering control loop");
@@ -1021,6 +1023,7 @@ impl Controller {
                             &controller_state,
                             &mut peripheral_input_buffer,
                             i,
+                            &socket_buffer_pool,
                             &socket_workers,
                         );
                         self.stop_socket_workers(socket_workers);
@@ -1099,6 +1102,7 @@ impl Controller {
                             &controller_state,
                             &mut peripheral_input_buffer,
                             i,
+                            &socket_buffer_pool,
                             &socket_workers,
                         );
                         self.stop_socket_workers(socket_workers);
@@ -1142,6 +1146,7 @@ impl Controller {
                         &controller_state,
                         &mut peripheral_input_buffer,
                         i,
+                        &socket_buffer_pool,
                         &socket_workers,
                     );
                     self.stop_socket_workers(socket_workers);
@@ -1160,6 +1165,7 @@ impl Controller {
                         &controller_state,
                         &mut peripheral_input_buffer,
                         i,
+                        &socket_buffer_pool,
                         &socket_workers,
                     );
                     self.stop_socket_workers(socket_workers);
@@ -1212,9 +1218,7 @@ impl Controller {
                     let binding_msg = BindingInput {
                         configuring_timeout_ms: reconnect_step_timeout_ms,
                     };
-                    let mut binding_buf = self
-                        .ctx
-                        .socket_buffer_pool
+                    let mut binding_buf = socket_buffer_pool
                         .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
                     binding_msg.write_bytes(&mut binding_buf.as_mut()[..BindingInput::BYTE_LEN]);
 
@@ -1290,10 +1294,8 @@ impl Controller {
                     });
                 //    Form packet to send to this peripheral
                 let (sid, pid) = addr;
-                let mut lease = self
-                    .ctx
-                    .socket_buffer_pool
-                    .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
+                let mut lease =
+                    socket_buffer_pool.lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
                 let buf = lease.as_mut();
                 p.emit_operating_roundtrip(
                     i,
@@ -1355,6 +1357,7 @@ impl Controller {
                             let was_reconnection = self.handle_reconnect_packet(
                                 &mut controller_state,
                                 &socket_workers,
+                                &socket_buffer_pool,
                                 socket_id,
                                 &packet,
                                 reconnect_step_timeout,
@@ -1402,6 +1405,7 @@ impl Controller {
                     &controller_state,
                     &mut peripheral_input_buffer,
                     i,
+                    &socket_buffer_pool,
                     &socket_workers,
                 );
                 self.stop_socket_workers(socket_workers);
