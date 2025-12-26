@@ -485,6 +485,9 @@ impl Controller {
                 Some(ps) => ps,
                 None => return false, // Indicate that this was not a reconnection packet
             };
+            ps.metrics.loss_of_contact_counter = 0.0;
+
+            info!("Processed Binding response from {pid:?}");
 
             // Check if we were expecting a Binding response from this peripheral.
             // This might be a Binding response arriving late after we've already
@@ -525,7 +528,7 @@ impl Controller {
             // Build Configuring packet
             let config_input = ConfiguringInput {
                 dt_ns: self.ctx.dt_ns,
-                timeout_to_operating_ns: self.ctx.timeout_to_operating_ns,
+                timeout_to_operating_ns: 0, // Start immediately on next cycle
                 loss_of_contact_limit: self.ctx.peripheral_loss_of_contact_limit,
                 mode: Mode::Roundtrip,
             };
@@ -569,6 +572,8 @@ impl Controller {
                 reconnect_deadline,
             };
 
+            info!("Sent Configuring input packet to peripheral {pid:?}");
+
             // Indicate that this was a reconnection packet
             return true;
         }
@@ -585,6 +590,7 @@ impl Controller {
                 Some(ps) => ps,
                 None => return false, // Indicate that this was not a reconnection packet
             };
+            ps.metrics.loss_of_contact_counter = 0.0;
 
             // Check if we were expecting a Configuring response from this peripheral.
             // It's possible that this is arriving late after we've already transitioned
@@ -603,10 +609,7 @@ impl Controller {
                 AcknowledgeConfiguration::Ack => {
                     ps.acknowledged_configuration = true;
                     ps.metrics.loss_of_contact_counter = 0.0;
-                    ps.conn_state = ConnState::Operating {
-                        operating_timeout: now
-                            + Duration::from_nanos(self.ctx.timeout_to_operating_ns as u64),
-                    };
+                    ps.conn_state = ConnState::Operating();
                 }
                 _ => {
                     warn!("Peripheral {addr:?} rejected configuration during reconnect");
@@ -615,6 +618,8 @@ impl Controller {
                     };
                 }
             }
+
+            info!("Processed Configuring response from {pid:?}");
 
             // Indicate that this was a reconnection packet
             return true;
@@ -638,6 +643,7 @@ impl Controller {
             .canonicalize()
             .map_err(|e| format!("Failed to resolve log file path: {e}"))?;
         info!("Starting op \"{}\"", &self.ctx.op_name);
+        info!("Using op dir \"{}\"", &self.ctx.op_dir.to_string_lossy());
         info!("Logging to file {:?}", log_file_canonicalized);
 
         let core_ids = core_affinity::get_core_ids().unwrap_or_default();
@@ -671,6 +677,7 @@ impl Controller {
         };
 
         // Make sure sockets are configured and ports are bound
+        info!("Opening peripheral comm sockets");
         self.open_sockets()
             .map_err(|e| format!("Failed to open sockets: {e}"))?;
 
@@ -840,7 +847,6 @@ impl Controller {
 
             //    Wait for peripherals to acknowledge their configuration
             let operating_timeout = Duration::from_nanos(self.ctx.timeout_to_operating_ns as u64);
-            let operating_deadline = start_of_operating_countdown + operating_timeout;
 
             info!("Waiting for peripherals to acknowledge configuration");
             while start_of_operating_countdown.elapsed() < operating_timeout {
@@ -876,9 +882,7 @@ impl Controller {
                                             .unwrap();
                                         ps.acknowledged_configuration = true;
                                         // Move this peripheral to operating once it acknowledges.
-                                        ps.conn_state = ConnState::Operating {
-                                            operating_timeout: operating_deadline,
-                                        };
+                                        ps.conn_state = ConnState::Operating();
                                     }
                                     _ => {
                                         return Err(format!(
@@ -903,9 +907,7 @@ impl Controller {
             if all_peripherals_acknowledged {
                 // Track operating transition deadlines for each peripheral.
                 for ps in controller_state.peripheral_state.values_mut() {
-                    ps.conn_state = ConnState::Operating {
-                        operating_timeout: operating_deadline,
-                    };
+                    ps.conn_state = ConnState::Operating();
                 }
                 break 'configuring_retry;
             } else {
@@ -927,7 +929,9 @@ impl Controller {
             return Err("Some peripherals did not acknowledge their configuration".to_string());
         }
 
+        // Spawn threads to manage blocking comms on each socket.
         // Keep worker recv timeouts short so outbound commands are serviced promptly.
+        info!("Spawning socket workers");
         let worker_timeout = Duration::from_nanos((self.ctx.dt_ns as u64 / 10).max(50_000));
         let (socket_workers, socket_events) = self.spawn_socket_workers(worker_timeout);
 
@@ -1012,10 +1016,7 @@ impl Controller {
                             &socket_workers,
                         );
                         self.stop_socket_workers(socket_workers);
-                        let reason = format!(
-                            "Lost contact with peripheral `{}` after {} missed cycles",
-                            name, self.ctx.controller_loss_of_contact_limit
-                        );
+                        let reason = format!("Lost contact with peripheral {}", name);
                         error!("{reason}");
                         return Err(reason);
                     }
@@ -1032,6 +1033,7 @@ impl Controller {
                         {
                             let deadline = reconnect_timeout.map(|d| now + d);
                             p.conn_state = ConnState::Disconnected { deadline };
+                            warn!("Lost contact with {}", p.name);
                         }
 
                         // Check binding and configuring deadlines
@@ -1044,6 +1046,7 @@ impl Controller {
                                     p.conn_state = ConnState::Disconnected {
                                         deadline: reconnect_deadline,
                                     };
+                                    warn!("Did not receive Binding response from {}", p.name);
                                 }
                             }
                             ConnState::Configuring {
@@ -1054,6 +1057,7 @@ impl Controller {
                                     p.conn_state = ConnState::Disconnected {
                                         deadline: reconnect_deadline,
                                     };
+                                    warn!("Did not receive Configuring response from {}", p.name);
                                 }
                             }
                             _ => {}
@@ -1227,6 +1231,8 @@ impl Controller {
                         continue;
                     }
 
+                    info!("Sent Binding broadcast on socket {sid}");
+
                     // Log this time as the most recent broadcast on this socket
                     reconnect_broadcasts.insert(sid, now);
 
@@ -1316,11 +1322,17 @@ impl Controller {
             }
 
             // Receive packets until the start of the next cycle
-            //     Unless we hear from each peripheral, assume we missed the packet
+            //     Unless we hear from each connected peripheral, assume we missed the packet
             for ps in controller_state.peripheral_state.values_mut() {
-                ps.metrics.loss_of_contact_counter += 1.0;
+                match ps.conn_state {
+                    ConnState::Operating() => {
+                        ps.metrics.loss_of_contact_counter += 1.0;
+                    }
+                    _ => continue,
+                }
             }
             let mut worker_error: Option<String> = None;
+            t = start_of_operating.elapsed();
             while t < target_time {
                 // Set maximum time to wait for next packet to end at the next target time
                 let timeout = target_time.saturating_sub(t);
@@ -1392,7 +1404,9 @@ impl Controller {
             for ps in controller_state.peripheral_state.values_mut() {
                 // If we missed a packet from this peripheral, do nothing until
                 // we hear from it again
-                if ps.metrics.loss_of_contact_counter > 0.0 {
+                if ps.metrics.loss_of_contact_counter > 0.0
+                    || !matches!(ps.conn_state, ConnState::Operating())
+                {
                     ps.metrics.requested_phase_delta_ns = 0.0;
                     continue;
                 }

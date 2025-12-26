@@ -50,8 +50,9 @@ fn main() {
     //   a static address and may drop out for a few seconds while renewing its IP address.
     //   For a real network, the control server and peripherals should be assigned
     //   static addresses, and this limit can be comfortably set as low as 2-3 cycles.
-    ctx.controller_loss_of_contact_limit = (4.0 * rate_hz).min(1e4) as u16;
-    ctx.peripheral_loss_of_contact_limit = (4.0 * rate_hz).min(1e4) as u16;
+    ctx.controller_loss_of_contact_limit = 10;
+    ctx.peripheral_loss_of_contact_limit = 10;
+    ctx.loss_of_contact_policy = LossOfContactPolicy::Reconnect(Some(Duration::from_secs(10)));
     let mut controller = Controller::new(ctx);
 
     // Scan for peripherals on LAN

@@ -43,7 +43,7 @@ pub(crate) enum ConnState {
         configuring_timeout: Instant,
         reconnect_deadline: Option<Instant>,
     },
-    Operating { operating_timeout: Instant },
+    Operating(),
     Disconnected { deadline: Option<Instant> },
 }
 
