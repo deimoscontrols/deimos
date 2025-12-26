@@ -629,6 +629,7 @@ impl Controller {
         false
     }
 
+    /// Start the control program.
     pub fn run(
         &mut self,
         plugins: &Option<PluginMap>,

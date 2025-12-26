@@ -4,6 +4,7 @@ use std::thread::{JoinHandle, spawn};
 use std::time::Duration;
 
 use crossbeam::channel::{Receiver, Sender, TryRecvError, unbounded};
+use tracing::warn;
 
 use crate::buffer_pool::{BufferLease, SocketBuffer};
 use crate::controller::context::ControllerCtx;
@@ -71,6 +72,15 @@ impl SocketWorker {
     }
 
     pub fn run(mut self) -> Box<dyn Socket> {
+        // Set core affinity
+        let core_ids = core_affinity::get_core_ids().unwrap_or_default();
+        if let Some(core_id) = core_ids.get(3) {
+            if !core_affinity::set_for_current(*core_id) {
+                warn!("Failed to set core affinity for socket worker");
+            }
+        }
+
+        // Open socket
         if !self.socket.is_open() {
             if let Err(err) = self.socket.open(&self.ctx) {
                 let _ = self.event_tx.send(SocketWorkerEvent::Error {
@@ -84,16 +94,36 @@ impl SocketWorker {
             }
         }
 
+        // I/O loop
         loop {
             // Process all queued incoming messages from the controller,
             // sending packets to socket workers if requested
-            if !self.drain_commands() {
+            let (keep_running, handled_commands) = self.drain_commands();
+            if !keep_running {
                 // If the inner socket is disconnected,
                 // exit the receive loop.
                 break;
             }
 
             // Check for incoming packets from peripherals
+            if handled_commands {
+                if let Some(packet) = self.socket.recv(Duration::ZERO) {
+                    if self
+                        .event_tx
+                        .send(SocketWorkerEvent::Packet {
+                            socket_id: self.socket_id,
+                            packet,
+                        })
+                        .is_err()
+                    {
+                        // If we're unable to send, that's because the channel has closed
+                        // and we are shutting down.
+                        break;
+                    }
+                }
+                continue;
+            }
+
             if let Some(packet) = self.socket.recv(self.recv_timeout) {
                 if self
                     .event_tx
@@ -104,7 +134,7 @@ impl SocketWorker {
                     .is_err()
                 {
                     // If we're unable to send, that's because the channel has closed
-                    // and we sare shutting down.
+                    // and we are shutting down.
                     break;
                 }
             }
@@ -119,20 +149,24 @@ impl SocketWorker {
         self.socket
     }
 
-    fn drain_commands(&mut self) -> bool {
+    // Process incoming messages from the controller
+    fn drain_commands(&mut self) -> (bool, bool) {
+        let mut handled_any = false;
         loop {
             match self.cmd_rx.try_recv() {
                 Ok(command) => {
+                    handled_any = true;
                     if !self.handle_command(command) {
-                        return false;
+                        return (false, handled_any);
                     }
                 }
-                Err(TryRecvError::Empty) => return true,
-                Err(TryRecvError::Disconnected) => return false,
+                Err(TryRecvError::Empty) => return (true, handled_any),
+                Err(TryRecvError::Disconnected) => return (false, handled_any),
             }
         }
     }
 
+    // Process a specific incoming message from the controller
     fn handle_command(&mut self, command: SocketWorkerCommand) -> bool {
         let result = match command {
             SocketWorkerCommand::Send { id, buffer, size } => {
