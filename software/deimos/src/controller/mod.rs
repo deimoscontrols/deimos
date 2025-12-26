@@ -931,13 +931,10 @@ impl Controller {
         // Spawn threads to manage blocking comms on each socket.
         // Keep worker recv timeouts short so outbound commands are serviced promptly.
         info!("Spawning socket workers");
-        let worker_timeout = Duration::from_nanos((self.ctx.dt_ns as u64 / 1000).max(10_000));
+        let worker_timeout = Duration::from_nanos((self.ctx.dt_ns as u64 / 100).max(1_000));
         let (socket_workers, socket_events) = self.spawn_socket_workers(worker_timeout);
 
-        //    Init timing
-        info!("Initializing timing controllers");
-        let start_of_operating = Instant::now();
-        let cycle_duration = Duration::from_nanos(self.ctx.dt_ns as u64);
+        //    Pre-allocate storage for reconnection logic
         let reconnect_step_timeout = {
             let min_timeout = Duration::from_millis(10);
             let dt_timeout = Duration::from_nanos(self.ctx.dt_ns as u64 * 3);
@@ -952,6 +949,11 @@ impl Controller {
         let mut reconnect_broadcasts: BTreeMap<usize, Instant> = BTreeMap::new();
         let mut reconnect_targets: Vec<Vec<(SocketAddr, Option<Instant>)>> =
             (0..socket_workers.len()).map(|_| Vec::new()).collect();
+
+        //    Init timing
+        info!("Initializing timing controllers");
+        let start_of_operating = Instant::now();
+        let cycle_duration = Duration::from_nanos(self.ctx.dt_ns as u64);
         let mut target_time = cycle_duration;
         let mut peripheral_timing: BTreeMap<SocketAddr, (TimingPID, MedianFilter<i64, 7>)> =
             BTreeMap::new();

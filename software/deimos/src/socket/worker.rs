@@ -85,10 +85,15 @@ impl SocketWorker {
         }
 
         loop {
+            // Process all queued incoming messages from the controller,
+            // sending packets to socket workers if requested
             if !self.drain_commands() {
+                // If the inner socket is disconnected,
+                // exit the receive loop.
                 break;
             }
 
+            // Check for incoming packets from peripherals
             if let Some(packet) = self.socket.recv(self.recv_timeout) {
                 if self
                     .event_tx
@@ -98,11 +103,14 @@ impl SocketWorker {
                     })
                     .is_err()
                 {
+                    // If we're unable to send, that's because the channel has closed
+                    // and we sare shutting down.
                     break;
                 }
             }
         }
 
+        // Exit the loop and close the socket.
         self.socket.close();
         let _ = self.event_tx.send(SocketWorkerEvent::Closed {
             socket_id: self.socket_id,

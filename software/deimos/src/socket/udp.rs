@@ -140,12 +140,10 @@ impl Socket for UdpSocket {
                 }
                 (size, addr, now)
             }
-            Err(err) => match err.kind() {
-                std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut => return None,
-                _ => return None,
-            },
+            Err(_) => return None, // Nothing to receive yet
         };
 
+        // Update address index map
         let token = match self.addr_tokens.get(&addr).copied() {
             Some(token) => token,
             None => {
