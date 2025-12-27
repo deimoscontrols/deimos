@@ -27,6 +27,8 @@ pub struct UdpSocket {
     #[serde(skip)]
     buffer_pool: Option<BufferPool<SocketBuffer>>,
     #[serde(skip)]
+    nonblocking: bool,
+    #[serde(skip)]
     addrs: BTreeMap<PeripheralId, std::net::SocketAddr>,
     #[serde(skip)]
     pids: BTreeMap<std::net::SocketAddr, PeripheralId>,
@@ -43,6 +45,7 @@ impl UdpSocket {
         Self {
             socket: None,
             buffer_pool: None,
+            nonblocking: false,
             addrs: BTreeMap::new(),
             pids: BTreeMap::new(),
             addr_tokens: BTreeMap::new(),
@@ -75,6 +78,7 @@ impl Socket for UdpSocket {
 
         // Set up a fresh buffer pool
         self.buffer_pool = Some(default_socket_buffer_pool());
+        self.nonblocking = false;
 
         // Inner socket populated on access
         let addr = format!("0.0.0.0:{CONTROLLER_RX_PORT}");
@@ -86,6 +90,7 @@ impl Socket for UdpSocket {
             socket
                 .set_nonblocking(true)
                 .map_err(|e| format!("Failed to set socket to nonblocking mode: {e}"))?;
+            self.nonblocking = true;
         }
 
         // Done
@@ -99,6 +104,7 @@ impl Socket for UdpSocket {
         // Drop inner socket, releasing port
         self.socket = None;
         self.buffer_pool = None;
+        self.nonblocking = false;
         self.addrs.clear();
         self.pids.clear();
         self.addr_tokens.clear();
@@ -133,9 +139,14 @@ impl Socket for UdpSocket {
         let sock = self.socket.as_mut()?;
         let pool = self.buffer_pool.as_ref()?;
         let mut lease = pool.lease_or_create(|| Box::new([0u8; SOCKET_BUFFER_LEN]));
-        if !timeout.is_zero() {
+        if timeout.is_zero() {
+            if !self.nonblocking {
+                // Avoid blocking forever when polling with zero timeout.
+                let _ = sock.set_read_timeout(Some(Duration::from_nanos(1)));
+            }
+        } else {
             let _ = sock.set_read_timeout(Some(timeout)); // Guaranteed nonzero duration
-        };
+        }
 
         let (size, addr, time) = match {
             let buf = lease.as_mut();
