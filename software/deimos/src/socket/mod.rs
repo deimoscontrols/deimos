@@ -1,6 +1,7 @@
 //! Packetized socket interface for message-passing
 //! to/from peripherals on different I/O media.
 
+pub mod orchestrator;
 pub mod thread_channel;
 pub mod udp;
 pub mod unix;
@@ -21,6 +22,7 @@ pub type SocketAddr = (usize, PeripheralId);
 /// Opaque token for a socket-specific address seen by recv().
 pub type SocketAddrToken = u64;
 
+pub use orchestrator::SocketOrchestrator;
 pub use worker::{SocketWorker, SocketWorkerCommand, SocketWorkerEvent, SocketWorkerHandle};
 
 pub struct SocketPacket {

@@ -12,7 +12,6 @@ use std::sync::atomic::AtomicBool;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
-use crossbeam::channel::{Receiver, RecvTimeoutError, unbounded};
 use flaw::MedianFilter;
 
 use crate::controller::context::LoopMethod;
@@ -27,9 +26,7 @@ use deimos_shared::states::*;
 use crate::calc::{FieldName, Orchestrator, PeripheralInputName};
 use crate::dispatcher::{Dispatcher, fmt_time};
 use crate::socket::udp::UdpSocket;
-use crate::socket::{
-    Socket, SocketAddr, SocketPacket, SocketWorkerCommand, SocketWorkerEvent, SocketWorkerHandle,
-};
+use crate::socket::{Socket, SocketAddr, SocketOrchestrator, SocketPacket, SocketWorkerEvent};
 use context::{ControllerCtx, LossOfContactPolicy, Termination};
 use controller_state::ControllerState;
 use peripheral_state::ConnState;
@@ -177,41 +174,6 @@ impl Controller {
         Ok(())
     }
 
-    fn spawn_socket_workers(
-        &mut self,
-        recv_timeout: Duration,
-    ) -> (Vec<SocketWorkerHandle>, Receiver<SocketWorkerEvent>) {
-        let (event_tx, event_rx) = unbounded();
-        let sockets = std::mem::take(&mut self.sockets);
-        let mut workers = Vec::with_capacity(sockets.len());
-        for (sid, socket) in sockets.into_iter().enumerate() {
-            workers.push(SocketWorkerHandle::spawn(
-                sid,
-                socket,
-                self.ctx.clone(),
-                recv_timeout,
-                event_tx.clone(),
-            ));
-        }
-        drop(event_tx);
-        (workers, event_rx)
-    }
-
-    fn stop_socket_workers(&mut self, socket_workers: Vec<SocketWorkerHandle>) {
-        for worker in &socket_workers {
-            let _ = worker.cmd_tx.send(SocketWorkerCommand::Close);
-        }
-
-        let mut sockets = Vec::with_capacity(socket_workers.len());
-        for worker in socket_workers {
-            match worker.join() {
-                Ok(socket) => sockets.push(socket),
-                Err(err) => error!("{err}"),
-            }
-        }
-        self.sockets = sockets;
-    }
-
     /// Request specific peripherals to bind or scan the network,
     /// giving `binding_timeout_ms` for peripherals to respond
     /// and requesting a window of `configuring_timeout_ms` after binding
@@ -333,7 +295,7 @@ impl Controller {
         peripheral_input_buffer: &mut [f64],
         packet_index: u64,
         socket_buffer_pool: &BufferPool<SocketBuffer>,
-        socket_workers: &[SocketWorkerHandle],
+        socket_orchestrator: &mut SocketOrchestrator,
     ) {
         peripheral_input_buffer.fill(0.0);
         let mut err_rollup: Vec<String> = Vec::new();
@@ -362,19 +324,7 @@ impl Controller {
                 );
 
                 // Transmit default state packet
-                let send_result = socket_workers
-                    .get(*sid)
-                    .ok_or_else(|| format!("Socket worker index {sid} out of range"))
-                    .and_then(|worker| {
-                        worker
-                            .cmd_tx
-                            .send(SocketWorkerCommand::Send {
-                                id: *pid,
-                                buffer: lease,
-                                size: n,
-                            })
-                            .map_err(|e| format!("Failed to send shutdown packet: {e}"))
-                    });
+                let send_result = socket_orchestrator.send(*sid, *pid, lease, n);
                 if let Err(err) = send_result {
                     let msg = format!("Failed to send shutdown packet to `{}`: {err}", &ps.name);
                     error!("{msg}");
@@ -464,7 +414,7 @@ impl Controller {
     fn handle_reconnect_packet(
         &mut self,
         controller_state: &mut ControllerState,
-        socket_workers: &[SocketWorkerHandle],
+        socket_orchestrator: &mut SocketOrchestrator,
         socket_buffer_pool: &BufferPool<SocketBuffer>,
         socket_id: usize,
         packet: &SocketPacket,
@@ -501,18 +451,7 @@ impl Controller {
             // Update address maps.
             // If the peripheral's IP address was reassigned or it was physically
             // connected to a different location in the network, its address might have changed.
-            let update_result = socket_workers
-                .get(socket_id)
-                .ok_or_else(|| format!("Socket worker index {socket_id} out of range"))
-                .and_then(|worker| {
-                    worker
-                        .cmd_tx
-                        .send(SocketWorkerCommand::UpdateMap {
-                            id: pid,
-                            token: packet.token,
-                        })
-                        .map_err(|e| format!("Unable to update socket {socket_id} map: {e}"))
-                });
+            let update_result = socket_orchestrator.update_map(socket_id, pid, packet.token);
 
             // If we're unable to talk to its socket to update the address map,
             // mark it as Disconnected again.
@@ -539,19 +478,7 @@ impl Controller {
             p.emit_configuring(config_input, &mut buf[..num_to_write]);
 
             // Transmit Configuring packet
-            let send_result = socket_workers
-                .get(socket_id)
-                .ok_or_else(|| format!("Socket worker index {socket_id} out of range"))
-                .and_then(|worker| {
-                    worker
-                        .cmd_tx
-                        .send(SocketWorkerCommand::Send {
-                            id: pid,
-                            buffer: lease,
-                            size: num_to_write,
-                        })
-                        .map_err(|e| format!("Unable to send config to socket {socket_id}: {e}"))
-                });
+            let send_result = socket_orchestrator.send(socket_id, pid, lease, num_to_write);
 
             // Mark disconnected if the socket fails
             if let Err(err) = send_result {
@@ -955,14 +882,14 @@ impl Controller {
             return Err("Some peripherals did not acknowledge their configuration".to_string());
         }
 
-        // Spawn threads to manage blocking comms on each socket.
-        // Keep worker recv timeouts short so outbound commands are serviced promptly.
-        info!("Spawning socket workers");
+        // Create socket orchestrator to manage socket polling strategy.
+        info!("Initializing socket orchestrator");
         let worker_timeout = match self.ctx.loop_method {
             LoopMethod::Performant => Duration::ZERO,
             LoopMethod::Efficient => Duration::from_nanos((self.ctx.dt_ns as u64 / 100).max(1_000)),
         };
-        let (socket_workers, socket_events) = self.spawn_socket_workers(worker_timeout);
+        let mut socket_orchestrator =
+            SocketOrchestrator::new(std::mem::take(&mut self.sockets), &self.ctx, worker_timeout)?;
 
         //    Pre-allocate storage for reconnection logic
         let reconnect_step_timeout = {
@@ -977,8 +904,10 @@ impl Controller {
         let reconnect_step_timeout_ms =
             reconnect_step_timeout.as_millis().min(u16::MAX as u128) as u16;
         let mut reconnect_broadcasts: BTreeMap<usize, Instant> = BTreeMap::new();
-        let mut reconnect_targets: Vec<Vec<(SocketAddr, Option<Instant>)>> =
-            (0..socket_workers.len()).map(|_| Vec::new()).collect();
+        let mut reconnect_targets: Vec<Vec<(SocketAddr, Option<Instant>)>> = (0
+            ..socket_orchestrator.socket_count())
+            .map(|_| Vec::new())
+            .collect();
 
         //    Init timing
         info!("Initializing timing controllers");
@@ -1025,9 +954,6 @@ impl Controller {
             {
                 let controller_timing_margin = (target_time.as_secs_f64() - t.as_secs_f64()) * 1e9;
                 controller_state.controller_metrics.cycle_time_margin_ns = controller_timing_margin;
-                if controller_timing_margin < 0.0 {
-                    warn!("Controller missed cycle deadline");
-                }
             }
 
             // Check for loss of contact
@@ -1050,9 +976,9 @@ impl Controller {
                             &mut peripheral_input_buffer,
                             i,
                             &socket_buffer_pool,
-                            &socket_workers,
+                            &mut socket_orchestrator,
                         );
-                        self.stop_socket_workers(socket_workers);
+                        self.sockets = socket_orchestrator.close();
                         let reason = format!("Lost contact with peripheral {}", name);
                         error!("{reason}");
                         return Err(reason);
@@ -1129,9 +1055,9 @@ impl Controller {
                             &mut peripheral_input_buffer,
                             i,
                             &socket_buffer_pool,
-                            &socket_workers,
+                            &mut socket_orchestrator,
                         );
-                        self.stop_socket_workers(socket_workers);
+                        self.sockets = socket_orchestrator.close();
                         let reason =
                             format!("Reconnect timeout exceeded for peripheral `{}`", name);
                         error!("{reason}");
@@ -1173,9 +1099,9 @@ impl Controller {
                         &mut peripheral_input_buffer,
                         i,
                         &socket_buffer_pool,
-                        &socket_workers,
+                        &mut socket_orchestrator,
                     );
-                    self.stop_socket_workers(socket_workers);
+                    self.sockets = socket_orchestrator.close();
                     return reason;
                 }
             }
@@ -1192,9 +1118,9 @@ impl Controller {
                         &mut peripheral_input_buffer,
                         i,
                         &socket_buffer_pool,
-                        &socket_workers,
+                        &mut socket_orchestrator,
                     );
-                    self.stop_socket_workers(socket_workers);
+                    self.sockets = socket_orchestrator.close();
                     return reason;
                 }
             }
@@ -1249,20 +1175,8 @@ impl Controller {
                     binding_msg.write_bytes(&mut binding_buf.as_mut()[..BindingInput::BYTE_LEN]);
 
                     // Send broadcast binding packet on this socket only
-                    let send_result = socket_workers
-                        .get(sid)
-                        .ok_or_else(|| format!("Socket worker index {sid} out of range"))
-                        .and_then(|worker| {
-                            worker
-                                .cmd_tx
-                                .send(SocketWorkerCommand::Broadcast {
-                                    buffer: binding_buf,
-                                    size: BindingInput::BYTE_LEN,
-                                })
-                                .map_err(|e| {
-                                    format!("Unable to broadcast binding on socket {sid}: {e}")
-                                })
-                        });
+                    let send_result =
+                        socket_orchestrator.broadcast(sid, binding_buf, BindingInput::BYTE_LEN);
 
                     // If we have lost the ability to transmit on this socket,
                     // log the error, but let the loss of contact logic handle
@@ -1331,19 +1245,7 @@ impl Controller {
                     &mut buf[..n],
                 );
                 //    Transmit the packet
-                let send_result = socket_workers
-                    .get(*sid)
-                    .ok_or_else(|| format!("Socket worker index {sid} out of range"))
-                    .and_then(|worker| {
-                        worker
-                            .cmd_tx
-                            .send(SocketWorkerCommand::Send {
-                                id: *pid,
-                                buffer: lease,
-                                size: n,
-                            })
-                            .map_err(|e| format!("Unable to send on socket {sid}: {e}"))
-                    });
+                let send_result = socket_orchestrator.send(*sid, *pid, lease, n);
                 if let Err(e) = send_result {
                     error!(e);
                     // If transmission fails, the peripheral is responsible for
@@ -1379,14 +1281,14 @@ impl Controller {
                 };
 
                 // Wait for the next packet
-                match socket_events.recv_timeout(timeout) {
-                    Ok(event) => match event {
+                match socket_orchestrator.recv_event(timeout) {
+                    Ok(Some(event)) => match event {
                         SocketWorkerEvent::Packet { socket_id, packet } => {
                             // Check if this is a reconnection attempt, and if so,
                             // handle the peripheral state transition and address map update.
                             let was_reconnection = self.handle_reconnect_packet(
                                 &mut controller_state,
-                                &socket_workers,
+                                &mut socket_orchestrator,
                                 &socket_buffer_pool,
                                 socket_id,
                                 &packet,
@@ -1414,9 +1316,9 @@ impl Controller {
                             worker_error = Some(format!("Socket worker {socket_id} closed"));
                         }
                     },
-                    Err(RecvTimeoutError::Timeout) => {}
-                    Err(RecvTimeoutError::Disconnected) => {
-                        worker_error = Some("Socket worker channel disconnected".to_string());
+                    Ok(None) => {}
+                    Err(err) => {
+                        worker_error = Some(err);
                         break;
                     }
                 }
@@ -1436,9 +1338,9 @@ impl Controller {
                     &mut peripheral_input_buffer,
                     i,
                     &socket_buffer_pool,
-                    &socket_workers,
+                    &mut socket_orchestrator,
                 );
-                self.stop_socket_workers(socket_workers);
+                self.sockets = socket_orchestrator.close();
                 return Err(err);
             }
 
@@ -1472,7 +1374,7 @@ impl Controller {
 
             // Run calcs
             if let Err(err) = self.orchestrator.eval() {
-                self.stop_socket_workers(socket_workers);
+                self.sockets = socket_orchestrator.close();
                 return Err(err);
             }
 
@@ -1513,7 +1415,7 @@ impl Controller {
                     .map(|e| format!("\n  {e}"))
                     .collect::<Vec<_>>()
                     .join("");
-                self.stop_socket_workers(socket_workers);
+                self.sockets = socket_orchestrator.close();
                 return Err(format!("Dispatcher error(s): {msg}"));
             }
 
