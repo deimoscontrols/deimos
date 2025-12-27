@@ -12,7 +12,7 @@ use tracing::info;
 
 use crate::buffer_pool::{BufferPool, SOCKET_BUFFER_LEN, SocketBuffer, default_socket_buffer_pool};
 use crate::controller::context::ControllerCtx;
-use crate::py_json_methods;
+use crate::{LoopMethod, py_json_methods};
 
 use super::*;
 use deimos_shared::peripherals::PeripheralId;
@@ -67,18 +67,30 @@ impl Socket for UdpSocket {
         self.socket.is_some()
     }
 
-    fn open(&mut self, _ctx: &ControllerCtx) -> Result<(), String> {
-        if self.socket.is_none() {
-            self.buffer_pool = Some(default_socket_buffer_pool());
-            // Socket populated on access
-            let addr = format!("0.0.0.0:{CONTROLLER_RX_PORT}");
-            let socket = std::net::UdpSocket::bind(&addr)
-                .map_err(|e| format!("Unable to bind UDP socket: {e}"))?;
-            self.socket = Some(socket);
-            info!("Opened UDP socket at {addr:?}");
-        } else {
-            // If the socket is already open, do nothing
+    fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String> {
+        // If it's already open, close it and reopen to clear settings
+        if self.socket.is_some() {
+            self.close();
         }
+
+        // Set up a fresh buffer pool
+        self.buffer_pool = Some(default_socket_buffer_pool());
+
+        // Inner socket populated on access
+        let addr = format!("0.0.0.0:{CONTROLLER_RX_PORT}");
+        let socket = std::net::UdpSocket::bind(&addr)
+            .map_err(|e| format!("Unable to bind UDP socket: {e}"))?;
+
+        // Set nonblocking if we're in Performant mode and will be busywaiting
+        if matches!(ctx.loop_method, LoopMethod::Performant) {
+            socket
+                .set_nonblocking(true)
+                .map_err(|e| format!("Failed to set socket to nonblocking mode: {e}"))?;
+        }
+
+        // Done
+        self.socket = Some(socket);
+        info!("Opened UDP socket at {addr:?}");
 
         Ok(())
     }
@@ -121,12 +133,10 @@ impl Socket for UdpSocket {
         let sock = self.socket.as_mut()?;
         let pool = self.buffer_pool.as_ref()?;
         let mut lease = pool.lease_or_create(|| Box::new([0u8; SOCKET_BUFFER_LEN]));
-        let timeout = if timeout.is_zero() {
-            Duration::from_nanos(1)
-        } else {
-            timeout
+        if !timeout.is_zero() {
+            let _ = sock.set_read_timeout(Some(timeout)); // Guaranteed nonzero duration
         };
-        let _ = sock.set_read_timeout(Some(timeout)); // Guaranteed nonzero duration
+
         let (size, addr, time) = match {
             let buf = lease.as_mut();
             sock.recv_from(&mut buf[..])

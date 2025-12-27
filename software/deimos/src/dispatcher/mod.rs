@@ -194,13 +194,18 @@ mod tests {
             );
 
             // Make sure we can parse the number back
-            let parsed: f64 = formatted.trim().parse().expect(&format!("Failed to parse `{formatted}` to `{value}`"));
-            if !value.is_nan(){
-                assert_eq!(value, parsed, "{value} was serialized as `{formatted}` and parsed as `{parsed}`");
+            let parsed: f64 = formatted
+                .trim()
+                .parse()
+                .expect(&format!("Failed to parse `{formatted}` to `{value}`"));
+            if !value.is_nan() {
+                assert_eq!(
+                    value, parsed,
+                    "{value} was serialized as `{formatted}` and parsed as `{parsed}`"
+                );
             } else {
                 assert!(parsed.is_nan(), "Failed to parse NaN value as NaN");
             }
-            
         }
     }
 
@@ -221,8 +226,13 @@ mod tests {
             );
 
             // Make sure we can parse the number back
-            let parsed: i64 = formatted.parse().expect(&format!("Failed to parse `{formatted}` to `{value}`"));
-            assert_eq!(value, parsed, "{value} was serialized as {formatted} and parsed as {parsed}");
+            let parsed: i64 = formatted
+                .parse()
+                .expect(&format!("Failed to parse `{formatted}` to `{value}`"));
+            assert_eq!(
+                value, parsed,
+                "{value} was serialized as {formatted} and parsed as {parsed}"
+            );
         }
     }
 }

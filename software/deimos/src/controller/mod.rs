@@ -958,7 +958,10 @@ impl Controller {
         // Spawn threads to manage blocking comms on each socket.
         // Keep worker recv timeouts short so outbound commands are serviced promptly.
         info!("Spawning socket workers");
-        let worker_timeout = Duration::from_nanos((self.ctx.dt_ns as u64 / 100).max(1_000));
+        let worker_timeout = match self.ctx.loop_method {
+            LoopMethod::Performant => Duration::ZERO,
+            LoopMethod::Efficient => Duration::from_nanos((self.ctx.dt_ns as u64 / 100).max(1_000)),
+        };
         let (socket_workers, socket_events) = self.spawn_socket_workers(worker_timeout);
 
         //    Pre-allocate storage for reconnection logic
