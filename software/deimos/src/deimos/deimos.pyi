@@ -46,24 +46,23 @@ class LoopMethod:
     """
 
 class Termination:
-    """Criteria for exiting the control program.
-
-    Timeout: A duration after which the control program should terminate.
-    The controller will use the monotonic clock, not system realtime clock,
-    to determine when this threshold occurs; as a result, if used for
-    scheduling relative to a "realtime" date or time, it will accumulate
-    some error as the monotonic clock drifts.
-
-    Scheduled: Schedule termination at a specific "realtime" date or time.
-    """
+    """Criteria for exiting the control program."""
 
     Timeout: ClassVar[Self]
+    """End the control program after some duration from the start of the first cycle."""
+
     Scheduled: ClassVar[Self]
+    """End the control program at a specific UTC system time."""
 
     @staticmethod
-    def timeout_s(s: float) -> Self: ...
+    def timeout_s(s: float) -> Self:
+        """End after `s` seconds from the start of the first cycle."""
+        ...
+
     @staticmethod
-    def scheduled_epoch_ns(ns: int) -> Self: ...
+    def scheduled_epoch_ns(ns: int) -> Self:
+        """End at a specified absolute system time in UTC nanoseconds."""
+        ...
 
 class LossOfContactPolicy:
     """Response to losing contact with a peripheral.
