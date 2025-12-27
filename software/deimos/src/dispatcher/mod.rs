@@ -126,17 +126,23 @@ pub fn csv_row(stringbuf: &mut String, vals: (SystemTime, i64, &[f64])) {
 /// Fixed-width formatting of float values
 #[allow(clippy::manual_strip)]
 pub fn fmt_f64(num: f64) -> String {
-    let width = 0;
     let precision = 17;
     let exp_pad = 3;
+    let width = precision + exp_pad + 5;
 
     let prefix = match num {
-        x if x >= 0.0 => "+",
+        x if x.is_sign_positive() => "+",
         _ => "",
     };
 
+    // Handle +/- Infinity and NaN.
     let mut numstr = format!("{prefix}{:.precision$e}", num, precision = precision);
-    // Safe to `unwrap` as `num` is guaranteed to contain `'e'`
+    if !num.is_finite() {
+        return format!("{:>width$}", numstr, width = width);
+    }
+
+    // Handle finite numbers.
+    // Safe to `unwrap` as finite numbers are guaranteed to contain `e`.
     let exp = numstr.split_off(numstr.find('e').unwrap());
 
     let (sign, exp) = if exp.starts_with("e-") {
@@ -157,4 +163,37 @@ pub fn fmt_i64(num: i64) -> String {
         _ => "",
     };
     format!("{prefix}{num:0>20}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fmt_f64;
+
+    #[test]
+    fn fmt_f64_has_consistent_width() {
+        let values = [
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NAN,
+            0.0,
+            -0.0,
+            1.0,
+            -1.0,
+            10.0,
+            -10.0,
+            f64::MIN,
+            f64::MAX,
+        ];
+
+        let expected_len = fmt_f64(values[0]).len();
+        for value in values {
+            let formatted = fmt_f64(value);
+            assert_eq!(
+                formatted.len(),
+                expected_len,
+                "length of `{value}` -> `{formatted}` should be {expected_len} but is {}",
+                formatted.len()
+            );
+        }
+    }
 }
