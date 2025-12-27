@@ -4,7 +4,6 @@ use std::thread::{JoinHandle, spawn};
 use std::time::Duration;
 
 use crossbeam::channel::{Receiver, Sender, TryRecvError, unbounded};
-use tracing::warn;
 
 use crate::buffer_pool::{BufferLease, SocketBuffer};
 use crate::controller::context::ControllerCtx;
@@ -211,12 +210,14 @@ impl SocketWorker {
     }
 }
 
+/// Transmission channel and join handle for a running socket worker.
 pub struct SocketWorkerHandle {
     pub cmd_tx: Sender<SocketWorkerCommand>,
     thread: JoinHandle<Box<dyn Socket>>,
 }
 
 impl SocketWorkerHandle {
+    /// Spin up a new socket worker on its own thread.
     pub fn spawn(
         socket_id: SocketId,
         socket: Box<dyn Socket>,
@@ -230,6 +231,7 @@ impl SocketWorkerHandle {
         Self { cmd_tx, thread }
     }
 
+    /// Wait for the socket worker thread to complete.
     pub fn join(self) -> Result<Box<dyn Socket>, String> {
         self.thread
             .join()

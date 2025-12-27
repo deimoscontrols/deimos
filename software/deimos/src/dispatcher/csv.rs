@@ -9,7 +9,7 @@ use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::{Sender, channel};
 use std::thread::{self, JoinHandle, spawn};
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
@@ -193,11 +193,10 @@ impl WorkerHandle {
                             match overflow_behavior {
                                 Overflow::Wrap => {
                                     writer.seek(SeekFrom::Start(header_len as u64)).unwrap();
-                                    info!("CSV file wrapped")
                                 }
                                 Overflow::Error => {
                                     error!("CSV file is full with overflow policy set to Error");
-                                    return
+                                    return;
                                 }
                                 Overflow::NewFile => {
                                     shard_number += 1;

@@ -44,7 +44,9 @@ pub(crate) enum ConnState {
         reconnect_deadline: Option<Instant>,
     },
     Operating(),
-    Disconnected { deadline: Option<Instant> },
+    Disconnected {
+        deadline: Option<Instant>,
+    },
 }
 
 /// Peripheral-specific metrics, readings, channel names, etc

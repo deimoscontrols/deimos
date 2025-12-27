@@ -15,13 +15,9 @@ use std::time::{Duration, Instant, SystemTime};
 use crossbeam::channel::{Receiver, RecvTimeoutError, unbounded};
 use flaw::MedianFilter;
 
+use crate::controller::context::LoopMethod;
 use crate::{
-    buffer_pool::{
-        BufferPool,
-        SOCKET_BUFFER_LEN,
-        SocketBuffer,
-        default_socket_buffer_pool,
-    },
+    buffer_pool::{BufferPool, SOCKET_BUFFER_LEN, SocketBuffer, default_socket_buffer_pool},
     calc::Calc,
     logging,
     peripheral::{Peripheral, PluginMap, parse_binding},
@@ -613,14 +609,20 @@ impl Controller {
                     ps.conn_state = ConnState::Operating();
                 }
                 _ => {
-                    warn!("Peripheral {} rejected configuration during reconnect", ps.name);
+                    warn!(
+                        "Peripheral {} rejected configuration during reconnect",
+                        ps.name
+                    );
                     ps.conn_state = ConnState::Disconnected {
                         deadline: reconnect_deadline,
                     };
                 }
             }
 
-            info!("Peripheral {} ackwnowledged configuration and reentered Operating state", ps.name);
+            info!(
+                "Peripheral {} ackwnowledged configuration and reentered Operating state",
+                ps.name
+            );
 
             // Indicate that this was a reconnection packet
             return true;
@@ -648,6 +650,12 @@ impl Controller {
         info!("Using op dir \"{}\"", &self.ctx.op_dir.to_string_lossy());
         info!("Logging to file {:?}", log_file_canonicalized);
 
+        // Check config
+        if matches!(self.ctx.loop_method, LoopMethod::Efficient) && self.ctx.dt_ns < 20_000_000 {
+            warn!("Using Efficient loop method for cycle rates higher than 50Hz is likely to cause degraded performance.");
+        }
+
+        // Set up core affinity
         let core_ids = core_affinity::get_core_ids().unwrap_or_default();
         let mut aux_core_cycle = {
             // Set core affinity, if possible
@@ -665,13 +673,20 @@ impl Controller {
                 core_ids[0..1].iter().cycle()
             };
 
-            // Consume the first core for the control loop
+            // If we're in performant loop mode, consume the first core for the control loop.
             // While the last core is less likely to be overutilized, the first core is more
-            // likely to be a high-performance core on a heterogeneous computing device
-            if let Some(core) = core_ids.first() {
+            // likely to be a high-performance core on a heterogeneous computing device.
+            if let Some(core) = core_ids.first()
+                && matches!(self.ctx.loop_method, LoopMethod::Performant)
+            {
                 let succeeded = core_affinity::set_for_current(*core);
                 if !succeeded {
                     warn!("Failed to set main thread core affinity");
+                } else {
+                    info!(
+                        "Set control loop core affinity to {core:?} for loop method {:?}",
+                        self.ctx.loop_method
+                    );
                 }
             }
 
@@ -992,7 +1007,7 @@ impl Controller {
             let mut t = start_of_operating.elapsed();
 
             i += 1;
-            let tmean = (target_time - cycle_duration / 2).as_nanos() as i64; // Time to drive peripheral packet arrivals toward
+            let tmean: i64 = (target_time - cycle_duration / 2).as_nanos() as i64; // Time to drive peripheral packet arrivals toward
             let timestamp = target_time.as_nanos() as i64;
 
             // Record timing margin
@@ -1218,8 +1233,8 @@ impl Controller {
                     let binding_msg = BindingInput {
                         configuring_timeout_ms: reconnect_step_timeout_ms,
                     };
-                    let mut binding_buf = socket_buffer_pool
-                        .lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
+                    let mut binding_buf =
+                        socket_buffer_pool.lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
                     binding_msg.write_bytes(&mut binding_buf.as_mut()[..BindingInput::BYTE_LEN]);
 
                     // Send broadcast binding packet on this socket only
@@ -1335,18 +1350,19 @@ impl Controller {
             // Receive packets until the start of the next cycle
             //     Unless we hear from each connected peripheral, assume we missed the packet
             for ps in controller_state.peripheral_state.values_mut() {
-                match ps.conn_state {
-                    ConnState::Operating() => {
-                        ps.metrics.loss_of_contact_counter += 1.0;
-                    }
-                    _ => continue,
+                if matches!(ps.conn_state, ConnState::Operating()) {
+                    ps.metrics.loss_of_contact_counter += 1.0;
                 }
             }
+
             let mut worker_error: Option<String> = None;
             t = start_of_operating.elapsed();
-            while t < target_time {
-                // Set maximum time to wait for next packet to end at the next target time
-                let timeout = target_time.saturating_sub(t);
+            while start_of_operating.elapsed() < target_time {
+                // Set maximum time to wait for next packet.
+                let timeout = match self.ctx.loop_method {
+                    LoopMethod::Performant => Duration::from_nanos(1),
+                    LoopMethod::Efficient => target_time.saturating_sub(t),
+                };
 
                 // Wait for the next packet
                 match socket_events.recv_timeout(timeout) {
@@ -1384,7 +1400,7 @@ impl Controller {
                             worker_error = Some(format!("Socket worker {socket_id} closed"));
                         }
                     },
-                    Err(RecvTimeoutError::Timeout) => break,
+                    Err(RecvTimeoutError::Timeout) => {}
                     Err(RecvTimeoutError::Disconnected) => {
                         worker_error = Some("Socket worker channel disconnected".to_string());
                         break;

@@ -185,14 +185,10 @@ impl SequenceMachine {
         transition: Transition,
     ) -> Result<(), String> {
         if !self.sequences.contains_key(&source_sequence) {
-            return Err(format!(
-                "Unknown source sequence: {source_sequence}"
-            ));
+            return Err(format!("Unknown source sequence: {source_sequence}"));
         }
         if !self.sequences.contains_key(&target_sequence) {
-            return Err(format!(
-                "Unknown target sequence: {target_sequence}"
-            ));
+            return Err(format!("Unknown target sequence: {target_sequence}"));
         }
 
         self.cfg
@@ -538,15 +534,13 @@ impl SequenceMachine {
     #[pyo3(name = "load_folder")]
     fn py_load_folder(path: &str) -> PyResult<Self> {
         let path = Path::new(path);
-        Self::load_folder(&path)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+        Self::load_folder(&path).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
     }
 
     #[pyo3(name = "save_folder")]
     fn py_save_folder(&self, path: &str) -> PyResult<()> {
         let path = Path::new(path);
-        Self::save_folder(self, &path)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+        Self::save_folder(self, &path).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
     }
 
     fn get_entry(&self) -> PyResult<String> {
@@ -573,15 +567,9 @@ impl SequenceMachine {
     }
 
     fn get_timeout(&self, sequence: String) -> PyResult<Option<String>> {
-        let timeout = self
-            .cfg
-            .timeouts
-            .get(&sequence)
-            .ok_or_else(|| {
-                pyo3::exceptions::PyKeyError::new_err(format!(
-                    "Unknown sequence: {sequence}"
-                ))
-            })?;
+        let timeout = self.cfg.timeouts.get(&sequence).ok_or_else(|| {
+            pyo3::exceptions::PyKeyError::new_err(format!("Unknown sequence: {sequence}"))
+        })?;
 
         match timeout {
             Timeout::Loop => Ok(None),
@@ -702,8 +690,7 @@ impl SequenceMachine {
     ) -> PyResult<()> {
         // Unpack and parse
         let (source_sequence, target_sequence) = source_target;
-        let op = ThreshOp::try_parse(op)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+        let op = ThreshOp::try_parse(op).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
 
         // Add to machine
         let transition = Transition::ConstantThresh(channel, op, threshold);
@@ -721,8 +708,7 @@ impl SequenceMachine {
     ) -> PyResult<()> {
         // Unpack and parse
         let (source_sequence, target_sequence) = source_target;
-        let op = ThreshOp::try_parse(op)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+        let op = ThreshOp::try_parse(op).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
 
         // Add to machine
         let transition = Transition::ChannelThresh(channel, op, threshold_channel);
@@ -736,13 +722,12 @@ impl SequenceMachine {
         source_target: (String, String),
         channel: String,
         op: (&str, f64),
-        threshold_lookup: (Vec<f64>, Vec<f64>, &str)
+        threshold_lookup: (Vec<f64>, Vec<f64>, &str),
     ) -> PyResult<()> {
         // Unpack and parse
         let (source_sequence, target_sequence) = source_target;
         let (time_s, vals, method) = threshold_lookup;
-        let op = ThreshOp::try_parse(op)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+        let op = ThreshOp::try_parse(op).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
         let method = InterpMethod::try_parse(&method).map_err(|e| {
             pyo3::exceptions::PyValueError::new_err(format!(
                 "Lookup has invalid interp method: {e}"

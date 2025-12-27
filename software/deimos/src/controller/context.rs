@@ -62,7 +62,6 @@ impl Termination {
 /// Response to losing contact with a peripheral
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(feature = "python", pyclass)]
-#[non_exhaustive]
 pub enum LossOfContactPolicy {
     /// Terminate the control program
     Terminate(),
@@ -71,6 +70,42 @@ pub enum LossOfContactPolicy {
     /// then terminate if unsuccessful. If no timeout is set,
     /// attempt reconnection indefinitely.
     Reconnect(Option<Duration>),
+}
+
+/// Whether to prioritize performance or efficiency in control loop.
+///
+/// When prioritizing performance, the control loop will consume 100% of time
+/// on the first CPU in order to ensure timing accuracy.
+///
+/// When prioritizing efficiency, the control loop will rely on the operating system
+/// to wake the thread when packets are received from peripherals, which drastically reduces
+/// CPU usage, but degrades performance due to OS timing granularity and context-switching
+/// overhead.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[cfg_attr(feature = "python", pyclass)]
+pub enum LoopMethod {
+    /// Use 100% of CPU 0 to ensure cycle timing and prevent context switching.
+    Performant,
+
+    /// Use operating system scheduling to sleep until packets are received.
+    ///
+    /// Reduces CPU usage by roughly a factor of 100, but degrades
+    /// performance at higher control rates (above about 100Hz).
+    Efficient,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl LoopMethod {
+    #[staticmethod]
+    pub fn permformant() -> Self {
+        Self::Performant
+    }
+
+    #[staticmethod]
+    pub fn efficient() -> Self {
+        Self::Efficient
+    }
 }
 
 /// Operation context, provided to appendages during init
@@ -113,6 +148,10 @@ pub struct ControllerCtx {
 
     /// Response to losing contact with a peripheral
     pub loss_of_contact_policy: LossOfContactPolicy,
+
+    /// Whether to prioritize performance or efficiency in the
+    /// control loop.
+    pub loop_method: LoopMethod,
 
     /// An escape hatch for sideloading user context (likely json-encoded)
     /// that is not yet implemented as a standalone field.
@@ -172,6 +211,7 @@ impl Default for ControllerCtx {
             controller_loss_of_contact_limit: 10,
             termination_criteria: Vec::new(),
             loss_of_contact_policy: LossOfContactPolicy::Terminate(),
+            loop_method: LoopMethod::Performant,
             user_ctx: BTreeMap::new(),
             user_channels: Arc::new(RwLock::new(BTreeMap::new())),
             dispatcher_buffer_pool: default_dispatcher_buffer_pool(),
