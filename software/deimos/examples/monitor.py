@@ -7,8 +7,10 @@ import deimos
 here = Path(__file__).parent.absolute()
 
 # Build a new control program to run at 5Hz (the minimum)
+# in efficient (OS-scheduled) mode.
 c = deimos.Controller("test2", str(here), 5.0)
 c.loss_of_contact_policy = deimos.LossOfContactPolicy.reconnect_indefinite()
+c.loop_method = deimos.LoopMethod.Efficient
 
 # Scan for peripherals on the network
 peripherals = c.scan()

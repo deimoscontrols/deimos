@@ -2,7 +2,6 @@ use pyo3::exceptions;
 use pyo3::prelude::*;
 use pyo3::wrap_pymodule;
 
-use crate::dispatcher::Overflow;
 pub(crate) mod controller;
 pub(crate) mod transfer; // Glue
 
@@ -10,9 +9,12 @@ pub(crate) mod transfer; // Glue
 #[pyo3(name = "deimos")]
 fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_class::<controller::Controller>()?;
-    m.add_class::<Overflow>()?;
+    m.add_class::<crate::Overflow>()?;
     m.add_class::<controller::RunHandle>()?;
     m.add_class::<controller::Snapshot>()?;
+    m.add_class::<crate::LoopMethod>()?;
+    m.add_class::<crate::LossOfContactPolicy>()?;
+    m.add_class::<crate::Termination>()?;
 
     #[pymodule]
     #[pyo3(name = "calc")]
@@ -60,15 +62,6 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     }
 
     m.add_wrapped(wrap_pymodule!(dispatcher_))?;
-
-    #[pymodule]
-    #[pyo3(name = "context")]
-    mod context_ {
-        #[pymodule_export]
-        pub use crate::controller::context::{LoopMethod, LossOfContactPolicy, Termination};
-    }
-
-    m.add_wrapped(wrap_pymodule!(context_))?;
 
     Ok(())
 }
