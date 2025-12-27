@@ -278,6 +278,11 @@ impl Controller {
         Ok(())
     }
 
+    fn set_loop_method(&mut self, py: Python<'_>, v: Py<crate::LoopMethod>) -> PyResult<()> {
+        self.ctx_mut()?.loop_method = v.borrow(py).clone();
+        Ok(())
+    }
+
     fn add_peripheral(&mut self, name: &str, p: Box<dyn Peripheral>) -> PyResult<()> {
         self.ctrl()?.add_peripheral(name, p);
         Ok(())
@@ -297,6 +302,16 @@ impl Controller {
     /// Add a socket via a JSON-serializable socket instance.
     fn add_socket(&mut self, socket: Box<dyn Socket>) -> PyResult<()> {
         self.ctrl()?.add_socket(socket);
+        Ok(())
+    }
+
+    fn set_peripheral_input_source(
+        &mut self,
+        input_field: &str,
+        source_field: &str,
+    ) -> PyResult<()> {
+        self.ctrl()?
+            .set_peripheral_input_source(input_field, source_field);
         Ok(())
     }
 

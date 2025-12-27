@@ -65,7 +65,7 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     #[pyo3(name = "context")]
     mod context_ {
         #[pymodule_export]
-        pub use crate::controller::context::{LossOfContactPolicy, Termination};
+        pub use crate::controller::context::{LoopMethod, LossOfContactPolicy, Termination};
     }
 
     m.add_wrapped(wrap_pymodule!(context_))?;

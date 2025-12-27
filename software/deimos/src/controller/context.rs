@@ -94,20 +94,6 @@ pub enum LoopMethod {
     Efficient,
 }
 
-#[cfg(feature = "python")]
-#[pymethods]
-impl LoopMethod {
-    #[staticmethod]
-    pub fn permformant() -> Self {
-        Self::Performant
-    }
-
-    #[staticmethod]
-    pub fn efficient() -> Self {
-        Self::Efficient
-    }
-}
-
 /// Operation context, provided to appendages during init
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[non_exhaustive]

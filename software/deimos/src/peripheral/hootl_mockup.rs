@@ -208,13 +208,15 @@ impl Peripheral for HootlMockupPeripheral {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "python", pyclass)]
 pub enum MockupTransport {
-    ThreadChannel {
-        name: String,
-    },
-    UnixSocket {
-        name: String,
-    },
-    /// UDP transport bound to PERIPHERAL_RX_PORT (one mockup at a time).
+    /// A thread channel with this name.
+    ThreadChannel { name: String },
+
+    /// A unix socket with this name.
+    UnixSocket { name: String },
+
+    /// UDP transport bound to PERIPHERAL_RX_PORT.
+    /// Because the port can only be bound once, this can only
+    /// be used by one mockup at a time.
     Udp(),
 }
 

@@ -72,7 +72,7 @@ pub struct MachineCfg {
 /// Unlike most calcs, the names of the inputs and outputs of this calc
 /// are not known at compile-time, and are assembled from inputs instead.
 #[derive(Serialize, Deserialize, Debug)]
-#[cfg_attr(feature = "python", pyclass(subclass, name = "SequenceMachineInner"))]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct SequenceMachine {
     /// State transition criteria and other configuration
     cfg: MachineCfg,

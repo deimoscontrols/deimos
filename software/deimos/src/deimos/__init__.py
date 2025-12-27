@@ -3,9 +3,11 @@ from .deimos import (
     dispatcher,
     peripheral,
     socket,
-    context,
     Controller,
     Overflow,
+    Termination,
+    LossOfContactPolicy,
+    LoopMethod,
 )
 
 __all__ = [
@@ -13,13 +15,9 @@ __all__ = [
     "dispatcher",
     "peripheral",
     "socket",
-    "context",
     "Controller",
     "Overflow",
     "Termination",
     "LossOfContactPolicy",
+    "LoopMethod",
 ]
-
-class SequenceMachine(calc.SequenceMachineInner):
-    def __init__(self, entry: str):
-        super().__init__(entry)

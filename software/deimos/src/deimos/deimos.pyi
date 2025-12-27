@@ -23,17 +23,52 @@ class Overflow:
     Error: Error on overflow if neither wrapping nor creating a new file is viable.
     """
 
-    Wrap: ClassVar[Overflow]
-    NewFile: ClassVar[Overflow]
-    Error: ClassVar[Overflow]
+    Wrap: ClassVar[Self]
+    NewFile: ClassVar[Self]
+    Error: ClassVar[Self]
+
+class LoopMethod:
+    """Whether to prioritize performance or efficiency in control loop."""
+
+    Performant: ClassVar[Self]
+    Efficient: ClassVar[Self]
+
+class Termination:
+    """Criteria for exiting the control program.
+
+    Timeout: A duration after which the control program should terminate.
+    The controller will use the monotonic clock, not system realtime clock,
+    to determine when this threshold occurs; as a result, if used for
+    scheduling relative to a "realtime" date or time, it will accumulate
+    some error as the monotonic clock drifts.
+
+    Scheduled: Schedule termination at a specific "realtime" date or time.
+    """
+    @staticmethod
+    def timeout_ms(ms: int) -> Self: ...
+    @staticmethod
+    def timeout_ns(ns: int) -> Self: ...
+    @staticmethod
+    def scheduled_epoch_ns(ns: int) -> Self: ...
+
+class LossOfContactPolicy:
+    """Response to losing contact with a peripheral.
+
+    Terminate: Terminate the control program.
+    """
+
+    Terminate: ClassVar[Self]
 
 class Snapshot:
     @property
     def system_time(self) -> str: ...
+    """End-of-cycle UTC system time in RFC3339 format with nanoseconds."""
     @property
     def timestamp(self) -> int: ...
+    """End-of-cycle time in monotonic nanoseconds since start of control program."""
     @property
     def values(self) -> dict[str, float]: ...
+    """Latest values by channel name."""
 
 class RunHandle:
     def stop(self) -> None:
@@ -84,6 +119,11 @@ class Controller:
     def add_socket(self, socket: SocketLike) -> None:
         """Add a socket via a JSON-serializable socket instance."""
         ...
+    def set_peripheral_input_source(
+        self, input_field: str, source_field: str
+    ) -> None: ...
+    """Connect an entry in the calc graph to a command to be sent to the peripheral."""
+
     def clear_calcs(self) -> None:
         """Remove all calcs."""
         ...
@@ -98,36 +138,65 @@ class Controller:
         ...
     @property
     def op_name(self) -> str: ...
+    """
+    The name of the operation.
+    Used to set database table names, set log and data file names, etc.
+    """
     @op_name.setter
     def op_name(self, v: str) -> None: ...
     @property
     def op_dir(self) -> str: ...
+    """
+    The directory where this operation's logs and other data will be placed,
+    and where calcs with linked configuration (like a SequenceMachine) can
+    find their linked files or folders by relative path.
+    """
     @op_dir.setter
     def op_dir(self, v: str) -> None: ...
     @property
     def dt_ns(self) -> int: ...
+    """[ns] control program cycle period."""
     @dt_ns.setter
     def dt_ns(self, v: int) -> None: ...
     @property
     def rate_hz(self) -> float: ...
+    """[Hz] control program cycle rate."""
     @rate_hz.setter
     def rate_hz(self, v: float) -> None: ...
     @property
     def peripheral_loss_of_contact_limit(self) -> int: ...
+    """Number of missed packets from the controller that indicates disconnection."""
     @peripheral_loss_of_contact_limit.setter
     def peripheral_loss_of_contact_limit(self, v: int) -> None: ...
     @property
     def controller_loss_of_contact_limit(self) -> int: ...
+    """Number of missed packets from a peripheral that indicates disconnection."""
     @controller_loss_of_contact_limit.setter
     def controller_loss_of_contact_limit(self, v: int) -> None: ...
     @property
-    def termination_criteria(self) -> list[context.Termination]: ...
+    def termination_criteria(self) -> list[Termination]: ...
+    """Criteria for exiting the control program."""
     @termination_criteria.setter
-    def termination_criteria(self, v: list[context.Termination]) -> None: ...
+    def termination_criteria(self, v: list[Termination]) -> None: ...
     @property
-    def loss_of_contact_policy(self) -> context.LossOfContactPolicy: ...
+    def loss_of_contact_policy(self) -> LossOfContactPolicy: ...
+    """
+    The response of the control program when a peripheral disconnects during run.
+    """
+
     @loss_of_contact_policy.setter
-    def loss_of_contact_policy(self, v: context.LossOfContactPolicy) -> None: ...
+    def loss_of_contact_policy(self, v: LossOfContactPolicy) -> None: ...
+    @property
+    def loop_method(self) -> LoopMethod: ...
+    """
+    The loop waiting method for the controller.
+
+    Busywaiting is performant, but inefficient;
+    relying on the operating system for scheduling is efficient, but not performant.
+    """
+
+    @loop_method.setter
+    def loop_method(self, v: LoopMethod) -> None: ...
 
 class _CalcBase:
     def to_json(self) -> str:
@@ -282,20 +351,52 @@ class _CalcModule(ModuleType):
         def save_folder(self, path: str) -> None:
             """Save a configuration json and sequence CSV files to a folder."""
             ...
-        def get_entry(self) -> str: ...
-        def set_entry(self, entry: str) -> None: ...
-        def get_link_folder(self) -> str | None: ...
-        def set_link_folder(self, link_folder: str | None) -> None: ...
-        def get_timeout(self, sequence: str) -> TimeoutTargetState | None: ...
-        def set_timeout(
-            self, sequence: str, target: TimeoutTargetState | None
-        ) -> None: ...
+        def get_entry(self) -> str:
+            """The sequence that is the entrypoint for the machine."""
+            ...
+
+        def set_entry(self, entry: str) -> None:
+            """Set the sequence that is the entrypoint for the machine."""
+            ...
+
+        def get_link_folder(self) -> str | None:
+            """
+            The folder, by relative path from `op_dir`,
+            that this machine will automatically reload
+            configuration from during init, if any.
+            """
+            ...
+
+        def set_link_folder(self, link_folder: str | None) -> None:
+            """
+            Set the folder, by relative path from `op_dir`,
+            that this machine will automatically reload
+            configuration from during init, if any.
+            """
+            ...
+
+        def get_timeout(self, sequence: str) -> TimeoutTargetState | None:
+            """
+            The state that this sequence will transition to when it times out.
+            If None, this sequence will loop.
+            """
+            ...
+
+        def set_timeout(self, sequence: str, target: TimeoutTargetState | None) -> None:
+            """
+            Set the state that this sequence will transition to when it times out.
+            If None, this sequence will loop.
+            """
+            ...
+
         def add_sequence(
             self,
             name: str,
             tables: Sequence,
             timeout: TimeoutTargetState | None,
         ) -> None: ...
+        """Add a sequence to the machine."""
+
         def add_constant_thresh_transition(
             self,
             source_target: tuple[str, str],
@@ -329,8 +430,12 @@ calc: _CalcModule
 class MockupTransport:
     @staticmethod
     def thread_channel(name: str) -> Self: ...
+    """A thread channel with this name."""
+
     @staticmethod
     def unix_socket(name: str) -> Self: ...
+    """A unix socket with this name."""
+
     @staticmethod
     def udp() -> Self:
         """UDP transport bound to PERIPHERAL_RX_PORT (one mockup at a time)."""
@@ -371,7 +476,10 @@ class _PeripheralModule(ModuleType):
             transport: MockupTransport,
             end_epoch_ns: int | None = None,
         ) -> None: ...
+        """A way to operate a HootlMockupPeripheral from outside the control program."""
+
         def run_with(self, controller: Controller) -> None: ...
+        """Start the driver attached to this controller."""
 
 peripheral: _PeripheralModule
 
@@ -484,32 +592,3 @@ class _DispatcherModule(ModuleType):
         ) -> None: ...
 
 dispatcher: _DispatcherModule
-
-class _ContextModule(ModuleType):
-    class Termination:
-        """Criteria for exiting the control program.
-
-        Timeout: A duration after which the control program should terminate.
-        The controller will use the monotonic clock, not system realtime clock,
-        to determine when this threshold occurs; as a result, if used for
-        scheduling relative to a "realtime" date or time, it will accumulate
-        some error as the monotonic clock drifts.
-
-        Scheduled: Schedule termination at a specific "realtime" date or time.
-        """
-        @staticmethod
-        def timeout_ms(ms: int) -> Self: ...
-        @staticmethod
-        def timeout_ns(ns: int) -> Self: ...
-        @staticmethod
-        def scheduled_epoch_ns(ns: int) -> Self: ...
-
-    class LossOfContactPolicy:
-        """Response to losing contact with a peripheral.
-
-        Terminate: Terminate the control program.
-        """
-
-        Terminate: ClassVar[Self]
-
-context: _ContextModule
