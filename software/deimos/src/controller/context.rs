@@ -14,6 +14,8 @@ use std::sync::{Arc, RwLock};
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
+use tracing::warn;
 
 const DEFAULT_DISPATCHER_BUFFER_POOL_CAPACITY: usize = 8;
 
@@ -41,13 +43,14 @@ pub enum Termination {
 #[pymethods]
 impl Termination {
     #[staticmethod]
-    pub fn timeout_ms(ms: u64) -> Self {
-        Self::Timeout(Duration::from_millis(ms))
-    }
-
-    #[staticmethod]
-    pub fn timeout_ns(ns: u64) -> Self {
-        Self::Timeout(Duration::from_nanos(ns))
+    pub fn timeout_s(s: f64) -> Self {
+        let duration_s = if s <= 0.0 {
+            warn!("Termination timeout is zero or negative; clamping to zero.");
+            0.0
+        } else {
+            s
+        };
+        Self::Timeout(Duration::from_secs_f64(duration_s))
     }
 
     #[staticmethod]

@@ -33,7 +33,17 @@ class LoopMethod:
     """Whether to prioritize performance or efficiency in control loop."""
 
     Performant: ClassVar[Self]
+    """
+    Use 100% of a CPU to protect timing.
+    This increases maximum usable control frequency.
+    """
+
     Efficient: ClassVar[Self]
+    """
+    Use operating system scheduling to reduce CPU usage
+    at the expense of degraded cycle performance.
+    Typically viable up to about 50Hz control rate.
+    """
 
 class Termination:
     """Criteria for exiting the control program.
@@ -51,9 +61,7 @@ class Termination:
     Scheduled: ClassVar[Self]
 
     @staticmethod
-    def timeout_ms(ms: int) -> Self: ...
-    @staticmethod
-    def timeout_ns(ns: int) -> Self: ...
+    def timeout_s(s: float) -> Self: ...
     @staticmethod
     def scheduled_epoch_ns(ns: int) -> Self: ...
 

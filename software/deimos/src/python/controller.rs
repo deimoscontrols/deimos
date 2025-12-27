@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, atomic::AtomicBool};
+use std::time::Duration;
 
 use pyo3::prelude::*;
+use tracing::warn;
 
 // Dispatchers
 use crate::Socket;
@@ -274,7 +276,19 @@ impl Controller {
         py: Python<'_>,
         v: Py<crate::LossOfContactPolicy>,
     ) -> PyResult<()> {
-        self.ctx_mut()?.loss_of_contact_policy = v.borrow(py).clone();
+        let dt_ns = self.ctx()?.dt_ns;
+        let policy = v.borrow(py).clone();
+        if let crate::LossOfContactPolicy::Reconnect(Some(timeout)) = &policy {
+            let min_timeout = Duration::from_millis(40);
+            let cycle_timeout = Duration::from_nanos(u64::from(dt_ns) * 4);
+            if *timeout < min_timeout || *timeout < cycle_timeout {
+                warn!(
+                    "Reconnect timeout {:?} is less than 40ms or less than 4x cycle dt; unlikely to succeed.",
+                    timeout
+                );
+            }
+        }
+        self.ctx_mut()?.loss_of_contact_policy = policy;
         Ok(())
     }
 
