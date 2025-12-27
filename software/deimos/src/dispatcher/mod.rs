@@ -158,16 +158,12 @@ pub fn fmt_f64(num: f64) -> String {
 /// Fixed-width formatting of integer value for timestamp
 /// 20 is the largest size.
 pub fn fmt_i64(num: i64) -> String {
-    let prefix = match num {
-        x if x >= 0 => "+",
-        _ => "",
-    };
-    format!("{prefix}{num:0>20}")
+    format!("{num:+020}")
 }
 
 #[cfg(test)]
 mod tests {
-    use super::fmt_f64;
+    use super::{fmt_f64, fmt_i64};
 
     #[test]
     fn fmt_f64_has_consistent_width() {
@@ -188,12 +184,45 @@ mod tests {
         let expected_len = fmt_f64(values[0]).len();
         for value in values {
             let formatted = fmt_f64(value);
+
+            // Make sure length matches
             assert_eq!(
                 formatted.len(),
                 expected_len,
                 "length of `{value}` -> `{formatted}` should be {expected_len} but is {}",
                 formatted.len()
             );
+
+            // Make sure we can parse the number back
+            let parsed: f64 = formatted.trim().parse().expect(&format!("Failed to parse `{formatted}` to `{value}`"));
+            if !value.is_nan(){
+                assert_eq!(value, parsed, "{value} was serialized as `{formatted}` and parsed as `{parsed}`");
+            } else {
+                assert!(parsed.is_nan(), "Failed to parse NaN value as NaN");
+            }
+            
+        }
+    }
+
+    #[test]
+    fn fmt_i64_has_consistent_width() {
+        let values = [0, i64::MIN, i64::MAX, -1, 1, -10, 10];
+
+        let expected_len = fmt_i64(values[0]).len();
+        for value in values {
+            let formatted = fmt_i64(value);
+
+            // Make sure the length matches
+            assert_eq!(
+                formatted.len(),
+                expected_len,
+                "length of `{value}` -> `{formatted}` should be {expected_len} but is {}",
+                formatted.len()
+            );
+
+            // Make sure we can parse the number back
+            let parsed: i64 = formatted.parse().expect(&format!("Failed to parse `{formatted}` to `{value}`"));
+            assert_eq!(value, parsed, "{value} was serialized as {formatted} and parsed as {parsed}");
         }
     }
 }
