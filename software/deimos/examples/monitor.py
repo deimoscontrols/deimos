@@ -9,7 +9,6 @@ here = Path(__file__).parent.absolute()
 # Build a new control program to run at 5Hz (the minimum)
 c = deimos.Controller("test2", str(here), 5.0)
 c.loss_of_contact_policy = deimos.LossOfContactPolicy.reconnect_indefinite()
-c.termination_criteria = [deimos.Termination.timeout_s(2.0)]
 
 # Scan for peripherals on the network
 peripherals = c.scan()

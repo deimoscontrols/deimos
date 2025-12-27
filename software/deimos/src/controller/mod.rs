@@ -1141,7 +1141,7 @@ impl Controller {
             }
 
             // Check termination criteria
-            for criterion in &self.ctx.termination_criteria {
+            if let Some(criterion) = &self.ctx.termination_criteria {
                 let terminating = match criterion {
                     Termination::Timeout(d) => {
                         if &t >= d {

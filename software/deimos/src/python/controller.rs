@@ -245,22 +245,21 @@ impl Controller {
     }
 
     #[getter(termination_criteria)]
-    fn termination_criteria(&self, py: Python<'_>) -> PyResult<Vec<Py<crate::Termination>>> {
+    fn termination_criteria(&self, py: Python<'_>) -> PyResult<Option<Py<crate::Termination>>> {
         self.ctx()?
             .termination_criteria
-            .iter()
-            .cloned()
+            .clone()
             .map(|term| Py::new(py, term))
-            .collect()
+            .transpose()
     }
 
     #[setter(termination_criteria)]
     fn set_termination_criteria(
         &mut self,
         py: Python<'_>,
-        v: Vec<Py<crate::Termination>>,
+        v: Option<Py<crate::Termination>>,
     ) -> PyResult<()> {
-        let criteria = v.into_iter().map(|term| term.borrow(py).clone()).collect();
+        let criteria = v.map(|term| term.borrow(py).clone());
         self.ctx_mut()?.termination_criteria = criteria;
         Ok(())
     }

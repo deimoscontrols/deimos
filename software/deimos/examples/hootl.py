@@ -11,9 +11,7 @@ from deimos import Controller, context, peripheral, socket
 def main() -> None:
     here = Path(__file__).parent.resolve()
     ctrl = Controller(op_name="mockup_demo", op_dir=str(here / "op"), rate_hz=100.0)
-    ctrl.termination_criteria = [
-        context.Termination.timeout_ns(1_000_000_000)
-    ]
+    ctrl.termination_criteria = context.Termination.timeout_s(1.0)
 
     ctrl.clear_sockets()
     ctrl.add_socket(socket.ThreadChannelSocket("mockup_chan"))

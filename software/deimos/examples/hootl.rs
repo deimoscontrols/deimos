@@ -55,7 +55,7 @@ fn main() {
     ctx.dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
 
     // Set termination criteria to end the control loop after a set duration from start of operating
-    ctx.termination_criteria = vec![Termination::Timeout(Duration::from_millis(500))];
+    ctx.termination_criteria = Some(Termination::Timeout(Duration::from_millis(500)));
 
     // Define idle controller
     let mut controller = Controller::new(ctx);

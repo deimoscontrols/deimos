@@ -156,8 +156,8 @@ pub struct ControllerCtx {
     /// after which the controller should assume contact has been lost
     pub controller_loss_of_contact_limit: u16,
 
-    /// A set of conditions for exiting the control loop, to be checked at each cycle
-    pub termination_criteria: Vec<Termination>,
+    /// A condition for exiting the control loop, to be checked at each cycle
+    pub termination_criteria: Option<Termination>,
 
     /// Response to losing contact with a peripheral
     pub loss_of_contact_policy: LossOfContactPolicy,
@@ -222,7 +222,7 @@ impl Default for ControllerCtx {
             configuring_timeout_ms: 20,
             peripheral_loss_of_contact_limit: 10,
             controller_loss_of_contact_limit: 10,
-            termination_criteria: Vec::new(),
+            termination_criteria: None,
             loss_of_contact_policy: LossOfContactPolicy::Terminate(),
             loop_method: LoopMethod::Performant,
             user_ctx: BTreeMap::new(),
