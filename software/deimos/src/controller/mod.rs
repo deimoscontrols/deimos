@@ -652,7 +652,9 @@ impl Controller {
 
         // Check config
         if matches!(self.ctx.loop_method, LoopMethod::Efficient) && self.ctx.dt_ns < 20_000_000 {
-            warn!("Using Efficient loop method for cycle rates higher than 50Hz is likely to cause degraded performance.");
+            warn!(
+                "Using Efficient loop method for cycle rates higher than 50Hz is likely to cause degraded performance."
+            );
         }
 
         // Set up core affinity
@@ -674,8 +676,14 @@ impl Controller {
             };
 
             // If we're in performant loop mode, consume the first core for the control loop.
+            // This is critical to prevent context-switching overhead, which causes cycle lag
+            // and missed packets.
+            //
             // While the last core is less likely to be overutilized, the first core is more
             // likely to be a high-performance core on a heterogeneous computing device.
+            //
+            // If we're in efficient loop mode, prioritize being a good neighbor to other processes
+            // by not hogging a specific core.
             if let Some(core) = core_ids.first()
                 && matches!(self.ctx.loop_method, LoopMethod::Performant)
             {
@@ -1358,10 +1366,13 @@ impl Controller {
             let mut worker_error: Option<String> = None;
             t = start_of_operating.elapsed();
             while start_of_operating.elapsed() < target_time {
+                // Tell the processor this is a busy-waiting loop.
+                std::hint::spin_loop();
+
                 // Set maximum time to wait for next packet.
                 let timeout = match self.ctx.loop_method {
-                    LoopMethod::Performant => Duration::from_nanos(1),
-                    LoopMethod::Efficient => target_time.saturating_sub(t),
+                    LoopMethod::Performant => Duration::ZERO, // Busy-wait
+                    LoopMethod::Efficient => target_time.saturating_sub(t), // Thread-waker
                 };
 
                 // Wait for the next packet
@@ -1407,7 +1418,7 @@ impl Controller {
                     }
                 }
 
-                // Exit if any sockets have failed
+                // Exit if any sockets have failed.
                 if worker_error.is_some() {
                     break;
                 }
@@ -1415,7 +1426,7 @@ impl Controller {
                 t = start_of_operating.elapsed();
             }
 
-            // Exit if any socket has failed
+            // Exit if any socket has failed.
             if let Some(err) = worker_error {
                 self.terminate(
                     &controller_state,

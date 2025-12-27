@@ -53,6 +53,13 @@ fn main() {
     ctx.controller_loss_of_contact_limit = 10;
     ctx.peripheral_loss_of_contact_limit = 10;
     ctx.loss_of_contact_policy = LossOfContactPolicy::Reconnect(Some(Duration::from_secs(10)));
+    //   At higher control rate, switch to busy-waiting mode to maintain timing.
+    if rate_hz > 50.0 {
+        ctx.loop_method = LoopMethod::Performant;
+    } else {
+        ctx.loop_method = LoopMethod::Efficient;
+    }
+    //   Build the controller, but don't connect sockets or run anything yet.
     let mut controller = Controller::new(ctx);
 
     // Scan for peripherals on LAN

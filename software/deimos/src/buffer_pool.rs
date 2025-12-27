@@ -17,6 +17,8 @@ pub fn default_socket_buffer_pool() -> BufferPool<SocketBuffer> {
     })
 }
 
+/// A shared pool of reusable buffers for decreasing
+/// allocation overhead when communicating via thread channels.
 pub struct BufferPool<T> {
     inner: Arc<BufferPoolInner<T>>,
 }
@@ -85,6 +87,8 @@ impl<T> BufferPool<T> {
     }
 }
 
+/// A reusable buffer borrowed from a buffer pool.
+/// When this handle is dropped, the storage is returned to the pool.
 pub struct BufferLease<T> {
     pool: BufferPool<T>,
     item: Option<T>,

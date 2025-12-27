@@ -12,7 +12,7 @@ pub mod socket;
 
 pub use controller::{
     Controller,
-    context::{ControllerCtx, LossOfContactPolicy, Termination},
+    context::{ControllerCtx, LoopMethod, LossOfContactPolicy, Termination},
 };
 pub use dispatcher::{
     ChannelFilter, CsvDispatcher, DecimationDispatcher, Dispatcher, LowPassDispatcher,
