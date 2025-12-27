@@ -292,6 +292,12 @@ impl Controller {
         Ok(())
     }
 
+    #[getter(loop_method)]
+    fn loop_method(&self, py: Python<'_>) -> PyResult<Py<crate::LoopMethod>> {
+        Py::new(py, self.ctx()?.loop_method.clone())
+    }
+
+    #[setter(loop_method)]
     fn set_loop_method(&mut self, py: Python<'_>, v: Py<crate::LoopMethod>) -> PyResult<()> {
         self.ctx_mut()?.loop_method = v.borrow(py).clone();
         Ok(())
