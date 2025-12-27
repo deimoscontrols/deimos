@@ -72,6 +72,30 @@ pub enum LossOfContactPolicy {
     Reconnect(Option<Duration>),
 }
 
+#[cfg(feature = "python")]
+#[pymethods]
+impl LossOfContactPolicy {
+    #[staticmethod]
+    pub fn terminate() -> Self {
+        Self::Terminate()
+    }
+
+    #[staticmethod]
+    pub fn reconnect_s(timeout_s: f64) -> Self {
+        let duration = if timeout_s.is_sign_negative() {
+            Duration::ZERO
+        } else {
+            Duration::from_secs_f64(timeout_s)
+        };
+        Self::Reconnect(Some(duration))
+    }
+
+    #[staticmethod]
+    pub fn reconnect_indefinite() -> Self {
+        Self::Reconnect(None)
+    }
+}
+
 /// Whether to prioritize performance or efficiency in control loop.
 ///
 /// When prioritizing performance, the control loop will consume 100% of time

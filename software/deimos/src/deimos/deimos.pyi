@@ -19,7 +19,9 @@ class Overflow:
 
     Wrap: Wrap back to the beginning of the file and overwrite, starting with the oldest
           data.
+
     NewFile: Create a new file.
+
     Error: Error on overflow if neither wrapping nor creating a new file is viable.
     """
 
@@ -44,6 +46,10 @@ class Termination:
 
     Scheduled: Schedule termination at a specific "realtime" date or time.
     """
+
+    Timeout: ClassVar[Self]
+    Scheduled: ClassVar[Self]
+
     @staticmethod
     def timeout_ms(ms: int) -> Self: ...
     @staticmethod
@@ -55,9 +61,29 @@ class LossOfContactPolicy:
     """Response to losing contact with a peripheral.
 
     Terminate: Terminate the control program.
+
+    Reconnect: Attempt to reconnect until some time has elapsed, then terminate
+    if unsuccessful. If no timeout is set, attempt reconnection indefinitely.
     """
 
     Terminate: ClassVar[Self]
+    """Terminate the control program."""
+
+    Reconnect: ClassVar[Self]
+    """Attempt to reconnect to the peripheral"""
+
+    @staticmethod
+    def terminate() -> Self:
+        """Construct a policy that terminates the control program."""
+        ...
+    @staticmethod
+    def reconnect_s(timeout_s: float) -> Self:
+        """Construct a reconnect policy with a timeout in seconds."""
+        ...
+    @staticmethod
+    def reconnect_indefinite() -> Self:
+        """Construct a reconnect policy with no timeout."""
+        ...
 
 class Snapshot:
     @property
@@ -91,6 +117,11 @@ class RunHandle:
         ...
 
 class Controller:
+    """
+    The control program that communicates with hardware peripherals,
+    runs calculations, and dispatches data.
+    """
+
     def __init__(self, op_name: str, op_dir: str, rate_hz: float) -> None:
         """Build a new controller.
 
@@ -111,19 +142,22 @@ class Controller:
         """Scan the local network (and any other attached sockets)
         for available peripherals."""
         ...
-    def add_peripheral(self, name: str, p: PeripheralLike) -> None: ...
-    def add_calc(self, name: str, calc: CalcLike) -> None: ...
+    def add_peripheral(self, name: str, p: PeripheralLike) -> None:
+        """Register a peripheral with the control program"""
+        ...
+    def add_calc(self, name: str, calc: CalcLike) -> None:
+        """Add a calc to the expression graph that runs on every cycle"""
+        ...
     def add_dispatcher(self, dispatcher: DispatcherLike) -> None:
         """Add a dispatcher via a JSON-serializable dispatcher instance."""
         ...
     def add_socket(self, socket: SocketLike) -> None:
         """Add a socket via a JSON-serializable socket instance."""
         ...
-    def set_peripheral_input_source(
-        self, input_field: str, source_field: str
-    ) -> None: ...
-    """Connect an entry in the calc graph to a command to be sent to the peripheral."""
-
+    def set_peripheral_input_source(self, input_field: str, source_field: str) -> None:
+        """Connect an entry in the calc graph to a
+        command to be sent to the peripheral."""
+        ...
     def clear_calcs(self) -> None:
         """Remove all calcs."""
         ...
@@ -503,7 +537,7 @@ class _DispatcherModule(ModuleType):
         """A plain-text CSV data target, which uses a pre-sized file
         to prevent sudden increases in write latency during file resizing.
 
-        On reaching the end of the configured data size, it can be configured to either
+        On reaching the end of the configured data size, it can be configured to
         * Wrap (and start overwriting the existing data from the beginning),
         * Start a new file, or
         * Error, logging that the file is full and closing comms with the controller.

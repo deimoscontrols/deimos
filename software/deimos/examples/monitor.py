@@ -1,13 +1,14 @@
 """A simple program to monitor all peripherals found on the network"""
-
+import time
 from pathlib import Path
 
 import deimos
 
 here = Path(__file__).parent.absolute()
 
-# Build a new control program to run at 5Hz
+# Build a new control program to run at 5Hz (the minimum)
 c = deimos.Controller("test2", str(here), 5.0)
+c.loss_of_contact_policy = deimos.LossOfContactPolicy.reconnect_indefinite()
 
 # Scan for peripherals on the network
 peripherals = c.scan()
@@ -30,8 +31,6 @@ c.add_calc("five", five)
 if len(peripherals) > 0:
     h = c.run_nonblocking()
     try:
-        import time
-
         for _ in range(20):  # poll for ~4 seconds
             snap = h.read()
             vals = list(snap.values.items())
