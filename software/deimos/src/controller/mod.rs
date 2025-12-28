@@ -74,7 +74,10 @@ pub struct Snapshot {
 }
 
 /// A handle to a [Controller] running via [Controller::run_nonblocking] that allows
-/// reading and writing values from outside the control program during operation.
+/// reading and writing values from outside the control program during operation
+/// and signaling the controller to shut down.
+/// 
+/// Signals the controller to shut down when dropped.
 #[cfg_attr(feature = "python", pyclass)]
 pub struct RunHandle {
     /// Signal to stop the controller.
@@ -1626,6 +1629,12 @@ impl RunHandle {
     }
 }
 
+impl Drop for RunHandle {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
 #[cfg(feature = "python")]
 #[pymethods]
 impl RunHandle {
@@ -1669,6 +1678,20 @@ impl RunHandle {
     fn py_write(&self, values: HashMap<String, f64>) -> PyResult<()> {
         self.write(values)
             .map_err(|e| PyErr::from(BackendErr::RunErr { msg: e }))
+    }
+
+    fn __enter__(slf: PyRefMut<'_, Self>) -> PyResult<PyRefMut<'_, Self>> {
+        Ok(slf)
+    }
+
+    fn __exit__(
+        &mut self,
+        _exc_type: Option<Py<PyAny>>,
+        _exc: Option<Py<PyAny>>,
+        _traceback: Option<Py<PyAny>>,
+    ) -> PyResult<bool> {
+        self.stop();
+        Ok(false)
     }
 }
 
