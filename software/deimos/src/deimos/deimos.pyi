@@ -126,6 +126,12 @@ class RunHandle:
     def read(self) -> Snapshot:
         """Read the latest row mapped to header names."""
         ...
+    def available_inputs(self) -> list[str]:
+        """List peripheral inputs that can be written manually."""
+        ...
+    def write(self, values: dict[str, float]) -> None:
+        """Write values to peripheral inputs not driven by calcs."""
+        ...
 
 class Controller:
     """

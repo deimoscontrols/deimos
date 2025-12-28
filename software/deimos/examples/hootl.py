@@ -60,7 +60,14 @@ def main() -> None:
 
             try:
                 time.sleep(0.5)
+                manual_inputs = handle.available_inputs()
 
+                if manual_inputs:
+                    # print("Manual inputs available:")
+                    # for name in manual_inputs:
+                    #     print(f"    {name}")
+                    handle.write({"mock_thread.dac0": 0.0})
+                
                 # Make sure we had stable communication with all the peripheral mockups
                 for k, v in handle.read().values.items():
                     if "loss_of_contact_counter" in k:

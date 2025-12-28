@@ -7,8 +7,9 @@ mod peripheral_state;
 mod timing;
 
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -32,6 +33,8 @@ use controller_state::ControllerState;
 use peripheral_state::ConnState;
 use timing::TimingPID;
 use tracing::{debug, error, info, warn};
+
+pub type ManualInputMap = Arc<RwLock<HashMap<FieldName, f64>>>;
 
 /// The controller implements the control loop,
 /// synchronizes sample reporting time between the peripherals,
@@ -570,6 +573,8 @@ impl Controller {
         &mut self,
         plugins: &Option<PluginMap>,
         termination_signal: Option<&AtomicBool>,
+        manual_inputs: Option<ManualInputMap>,
+        manual_input_names: Option<Arc<RwLock<Option<Vec<FieldName>>>>>,
     ) -> Result<String, String> {
         // Start log file
         let (log_file, _logging_guards) =
@@ -690,6 +695,14 @@ impl Controller {
         self.orchestrator
             .eval()
             .map_err(|e| format!("Failed to evaluate calc orchestrator during init: {e}"))?;
+        if let Some(names) = manual_input_names {
+            let inputs = self.orchestrator.manual_input_names();
+            if let Ok(mut guard) = names.write() {
+                *guard = Some(inputs);
+            } else {
+                warn!("Manual input list lock poisoned; manual writes will not be discoverable.");
+            }
+        }
 
         // Set up dispatcher(s)
         // FUTURE: send metrics to calcs so that they can be used as calc inputs
@@ -1213,6 +1226,21 @@ impl Controller {
                 reconnect_targets
                     .iter_mut()
                     .for_each(|targets| targets.clear());
+            }
+
+            if let Some(manual_inputs) = manual_inputs.as_ref() {
+                match manual_inputs.read() {
+                    Ok(guard) => {
+                        for (name, value) in guard.iter() {
+                            if let Err(err) = self.orchestrator.set_manual_input(name, *value) {
+                                warn!("{err}");
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        warn!("Manual input map lock poisoned; skipping manual writes.");
+                    }
+                }
             }
 
             // Send next control input

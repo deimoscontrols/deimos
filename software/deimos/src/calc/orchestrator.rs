@@ -37,6 +37,12 @@ struct OrchestratorState {
     /// Where to get values to write to peripheral inputs,
     /// and where to put them.
     peripheral_input_source_indices: Vec<(DstIndex, SrcIndex)>,
+
+    /// Peripheral input fields that can be written manually, and their indices.
+    manual_input_indices: BTreeMap<FieldName, usize>,
+
+    /// Ordered list of peripheral input fields that can be written manually.
+    manual_input_names: Vec<FieldName>,
 }
 
 /// Calculations that are run at each cycle during operation.
@@ -118,6 +124,24 @@ impl Orchestrator {
         let mut vals = inds.map(|&i| self.state.calc_tape[i]);
 
         f(&mut vals);
+    }
+
+    /// Names of peripheral inputs that can be written manually.
+    pub fn manual_input_names(&self) -> Vec<String> {
+        self.state.manual_input_names.clone()
+    }
+
+    /// Set a manual input value by field name.
+    pub fn set_manual_input(&mut self, name: &str, value: f64) -> Result<(), String> {
+        match self.state.manual_input_indices.get(name) {
+            Some(&index) => {
+                self.state.calc_tape[index] = value;
+                Ok(())
+            }
+            None => Err(format!(
+                "Manual input `{name}` is not available for manual writes"
+            )),
+        }
     }
 
     /// Get names of fields marked to dispatch
@@ -272,6 +296,7 @@ impl Orchestrator {
         let mut peripheral_output_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
         let mut peripheral_input_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
         let mut peripheral_input_source_indices: Vec<(usize, usize)> = Vec::new();
+        let mut peripheral_input_fields: Vec<FieldName> = Vec::new();
 
         let mut dispatch_names: Vec<FieldName> = Vec::new();
         let mut dispatch_indices: Vec<usize> = Vec::new();
@@ -317,8 +342,9 @@ impl Orchestrator {
             {
                 fields_order.push(field.clone());
                 field_index_map.insert(field.clone(), i);
-                dispatch_names.push(field);
+                dispatch_names.push(field.clone());
                 dispatch_indices.push(i);
+                peripheral_input_fields.push(field);
                 i += 1;
             }
         }
@@ -406,6 +432,20 @@ impl Orchestrator {
             peripheral_input_source_indices.push((dst_index, src_index));
         }
 
+        // Track peripheral inputs that are not driven by calc outputs
+        let mut manual_input_indices = BTreeMap::new();
+        let mut manual_input_names = Vec::new();
+        for field in peripheral_input_fields {
+            if self.peripheral_input_sources.contains_key(&field) {
+                continue;
+            }
+            let index = *field_index_map.get(&field).ok_or_else(|| {
+                format!("Did not find field index for peripheral input `{field}`")
+            })?;
+            manual_input_indices.insert(field.clone(), index);
+            manual_input_names.push(field);
+        }
+
         // Initialize the calc tape
         let calc_tape: Vec<f64> = vec![0.0_f64; fields_order.len()];
 
@@ -418,6 +458,8 @@ impl Orchestrator {
             peripheral_output_slices,
             peripheral_input_slices,
             peripheral_input_source_indices,
+            manual_input_indices,
+            manual_input_names,
         };
         Ok(())
     }
