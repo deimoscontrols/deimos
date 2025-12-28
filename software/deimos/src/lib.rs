@@ -15,7 +15,7 @@ pub use controller::{
     context::{ControllerCtx, LoopMethod, LossOfContactPolicy, Termination},
 };
 pub use dispatcher::{
-    ChannelFilter, CsvDispatcher, DecimationDispatcher, Dispatcher, LowPassDispatcher, Overflow
+    ChannelFilter, CsvDispatcher, DecimationDispatcher, Dispatcher, LowPassDispatcher, Overflow,
 };
 pub use socket::{
     Socket, SocketAddr, SocketId, thread_channel::ThreadChannelSocket, udp::UdpSocket,
@@ -24,7 +24,7 @@ pub use socket::{
 
 pub use dispatcher::DataFrameDispatcher;
 pub use dispatcher::TimescaleDbDispatcher;
-pub use peripheral::{HootlDriver, HootlMockupPeripheral, MockupTransport};
+pub use peripheral::{HootlDriver, HootlMockupPeripheral, HootlRunHandle, MockupTransport};
 
 #[cfg(feature = "python")]
 pub mod python;

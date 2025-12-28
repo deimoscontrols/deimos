@@ -4,6 +4,7 @@ to test the software's interface with hardware.
 """
 
 import time
+from contextlib import ExitStack
 from pathlib import Path
 from deimos import Controller, peripheral, socket, Termination, LoopMethod
 
@@ -38,23 +39,24 @@ def main() -> None:
             peripheral.DeimosDaqRev6(3),
             peripheral.MockupTransport.udp(),
         )
-        driver_thread.run_with(ctrl)
-        driver_unix.run_with(ctrl)
-        driver_udp.run_with(ctrl)
+        with ExitStack() as stack:
+            stack.enter_context(driver_thread.run_with(ctrl))
+            stack.enter_context(driver_unix.run_with(ctrl))
+            stack.enter_context(driver_udp.run_with(ctrl))
 
-        handle = ctrl.run_nonblocking()
-        try:
-            time.sleep(0.5)
+            handle = ctrl.run_nonblocking()
+            try:
+                time.sleep(0.5)
 
-            # Make sure we had stable communication with all the peripheral mockups
-            for k, v in handle.read().values.items():
-                if "loss_of_contact_counter" in k:
-                    assert v == 0.0, f"Missed packet: {k} = {v:.0f}"
-        except Exception:
-            handle.stop()
-            raise
-        finally:
-            handle.join()
+                # Make sure we had stable communication with all the peripheral mockups
+                for k, v in handle.read().values.items():
+                    if "loss_of_contact_counter" in k:
+                        assert v == 0.0, f"Missed packet: {k} = {v:.0f}"
+            except Exception:
+                handle.stop()
+                raise
+            finally:
+                handle.join()
 
         
 

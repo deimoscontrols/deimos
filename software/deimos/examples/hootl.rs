@@ -90,7 +90,7 @@ fn main() {
         MockupTransport::unix_socket("mockup"),
     )
     .with_end(Some(end));
-    let mockup_thread = mockup_driver
+    let mut mockup_handle = mockup_driver
         .run(&controller.ctx)
         .expect("Failed to start mockup driver");
 
@@ -111,7 +111,7 @@ fn main() {
     info!("Controller exit status: {exit_status:?}");
 
     // Wait for the mockup to finish running
-    mockup_thread.join().unwrap();
+    mockup_handle.join().unwrap();
 
     // Get collected dataframe
     let df = df_handle.try_read().unwrap();

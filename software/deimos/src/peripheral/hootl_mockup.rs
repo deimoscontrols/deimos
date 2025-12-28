@@ -4,7 +4,8 @@ use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, SocketAddr as UdpSocketAddr, UdpSocket};
 use std::os::unix::net::{SocketAddr as UnixSocketAddr, UnixDatagram};
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -17,6 +18,8 @@ use deimos_shared::states::{
     BindingInput, BindingOutput, ByteStruct, ByteStructLen, ConfiguringInput, ConfiguringOutput,
 };
 
+#[cfg(feature = "python")]
+use pyo3::PyObject;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 use tracing::error;
@@ -275,6 +278,40 @@ pub struct HootlDriver {
     transport: MockupTransport,
 }
 
+#[cfg_attr(feature = "python", pyclass)]
+pub struct HootlRunHandle {
+    stop: Arc<AtomicBool>,
+    join: Option<JoinHandle<()>>,
+}
+
+impl HootlRunHandle {
+    pub fn stop(&self) {
+        self.stop.store(true, Ordering::Relaxed);
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.join
+            .as_ref()
+            .map(|h| !h.is_finished())
+            .unwrap_or(false)
+    }
+
+    pub fn join(&mut self) -> Result<(), String> {
+        match self.join.take() {
+            Some(h) => h
+                .join()
+                .map_err(|_| "Hootl runner thread panicked".to_string()),
+            None => Err("Hootl runner thread already joined or not started".to_string()),
+        }
+    }
+}
+
+impl Drop for HootlRunHandle {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+    }
+}
+
 impl HootlDriver {
     pub fn new(inner: &dyn Peripheral, transport: MockupTransport) -> Self {
         Self {
@@ -293,9 +330,14 @@ impl HootlDriver {
         self
     }
 
-    pub fn run(&self, ctx: &ControllerCtx) -> Result<JoinHandle<()>, String> {
-        let mut runner = HootlRunner::new(self, ctx)?;
-        Ok(thread::spawn(move || runner.run_loop()))
+    pub fn run(&self, ctx: &ControllerCtx) -> Result<HootlRunHandle, String> {
+        let stop = Arc::new(AtomicBool::new(false));
+        let mut runner = HootlRunner::new(self, ctx, stop.clone())?;
+        let join = thread::spawn(move || runner.run_loop());
+        Ok(HootlRunHandle {
+            stop,
+            join: Some(join),
+        })
     }
 }
 
@@ -324,26 +366,70 @@ impl HootlDriver {
         Ok(driver)
     }
 
-    fn run_with(&self, controller: &PyController) -> PyResult<()> {
+    fn run_with(&self, controller: &PyController) -> PyResult<HootlRunHandle> {
         let ctx = controller.ctx()?;
         self.run(ctx)
-            .map(|_| ())
             .map_err(|e| BackendErr::InvalidPeripheralErr { msg: e }.into())
+    }
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl HootlRunHandle {
+    #[pyo3(name = "stop")]
+    fn py_stop(&self) {
+        self.stop();
+    }
+
+    #[pyo3(name = "is_running")]
+    fn py_is_running(&self) -> bool {
+        self.is_running()
+    }
+
+    #[pyo3(name = "join")]
+    fn py_join(&mut self) -> PyResult<()> {
+        self.join()
+            .map_err(|e| PyErr::from(BackendErr::RunErr { msg: e }))
+    }
+
+    fn __enter__(slf: PyRefMut<'_, Self>) -> PyResult<PyRefMut<'_, Self>> {
+        Ok(slf)
+    }
+
+    fn __exit__(
+        &mut self,
+        _exc_type: Option<PyObject>,
+        _exc: Option<PyObject>,
+        _traceback: Option<PyObject>,
+    ) -> PyResult<bool> {
+        if self.join.is_none() {
+            return Ok(false);
+        }
+        self.stop();
+        self.join()
+            .map_err(|e| PyErr::from(BackendErr::RunErr { msg: e }))?;
+        Ok(false)
     }
 }
 
 struct HootlRunner {
     config: HootlConfig,
     transport: TransportState,
+    stop: Arc<AtomicBool>,
 }
 
 impl HootlRunner {
-    fn new(driver: &HootlDriver, ctx: &ControllerCtx) -> Result<Self, String> {
+    fn new(
+        driver: &HootlDriver,
+        ctx: &ControllerCtx,
+        stop: Arc<AtomicBool>,
+    ) -> Result<Self, String> {
         let mut transport = TransportState::new(driver.transport.clone());
         transport.open(ctx)?;
         Ok(Self {
             config: driver.config.clone(),
             transport,
+            stop,
         })
     }
 
@@ -353,6 +439,9 @@ impl HootlRunner {
         let mut controller_addr: Option<TransportAddr> = None;
 
         loop {
+            if self.stop.load(Ordering::Relaxed) {
+                break;
+            }
             if self.config.end.map_or(false, |end| SystemTime::now() > end) {
                 break;
             }
