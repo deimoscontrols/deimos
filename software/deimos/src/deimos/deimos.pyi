@@ -159,6 +159,9 @@ class Controller:
         """Scan the local network (and any other attached sockets)
         for available peripherals."""
         ...
+    def available_inputs(self) -> list[str]:
+        """List peripheral inputs that can be written manually."""
+        ...
     def add_peripheral(self, name: str, p: PeripheralLike) -> None:
         """Register a peripheral with the control program"""
         ...

@@ -55,18 +55,20 @@ def main() -> None:
             stack.enter_context(driver_unix.run_with(ctrl))
             stack.enter_context(driver_udp.run_with(ctrl))
 
+            # Get list of inputs available to set manually.
+            # This is also available from the RunHandle during operation.
+            manual_inputs = ctrl.available_inputs()
+            print("Manual inputs available:")
+            for name in manual_inputs[:3]:  # Adjust slicing to list more input names
+                print(f"    {name}")
+            print(f"    ...and {len(manual_inputs) - 3} more")
+
             # Run the controller, which will bind the peripheral mockups
             handle = ctrl.run_nonblocking()
 
             try:
                 time.sleep(0.5)
-                manual_inputs = handle.available_inputs()
-
-                if manual_inputs:
-                    # print("Manual inputs available:")
-                    # for name in manual_inputs:
-                    #     print(f"    {name}")
-                    handle.write({"mock_thread.dac0": 0.0})
+                handle.write({"mock_thread.dac0": 0.0})
                 
                 # Make sure we had stable communication with all the peripheral mockups
                 for k, v in handle.read().values.items():

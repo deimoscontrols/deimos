@@ -85,7 +85,7 @@ impl Controller {
         std::thread::scope(|s| {
             let ctrl = self.ctrl()?;
             let term_for_thread = termination_signal.clone();
-            let handle = s.spawn(move || ctrl.run(&None, Some(&*term_for_thread), None, None));
+            let handle = s.spawn(move || ctrl.run(&None, Some(&*term_for_thread), None));
 
             // Wait without using too much processor time
             while !handle.is_finished() {
@@ -119,8 +119,7 @@ impl Controller {
         controller.add_dispatcher(Box::new(latest_dispatcher));
 
         let termination_signal = Arc::new(AtomicBool::new(false));
-        let manual_input_names = Arc::new(RwLock::new(None));
-        let manual_input_names_for_thread = manual_input_names.clone();
+        let manual_input_names = controller.manual_input_names();
         let manual_input_values: ManualInputMap = Arc::new(RwLock::new(HashMap::new()));
         let manual_input_values_for_thread = manual_input_values.clone();
         let term_for_thread = termination_signal.clone();
@@ -129,7 +128,6 @@ impl Controller {
                 &None,
                 Some(&*term_for_thread),
                 Some(manual_input_values_for_thread),
-                Some(manual_input_names_for_thread),
             )
         });
 
@@ -179,6 +177,11 @@ impl Controller {
                 Ok(peripherals)
             }
         }
+    }
+
+    /// List peripheral inputs that can be written manually.
+    fn available_inputs(&mut self) -> PyResult<Vec<String>> {
+        Ok(self.ctrl()?.manual_input_names())
     }
 
     #[getter(op_name)]
@@ -375,7 +378,7 @@ pub(crate) struct RunHandle {
     latest: LatestValueHandle,
     join: Option<std::thread::JoinHandle<Result<String, String>>>,
     manual_input_values: ManualInputMap,
-    manual_input_names: Arc<RwLock<Option<Vec<String>>>>,
+    manual_input_names: Vec<String>,
 }
 
 #[pymethods]
@@ -447,20 +450,7 @@ impl RunHandle {
 
     /// List peripheral inputs that can be written manually.
     fn available_inputs(&self) -> PyResult<Vec<String>> {
-        let guard = self
-            .manual_input_names
-            .read()
-            .map_err(|_| BackendErr::RunErr {
-                msg: "Manual input list lock poisoned".to_string(),
-            })?;
-        match guard.as_ref() {
-            Some(inputs) => Ok(inputs.clone()),
-            None => Err(BackendErr::RunErr {
-                msg: "Manual inputs are not available yet; wait for controller to start running"
-                    .to_string(),
-            }
-            .into()),
-        }
+        Ok(self.manual_input_names.clone())
     }
 
     /// Write values to peripheral inputs not driven by calcs.
@@ -476,16 +466,7 @@ impl RunHandle {
             return Ok(());
         }
 
-        let guard = self
-            .manual_input_names
-            .read()
-            .map_err(|_| BackendErr::RunErr {
-                msg: "Manual input list lock poisoned".to_string(),
-            })?;
-        let allowed = guard.as_ref().ok_or_else(|| BackendErr::RunErr {
-            msg: "Manual inputs are not available yet; wait for controller to start running"
-                .to_string(),
-        })?;
+        let allowed = &self.manual_input_names;
         for name in values.keys() {
             if !allowed.contains(name) {
                 return Err(BackendErr::RunErr {

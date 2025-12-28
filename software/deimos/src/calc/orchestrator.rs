@@ -131,6 +131,24 @@ impl Orchestrator {
         self.state.manual_input_names.clone()
     }
 
+    /// Names of peripheral inputs that can be written manually for given peripherals.
+    pub fn manual_input_names_for_peripherals(
+        &self,
+        peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
+    ) -> Vec<String> {
+        let mut names = Vec::new();
+        for (name, peripheral) in peripherals.iter() {
+            for field in peripheral.input_names() {
+                let full = format!("{name}.{field}");
+                if self.peripheral_input_sources.contains_key(&full) {
+                    continue;
+                }
+                names.push(full);
+            }
+        }
+        names
+    }
+
     /// Set a manual input value by field name.
     pub fn set_manual_input(&mut self, name: &str, value: f64) -> Result<(), String> {
         match self.state.manual_input_indices.get(name) {

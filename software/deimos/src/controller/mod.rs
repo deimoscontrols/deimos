@@ -101,6 +101,12 @@ impl Controller {
         self.orchestrator.peripheral_input_sources()
     }
 
+    /// Peripheral inputs that can be written manually.
+    pub fn manual_input_names(&self) -> Vec<FieldName> {
+        self.orchestrator
+            .manual_input_names_for_peripherals(&self.peripherals)
+    }
+
     /// Register a calc function
     pub fn add_calc(&mut self, name: &str, calc: Box<dyn Calc>) {
         self.orchestrator.add_calc(name, calc);
@@ -574,7 +580,6 @@ impl Controller {
         plugins: &Option<PluginMap>,
         termination_signal: Option<&AtomicBool>,
         manual_inputs: Option<ManualInputMap>,
-        manual_input_names: Option<Arc<RwLock<Option<Vec<FieldName>>>>>,
     ) -> Result<String, String> {
         // Start log file
         let (log_file, _logging_guards) =
@@ -695,14 +700,6 @@ impl Controller {
         self.orchestrator
             .eval()
             .map_err(|e| format!("Failed to evaluate calc orchestrator during init: {e}"))?;
-        if let Some(names) = manual_input_names {
-            let inputs = self.orchestrator.manual_input_names();
-            if let Ok(mut guard) = names.write() {
-                *guard = Some(inputs);
-            } else {
-                warn!("Manual input list lock poisoned; manual writes will not be discoverable.");
-            }
-        }
 
         // Set up dispatcher(s)
         // FUTURE: send metrics to calcs so that they can be used as calc inputs
