@@ -181,65 +181,80 @@ class Controller:
     def clear_sockets(self) -> None:
         """Remove all sockets."""
         ...
+
     @property
-    def op_name(self) -> str: ...
-    """
-    The name of the operation.
-    Used to set database table names, set log and data file names, etc.
-    """
+    def op_name(self) -> str:
+        """
+        The name of the operation.
+        Used to set database table names, set log and data file names, etc.
+        """
+        ...
     @op_name.setter
     def op_name(self, v: str) -> None: ...
+
     @property
-    def op_dir(self) -> str: ...
-    """
-    The directory where this operation's logs and other data will be placed,
-    and where calcs with linked configuration (like a SequenceMachine) can
-    find their linked files or folders by relative path.
-    """
+    def op_dir(self) -> str:
+        """
+        The directory where this operation's logs and other data will be placed,
+        and where calcs with linked configuration (like a SequenceMachine) can
+        find their linked files or folders by relative path.
+        """
+        ...
     @op_dir.setter
     def op_dir(self, v: str) -> None: ...
+
     @property
-    def dt_ns(self) -> int: ...
-    """[ns] control program cycle period."""
+    def dt_ns(self) -> int:
+        """[ns] control program cycle period."""
+        ...
     @dt_ns.setter
     def dt_ns(self, v: int) -> None: ...
+
     @property
-    def rate_hz(self) -> float: ...
-    """[Hz] control program cycle rate."""
+    def rate_hz(self) -> float:
+        """[Hz] control program cycle rate."""
+        ...
     @rate_hz.setter
     def rate_hz(self, v: float) -> None: ...
+
     @property
-    def peripheral_loss_of_contact_limit(self) -> int: ...
-    """Number of missed packets from the controller that indicates disconnection."""
+    def peripheral_loss_of_contact_limit(self) -> int:
+        """Number of missed packets from the controller that indicates disconnection."""
+        ...
     @peripheral_loss_of_contact_limit.setter
     def peripheral_loss_of_contact_limit(self, v: int) -> None: ...
+
     @property
-    def controller_loss_of_contact_limit(self) -> int: ...
-    """Number of missed packets from a peripheral that indicates disconnection."""
+    def controller_loss_of_contact_limit(self) -> int:
+        """Number of missed packets from a peripheral that indicates disconnection."""
+        ...
     @controller_loss_of_contact_limit.setter
     def controller_loss_of_contact_limit(self, v: int) -> None: ...
     @property
-    def termination_criteria(self) -> Termination | None: ...
-    """Criteria for exiting the control program."""
+    def termination_criteria(self) -> Termination | None:
+        """Criteria for exiting the control program."""
+        ...
     @termination_criteria.setter
     def termination_criteria(self, v: Termination | None) -> None: ...
     @property
-    def loss_of_contact_policy(self) -> LossOfContactPolicy: ...
-    """
-    The response of the control program when a peripheral disconnects during run.
-    """
+    def loss_of_contact_policy(self) -> LossOfContactPolicy:
+        """
+        The response of the control program when a peripheral disconnects during run.
+        """
+        ...
 
     @loss_of_contact_policy.setter
     def loss_of_contact_policy(self, v: LossOfContactPolicy) -> None: ...
+
     @property
-    def loop_method(self) -> LoopMethod: ...
-    """
-    The loop waiting method for the controller.
+    def loop_method(self) -> LoopMethod:
+        """
+        The loop waiting method for the controller.
 
-    Busywaiting is performant, but inefficient;
-    relying on the operating system for scheduling is efficient, but not performant.
-    """
-
+        Busywaiting is performant, but inefficient;
+        relying on the operating system for scheduling is efficient, but not performant.
+        """
+        ...
     @loop_method.setter
     def loop_method(self, v: LoopMethod) -> None: ...
 
@@ -439,8 +454,9 @@ class _CalcModule(ModuleType):
             name: str,
             tables: Sequence,
             timeout: TimeoutTargetState | None,
-        ) -> None: ...
-        """Add a sequence to the machine."""
+        ) -> None:
+            """Add a sequence state to the machine."""
+            ...
 
         def add_constant_thresh_transition(
             self,
@@ -451,6 +467,7 @@ class _CalcModule(ModuleType):
         ) -> None:
             """Add a constant threshold transition for a sequence."""
             ...
+
         def add_channel_thresh_transition(
             self,
             source_target: tuple[str, str],
@@ -460,6 +477,7 @@ class _CalcModule(ModuleType):
         ) -> None:
             """Add a channel threshold transition for a sequence."""
             ...
+
         def add_lookup_thresh_transition(
             self,
             source_target: tuple[str, str],
@@ -474,12 +492,14 @@ calc: _CalcModule
 
 class MockupTransport:
     @staticmethod
-    def thread_channel(name: str) -> Self: ...
-    """A thread channel with this name."""
+    def thread_channel(name: str) -> Self:
+        """A thread channel with this name."""
+        ...
 
     @staticmethod
-    def unix_socket(name: str) -> Self: ...
-    """A unix socket with this name."""
+    def unix_socket(name: str) -> Self:
+        """A unix socket with this name."""
+        ...
 
     @staticmethod
     def udp() -> Self:

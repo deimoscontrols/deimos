@@ -245,38 +245,34 @@ impl Controller {
     }
 
     #[getter(termination_criteria)]
-    fn termination_criteria(&self, py: Python<'_>) -> PyResult<Option<Py<crate::Termination>>> {
-        self.ctx()?
-            .termination_criteria
-            .clone()
-            .map(|term| Py::new(py, term))
-            .transpose()
+    fn termination_criteria(&self, _py: Python<'_>) -> PyResult<Option<crate::Termination>> {
+        Ok(self.ctx()?.termination_criteria.clone())
     }
 
     #[setter(termination_criteria)]
     fn set_termination_criteria(
         &mut self,
-        py: Python<'_>,
-        v: Option<Py<crate::Termination>>,
+        _py: Python<'_>,
+        v: Option<crate::Termination>,
     ) -> PyResult<()> {
-        let criteria = v.map(|term| term.borrow(py).clone());
+        let criteria = v.map(|term| term.clone());
         self.ctx_mut()?.termination_criteria = criteria;
         Ok(())
     }
 
     #[getter(loss_of_contact_policy)]
-    fn loss_of_contact_policy(&self, py: Python<'_>) -> PyResult<Py<crate::LossOfContactPolicy>> {
-        Py::new(py, self.ctx()?.loss_of_contact_policy.clone())
+    fn loss_of_contact_policy(&self, _py: Python<'_>) -> PyResult<crate::LossOfContactPolicy> {
+        Ok(self.ctx()?.loss_of_contact_policy.clone())
     }
 
     #[setter(loss_of_contact_policy)]
     fn set_loss_of_contact_policy(
         &mut self,
-        py: Python<'_>,
-        v: Py<crate::LossOfContactPolicy>,
+        _py: Python<'_>,
+        v: crate::LossOfContactPolicy,
     ) -> PyResult<()> {
         let dt_ns = self.ctx()?.dt_ns;
-        let policy = v.borrow(py).clone();
+        let policy = v.clone();
         if let crate::LossOfContactPolicy::Reconnect(Some(timeout)) = &policy {
             let min_timeout = Duration::from_millis(40);
             let cycle_timeout = Duration::from_nanos(u64::from(dt_ns) * 4);
@@ -292,13 +288,13 @@ impl Controller {
     }
 
     #[getter(loop_method)]
-    fn loop_method(&self, py: Python<'_>) -> PyResult<Py<crate::LoopMethod>> {
-        Py::new(py, self.ctx()?.loop_method.clone())
+    fn loop_method(&self, _py: Python<'_>) -> PyResult<crate::LoopMethod> {
+        Ok(self.ctx()?.loop_method.clone())
     }
 
     #[setter(loop_method)]
-    fn set_loop_method(&mut self, py: Python<'_>, v: Py<crate::LoopMethod>) -> PyResult<()> {
-        self.ctx_mut()?.loop_method = v.borrow(py).clone();
+    fn set_loop_method(&mut self, _py: Python<'_>, v: crate::LoopMethod) -> PyResult<()> {
+        self.ctx_mut()?.loop_method = v.clone();
         Ok(())
     }
 
