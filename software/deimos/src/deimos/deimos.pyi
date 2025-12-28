@@ -1,5 +1,6 @@
 from types import ModuleType
 from typing import ClassVar, Protocol, Self, Literal
+from enum import Enum
 
 class CalcLike(Protocol):
     def to_json(self) -> str: ...
@@ -14,7 +15,7 @@ class PeripheralLike(Protocol):
 class SocketLike(Protocol):
     def to_json(self) -> str: ...
 
-class Overflow:
+class Overflow(Enum):
     """Choice of behavior when the current file is full.
 
     Wrap: Wrap back to the beginning of the file and overwrite, starting with the oldest
@@ -29,7 +30,7 @@ class Overflow:
     NewFile: ClassVar[Self]
     Error: ClassVar[Self]
 
-class LoopMethod:
+class LoopMethod(Enum):
     """Whether to prioritize performance or efficiency in control loop."""
 
     Performant: ClassVar[Self]
@@ -45,7 +46,7 @@ class LoopMethod:
     Typically viable up to about 50Hz control rate.
     """
 
-class Termination:
+class Termination(Enum):
     """Criteria for exiting the control program."""
 
     Timeout: ClassVar[Self]
@@ -64,7 +65,7 @@ class Termination:
         """End at a specified absolute system time in UTC nanoseconds."""
         ...
 
-class LossOfContactPolicy:
+class LossOfContactPolicy(Enum):
     """Response to losing contact with a peripheral.
 
     Terminate: Terminate the control program.
@@ -482,6 +483,13 @@ class MockupTransport:
         """UDP transport bound to PERIPHERAL_RX_PORT (one mockup at a time)."""
         ...
 
+class HootlRunHandle:
+    def stop(self) -> None: ...
+    def is_running(self) -> bool: ...
+    def join(self) -> None: ...
+    def __enter__(self) -> Self: ...
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> bool: ...
+
 class _PeripheralModule(ModuleType):
     class AnalogIRev2(_PeripheralBase):
         def __init__(self, serial_number: int) -> None: ...
@@ -510,12 +518,7 @@ class _PeripheralModule(ModuleType):
 
     MockupTransport = MockupTransport
 
-    class HootlRunHandle:
-        def stop(self) -> None: ...
-        def is_running(self) -> bool: ...
-        def join(self) -> None: ...
-        def __enter__(self) -> "HootlRunHandle": ...
-        def __exit__(self, exc_type: object, exc: object, tb: object) -> bool: ...
+    HootlRunHandle = HootlRunHandle
 
     class HootlDriver:
         def __init__(

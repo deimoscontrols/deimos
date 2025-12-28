@@ -19,8 +19,6 @@ use deimos_shared::states::{
 };
 
 #[cfg(feature = "python")]
-use pyo3::PyObject;
-#[cfg(feature = "python")]
 use pyo3::prelude::*;
 use tracing::error;
 use tracing::info;
@@ -398,9 +396,9 @@ impl HootlRunHandle {
 
     fn __exit__(
         &mut self,
-        _exc_type: Option<PyObject>,
-        _exc: Option<PyObject>,
-        _traceback: Option<PyObject>,
+        _exc_type: Option<Py<PyAny>>,
+        _exc: Option<Py<PyAny>>,
+        _traceback: Option<Py<PyAny>>,
     ) -> PyResult<bool> {
         if self.join.is_none() {
             return Ok(false);
