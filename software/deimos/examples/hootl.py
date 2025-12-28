@@ -12,26 +12,28 @@ from deimos import Controller, peripheral, socket, Termination, LoopMethod
 def main() -> None:
     here = Path(__file__).parent.resolve()
 
-    mock_thread = peripheral.DeimosDaqRev6(1)
-    mock_unix = peripheral.DeimosDaqRev6(2)
-    mock_udp = peripheral.DeimosDaqRev6(3)
-
-    driver_thread = peripheral.HootlDriver(
-        peripheral.DeimosDaqRev6(1),
-        peripheral.MockupTransport.thread_channel("mockup_chan"),
-    )
-    driver_unix = peripheral.HootlDriver(
-        peripheral.DeimosDaqRev6(2),
-        peripheral.MockupTransport.unix_socket("mockup_unix"),
-    )
-    driver_udp = peripheral.HootlDriver(
-        peripheral.DeimosDaqRev6(3),
-        peripheral.MockupTransport.udp(),
-    )
-
     for loop_method in [LoopMethod.Performant, LoopMethod.Efficient]:
         print(f"Testing with loop method {loop_method}")
 
+        # Set up HOOTL drivers
+        mock_thread = peripheral.DeimosDaqRev6(1)
+        mock_unix = peripheral.DeimosDaqRev6(2)
+        mock_udp = peripheral.DeimosDaqRev6(3)
+
+        driver_thread = peripheral.HootlDriver(
+            peripheral.DeimosDaqRev6(1),
+            peripheral.MockupTransport.thread_channel("mockup_chan"),
+        )
+        driver_unix = peripheral.HootlDriver(
+            peripheral.DeimosDaqRev6(2),
+            peripheral.MockupTransport.unix_socket("mockup_unix"),
+        )
+        driver_udp = peripheral.HootlDriver(
+            peripheral.DeimosDaqRev6(3),
+            peripheral.MockupTransport.udp(),
+        )
+
+        # Build control program
         ctrl = Controller(op_name="mockup_demo", op_dir=str(here / "op"), rate_hz=20.0)
         ctrl.termination_criteria = Termination.timeout_s(1.0)
         ctrl.loop_method = loop_method
@@ -45,6 +47,7 @@ def main() -> None:
         ctrl.add_peripheral("mock_unix", mock_unix)
         ctrl.add_peripheral("mock_udp", mock_udp)
 
+        # Run
         with ExitStack() as stack:
             # Run the peripheral mockups, which will wait for the controller
             # to send a request to bind

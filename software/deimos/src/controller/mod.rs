@@ -850,7 +850,8 @@ impl Controller {
                                 }
                             }
                             _ => {
-                                warn!("Received response from peripheral not in address table");
+                                // This is not a peripheral in the address table, so don't spend
+                                // any cycles on a response.
                             }
                         }
                     }
