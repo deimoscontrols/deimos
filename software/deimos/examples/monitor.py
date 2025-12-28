@@ -3,14 +3,15 @@ import time
 from pathlib import Path
 
 import deimos
+from deimos import LoopMethod, Overflow, LossOfContactPolicy
 
 here = Path(__file__).parent.absolute()
 
 # Build a new control program to run at 5Hz (the minimum)
 # in efficient (OS-scheduled) mode.
 c = deimos.Controller("test2", str(here), 5.0)
-c.loss_of_contact_policy = deimos.LossOfContactPolicy.reconnect_indefinite()
-c.loop_method = deimos.LoopMethod.Efficient
+c.loss_of_contact_policy = LossOfContactPolicy.reconnect_indefinite()
+c.loop_method = LoopMethod.efficient()
 
 # Scan for peripherals on the network
 peripherals = c.scan()
@@ -22,7 +23,7 @@ for i, p in enumerate(peripherals):
     c.add_peripheral(f"p{i + 1}", p)
 
 # Configure to write data to a CSV file
-csv_dispatcher = deimos.dispatcher.CsvDispatcher(1, deimos.Overflow.Wrap)
+csv_dispatcher = deimos.dispatcher.CsvDispatcher(1, Overflow.wrap())
 c.add_dispatcher(csv_dispatcher)
 
 # Add a calc that runs in-the-loop

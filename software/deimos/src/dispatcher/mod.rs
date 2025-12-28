@@ -41,6 +41,25 @@ pub enum Overflow {
     Error,
 }
 
+#[cfg(feature = "python")]
+#[pymethods]
+impl Overflow {
+    #[staticmethod]
+    pub fn wrap() -> Self {
+        Self::Wrap
+    }
+
+    #[staticmethod]
+    pub fn new_file() -> Self {
+        Self::NewFile
+    }
+
+    #[staticmethod]
+    pub fn error() -> Self {
+        Self::Error
+    }
+}
+
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Row {
     pub system_time: String,

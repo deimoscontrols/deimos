@@ -12,7 +12,7 @@ from deimos import Controller, peripheral, socket, Termination, LoopMethod
 def main() -> None:
     here = Path(__file__).parent.resolve()
 
-    for loop_method in [LoopMethod.Performant, LoopMethod.Efficient]:
+    for loop_method in [LoopMethod.performant(), LoopMethod.efficient()]:
         print(f"Testing with loop method {loop_method}")
 
         # Set up HOOTL drivers

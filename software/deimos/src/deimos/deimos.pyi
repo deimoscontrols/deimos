@@ -1,6 +1,5 @@
 from types import ModuleType
 from typing import ClassVar, Protocol, Self, Literal
-from enum import Enum
 
 class CalcLike(Protocol):
     def to_json(self) -> str: ...
@@ -15,24 +14,30 @@ class PeripheralLike(Protocol):
 class SocketLike(Protocol):
     def to_json(self) -> str: ...
 
-class Overflow(Enum):
-    """Choice of behavior when the current file is full.
-
-    Wrap: Wrap back to the beginning of the file and overwrite, starting with the oldest
-          data.
-
-    NewFile: Create a new file.
-
-    Error: Error on overflow if neither wrapping nor creating a new file is viable.
-    """
-
+class Overflow:
     Wrap: ClassVar[Self]
+    """Overwrite oldest data first."""
+
     NewFile: ClassVar[Self]
+    """Create a new shard."""
+
     Error: ClassVar[Self]
+    """Emit an error and shut down."""
 
-class LoopMethod(Enum):
-    """Whether to prioritize performance or efficiency in control loop."""
+    @staticmethod
+    def wrap() -> Wrap:
+        """Wrap back to the beginning of the file."""
+        ...
+    @staticmethod
+    def new_file() -> NewFile:
+        """Create a new file on overflow."""
+        ...
+    @staticmethod
+    def error() -> Error:
+        """Error on overflow."""
+        ...
 
+class LoopMethod:
     Performant: ClassVar[Self]
     """
     Use 100% of a CPU to protect timing.
@@ -46,9 +51,16 @@ class LoopMethod(Enum):
     Typically viable up to about 50Hz control rate.
     """
 
-class Termination(Enum):
-    """Criteria for exiting the control program."""
+    @staticmethod
+    def performant() -> Performant:
+        """Use 100% of a CPU to protect timing."""
+        ...
+    @staticmethod
+    def efficient() -> Efficient:
+        """Use operating system scheduling for lower CPU usage."""
+        ...
 
+class Termination:
     Timeout: ClassVar[Self]
     """End the control program after some duration from the start of the first cycle."""
 
@@ -56,24 +68,15 @@ class Termination(Enum):
     """End the control program at a specific UTC system time."""
 
     @staticmethod
-    def timeout_s(s: float) -> Self:
+    def timeout_s(s: float) -> Timeout:
         """End after `s` seconds from the start of the first cycle."""
         ...
-
     @staticmethod
-    def scheduled_epoch_ns(ns: int) -> Self:
+    def scheduled_epoch_ns(ns: int) -> Scheduled:
         """End at a specified absolute system time in UTC nanoseconds."""
         ...
 
-class LossOfContactPolicy(Enum):
-    """Response to losing contact with a peripheral.
-
-    Terminate: Terminate the control program.
-
-    Reconnect: Attempt to reconnect until some time has elapsed, then terminate
-    if unsuccessful. If no timeout is set, attempt reconnection indefinitely.
-    """
-
+class LossOfContactPolicy:
     Terminate: ClassVar[Self]
     """Terminate the control program."""
 
@@ -81,15 +84,15 @@ class LossOfContactPolicy(Enum):
     """Attempt to reconnect to the peripheral"""
 
     @staticmethod
-    def terminate() -> Self:
+    def terminate() -> Terminate:
         """Construct a policy that terminates the control program."""
         ...
     @staticmethod
-    def reconnect_s(timeout_s: float) -> Self:
+    def reconnect_s(timeout_s: float) -> Reconnect:
         """Construct a reconnect policy with a timeout in seconds."""
         ...
     @staticmethod
-    def reconnect_indefinite() -> Self:
+    def reconnect_indefinite() -> Reconnect:
         """Construct a reconnect policy with no timeout."""
         ...
 
