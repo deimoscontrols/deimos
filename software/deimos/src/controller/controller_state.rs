@@ -7,7 +7,6 @@ use crate::socket::SocketAddr;
 
 use super::context::ControllerCtx;
 use super::peripheral_state::*;
-use tracing::warn;
 
 /// Controller metrics during operating state
 #[derive(Default)]
@@ -47,12 +46,12 @@ impl ControllerState {
     /// Initialize new operating state
     pub fn new(
         peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
-        bind_result: &BTreeMap<SocketAddr, Box<dyn Peripheral>>,
+        scan_result: &BTreeMap<SocketAddr, Box<dyn Peripheral>>,
         ctx: &ControllerCtx,
     ) -> Self {
         // Map IDs to names
         let mut state = Self::default();
-        let bound_pids = bind_result
+        let bound_pids = scan_result
             .keys()
             .map(|(_sid, pid)| *pid)
             .collect::<Vec<PeripheralId>>();
@@ -68,11 +67,12 @@ impl ControllerState {
             );
         }
 
-        for (addr, p) in bind_result.iter() {
-            // Check if this is one of the peripherals we intend to operate
+        for (addr, p) in scan_result.iter() {
+            // Check if this is one of the peripherals we intend to operate.
+            // If not, skip it silently - controlling only some of the peripherals
+            // available on a network is a normal use case.
             let expected_this_peripheral = pid_name_map.contains_key(&p.id());
             if !expected_this_peripheral {
-                warn!("Unexpected peripheral with id {:?}", &p.id());
                 continue;
             }
 

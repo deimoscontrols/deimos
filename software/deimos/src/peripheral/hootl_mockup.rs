@@ -437,6 +437,7 @@ impl HootlRunner {
         let mut controller_addr: Option<TransportAddr> = None;
 
         loop {
+            // Check exit criteria
             if self.stop.load(Ordering::Relaxed) {
                 break;
             }
@@ -468,7 +469,7 @@ impl HootlRunner {
                             self.config.peripheral_id,
                         );
                         if send_status.is_err() {
-                            error!("Hootl runner failed to send packet: {send_status:?}");
+                            error!("Hootl runner failed to send binding response: {send_status:?}");
                             break;
                         }
 
@@ -504,7 +505,9 @@ impl HootlRunner {
                             self.config.peripheral_id,
                         );
                         if send_status.is_err() {
-                            error!("Hootl runner failed to send packet: {send_status:?}");
+                            error!(
+                                "Hootl runner failed to send configuring response: {send_status:?}"
+                            );
                             break;
                         }
 
@@ -541,8 +544,12 @@ impl HootlRunner {
                             self.config.peripheral_id,
                         );
                         if send_status.is_err() {
-                            error!("Hootl runner failed to send packet: {send_status:?}");
-                            break;
+                            // Return to Binding on error
+                            state = DriverState::Binding;
+                            info!(
+                                "Hootl runner failed to send packet during Operating; returning to Binding."
+                            );
+                            continue;
                         }
 
                         *counter = counter.wrapping_add(1);
@@ -650,8 +657,8 @@ impl TransportState {
                     if let Err(err) = std::fs::remove_file(&path) {
                         warn!("Failed to remove unix socket file {path:?}: {err}");
                     }
+                    info!("Closed unix socket at {path:?}");
                 }
-                info!("Closed unix socket at {path:?}");
             }
             TransportState::UdpSocket { socket } => {
                 *socket = None;

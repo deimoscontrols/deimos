@@ -126,9 +126,9 @@ impl Socket for UnixSocket {
             let socket = net::UnixDatagram::bind(&path)
                 .map_err(|e| format!("Unable to bind unix socket: {e}"))?;
             self.socket = Some(socket);
-            info!("Opened unix socket at {path:?}");
+            info!("Opened controller unix socket at {path:?}");
         } else {
-            return Err("Unix socket already open".to_string());
+            return Err("Controller unix socket already open".to_string());
         }
 
         Ok(())
@@ -145,7 +145,7 @@ impl Socket for UnixSocket {
         self.token_addrs.clear();
         self.next_addr_token = 0;
         self.ctx = ControllerCtx::default();
-        info!("Closed unix socket at {path:?}");
+        info!("Closed controller unix socket at {path:?}");
         // Attempt to delete socket file so that it is not left dangling.
         // This may fail on permissions.
         let file_remove_status = std::fs::remove_file(&path);

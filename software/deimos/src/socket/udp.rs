@@ -95,7 +95,7 @@ impl Socket for UdpSocket {
 
         // Done
         self.socket = Some(socket);
-        info!("Opened UDP socket at {addr:?}");
+        info!("Opened controller UDP socket at {addr:?}");
 
         Ok(())
     }
@@ -110,7 +110,7 @@ impl Socket for UdpSocket {
         self.addr_tokens.clear();
         self.token_addrs.clear();
         self.next_addr_token = 0;
-        info!("Closed UDP socket");
+        info!("Closed controller UDP socket at 0.0.0.0:{CONTROLLER_RX_PORT}");
     }
 
     fn send(&mut self, id: PeripheralId, msg: &[u8]) -> Result<(), String> {
