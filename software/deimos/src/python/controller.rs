@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::{Arc, atomic::AtomicBool};
 use std::time::Duration;
 
@@ -6,9 +5,9 @@ use pyo3::prelude::*;
 use tracing::warn;
 
 // Dispatchers
+use crate::RunHandle;
 use crate::Socket;
 use crate::calc::Calc;
-use crate::controller::RunHandle as ControllerRunHandle;
 use crate::dispatcher::Dispatcher;
 use crate::peripheral::Peripheral;
 
@@ -110,9 +109,7 @@ impl Controller {
         let controller = self.controller.take().ok_or_else(|| BackendErr::RunErr {
             msg: "Controller has already been moved into a running thread".to_string(),
         })?;
-        Ok(RunHandle {
-            inner: controller.run_nonblocking(None),
-        })
+        Ok(controller.run_nonblocking(None))
     }
 
     /// Scan the local network (and any other attached sockets) for available peripherals.
@@ -345,72 +342,4 @@ impl Controller {
         self.ctrl()?.clear_sockets();
         Ok(())
     }
-}
-
-#[pyclass]
-pub(crate) struct RunHandle {
-    inner: ControllerRunHandle,
-}
-
-#[pymethods]
-impl RunHandle {
-    /// Signal the controller to stop
-    fn stop(&self) {
-        self.inner.stop();
-    }
-
-    /// Check if the controller thread is still running
-    fn is_running(&self) -> bool {
-        self.inner.is_running()
-    }
-
-    /// Wait for the controller thread to finish
-    fn join(&mut self) -> PyResult<String> {
-        self.inner
-            .join()
-            .map_err(|msg| BackendErr::RunErr { msg }.into())
-    }
-
-    /// Get the latest row: (system_time, timestamp, channel_values)
-    fn latest_row(&self) -> (String, i64, Vec<f64>) {
-        self.inner.latest_row()
-    }
-
-    /// Column headers including timestamp/time
-    fn headers(&self) -> Vec<String> {
-        self.inner.headers()
-    }
-
-    /// Read the latest row mapped to header names
-    fn read(&self) -> Snapshot {
-        let snapshot = self.inner.read();
-        Snapshot {
-            system_time: snapshot.system_time,
-            timestamp: snapshot.timestamp,
-            values: snapshot.values,
-        }
-    }
-
-    /// List peripheral inputs that can be written manually.
-    fn available_inputs(&self) -> PyResult<Vec<String>> {
-        Ok(self.inner.available_inputs())
-    }
-
-    /// Write values to peripheral inputs not driven by calcs.
-    fn write(&self, values: HashMap<String, f64>) -> PyResult<()> {
-        self.inner
-            .write(values)
-            .map_err(|msg| BackendErr::RunErr { msg }.into())
-    }
-}
-
-#[pyclass]
-#[derive(Clone)]
-pub(crate) struct Snapshot {
-    #[pyo3(get)]
-    system_time: String,
-    #[pyo3(get)]
-    timestamp: i64,
-    #[pyo3(get)]
-    values: HashMap<String, f64>,
 }

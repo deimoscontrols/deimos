@@ -15,6 +15,12 @@ use std::time::{Duration, Instant, SystemTime};
 
 use flaw::MedianFilter;
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
+#[cfg(feature = "python")]
+use crate::python::BackendErr;
+
 use crate::controller::context::LoopMethod;
 use crate::{
     buffer_pool::{BufferPool, SOCKET_BUFFER_LEN, SocketBuffer, default_socket_buffer_pool},
@@ -51,6 +57,7 @@ pub struct Controller {
     orchestrator: Orchestrator,
 }
 
+#[cfg_attr(feature = "python", pyclass)]
 #[derive(Clone, Debug, Default)]
 pub struct Snapshot {
     pub system_time: String,
@@ -58,6 +65,7 @@ pub struct Snapshot {
     pub values: HashMap<String, f64>,
 }
 
+#[cfg_attr(feature = "python", pyclass)]
 pub struct RunHandle {
     termination: Arc<AtomicBool>,
     latest: LatestValueHandle,
@@ -1596,6 +1604,74 @@ impl RunHandle {
             manual_guard.insert(name, value);
         }
         Ok(())
+    }
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl RunHandle {
+    #[pyo3(name = "stop")]
+    fn py_stop(&self) {
+        self.stop();
+    }
+
+    #[pyo3(name = "is_running")]
+    fn py_is_running(&self) -> bool {
+        self.is_running()
+    }
+
+    #[pyo3(name = "join")]
+    fn py_join(&mut self) -> PyResult<String> {
+        self.join()
+            .map_err(|e| PyErr::from(BackendErr::RunErr { msg: e }))
+    }
+
+    #[pyo3(name = "latest_row")]
+    fn py_latest_row(&self) -> (String, i64, Vec<f64>) {
+        self.latest_row()
+    }
+
+    #[pyo3(name = "headers")]
+    fn py_headers(&self) -> Vec<String> {
+        self.headers()
+    }
+
+    #[pyo3(name = "read")]
+    fn py_read(&self) -> Snapshot {
+        self.read()
+    }
+
+    #[pyo3(name = "available_inputs")]
+    fn py_available_inputs(&self) -> Vec<String> {
+        self.available_inputs()
+    }
+
+    #[pyo3(name = "write")]
+    fn py_write(&self, values: HashMap<String, f64>) -> PyResult<()> {
+        self.write(values)
+            .map_err(|e| PyErr::from(BackendErr::RunErr { msg: e }))
+    }
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl Snapshot {
+    #[getter]
+    #[pyo3(name = "system_time")]
+    fn py_system_time(&self) -> String {
+        self.system_time.clone()
+    }
+
+    #[getter]
+    #[pyo3(name = "timestamp")]
+    fn py_timestamp(&self) -> i64 {
+        self.timestamp
+    }
+
+    #[getter]
+    #[pyo3(name = "values")]
+    fn py_values(&self) -> HashMap<String, f64> {
+        self.values.clone()
     }
 }
 

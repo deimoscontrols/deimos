@@ -10,8 +10,8 @@ pub(crate) mod transfer; // Glue
 fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_class::<controller::Controller>()?;
     m.add_class::<crate::Overflow>()?;
-    m.add_class::<controller::RunHandle>()?;
-    m.add_class::<controller::Snapshot>()?;
+    m.add_class::<crate::RunHandle>()?;
+    m.add_class::<crate::Snapshot>()?;
     m.add_class::<crate::LoopMethod>()?;
     m.add_class::<crate::LossOfContactPolicy>()?;
     m.add_class::<crate::Termination>()?;
