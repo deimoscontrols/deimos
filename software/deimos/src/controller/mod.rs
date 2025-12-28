@@ -169,6 +169,11 @@ impl Controller {
             if !sock.is_open() {
                 sock.open(&self.ctx)?;
             }
+            loop {
+                if sock.recv(Duration::ZERO).is_none() {
+                    break;
+                }
+            }
         }
 
         Ok(())
