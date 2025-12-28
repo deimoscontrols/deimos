@@ -52,7 +52,7 @@ macro_rules! py_peripheral_methods {
 /// Plugin system for handling custom device models
 /// Takes the model number and serial number from a bind result
 /// and initializes a Peripheral representation.
-pub type PluginFn = dyn Fn(&BindingOutput) -> Box<dyn Peripheral>;
+pub type PluginFn = dyn Fn(&BindingOutput) -> Box<dyn Peripheral> + Send + Sync;
 
 /// Map of model numbers to initialization functions so that the controller can find
 /// the approriate initialization function.

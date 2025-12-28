@@ -11,7 +11,7 @@ pub mod peripheral;
 pub mod socket;
 
 pub use controller::{
-    Controller,
+    Controller, RunHandle, Snapshot,
     context::{ControllerCtx, LoopMethod, LossOfContactPolicy, Termination},
 };
 pub use dispatcher::{

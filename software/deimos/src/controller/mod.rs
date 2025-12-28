@@ -25,7 +25,7 @@ use crate::{
 use deimos_shared::states::*;
 
 use crate::calc::{FieldName, Orchestrator, PeripheralInputName};
-use crate::dispatcher::{Dispatcher, fmt_time};
+use crate::dispatcher::{Dispatcher, LatestValueDispatcher, LatestValueHandle, Row, fmt_time};
 use crate::socket::udp::UdpSocket;
 use crate::socket::{Socket, SocketAddr, SocketOrchestrator, SocketPacket, SocketWorkerEvent};
 use context::{ControllerCtx, LossOfContactPolicy, Termination};
@@ -49,6 +49,21 @@ pub struct Controller {
     dispatchers: Vec<Box<dyn Dispatcher>>,
     peripherals: BTreeMap<String, Box<dyn Peripheral>>,
     orchestrator: Orchestrator,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Snapshot {
+    pub system_time: String,
+    pub timestamp: i64,
+    pub values: HashMap<String, f64>,
+}
+
+pub struct RunHandle {
+    termination: Arc<AtomicBool>,
+    latest: LatestValueHandle,
+    join: Option<std::thread::JoinHandle<Result<String, String>>>,
+    manual_input_values: ManualInputMap,
+    manual_input_names: Vec<String>,
 }
 
 impl Default for Controller {
@@ -105,6 +120,38 @@ impl Controller {
     pub fn manual_input_names(&self) -> Vec<FieldName> {
         self.orchestrator
             .manual_input_names_for_peripherals(&self.peripherals)
+    }
+
+    /// Run the control program on a separate thread and return a handle for coordination.
+    pub fn run_nonblocking(self, plugins: Option<PluginMap<'static>>) -> RunHandle {
+        let mut controller = self;
+
+        // Attach a latest-value dispatcher to expose live data.
+        let (latest_dispatcher, latest_handle) = LatestValueDispatcher::new();
+        controller.add_dispatcher(Box::new(latest_dispatcher));
+
+        let termination_signal = Arc::new(AtomicBool::new(false));
+        let manual_input_values: ManualInputMap = Arc::new(RwLock::new(HashMap::new()));
+        let manual_input_names = controller.manual_input_names();
+
+        let term_for_thread = termination_signal.clone();
+        let manual_inputs_for_thread = manual_input_values.clone();
+
+        let handle = std::thread::spawn(move || {
+            controller.run(
+                &plugins,
+                Some(&*term_for_thread),
+                Some(manual_inputs_for_thread),
+            )
+        });
+
+        RunHandle {
+            termination: termination_signal,
+            latest: latest_handle,
+            join: Some(handle),
+            manual_input_values,
+            manual_input_names,
+        }
     }
 
     /// Register a calc function
@@ -1225,6 +1272,7 @@ impl Controller {
                     .for_each(|targets| targets.clear());
             }
 
+            // Set manual peripheral inputs from outside the expression graph
             if let Some(manual_inputs) = manual_inputs.as_ref() {
                 match manual_inputs.read() {
                     Ok(guard) => {
@@ -1453,6 +1501,101 @@ impl Controller {
             // Update next target time
             target_time += cycle_duration;
         }
+    }
+}
+
+impl RunHandle {
+    /// Signal the controller to stop.
+    pub fn stop(&self) {
+        self.termination
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Check if the controller thread is still running.
+    pub fn is_running(&self) -> bool {
+        self.join
+            .as_ref()
+            .map(|h| !h.is_finished())
+            .unwrap_or(false)
+    }
+
+    /// Wait for the controller thread to finish.
+    pub fn join(&mut self) -> Result<String, String> {
+        match self.join.take() {
+            Some(h) => match h.join() {
+                Ok(Ok(msg)) => Ok(msg),
+                Ok(Err(e)) => Err(e),
+                Err(e) => Err(format!("Controller thread panicked: {e:?}")),
+            },
+            None => Err("Controller thread already joined or not started".to_string()),
+        }
+    }
+
+    /// Get the latest row: (system_time, timestamp, channel_values).
+    pub fn latest_row(&self) -> (String, i64, Vec<f64>) {
+        let row: Arc<Row> = self.latest.latest_row();
+        (
+            row.system_time.clone(),
+            row.timestamp,
+            row.channel_values.clone(),
+        )
+    }
+
+    /// Column headers including timestamp/time.
+    pub fn headers(&self) -> Vec<String> {
+        self.latest.headers()
+    }
+
+    /// Read the latest row mapped to header names.
+    pub fn read(&self) -> Snapshot {
+        let headers = self.latest.headers();
+        let row = self.latest.latest_row();
+        let mut map = HashMap::new();
+        // First two headers are timestamp, time.
+        if headers.len() >= 2 {
+            for (name, val) in headers.iter().skip(2).zip(row.channel_values.iter()) {
+                map.insert(name.clone(), *val);
+            }
+        }
+        Snapshot {
+            system_time: row.system_time.clone(),
+            timestamp: row.timestamp,
+            values: map,
+        }
+    }
+
+    /// List peripheral inputs that can be written manually.
+    pub fn available_inputs(&self) -> Vec<String> {
+        self.manual_input_names.clone()
+    }
+
+    /// Write values to peripheral inputs not driven by calcs.
+    pub fn write(&self, values: HashMap<String, f64>) -> Result<(), String> {
+        if !self.is_running() {
+            return Err("Controller is not running".to_string());
+        }
+
+        if values.is_empty() {
+            return Ok(());
+        }
+
+        let allowed = &self.manual_input_names;
+        for name in values.keys() {
+            if !allowed.contains(name) {
+                return Err(format!(
+                    "Manual input `{name}` is not available for manual writes"
+                ));
+            }
+        }
+
+        let mut manual_guard = self
+            .manual_input_values
+            .write()
+            .map_err(|_| "Manual input map lock poisoned".to_string())?;
+        for (name, value) in values {
+            manual_guard.insert(name, value);
+        }
+        Ok(())
     }
 }
 

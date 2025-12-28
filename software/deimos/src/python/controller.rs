@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock, atomic::AtomicBool};
+use std::sync::{Arc, atomic::AtomicBool};
 use std::time::Duration;
 
 use pyo3::prelude::*;
@@ -8,12 +8,9 @@ use tracing::warn;
 // Dispatchers
 use crate::Socket;
 use crate::calc::Calc;
-use crate::controller::ManualInputMap;
+use crate::controller::RunHandle as ControllerRunHandle;
 use crate::dispatcher::Dispatcher;
 use crate::peripheral::Peripheral;
-
-use crate::dispatcher::LatestValueDispatcher;
-use crate::dispatcher::LatestValueHandle;
 
 use super::*;
 
@@ -110,33 +107,11 @@ impl Controller {
 
     /// Run the control program on a separate thread and return a handle for coordination.
     fn run_nonblocking(&mut self) -> PyResult<RunHandle> {
-        let mut controller = self.controller.take().ok_or_else(|| BackendErr::RunErr {
+        let controller = self.controller.take().ok_or_else(|| BackendErr::RunErr {
             msg: "Controller has already been moved into a running thread".to_string(),
         })?;
-
-        // Attach a latest-value dispatcher to expose live data
-        let (latest_dispatcher, latest_handle) = LatestValueDispatcher::new();
-        controller.add_dispatcher(Box::new(latest_dispatcher));
-
-        let termination_signal = Arc::new(AtomicBool::new(false));
-        let manual_input_names = controller.manual_input_names();
-        let manual_input_values: ManualInputMap = Arc::new(RwLock::new(HashMap::new()));
-        let manual_input_values_for_thread = manual_input_values.clone();
-        let term_for_thread = termination_signal.clone();
-        let handle = std::thread::spawn(move || {
-            controller.run(
-                &None,
-                Some(&*term_for_thread),
-                Some(manual_input_values_for_thread),
-            )
-        });
-
         Ok(RunHandle {
-            termination: termination_signal,
-            latest: latest_handle,
-            join: Some(handle),
-            manual_input_values,
-            manual_input_names,
+            inner: controller.run_nonblocking(None),
         })
     }
 
@@ -374,118 +349,58 @@ impl Controller {
 
 #[pyclass]
 pub(crate) struct RunHandle {
-    termination: Arc<AtomicBool>,
-    latest: LatestValueHandle,
-    join: Option<std::thread::JoinHandle<Result<String, String>>>,
-    manual_input_values: ManualInputMap,
-    manual_input_names: Vec<String>,
+    inner: ControllerRunHandle,
 }
 
 #[pymethods]
 impl RunHandle {
     /// Signal the controller to stop
     fn stop(&self) {
-        self.termination
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+        self.inner.stop();
     }
 
     /// Check if the controller thread is still running
     fn is_running(&self) -> bool {
-        self.join
-            .as_ref()
-            .map(|h| !h.is_finished())
-            .unwrap_or(false)
+        self.inner.is_running()
     }
 
     /// Wait for the controller thread to finish
     fn join(&mut self) -> PyResult<String> {
-        match self.join.take() {
-            Some(h) => match h.join() {
-                Ok(Ok(msg)) => Ok(msg),
-                Ok(Err(e)) => Err(BackendErr::RunErr { msg: e }.into()),
-                Err(e) => Err(BackendErr::RunErr {
-                    msg: format!("Controller thread panicked: {e:?}"),
-                }
-                .into()),
-            },
-            None => Err(BackendErr::RunErr {
-                msg: "Controller thread already joined or not started".to_string(),
-            }
-            .into()),
-        }
+        self.inner
+            .join()
+            .map_err(|msg| BackendErr::RunErr { msg }.into())
     }
 
     /// Get the latest row: (system_time, timestamp, channel_values)
     fn latest_row(&self) -> (String, i64, Vec<f64>) {
-        let row = self.latest.latest_row();
-        (
-            row.system_time.clone(),
-            row.timestamp,
-            row.channel_values.clone(),
-        )
+        self.inner.latest_row()
     }
 
     /// Column headers including timestamp/time
     fn headers(&self) -> Vec<String> {
-        self.latest.headers()
+        self.inner.headers()
     }
 
     /// Read the latest row mapped to header names
     fn read(&self) -> Snapshot {
-        let headers = self.latest.headers();
-        let row = self.latest.latest_row();
-        let mut map = HashMap::new();
-        // First two headers are timestamp, time
-        if headers.len() >= 2 {
-            for (name, val) in headers.iter().skip(2).zip(row.channel_values.iter()) {
-                map.insert(name.clone(), *val);
-            }
-        }
+        let snapshot = self.inner.read();
         Snapshot {
-            system_time: row.system_time.clone(),
-            timestamp: row.timestamp,
-            values: map,
+            system_time: snapshot.system_time,
+            timestamp: snapshot.timestamp,
+            values: snapshot.values,
         }
     }
 
     /// List peripheral inputs that can be written manually.
     fn available_inputs(&self) -> PyResult<Vec<String>> {
-        Ok(self.manual_input_names.clone())
+        Ok(self.inner.available_inputs())
     }
 
     /// Write values to peripheral inputs not driven by calcs.
     fn write(&self, values: HashMap<String, f64>) -> PyResult<()> {
-        if !self.is_running() {
-            return Err(BackendErr::RunErr {
-                msg: "Controller is not running".to_string(),
-            }
-            .into());
-        }
-
-        if values.is_empty() {
-            return Ok(());
-        }
-
-        let allowed = &self.manual_input_names;
-        for name in values.keys() {
-            if !allowed.contains(name) {
-                return Err(BackendErr::RunErr {
-                    msg: format!("Manual input `{name}` is not available for manual writes"),
-                }
-                .into());
-            }
-        }
-
-        let mut manual_guard =
-            self.manual_input_values
-                .write()
-                .map_err(|_| BackendErr::RunErr {
-                    msg: "Manual input map lock poisoned".to_string(),
-                })?;
-        for (name, value) in values {
-            manual_guard.insert(name, value);
-        }
-        Ok(())
+        self.inner
+            .write(values)
+            .map_err(|msg| BackendErr::RunErr { msg }.into())
     }
 }
 
