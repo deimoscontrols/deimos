@@ -40,6 +40,7 @@ use peripheral_state::ConnState;
 use timing::TimingPID;
 use tracing::{debug, error, info, warn};
 
+/// Peripheral inputs set manually from outside the control program.
 pub type ManualInputMap = Arc<RwLock<HashMap<FieldName, f64>>>;
 
 /// The controller implements the control loop,
@@ -47,7 +48,7 @@ pub type ManualInputMap = Arc<RwLock<HashMap<FieldName, f64>>>;
 /// and dispatches measured data, calculations, and metrics to the data pipeline.
 #[derive(Serialize, Deserialize)]
 pub struct Controller {
-    // Input config, which is passed to appendages during their init
+    // Input config, which is passed to appendages during their init.
     pub ctx: ControllerCtx,
 
     // Appendages
@@ -57,20 +58,38 @@ pub struct Controller {
     orchestrator: Orchestrator,
 }
 
+/// A snapshot of the values from all peripherals and calcs
+/// at the end of a cycle.
 #[cfg_attr(feature = "python", pyclass)]
 #[derive(Clone, Debug, Default)]
 pub struct Snapshot {
+    /// Cycle-end UTC system time in RFC3339 format with nanoseconds.
     pub system_time: String,
+
+    /// [ns] Cycle-end time in nanoseconds since the start of run.
     pub timestamp: i64,
+
+    /// Map of the latest readings from all peripherals and calcs.
     pub values: HashMap<String, f64>,
 }
 
+/// A handle to a [Controller] running via [Controller::run_nonblocking] that allows
+/// reading and writing values from outside the control program during operation.
 #[cfg_attr(feature = "python", pyclass)]
 pub struct RunHandle {
+    /// Signal to stop the controller.
     termination: Arc<AtomicBool>,
+
+    /// Link to the running controller to get a snapshot of the output.
     latest: LatestValueHandle,
+
+    /// Thread handle for the running controller.
     join: Option<std::thread::JoinHandle<Result<String, String>>>,
+
+    /// Manual input values for peripherals to set.
     manual_input_values: ManualInputMap,
+
+    /// Names of all peripheral inputs that can be set manually.
     manual_input_names: Vec<String>,
 }
 
