@@ -110,20 +110,20 @@ let mut controller = Controller::new(ctx);
 //    TSDB-flavored postgres database
 let buffer_window = Duration::from_nanos(1); // Non-buffering mode
 let retention_time_hours = 1;
-let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(
+let timescale_dispatcher: Box<dyn Dispatcher> = TimescaleDbDispatcher::new(
     "<database name>",  // Database name
     "<database address>", // URL or unix socket interface
     "<username>",  // Login name; for unix socket, must match OS username
     "<token env var>",  // Environment variable containing password or token
     buffer_window,
     retention_time_hours,
-));
-controller.add_dispatcher(timescale_dispatcher);
+);
+controller.add_dispatcher("tsdb", timescale_dispatcher);
 
 //    A 50MB CSV file that will be wrapped an overwritten when full
 let csv_dispatcher: Box<dyn Dispatcher> =
-    Box::new(CsvDispatcher::new(50, dispatcher::Overflow::Wrap));
-controller.add_dispatcher(csv_dispatcher);
+    CsvDispatcher::new(50, dispatcher::Overflow::Wrap);
+controller.add_dispatcher("csv", csv_dispatcher);
 
 // Associate hardware peripherals that we expect to find on the network
 // The controller can also run with no peripherals at all, and simply do
