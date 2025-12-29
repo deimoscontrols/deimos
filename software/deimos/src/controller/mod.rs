@@ -807,7 +807,7 @@ impl Controller {
             .collect::<Vec<SocketAddr>>();
 
         // Initialize calc graph
-        info!("Initializing calc orchestrator");
+        info!("Initializing calc orchestrator.");
         self.orchestrator
             .init(self.ctx.clone(), &self.peripherals)
             .map_err(|e| format!("Failed to initialize calc orchestrator: {e}"))?;
@@ -1044,7 +1044,7 @@ impl Controller {
             .collect();
 
         //    Init timing
-        info!("Initializing timing controllers");
+        info!("Initializing timing controllers.");
         let start_of_operating = Instant::now();
         let cycle_duration = Duration::from_nanos(self.ctx.dt_ns as u64);
         let mut target_time = cycle_duration;
@@ -1069,7 +1069,7 @@ impl Controller {
         }
 
         //    Run timed loop
-        info!("Entering control loop");
+        info!("Entering control loop.");
         let mut i: u64 = 0;
         controller_state.controller_metrics.cycle_time_margin_ns = self.ctx.dt_ns as f64;
         loop {
