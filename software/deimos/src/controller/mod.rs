@@ -377,6 +377,7 @@ impl Controller {
     }
 
     /// Safe the peripherals and shut down the controller
+    #[cold]
     fn terminate(
         &mut self,
         state: &ControllerState,
@@ -445,6 +446,7 @@ impl Controller {
     }
 
     /// Handle an incoming packet from a socket.
+    #[inline]
     fn process_socket_packet(
         &mut self,
         controller_state: &mut ControllerState,
@@ -505,6 +507,7 @@ impl Controller {
     /// Check if a packet is a reconnection attempt (Binding or Configuring response)
     /// and, if so, update peripheral reconnection state and address maps.
     /// Returns `true` if this was a reconnection packet and `false` otherwise.
+    #[inline]
     fn handle_reconnect_packet(
         &mut self,
         controller_state: &mut ControllerState,
@@ -1355,7 +1358,6 @@ impl Controller {
                 );
                 let send_result = socket_orchestrator.send(*sid, *pid, &txbuf[..n]);
                 if let Err(e) = send_result {
-                    error!(e);
                     // If transmission fails, the peripheral is responsible for
                     // registering that contact has been lost and will eventually exit the operating state,
                     // after which the controller will start its loss of contact counter for that peripheral,
@@ -1380,10 +1382,8 @@ impl Controller {
             let mut worker_error: Option<String> = None;
             t = start_of_operating.elapsed();
             let recv_start = Instant::now();
+            let recv_intended = target_time.saturating_sub(t);
             while start_of_operating.elapsed() < target_time {
-                // Tell the processor this is a busy-waiting loop.
-                // std::hint::spin_loop();
-
                 // Set maximum time to wait for next packet.
                 let timeout = match self.ctx.loop_method {
                     LoopMethod::Performant => Duration::ZERO, // Busy-wait
@@ -1526,10 +1526,11 @@ impl Controller {
             let dt_ns = self.ctx.dt_ns as f64;
             if controller_timing_margin < 0.9 * dt_ns {
                 warn!(
-                    "Cycle margin low: margin_ns={:.0} dt_ns={} recv_us={} send_us={} eval_us={} consume_us={} cycle_us={}",
+                    "Cycle margin low: margin_ns={:.0} dt_ns={} recv_us={} recv_intended_us={} send_us={} eval_us={} consume_us={} cycle_us={}",
                     controller_timing_margin,
                     self.ctx.dt_ns,
                     recv_duration.as_micros(),
+                    recv_intended.as_micros(),
                     send_duration.as_micros(),
                     eval_duration.as_micros(),
                     consume_duration.as_micros(),

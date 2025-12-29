@@ -27,7 +27,7 @@ core_affinity = "0.8.3"
 
 # Calcs
 flaw = { version = "0.6.0", default-features = false, features = ["fma"] }
-interpn = { version = "0.8.2", default-features = false, features = ["fma"] }
+interpn = { version = "0.9.0", default-features = false, features = ["fma"] }
 once_cell = "1.21.3"
 branches = "0.4.3"
 nalgebra = "0.34"

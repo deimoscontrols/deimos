@@ -76,6 +76,7 @@ impl Orchestrator {
     /// # Panics
     /// * If eval() is called before init()
     /// * If evaluation of individual calcs panics
+    #[inline]
     pub fn eval(&mut self) -> Result<(), String> {
         // Evaluate calcs in order
         for name in self.state.eval_order.iter() {
@@ -119,6 +120,7 @@ impl Orchestrator {
     }
 
     /// Provide latest values fields marked for dispatch
+    #[inline]
     pub fn provide_dispatcher_outputs(&self, mut f: impl FnMut(&mut dyn Iterator<Item = f64>)) {
         let inds = self.state.dispatch_indices.iter();
         let mut vals = inds.map(|&i| self.state.calc_tape[i]);
