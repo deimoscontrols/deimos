@@ -3,7 +3,7 @@
 
 use std::io::Write;
 use std::sync::mpsc::{Sender, channel};
-use std::thread::{self, JoinHandle, spawn};
+use std::thread::{self, Builder, JoinHandle};
 use std::time::{Duration, SystemTime};
 
 use postgres::{Client, NoTls, Statement};
@@ -226,72 +226,75 @@ impl WorkerHandle {
         let use_copy = n_buffer > 1;
 
         // Run database I/O on a separate thread to avoid blocking controller
-        let _thread = spawn(move || {
-            // Bind to assigned core
-            core_affinity::set_for_current(core_affinity::CoreId {
-                id: core_assignment,
-            });
+        let _thread = Builder::new()
+            .name("tsdb-dispatcher".to_string())
+            .spawn(move || {
+                // Bind to assigned core
+                core_affinity::set_for_current(core_affinity::CoreId {
+                    id: core_assignment,
+                });
 
-            loop {
-                match rx.recv() {
-                    Err(_) => {
-                        // Channel closed; controller is shutting down
-                        // Flush and exit
-                        if use_copy {
-                            let mut writer = client.copy_in(&copy_query).unwrap();
-                            writer.write_all(linebuf.as_bytes()).unwrap();
-                            writer.finish().unwrap();
-                        }
-
-                        return;
-                    }
-                    Ok(vals) => {
-                        // Send
-
-                        // COPY INTO method for batches of points
-                        if use_copy {
-                            //    Buffer this line
-                            let (time, timestamp, channel_values) = vals;
-                            csv_row(&mut stringbuf, (time, timestamp, &channel_values));
-                            linebuf.push_str(&stringbuf);
-                            n_lines_buffered += 1;
-                            //    Flush buffer if ready
-                            if n_lines_buffered >= n_buffer {
+                loop {
+                    match rx.recv() {
+                        Err(_) => {
+                            // Channel closed; controller is shutting down
+                            // Flush and exit
+                            if use_copy {
                                 let mut writer = client.copy_in(&copy_query).unwrap();
                                 writer.write_all(linebuf.as_bytes()).unwrap();
                                 writer.finish().unwrap();
-                                n_lines_buffered = 0;
-                                linebuf.clear();
                             }
+
+                            return;
                         }
-                        // INSERT method for single points
-                        else {
-                            // It would be nice to not have to allocate this every time,
-                            // but the borrowed values don't live long enough
-                            let mut query_vals: Vec<&(dyn ToSql + Sync)> =
-                                Vec::with_capacity(2 + channel_names.len());
-
-                            let (time, timestamp, channel_values) = vals;
-                            query_vals.push(&timestamp);
-                            query_vals.push(&time);
-                            for v in channel_values.iter() {
-                                query_vals.push(v);
-                            }
-
+                        Ok(vals) => {
                             // Send
-                            client.execute(&prepared_query, &query_vals).unwrap();
 
-                            // Reset
-                            query_vals.clear();
+                            // COPY INTO method for batches of points
+                            if use_copy {
+                                //    Buffer this line
+                                let (time, timestamp, channel_values) = vals;
+                                csv_row(&mut stringbuf, (time, timestamp, &channel_values));
+                                linebuf.push_str(&stringbuf);
+                                n_lines_buffered += 1;
+                                //    Flush buffer if ready
+                                if n_lines_buffered >= n_buffer {
+                                    let mut writer = client.copy_in(&copy_query).unwrap();
+                                    writer.write_all(linebuf.as_bytes()).unwrap();
+                                    writer.finish().unwrap();
+                                    n_lines_buffered = 0;
+                                    linebuf.clear();
+                                }
+                            }
+                            // INSERT method for single points
+                            else {
+                                // It would be nice to not have to allocate this every time,
+                                // but the borrowed values don't live long enough
+                                let mut query_vals: Vec<&(dyn ToSql + Sync)> =
+                                    Vec::with_capacity(2 + channel_names.len());
+
+                                let (time, timestamp, channel_values) = vals;
+                                query_vals.push(&timestamp);
+                                query_vals.push(&time);
+                                for v in channel_values.iter() {
+                                    query_vals.push(v);
+                                }
+
+                                // Send
+                                client.execute(&prepared_query, &query_vals).unwrap();
+
+                                // Reset
+                                query_vals.clear();
+                            }
                         }
                     }
-                }
 
-                // Deliberately yield the thread to make time for the OS
-                // and to avoid interfering with other loops
-                thread::yield_now();
-            }
-        });
+                    // Deliberately yield the thread to make time for the OS
+                    // and to avoid interfering with other loops
+                    thread::yield_now();
+                }
+            })
+            .expect("Failed to spawn TSDB dispatcher thread");
 
         Ok(Self { tx, _thread })
     }

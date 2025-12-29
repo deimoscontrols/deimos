@@ -1,6 +1,6 @@
 use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, RwLock};
-use std::thread::{JoinHandle, spawn};
+use std::thread::{Builder, JoinHandle};
 use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
@@ -165,21 +165,24 @@ struct WorkerHandle {
 impl WorkerHandle {
     fn new(handle: LatestValueHandle, core_assignment: usize) -> Result<Self, String> {
         let (tx, rx) = channel::<(SystemTime, i64, Vec<f64>)>();
-        let _thread = spawn(move || {
-            // Bind to assigned core
-            core_affinity::set_for_current(core_affinity::CoreId {
-                id: core_assignment,
-            });
+        let _thread = Builder::new()
+            .name("latest-dispatcher".to_string())
+            .spawn(move || {
+                // Bind to assigned core
+                core_affinity::set_for_current(core_affinity::CoreId {
+                    id: core_assignment,
+                });
 
-            while let Ok((time, timestamp, channel_values)) = rx.recv() {
-                let row = Row {
-                    system_time: fmt_time(time),
-                    timestamp,
-                    channel_values,
-                };
-                handle.row.store(row);
-            }
-        });
+                while let Ok((time, timestamp, channel_values)) = rx.recv() {
+                    let row = Row {
+                        system_time: fmt_time(time),
+                        timestamp,
+                        channel_values,
+                    };
+                    handle.row.store(row);
+                }
+            })
+            .expect("Failed to spawn latest dispatcher thread");
 
         Ok(Self { tx, _thread })
     }

@@ -331,7 +331,10 @@ impl HootlDriver {
     pub fn run(&self, ctx: &ControllerCtx) -> Result<HootlRunHandle, String> {
         let stop = Arc::new(AtomicBool::new(false));
         let mut runner = HootlRunner::new(self, ctx, stop.clone())?;
-        let join = thread::spawn(move || runner.run_loop());
+        let join = std::thread::Builder::new()
+            .name("hootl-mockup-runner".to_string())
+            .spawn(move || runner.run_loop())
+            .expect("Failed to spawn hootl mockup runner thread");
         Ok(HootlRunHandle {
             stop,
             join: Some(join),

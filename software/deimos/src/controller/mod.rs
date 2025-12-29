@@ -172,7 +172,10 @@ impl Controller {
 
         let term_for_thread = termination_signal.clone();
 
-        let handle = std::thread::spawn(move || controller.run(&plugins, Some(&*term_for_thread)));
+        let handle = thread::Builder::new()
+            .name("controller-run".to_string())
+            .spawn(move || controller.run(&plugins, Some(&*term_for_thread)))
+            .expect("Failed to spawn controller thread");
 
         RunHandle {
             termination: termination_signal,
@@ -1528,19 +1531,19 @@ impl Controller {
 
             let cycle_duration_actual = cycle_start.elapsed();
             let dt_ns = self.ctx.dt_ns as f64;
-            if controller_timing_margin < 0.9 * dt_ns {
-                warn!(
-                    "Cycle margin low: margin_ns={:.0} dt_ns={} recv_us={} recv_intended_us={} send_us={} eval_us={} consume_us={} cycle_us={}",
-                    controller_timing_margin,
-                    self.ctx.dt_ns,
-                    recv_duration.as_micros(),
-                    recv_intended.as_micros(),
-                    send_duration.as_micros(),
-                    eval_duration.as_micros(),
-                    consume_duration.as_micros(),
-                    cycle_duration_actual.as_micros(),
-                );
-            }
+            // if controller_timing_margin < 0.9 * dt_ns {
+            //     warn!(
+            //         "Cycle margin low: margin_ns={:.0} dt_ns={} recv_us={} recv_intended_us={} send_us={} eval_us={} consume_us={} cycle_us={}",
+            //         controller_timing_margin,
+            //         self.ctx.dt_ns,
+            //         recv_duration.as_micros(),
+            //         recv_intended.as_micros(),
+            //         send_duration.as_micros(),
+            //         eval_duration.as_micros(),
+            //         consume_duration.as_micros(),
+            //         cycle_duration_actual.as_micros(),
+            //     );
+            // }
 
             // Update next target time
             target_time += cycle_duration;

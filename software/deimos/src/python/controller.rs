@@ -81,7 +81,12 @@ impl Controller {
         std::thread::scope(|s| {
             let ctrl = self.ctrl()?;
             let term_for_thread = termination_signal.clone();
-            let handle = s.spawn(move || ctrl.run(&None, Some(&*term_for_thread)));
+            let handle = std::thread::Builder::new()
+                .name("py-controller-run".to_string())
+                .spawn_scoped(s, move || ctrl.run(&None, Some(&*term_for_thread)))
+                .map_err(|e| BackendErr::RunErr {
+                    msg: format!("Failed to spawn controller thread: {e}"),
+                })?;
 
             // Wait without using too much processor time
             while !handle.is_finished() {

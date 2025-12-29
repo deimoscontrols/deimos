@@ -1,6 +1,6 @@
 //! Socket worker that runs a socket on its own thread.
 
-use std::thread::{JoinHandle, spawn};
+use std::thread::{Builder, JoinHandle};
 use std::time::Duration;
 
 use crossbeam::channel::{Receiver, Sender, TryRecvError, unbounded};
@@ -202,7 +202,10 @@ impl SocketWorkerHandle {
     ) -> Self {
         let (cmd_tx, cmd_rx) = unbounded();
         let worker = SocketWorker::new(socket_id, socket, ctx, recv_timeout, cmd_rx, event_tx);
-        let thread = spawn(move || worker.run());
+        let thread = Builder::new()
+            .name(format!("socket-worker-{socket_id}"))
+            .spawn(move || worker.run())
+            .expect("Failed to spawn socket worker thread");
         Self { cmd_tx, thread }
     }
 
