@@ -19,7 +19,6 @@ pub use low_pass::LowPassDispatcher;
 mod csv;
 pub use csv::CsvDispatcher;
 
-use crate::buffer_pool::BufferLease;
 use crate::controller::context::ControllerCtx;
 
 #[cfg(feature = "python")]
@@ -84,7 +83,7 @@ pub trait Dispatcher: Send + Sync {
         &mut self,
         time: SystemTime,
         timestamp: i64,
-        channel_values: BufferLease<Vec<f64>>,
+        channel_values: Vec<f64>,
     ) -> Result<(), String>;
 
     /// Shut down the dispatcher and reset internal state for the next run

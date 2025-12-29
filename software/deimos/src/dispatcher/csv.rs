@@ -18,7 +18,6 @@ use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
 use super::{Dispatcher, Overflow, csv_header, csv_row_fixed_width};
-use crate::buffer_pool::BufferLease;
 
 /// A plain-text CSV data target, which uses a pre-sized file
 /// to prevent sudden increases in write latency during file resizing.
@@ -109,7 +108,7 @@ impl Dispatcher for CsvDispatcher {
         &mut self,
         time: SystemTime,
         timestamp: i64,
-        channel_values: BufferLease<Vec<f64>>,
+        channel_values: Vec<f64>,
     ) -> Result<(), String> {
         match &mut self.worker {
             Some(worker) => worker
@@ -130,7 +129,7 @@ impl Dispatcher for CsvDispatcher {
 }
 
 struct WorkerHandle {
-    pub tx: Sender<(SystemTime, i64, BufferLease<Vec<f64>>)>,
+    pub tx: Sender<(SystemTime, i64, Vec<f64>)>,
     _thread: JoinHandle<()>,
 }
 
@@ -142,7 +141,7 @@ impl WorkerHandle {
         overflow_behavior: Overflow,
         core_assignment: usize,
     ) -> Result<Self, String> {
-        let (tx, rx) = channel::<(SystemTime, i64, BufferLease<Vec<f64>>)>();
+        let (tx, rx) = channel::<(SystemTime, i64, Vec<f64>)>();
 
         let original_filename = path.file_stem().unwrap().to_str().unwrap().to_owned();
         let header_len = header.len();
@@ -182,7 +181,7 @@ impl WorkerHandle {
                     Ok((time, timestamp, channel_values)) => {
                         csv_row_fixed_width(
                             &mut stringbuf,
-                            (time, timestamp, channel_values.as_ref()),
+                            (time, timestamp, channel_values.as_slice()),
                         );
 
                         // Make sure there is space in the file,

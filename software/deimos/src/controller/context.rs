@@ -5,9 +5,9 @@ use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 use std::{collections::BTreeMap, default::Default};
 
+use super::ManualInputMap;
 use super::channel::{Channel, Endpoint};
 use super::manual_inputs_default;
-use super::ManualInputMap;
 use crate::buffer_pool::BufferPool;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

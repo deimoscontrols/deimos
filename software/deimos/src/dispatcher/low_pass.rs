@@ -12,7 +12,6 @@ use flaw::{
     generated::butter::butter2::{MAX_CUTOFF_RATIO, MIN_CUTOFF_RATIO},
 };
 
-use crate::buffer_pool::BufferLease;
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
@@ -96,12 +95,12 @@ impl Dispatcher for LowPassDispatcher {
         &mut self,
         time: SystemTime,
         timestamp: i64,
-        mut channel_values: BufferLease<Vec<f64>>,
+        mut channel_values: Vec<f64>,
     ) -> Result<(), String> {
         if !self.initialized {
             return Err("LowPassDispatcher must be initialized before consuming data".to_string());
         }
-        let values = channel_values.as_mut();
+        let values = &mut channel_values[..];
         if values.len() != self.filters.len() {
             return Err(format!(
                 "LowPassDispatcher expected {} values, got {}",

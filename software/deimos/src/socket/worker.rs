@@ -5,7 +5,6 @@ use std::time::Duration;
 
 use crossbeam::channel::{Receiver, Sender, TryRecvError, unbounded};
 
-use crate::buffer_pool::{BufferLease, SocketBuffer};
 use crate::controller::context::ControllerCtx;
 use deimos_shared::peripherals::PeripheralId;
 
@@ -14,12 +13,10 @@ use super::{Socket, SocketAddrToken, SocketId, SocketPacket};
 pub enum SocketWorkerCommand {
     Send {
         id: PeripheralId,
-        buffer: BufferLease<SocketBuffer>,
-        size: usize,
+        payload: Vec<u8>,
     },
     Broadcast {
-        buffer: BufferLease<SocketBuffer>,
-        size: usize,
+        payload: Vec<u8>,
     },
     UpdateMap {
         id: PeripheralId,
@@ -160,38 +157,8 @@ impl SocketWorker {
     // Process a specific incoming message from the controller
     fn handle_command(&mut self, command: SocketWorkerCommand) -> bool {
         let result = match command {
-            SocketWorkerCommand::Send { id, buffer, size } => {
-                let payload = buffer.as_ref();
-                if size > payload.len() {
-                    return self
-                        .event_tx
-                        .send(SocketWorkerEvent::Error {
-                            socket_id: self.socket_id,
-                            error: format!(
-                                "Socket worker send buffer too small: {size} > {}",
-                                payload.len()
-                            ),
-                        })
-                        .is_ok();
-                }
-                self.socket.send(id, &payload[..size])
-            }
-            SocketWorkerCommand::Broadcast { buffer, size } => {
-                let payload = buffer.as_ref();
-                if size > payload.len() {
-                    return self
-                        .event_tx
-                        .send(SocketWorkerEvent::Error {
-                            socket_id: self.socket_id,
-                            error: format!(
-                                "Socket worker broadcast buffer too small: {size} > {}",
-                                payload.len()
-                            ),
-                        })
-                        .is_ok();
-                }
-                self.socket.broadcast(&payload[..size])
-            }
+            SocketWorkerCommand::Send { id, payload } => self.socket.send(id, payload.as_slice()),
+            SocketWorkerCommand::Broadcast { payload } => self.socket.broadcast(payload.as_slice()),
             SocketWorkerCommand::UpdateMap { id, token } => self.socket.update_map(id, token),
             SocketWorkerCommand::Close => return false,
         };

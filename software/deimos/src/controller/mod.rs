@@ -23,7 +23,7 @@ use crate::python::BackendErr;
 
 use crate::controller::context::LoopMethod;
 use crate::{
-    buffer_pool::{BufferPool, SOCKET_BUFFER_LEN, SocketBuffer, default_socket_buffer_pool},
+    buffer_pool::SOCKET_BUFFER_LEN,
     calc::Calc,
     logging,
     peripheral::{Peripheral, PluginMap, parse_binding},
@@ -293,10 +293,8 @@ impl Controller {
         // Make sure sockets are configured and ports are bound
         self.open_sockets()?;
 
-        let socket_buffer_pool = default_socket_buffer_pool();
-        let mut binding_buf =
-            socket_buffer_pool.lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
-        let buf = binding_buf.as_mut();
+        let mut binding_buf = vec![0_u8; SOCKET_BUFFER_LEN];
+        let buf = binding_buf.as_mut_slice();
         let mut available_peripherals = BTreeMap::new();
 
         let binding_msg = BindingInput {
@@ -384,7 +382,6 @@ impl Controller {
         state: &ControllerState,
         peripheral_input_buffer: &mut [f64],
         packet_index: u64,
-        socket_buffer_pool: &BufferPool<SocketBuffer>,
         socket_orchestrator: &mut SocketOrchestrator,
     ) {
         peripheral_input_buffer.fill(0.0);
@@ -402,9 +399,7 @@ impl Controller {
                 let p = &self.peripherals[&ps.name];
                 let n = p.operating_roundtrip_input_size();
                 let (sid, pid) = addr;
-                let mut lease =
-                    socket_buffer_pool.lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
-                let buf = lease.as_mut();
+                let mut buf = [0_u8; SOCKET_BUFFER_LEN];
                 p.emit_operating_roundtrip(
                     j + packet_index,
                     0,
@@ -414,7 +409,7 @@ impl Controller {
                 );
 
                 // Transmit default state packet
-                let send_result = socket_orchestrator.send(*sid, *pid, lease, n);
+                let send_result = socket_orchestrator.send(*sid, *pid, &buf[..n]);
                 if let Err(err) = send_result {
                     let msg = format!("Failed to send shutdown packet to `{}`: {err}", &ps.name);
                     error!("{msg}");
@@ -514,7 +509,6 @@ impl Controller {
         &mut self,
         controller_state: &mut ControllerState,
         socket_orchestrator: &mut SocketOrchestrator,
-        socket_buffer_pool: &BufferPool<SocketBuffer>,
         socket_id: usize,
         packet: &SocketPacket,
         reconnect_step_timeout: Duration,
@@ -571,13 +565,11 @@ impl Controller {
             };
             let p = &self.peripherals[&ps.name];
             let num_to_write = p.configuring_input_size();
-            let mut lease =
-                socket_buffer_pool.lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
-            let buf = lease.as_mut();
-            p.emit_configuring(config_input, &mut buf[..num_to_write]);
 
             // Transmit Configuring packet.
-            let send_result = socket_orchestrator.send(socket_id, pid, lease, num_to_write);
+            let mut buf = [0_u8; SOCKET_BUFFER_LEN];
+            p.emit_configuring(config_input, &mut buf[..num_to_write]);
+            let send_result = socket_orchestrator.send(socket_id, pid, &buf[..num_to_write]);
 
             // Mark disconnected if the socket fails.
             if let Err(err) = send_result {
@@ -692,6 +684,11 @@ impl Controller {
             );
         }
 
+        //    Set up peripheral I/O buffers
+        //    with maximum size of a standard packet
+        let peripheral_input_buffer = &mut [0.0_f64; 1522 / 8 + 1];
+        let txbuf: &mut [u8; 1522] = &mut [0_u8; SOCKET_BUFFER_LEN];
+
         // Set up core affinity
         let core_ids = core_affinity::get_core_ids().unwrap_or_default();
         let mut aux_core_cycle = {
@@ -737,8 +734,6 @@ impl Controller {
         };
 
         // Pre-allocated reusable byte buffer pool for transmitting on sockets.
-        let socket_buffer_pool = default_socket_buffer_pool();
-
         // Make sure sockets are configured and ports are bound
         info!("Opening peripheral comm sockets.");
         self.open_sockets()
@@ -882,11 +877,6 @@ impl Controller {
             let configuring_deadline = start_of_operating_countdown
                 + Duration::from_millis(self.ctx.configuring_timeout_ms as u64);
 
-            //     Get buffer segment.
-            let mut config_buf =
-                socket_buffer_pool.lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
-            let buf = config_buf.as_mut();
-
             for addr in addresses.iter() {
                 //     Write configuring packet for this peripheral.
                 let (sid, pid) = addr;
@@ -894,11 +884,11 @@ impl Controller {
                     .get(&(*sid, *pid))
                     .ok_or(format!("Did not find {pid:?} in bound peripherals."))?;
                 let num_to_write = p.configuring_input_size();
-                p.emit_configuring(config_input, &mut buf[..num_to_write]);
+                p.emit_configuring(config_input, &mut txbuf[..num_to_write]);
 
                 //     Transmit configuring packet.
                 self.sockets[*sid]
-                    .send(*pid, &buf[..num_to_write])
+                    .send(*pid, &txbuf[..num_to_write])
                     .map_err(|e| format!("Failed to send configuration to {pid:?}: {e:?}"))?;
 
                 //     Log expected peripheral state transition.
@@ -1046,25 +1036,23 @@ impl Controller {
             peripheral_timing.insert(*addr, (timing_controller, timing_filter));
         }
 
-        //    Set up peripheral I/O buffers
-        //    with maximum size of a standard packet
-        let mut peripheral_input_buffer = [0.0_f64; 1522 / 8 + 1];
-
         //    Run timed loop
         info!("Entering control loop");
         let mut i: u64 = 0;
         controller_state.controller_metrics.cycle_time_margin_ns = self.ctx.dt_ns as f64;
         loop {
+            let cycle_start = Instant::now();
             let time = SystemTime::now();
             let mut t = start_of_operating.elapsed();
 
             i += 1;
             let tmean: i64 = (target_time - cycle_duration / 2).as_nanos() as i64; // Time to drive peripheral packet arrivals toward
             let timestamp = target_time.as_nanos() as i64;
+            let mut controller_timing_margin = 0.0_f64;
 
             // Record timing margin
             {
-                let controller_timing_margin = (target_time.as_secs_f64() - t.as_secs_f64()) * 1e9;
+                controller_timing_margin = (target_time.as_secs_f64() - t.as_secs_f64()) * 1e9;
                 controller_state.controller_metrics.cycle_time_margin_ns = controller_timing_margin;
             }
 
@@ -1085,9 +1073,8 @@ impl Controller {
                     if let Some(name) = lost_name {
                         self.terminate(
                             &controller_state,
-                            &mut peripheral_input_buffer,
+                            peripheral_input_buffer,
                             i,
-                            &socket_buffer_pool,
                             &mut socket_orchestrator,
                         );
                         self.sockets = socket_orchestrator.close();
@@ -1164,9 +1151,8 @@ impl Controller {
                     if let Some(name) = expired_name {
                         self.terminate(
                             &controller_state,
-                            &mut peripheral_input_buffer,
+                            peripheral_input_buffer,
                             i,
-                            &socket_buffer_pool,
                             &mut socket_orchestrator,
                         );
                         self.sockets = socket_orchestrator.close();
@@ -1208,9 +1194,8 @@ impl Controller {
                 if let Some(reason) = terminating {
                     self.terminate(
                         &controller_state,
-                        &mut peripheral_input_buffer,
+                        peripheral_input_buffer,
                         i,
-                        &socket_buffer_pool,
                         &mut socket_orchestrator,
                     );
                     self.sockets = socket_orchestrator.close();
@@ -1227,9 +1212,8 @@ impl Controller {
 
                     self.terminate(
                         &controller_state,
-                        &mut peripheral_input_buffer,
+                        peripheral_input_buffer,
                         i,
-                        &socket_buffer_pool,
                         &mut socket_orchestrator,
                     );
                     self.sockets = socket_orchestrator.close();
@@ -1282,13 +1266,11 @@ impl Controller {
                     let binding_msg = BindingInput {
                         configuring_timeout_ms: reconnect_step_timeout_ms,
                     };
-                    let mut binding_buf =
-                        socket_buffer_pool.lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
-                    binding_msg.write_bytes(&mut binding_buf.as_mut()[..BindingInput::BYTE_LEN]);
-
                     // Send broadcast binding packet on this socket only
+                    let mut binding_buf = [0_u8; SOCKET_BUFFER_LEN];
+                    binding_msg.write_bytes(&mut binding_buf[..BindingInput::BYTE_LEN]);
                     let send_result =
-                        socket_orchestrator.broadcast(sid, binding_buf, BindingInput::BYTE_LEN);
+                        socket_orchestrator.broadcast(sid, &binding_buf[..BindingInput::BYTE_LEN]);
 
                     // If we have lost the ability to transmit on this socket,
                     // log the error, but let the loss of contact logic handle
@@ -1338,6 +1320,7 @@ impl Controller {
             }
 
             // Send next control input
+            let send_start = Instant::now();
             for (addr, ps) in controller_state.peripheral_state.iter_mut() {
                 // Don't spam Operating inputs to peripherals that are in the process
                 // of being reconnected
@@ -1362,18 +1345,15 @@ impl Controller {
                     });
                 //    Form packet to send to this peripheral
                 let (sid, pid) = addr;
-                let mut lease =
-                    socket_buffer_pool.lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
-                let buf = lease.as_mut();
+                //    Transmit the packet
                 p.emit_operating_roundtrip(
                     i,
                     period_delta_ns,
                     phase_delta_ns,
                     &peripheral_input_buffer[..n],
-                    &mut buf[..n],
+                    &mut txbuf[..n],
                 );
-                //    Transmit the packet
-                let send_result = socket_orchestrator.send(*sid, *pid, lease, n);
+                let send_result = socket_orchestrator.send(*sid, *pid, &txbuf[..n]);
                 if let Err(e) = send_result {
                     error!(e);
                     // If transmission fails, the peripheral is responsible for
@@ -1387,6 +1367,7 @@ impl Controller {
                     // expect that level of micromanagement from a typical user.
                 }
             }
+            let send_duration = send_start.elapsed();
 
             // Receive packets until the start of the next cycle
             //     Unless we hear from each connected peripheral, assume we missed the packet
@@ -1398,9 +1379,10 @@ impl Controller {
 
             let mut worker_error: Option<String> = None;
             t = start_of_operating.elapsed();
+            let recv_start = Instant::now();
             while start_of_operating.elapsed() < target_time {
                 // Tell the processor this is a busy-waiting loop.
-                std::hint::spin_loop();
+                // std::hint::spin_loop();
 
                 // Set maximum time to wait for next packet.
                 let timeout = match self.ctx.loop_method {
@@ -1417,7 +1399,6 @@ impl Controller {
                             let was_reconnection = self.handle_reconnect_packet(
                                 &mut controller_state,
                                 &mut socket_orchestrator,
-                                &socket_buffer_pool,
                                 socket_id,
                                 &packet,
                                 reconnect_step_timeout,
@@ -1458,14 +1439,14 @@ impl Controller {
 
                 t = start_of_operating.elapsed();
             }
+            let recv_duration = recv_start.elapsed();
 
             // Exit if any socket has failed.
             if let Some(err) = worker_error {
                 self.terminate(
                     &controller_state,
-                    &mut peripheral_input_buffer,
+                    peripheral_input_buffer,
                     i,
-                    &socket_buffer_pool,
                     &mut socket_orchestrator,
                 );
                 self.sockets = socket_orchestrator.close();
@@ -1501,10 +1482,12 @@ impl Controller {
             }
 
             // Run calcs
+            let eval_start = Instant::now();
             if let Err(err) = self.orchestrator.eval() {
                 self.sockets = socket_orchestrator.close();
                 return Err(err);
             }
+            let eval_duration = eval_start.elapsed();
 
             // Send outputs to db
             //    Write metrics
@@ -1520,22 +1503,14 @@ impl Controller {
             });
             //    Send to dispatcher
             let mut dispatch_errors = Vec::new();
+            let consume_start = Instant::now();
             for dispatcher in self.dispatchers.iter_mut() {
-                let mut leased = self
-                    .ctx
-                    .dispatcher_buffer_pool
-                    .lease_or_create(|| vec![0.0; n_channels]);
-                let buf = leased.as_mut();
-                if buf.len() != n_channels {
-                    buf.clear();
-                    buf.resize(n_channels, 0.0);
-                }
-                buf.copy_from_slice(&channel_values);
-                if let Err(err) = dispatcher.consume(time, timestamp, leased) {
+                if let Err(err) = dispatcher.consume(time, timestamp, channel_values.clone()) {
                     error!("{err}");
                     dispatch_errors.push(err);
                 }
             }
+            let consume_duration = consume_start.elapsed();
 
             if !dispatch_errors.is_empty() {
                 let msg = dispatch_errors
@@ -1545,6 +1520,21 @@ impl Controller {
                     .join("");
                 self.sockets = socket_orchestrator.close();
                 return Err(format!("Dispatcher error(s): {msg}"));
+            }
+
+            let cycle_duration_actual = cycle_start.elapsed();
+            let dt_ns = self.ctx.dt_ns as f64;
+            if controller_timing_margin < 0.9 * dt_ns {
+                warn!(
+                    "Cycle margin low: margin_ns={:.0} dt_ns={} recv_us={} send_us={} eval_us={} consume_us={} cycle_us={}",
+                    controller_timing_margin,
+                    self.ctx.dt_ns,
+                    recv_duration.as_micros(),
+                    send_duration.as_micros(),
+                    eval_duration.as_micros(),
+                    consume_duration.as_micros(),
+                    cycle_duration_actual.as_micros(),
+                );
             }
 
             // Update next target time

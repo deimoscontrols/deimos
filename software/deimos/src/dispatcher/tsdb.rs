@@ -18,7 +18,6 @@ use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
 use super::{Dispatcher, csv_row};
-use crate::buffer_pool::BufferLease;
 
 /// Either reuse or create a new table in a TimescaleDB postgres
 /// database and write to that table.
@@ -161,7 +160,7 @@ impl Dispatcher for TimescaleDbDispatcher {
         &mut self,
         time: SystemTime,
         timestamp: i64,
-        channel_values: BufferLease<Vec<f64>>,
+        channel_values: Vec<f64>,
     ) -> Result<(), String> {
         match &mut self.worker {
             Some(worker) => worker
@@ -182,7 +181,7 @@ impl Dispatcher for TimescaleDbDispatcher {
 }
 
 struct WorkerHandle {
-    pub tx: Sender<(SystemTime, i64, BufferLease<Vec<f64>>)>,
+    pub tx: Sender<(SystemTime, i64, Vec<f64>)>,
     _thread: JoinHandle<()>,
 }
 
@@ -198,7 +197,7 @@ impl WorkerHandle {
         n_buffer: usize,
         core_assignment: usize,
     ) -> Result<Self, String> {
-        let (tx, rx) = channel::<(SystemTime, i64, BufferLease<Vec<f64>>)>();
+        let (tx, rx) = channel::<(SystemTime, i64, Vec<f64>)>();
         let channel_names: Vec<String> = channel_names.to_vec();
 
         // Connect to database
@@ -253,7 +252,7 @@ impl WorkerHandle {
                         if use_copy {
                             //    Buffer this line
                             let (time, timestamp, channel_values) = vals;
-                            csv_row(&mut stringbuf, (time, timestamp, channel_values.as_ref()));
+                            csv_row(&mut stringbuf, (time, timestamp, &channel_values));
                             linebuf.push_str(&stringbuf);
                             n_lines_buffered += 1;
                             //    Flush buffer if ready
@@ -275,7 +274,7 @@ impl WorkerHandle {
                             let (time, timestamp, channel_values) = vals;
                             query_vals.push(&timestamp);
                             query_vals.push(&time);
-                            for v in channel_values.as_ref().iter() {
+                            for v in channel_values.iter() {
                                 query_vals.push(v);
                             }
 

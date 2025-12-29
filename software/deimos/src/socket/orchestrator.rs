@@ -118,45 +118,42 @@ impl SocketOrchestrator {
         &mut self,
         socket_id: SocketId,
         id: PeripheralId,
-        buffer: crate::buffer_pool::BufferLease<crate::buffer_pool::SocketBuffer>,
-        size: usize,
+        payload: &[u8],
     ) -> Result<(), String> {
         match &mut self.backend {
             Backend::SingleThreadPoller { sockets, .. } => {
                 let sock = sockets
                     .get_mut(socket_id)
                     .ok_or_else(|| format!("Socket index {socket_id} out of range"))?;
-                let payload = buffer.as_ref();
-                sock.send(id, &payload[..size])
+                sock.send(id, payload)
             }
             Backend::WorkerPool { workers, .. } => workers
                 .get(socket_id)
                 .ok_or_else(|| format!("Socket worker index {socket_id} out of range"))?
                 .cmd_tx
-                .send(SocketWorkerCommand::Send { id, buffer, size })
+                .send(SocketWorkerCommand::Send {
+                    id,
+                    payload: payload.to_vec(),
+                })
                 .map_err(|e| format!("Unable to send on socket {socket_id}: {e}")),
         }
     }
 
-    pub fn broadcast(
-        &mut self,
-        socket_id: SocketId,
-        buffer: crate::buffer_pool::BufferLease<crate::buffer_pool::SocketBuffer>,
-        size: usize,
-    ) -> Result<(), String> {
+    pub fn broadcast(&mut self, socket_id: SocketId, payload: &[u8]) -> Result<(), String> {
         match &mut self.backend {
             Backend::SingleThreadPoller { sockets, .. } => {
                 let sock = sockets
                     .get_mut(socket_id)
                     .ok_or_else(|| format!("Socket index {socket_id} out of range"))?;
-                let payload = buffer.as_ref();
-                sock.broadcast(&payload[..size])
+                sock.broadcast(payload)
             }
             Backend::WorkerPool { workers, .. } => workers
                 .get(socket_id)
                 .ok_or_else(|| format!("Socket worker index {socket_id} out of range"))?
                 .cmd_tx
-                .send(SocketWorkerCommand::Broadcast { buffer, size })
+                .send(SocketWorkerCommand::Broadcast {
+                    payload: payload.to_vec(),
+                })
                 .map_err(|e| format!("Unable to broadcast on socket {socket_id}: {e}")),
         }
     }
