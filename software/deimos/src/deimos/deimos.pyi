@@ -151,7 +151,9 @@ class Controller:
     def run(self) -> str:
         """Run the control program."""
         ...
-    def run_nonblocking(self) -> RunHandle:
+    def run_nonblocking(
+        self, latest_value_cutoff_freq: float | None = None
+    ) -> RunHandle:
         """Run the control program on a separate thread and return a handle
         for coordination."""
         ...

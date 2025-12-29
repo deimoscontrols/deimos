@@ -31,7 +31,9 @@ use crate::{
 use deimos_shared::states::*;
 
 use crate::calc::{CalcOrchestrator, FieldName, PeripheralInputName};
-use crate::dispatcher::{Dispatcher, LatestValueDispatcher, LatestValueHandle, Row, fmt_time};
+use crate::dispatcher::{
+    Dispatcher, LatestValueDispatcher, LatestValueHandle, LowPassDispatcher, Row, fmt_time,
+};
 use crate::socket::udp::UdpSocket;
 use crate::socket::{Socket, SocketAddr, SocketOrchestrator, SocketRecvMeta};
 use context::{ControllerCtx, LossOfContactPolicy, Termination};
@@ -172,12 +174,36 @@ impl Controller {
     }
 
     /// Run the control program on a separate thread and return a handle for coordination.
-    pub fn run_nonblocking(self, plugins: Option<PluginMap<'static>>) -> RunHandle {
+    pub fn run_nonblocking(
+        self,
+        plugins: Option<PluginMap<'static>>,
+        latest_value_cutoff_freq: Option<f64>,
+    ) -> RunHandle {
         let mut controller = self;
 
         // Attach a latest-value dispatcher to expose live data.
+        let existing_names = BTreeSet::from_iter(controller.dispatcher_names().clone());
+        //   Make sure we don't overwrite an existing dispatcher name.
+        let mut latest_name = "latest".to_string();
+        if existing_names.contains(&latest_name) {
+            let mut suffix = 1;
+            loop {
+                let candidate = format!("latest_{suffix}");
+                if !existing_names.contains(&candidate) {
+                    latest_name = candidate;
+                    break;
+                }
+                suffix += 1;
+            }
+        }
+
+        // Add the handle to get the latest values, possibly with a filter applied.
         let (latest_dispatcher, latest_handle) = LatestValueDispatcher::new();
-        controller.add_dispatcher("latest", latest_dispatcher);
+        let latest_dispatcher: Box<dyn Dispatcher> = match latest_value_cutoff_freq {
+            Some(cutoff_hz) => LowPassDispatcher::new(latest_dispatcher, cutoff_hz),
+            None => latest_dispatcher,
+        };
+        controller.add_dispatcher(&latest_name, latest_dispatcher);
 
         // Set up machinery for interacting with the controller during operation.
         let termination_signal = Arc::new(AtomicBool::new(false));
@@ -185,11 +211,21 @@ impl Controller {
         controller.ctx.manual_inputs = manual_input_values.clone();
         let manual_input_names = controller.manual_input_names();
 
+        // Make a handle to the termination signal.
         let term_for_thread = termination_signal.clone();
 
+        // Run the controller on a separate thread.
         let handle = thread::Builder::new()
             .name("controller-run".to_string())
-            .spawn(move || controller.run(&plugins, Some(&*term_for_thread)))
+            .spawn(move || {
+                // Run to completion.
+                let result = controller.run(&plugins, Some(&*term_for_thread));
+
+                // Remove the temporary latest-value handle when we're done.
+                controller.remove_dispatcher(&latest_name);
+
+                result
+            })
             .expect("Failed to spawn controller thread");
 
         RunHandle {
