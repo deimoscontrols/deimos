@@ -8,7 +8,7 @@ use tracing::warn;
 use crate::RunHandle;
 use crate::Socket;
 use crate::calc::Calc;
-use crate::dispatcher::Dispatcher;
+use crate::dispatcher::{DataFrameDispatcher, DataFrameHandle, Dispatcher, Overflow};
 use crate::peripheral::Peripheral;
 
 use super::*;
@@ -311,6 +311,20 @@ impl Controller {
     fn add_calc(&mut self, name: &str, calc: Box<dyn Calc>) -> PyResult<()> {
         self.ctrl()?.add_calc(name, calc);
         Ok(())
+    }
+
+    /// Add an in-memory dataframe dispatcher and return its shared handle.
+    fn add_dataframe_dispatcher(
+        &mut self,
+        name: &str,
+        max_size_megabytes: usize,
+        overflow_behavior: Overflow,
+    ) -> PyResult<DataFrameHandle> {
+        let (dispatcher, _df_handle) =
+            DataFrameDispatcher::new(max_size_megabytes, overflow_behavior, None);
+        let handle = dispatcher.handle();
+        self.ctrl()?.add_dispatcher(name, dispatcher);
+        Ok(handle)
     }
 
     /// Add a dispatcher via a JSON-serializable dispatcher instance.

@@ -168,6 +168,14 @@ class Controller:
     def add_calc(self, name: str, calc: CalcLike) -> None:
         """Add a calc to the expression graph that runs on every cycle"""
         ...
+    def add_dataframe_dispatcher(
+        self,
+        name: str,
+        max_size_megabytes: int,
+        overflow_behavior: Overflow,
+    ) -> dispatcher.DataFrameHandle:
+        """Add an in-memory dataframe dispatcher and return its shared handle."""
+        ...
     def add_dispatcher(self, name: str, dispatcher: DispatcherLike) -> None:
         """Add a dispatcher via a JSON-serializable dispatcher instance."""
         ...
@@ -205,7 +213,6 @@ class Controller:
         ...
     @op_name.setter
     def op_name(self, v: str) -> None: ...
-
     @property
     def op_dir(self) -> str:
         """
@@ -216,28 +223,24 @@ class Controller:
         ...
     @op_dir.setter
     def op_dir(self, v: str) -> None: ...
-
     @property
     def dt_ns(self) -> int:
         """[ns] control program cycle period."""
         ...
     @dt_ns.setter
     def dt_ns(self, v: int) -> None: ...
-
     @property
     def rate_hz(self) -> float:
         """[Hz] control program cycle rate."""
         ...
     @rate_hz.setter
     def rate_hz(self, v: float) -> None: ...
-
     @property
     def peripheral_loss_of_contact_limit(self) -> int:
         """Number of missed packets from the controller that indicates disconnection."""
         ...
     @peripheral_loss_of_contact_limit.setter
     def peripheral_loss_of_contact_limit(self, v: int) -> None: ...
-
     @property
     def controller_loss_of_contact_limit(self) -> int:
         """Number of missed packets from a peripheral that indicates disconnection."""
@@ -259,7 +262,6 @@ class Controller:
 
     @loss_of_contact_policy.setter
     def loss_of_contact_policy(self, v: LossOfContactPolicy) -> None: ...
-
     @property
     def loop_method(self) -> LoopMethod:
         """
@@ -271,7 +273,6 @@ class Controller:
         ...
     @loop_method.setter
     def loop_method(self, v: LoopMethod) -> None: ...
-
     @property
     def enable_manual_inputs(self) -> bool:
         """Whether manual input overrides should be applied during the control loop."""
@@ -645,7 +646,12 @@ class _DispatcherModule(ModuleType):
         ) -> None: ...
 
     class DataFrameDispatcher(_DispatcherBase):
-        """Store collected data in in-memory columns, moving columns into
+        """
+        WARNING: This dispatcher requires a direct link in the backend, and can't be
+        initialized properly from Python. Instead, it can be initialized by
+        `Controller.add_dataframe_dispatcher`.
+
+        Store collected data in in-memory columns, moving columns into
         a dataframe behind a shared reference at termination.
 
         To avoid deadlocks, the dataframe is not updated until after
@@ -656,9 +662,21 @@ class _DispatcherModule(ModuleType):
             max_size_megabytes: int,
             overflow_behavior: Overflow,
         ) -> None: ...
+        def handle(self) -> dispatcher.DataFrameHandle: ...
+
+    class DataFrameHandle:
+        """Shared handle for reading collected dataframe data."""
+        def columns(self) -> dict[str, list[float]]: ...
+        def time(self) -> list[str]: ...
+        def timestamp(self) -> list[int]: ...
 
     class LatestValueDispatcher(_DispatcherBase):
-        """Dispatcher that always keeps the latest row available via a shared handle."""
+        """
+        WARNING: This dispatcher requires a direct link in the backend, and can't be
+        initialized properly from Python.
+
+        Dispatcher that always keeps the latest row available via a shared handle.
+        """
         def __init__(self) -> None: ...
 
     class ChannelFilter(_DispatcherBase):

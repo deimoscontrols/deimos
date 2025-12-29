@@ -3,7 +3,8 @@
 
 use serde::{Deserialize, Serialize};
 use std::{
-    sync::{Arc, RwLock, RwLockWriteGuard},
+    collections::HashMap,
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     time::SystemTime,
 };
 use tracing::info;
@@ -96,6 +97,68 @@ pub struct DataFrameDispatcher {
     df: Arc<RwLock<SimpleDataFrame>>,
 }
 
+/// Shared handle for accessing collected dataframe data.
+#[cfg_attr(feature = "python", pyclass)]
+#[derive(Clone, Default)]
+pub struct DataFrameHandle {
+    df: Arc<RwLock<SimpleDataFrame>>,
+}
+
+impl DataFrameHandle {
+    fn new(df: Arc<RwLock<SimpleDataFrame>>) -> Self {
+        Self { df }
+    }
+
+    fn read(&self) -> Result<RwLockReadGuard<'_, SimpleDataFrame>, String> {
+        self.df
+            .read()
+            .map_err(|e| format!("Unable to lock dataframe: {e}"))
+    }
+
+    /// Convert row data into column-major format keyed by channel name.
+    pub fn columns(&self) -> Result<HashMap<String, Vec<f64>>, String> {
+        let df = self.read()?;
+        let row_count = df.rows.len();
+        let channel_names = df.channel_names.clone();
+
+        let mut cols: Vec<Vec<f64>> = channel_names
+            .iter()
+            .map(|_| Vec::with_capacity(row_count))
+            .collect();
+
+        for row in df.rows.iter() {
+            for (col, val) in cols.iter_mut().zip(row.channel_values.iter()) {
+                col.push(*val);
+            }
+        }
+
+        Ok(channel_names
+            .into_iter()
+            .zip(cols)
+            .collect::<HashMap<_, _>>())
+    }
+
+    /// Extract the time column (RFC3339 UTC strings) for all rows.
+    pub fn time(&self) -> Result<Vec<String>, String> {
+        let df = self.read()?;
+        let mut out = Vec::with_capacity(df.rows.len());
+        for row in df.rows.iter() {
+            out.push(row.system_time.clone());
+        }
+        Ok(out)
+    }
+
+    /// Extract the timestamp column (ns since start) for all rows.
+    pub fn timestamp(&self) -> Result<Vec<i64>, String> {
+        let df = self.read()?;
+        let mut out = Vec::with_capacity(df.rows.len());
+        for row in df.rows.iter() {
+            out.push(row.timestamp);
+        }
+        Ok(out)
+    }
+}
+
 impl DataFrameDispatcher {
     /// Create a dispatcher that will clear the data in the dataframe
     /// at the start of a run, and store data in the dataframe at the
@@ -138,6 +201,11 @@ impl DataFrameDispatcher {
             .try_write()
             .map_err(|e| format!("Unable to lock dataframe: {e}"))
     }
+
+    /// Create a shared handle for reading dataframe contents.
+    pub fn handle(&self) -> DataFrameHandle {
+        DataFrameHandle::new(self.df.clone())
+    }
 }
 
 py_json_methods!(
@@ -147,8 +215,34 @@ py_json_methods!(
     fn py_new(max_size_megabytes: usize, overflow_behavior: Overflow) -> PyResult<Self> {
         let (dispatcher, _df_handle) = Self::new(max_size_megabytes, overflow_behavior, None);
         Ok(*dispatcher)
+    },
+    #[pyo3(name = "handle")]
+    fn py_handle(&self) -> DataFrameHandle {
+        self.handle()
     }
 );
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl DataFrameHandle {
+    #[pyo3(name = "columns")]
+    fn py_columns(&self) -> PyResult<HashMap<String, Vec<f64>>> {
+        self.columns()
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+    }
+
+    #[pyo3(name = "time")]
+    fn py_time(&self) -> PyResult<Vec<String>> {
+        self.time()
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+    }
+
+    #[pyo3(name = "timestamp")]
+    fn py_timestamp(&self) -> PyResult<Vec<i64>> {
+        self.timestamp()
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+    }
+}
 
 #[typetag::serde]
 impl Dispatcher for DataFrameDispatcher {

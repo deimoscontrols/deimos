@@ -6,7 +6,7 @@ use std::time::SystemTime;
 mod tsdb;
 pub use tsdb::TimescaleDbDispatcher;
 mod df;
-pub use df::DataFrameDispatcher;
+pub use df::{DataFrameDispatcher, DataFrameHandle};
 mod latest;
 pub use latest::{LatestValueDispatcher, LatestValueHandle, RowCell};
 mod channel_filter;

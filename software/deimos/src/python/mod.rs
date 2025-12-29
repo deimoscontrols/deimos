@@ -56,8 +56,8 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     mod dispatcher_ {
         #[pymodule_export]
         pub use crate::dispatcher::{
-            ChannelFilter, CsvDispatcher, DataFrameDispatcher, DecimationDispatcher,
-            LatestValueDispatcher, LowPassDispatcher, TimescaleDbDispatcher,
+            ChannelFilter, CsvDispatcher, DataFrameDispatcher, DataFrameHandle,
+            DecimationDispatcher, LatestValueDispatcher, LowPassDispatcher, TimescaleDbDispatcher,
         };
     }
 
