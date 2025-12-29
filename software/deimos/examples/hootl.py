@@ -39,9 +39,9 @@ def main() -> None:
         ctrl.loop_method = loop_method
 
         ctrl.clear_sockets()
-        ctrl.add_socket(socket.ThreadChannelSocket("mockup_chan"))
-        ctrl.add_socket(socket.UnixSocket("ctrl"))
-        ctrl.add_socket(socket.UdpSocket())
+        ctrl.add_socket("mockup_chan", socket.ThreadChannelSocket("mockup_chan"))
+        ctrl.add_socket("ctrl", socket.UnixSocket("ctrl"))
+        ctrl.add_socket("udp", socket.UdpSocket())  # Included by default, but cleared
 
         ctrl.add_peripheral("mock_thread", mock_thread)
         ctrl.add_peripheral("mock_unix", mock_unix)

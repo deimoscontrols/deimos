@@ -62,7 +62,7 @@ fn main() {
 
     // Remove the default UDP socket and add a unix socket
     controller.clear_sockets();
-    controller.add_socket(Box::new(UnixSocket::new("ipc_ex")));
+    controller.add_socket("ipc_ex", Box::new(UnixSocket::new("ipc_ex")));
 
     // Add an in-memory data target
     let (df_dispatcher, df_handle) = DataFrameDispatcher::new(1, Overflow::Error, None);

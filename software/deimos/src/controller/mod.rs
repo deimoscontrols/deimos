@@ -56,7 +56,7 @@ pub struct Controller {
     pub ctx: ControllerCtx,
 
     // Appendages
-    sockets: Vec<Box<dyn Socket>>,
+    sockets: BTreeMap<String, Box<dyn Socket>>,
     dispatchers: BTreeMap<String, Box<dyn Dispatcher>>,
     peripherals: BTreeMap<String, Box<dyn Peripheral>>,
     orchestrator: CalcOrchestrator,
@@ -103,7 +103,8 @@ pub struct RunHandle {
 impl Default for Controller {
     fn default() -> Self {
         // Include a UDP socket by default, but otherwise blank
-        let sockets: Vec<Box<dyn Socket>> = vec![Box::new(UdpSocket::new())];
+        let mut sockets: BTreeMap<String, Box<dyn Socket>> = BTreeMap::new();
+        sockets.insert("udp".to_string(), Box::new(UdpSocket::new()));
 
         let dispatchers = BTreeMap::new();
         let peripherals = BTreeMap::new();
@@ -242,8 +243,16 @@ impl Controller {
     }
 
     /// Register a socket
-    pub fn add_socket(&mut self, socket: Box<dyn Socket>) {
-        self.sockets.push(socket);
+    pub fn add_socket(&mut self, name: &str, socket: Box<dyn Socket>) {
+        if self.sockets.contains_key(name) {
+            warn!("Socket '{name}' overwritten.");
+        }
+        self.sockets.insert(name.to_string(), socket);
+    }
+
+    /// Remove a socket by name.
+    pub fn remove_socket(&mut self, name: &str) -> Option<Box<dyn Socket>> {
+        self.sockets.remove(name)
     }
 
     /// Remove all peripherals
@@ -261,6 +270,20 @@ impl Controller {
         self.sockets.clear();
     }
 
+    fn socket_names(&self) -> Vec<String> {
+        self.sockets.keys().cloned().collect()
+    }
+
+    fn socket_by_index_mut<'a>(
+        &'a mut self,
+        socket_names: &'a [String],
+        socket_id: usize,
+    ) -> Option<&'a mut Box<dyn Socket>> {
+        socket_names
+            .get(socket_id)
+            .and_then(|name| self.sockets.get_mut(name))
+    }
+
     /// Connect an entry in the calc graph to a command to be sent to the peripheral
     pub fn set_peripheral_input_source(&mut self, input_field: &str, source_field: &str) {
         self.orchestrator
@@ -271,7 +294,7 @@ impl Controller {
     /// No-op if called multiple times without closing sockets.
     pub fn open_sockets(&mut self) -> Result<(), String> {
         let mut buf = [0_u8; SOCKET_BUFFER_LEN];
-        for sock in self.sockets.iter_mut() {
+        for sock in self.sockets.values_mut() {
             if !sock.is_open() {
                 sock.open(&self.ctx)?;
             }
@@ -328,12 +351,12 @@ impl Controller {
 
         // Send binding requests
         if let Some(addresses) = addresses {
+            let socket_names = self.socket_names();
             // Bind specific modules with a (hopefully) nonzero timeout
             //    Send unicast request to bind
             for (socket_id, peripheral_id) in addresses.iter() {
                 let socket = self
-                    .sockets
-                    .get_mut(*socket_id)
+                    .socket_by_index_mut(&socket_names, *socket_id)
                     .ok_or_else(|| format!("Socket index {socket_id} out of range."))?;
                 socket
                     .send(*peripheral_id, &buf[..BindingInput::BYTE_LEN])
@@ -343,7 +366,7 @@ impl Controller {
             }
         } else {
             // Bind any modules on the local network
-            for socket in self.sockets.iter_mut() {
+            for socket in self.sockets.values_mut() {
                 socket
                     .broadcast(&buf[..BindingInput::BYTE_LEN])
                     .map_err(|e| format!("Failed to broadcast binding request: {e}"))?;
@@ -352,7 +375,7 @@ impl Controller {
 
         // Collect binding responses
         while start_of_binding.elapsed().as_millis() <= binding_timeout_ms as u128 {
-            for (sid, socket) in self.sockets.iter_mut().enumerate() {
+            for (sid, (socket_name, socket)) in self.sockets.iter_mut().enumerate() {
                 let mut rxbuf = [0_u8; SOCKET_BUFFER_LEN];
                 if let Some(meta) = socket.recv(&mut rxbuf, Duration::ZERO) {
                     // If this is from the right port and it's not capturing our own
@@ -376,7 +399,7 @@ impl Controller {
                         }
                     } else {
                         warn!(
-                            "Received malformed binding response on socket {sid} with {amt} bytes"
+                            "Received malformed binding response on socket {sid} ({socket_name}) with {amt} bytes"
                         );
                     }
                 }
@@ -790,7 +813,7 @@ impl Controller {
                 error!("{msg}");
 
                 // Close sockets and exit
-                self.sockets.iter_mut().for_each(|sock| sock.close());
+                self.sockets.values_mut().for_each(|sock| sock.close());
 
                 return Err(msg);
             }
@@ -872,7 +895,7 @@ impl Controller {
             // Clear buffers.
             loop {
                 let mut received_any = false;
-                for sock in self.sockets.iter_mut() {
+                for sock in self.sockets.values_mut() {
                     if sock.recv(rxbuf, Duration::ZERO).is_some() {
                         received_any = true;
                     }
@@ -909,6 +932,7 @@ impl Controller {
             let configuring_deadline = start_of_operating_countdown
                 + Duration::from_millis(self.ctx.configuring_timeout_ms as u64);
 
+            let socket_names = self.socket_names();
             for addr in addresses.iter() {
                 //     Write configuring packet for this peripheral.
                 let (sid, pid) = addr;
@@ -919,7 +943,10 @@ impl Controller {
                 p.emit_configuring(config_input, &mut txbuf[..num_to_write]);
 
                 //     Transmit configuring packet.
-                self.sockets[*sid]
+                let socket = self
+                    .socket_by_index_mut(&socket_names, *sid)
+                    .ok_or_else(|| format!("Socket index {sid} out of range."))?;
+                socket
                     .send(*pid, &txbuf[..num_to_write])
                     .map_err(|e| format!("Failed to send configuration to {pid:?}: {e:?}"))?;
 
@@ -936,7 +963,7 @@ impl Controller {
 
             info!("Waiting for peripherals to acknowledge configuration.");
             while start_of_operating_countdown.elapsed() < operating_timeout {
-                for (sid, socket) in self.sockets.iter_mut().enumerate() {
+                for (sid, (socket_name, socket)) in self.sockets.iter_mut().enumerate() {
                     if let Some(meta) = socket.recv(rxbuf, Duration::ZERO) {
                         let amt = meta.size;
 
@@ -947,7 +974,7 @@ impl Controller {
                                 let p = bound_peripherals.get(&(sid, pid)).unwrap();
                                 if amt != p.configuring_output_size() {
                                     warn!(
-                                        "Received malformed configuration response from peripheral {pid:?} on socket {sid}."
+                                        "Received malformed configuration response from peripheral {pid:?} on socket {sid} ({socket_name})."
                                     );
                                     continue;
                                 }
@@ -1022,8 +1049,10 @@ impl Controller {
             LoopMethod::Performant => Duration::ZERO,
             LoopMethod::Efficient => Duration::from_nanos((self.ctx.dt_ns as u64 / 100).max(1_000)),
         };
-        let mut socket_orchestrator =
-            SocketOrchestrator::new(std::mem::take(&mut self.sockets), &self.ctx, worker_timeout)?;
+        let sockets = std::mem::take(&mut self.sockets)
+            .into_iter()
+            .collect::<Vec<_>>();
+        let mut socket_orchestrator = SocketOrchestrator::new(sockets, &self.ctx, worker_timeout)?;
 
         //    Pre-allocate storage for reconnection logic
         let reconnect_step_timeout = {
@@ -1105,7 +1134,7 @@ impl Controller {
                             i,
                             &mut socket_orchestrator,
                         );
-                        self.sockets = socket_orchestrator.close();
+                        self.sockets = socket_orchestrator.close().into_iter().collect();
                         let reason = format!("Lost contact with peripheral `{}`", name);
                         error!("{reason}");
                         return Err(reason);
@@ -1186,7 +1215,7 @@ impl Controller {
                             i,
                             &mut socket_orchestrator,
                         );
-                        self.sockets = socket_orchestrator.close();
+                        self.sockets = socket_orchestrator.close().into_iter().collect();
                         let reason =
                             format!("Reconnect timeout exceeded for peripheral `{}`", name);
                         error!("{reason}");
@@ -1229,7 +1258,7 @@ impl Controller {
                         i,
                         &mut socket_orchestrator,
                     );
-                    self.sockets = socket_orchestrator.close();
+                    self.sockets = socket_orchestrator.close().into_iter().collect();
                     return reason;
                 }
             }
@@ -1247,7 +1276,7 @@ impl Controller {
                         i,
                         &mut socket_orchestrator,
                     );
-                    self.sockets = socket_orchestrator.close();
+                    self.sockets = socket_orchestrator.close().into_iter().collect();
                     return reason;
                 }
             }
@@ -1464,7 +1493,7 @@ impl Controller {
                     i,
                     &mut socket_orchestrator,
                 );
-                self.sockets = socket_orchestrator.close();
+                self.sockets = socket_orchestrator.close().into_iter().collect();
                 return Err(err);
             }
 
@@ -1498,7 +1527,7 @@ impl Controller {
 
             // Run calcs
             if let Err(err) = self.orchestrator.eval() {
-                self.sockets = socket_orchestrator.close();
+                self.sockets = socket_orchestrator.close().into_iter().collect();
                 return Err(err);
             }
 
@@ -1529,7 +1558,7 @@ impl Controller {
                     .map(|e| format!("\n  {e}"))
                     .collect::<Vec<_>>()
                     .join("");
-                self.sockets = socket_orchestrator.close();
+                self.sockets = socket_orchestrator.close().into_iter().collect();
                 return Err(format!("Dispatcher error(s): {msg}"));
             }
 

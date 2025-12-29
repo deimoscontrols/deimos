@@ -328,9 +328,13 @@ impl Controller {
     }
 
     /// Add a socket via a JSON-serializable socket instance.
-    fn add_socket(&mut self, socket: Box<dyn Socket>) -> PyResult<()> {
-        self.ctrl()?.add_socket(socket);
+    fn add_socket(&mut self, name: &str, socket: Box<dyn Socket>) -> PyResult<()> {
+        self.ctrl()?.add_socket(name, socket);
         Ok(())
+    }
+
+    fn remove_socket(&mut self, name: &str) -> PyResult<bool> {
+        Ok(self.ctrl()?.remove_socket(name).is_some())
     }
 
     fn set_peripheral_input_source(

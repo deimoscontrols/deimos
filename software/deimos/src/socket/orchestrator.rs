@@ -14,14 +14,14 @@ enum Backend {
     /// Use single-threaded nonblocking polling
     /// to receive packets from sockets.
     SingleThreadPoller {
-        sockets: Vec<Box<dyn Socket>>,
+        sockets: Vec<(String, Box<dyn Socket>)>,
         next_idx: usize,
     },
 
     /// Use a threaded worker pool wtih OS scheduling to
     /// receive packets from sockets.
     WorkerPool {
-        workers: Vec<SocketWorkerHandle>,
+        workers: Vec<(String, SocketWorkerHandle)>,
         events: Receiver<SocketWorkerEvent>,
     },
 }
@@ -35,12 +35,12 @@ pub struct SocketOrchestrator {
 
 impl SocketOrchestrator {
     pub fn new(
-        mut sockets: Vec<Box<dyn Socket>>,
+        mut sockets: Vec<(String, Box<dyn Socket>)>,
         ctx: &ControllerCtx,
         worker_timeout: Duration,
     ) -> Result<Self, String> {
         // Ensure sockets are open in the current context.
-        for sock in sockets.iter_mut() {
+        for (_, sock) in sockets.iter_mut() {
             if !sock.is_open() {
                 sock.open(ctx)?;
             }
@@ -54,13 +54,16 @@ impl SocketOrchestrator {
             crate::LoopMethod::Efficient => {
                 let (event_tx, event_rx) = unbounded();
                 let mut workers = Vec::with_capacity(sockets.len());
-                for (sid, socket) in sockets.into_iter().enumerate() {
-                    workers.push(SocketWorkerHandle::spawn(
-                        sid,
-                        socket,
-                        ctx.clone(),
-                        worker_timeout,
-                        event_tx.clone(),
+                for (sid, (name, socket)) in sockets.into_iter().enumerate() {
+                    workers.push((
+                        name,
+                        SocketWorkerHandle::spawn(
+                            sid,
+                            socket,
+                            ctx.clone(),
+                            worker_timeout,
+                            event_tx.clone(),
+                        ),
                     ));
                 }
                 drop(event_tx);
@@ -97,7 +100,7 @@ impl SocketOrchestrator {
                 for _ in 0..n {
                     let idx = *next_idx;
                     *next_idx = (*next_idx + 1) % n;
-                    if let Some(meta) = sockets[idx].recv(buf, Duration::ZERO) {
+                    if let Some(meta) = sockets[idx].1.recv(buf, Duration::ZERO) {
                         return Ok(Some(SocketRecvMeta {
                             socket_id: idx,
                             pid: meta.pid,
@@ -113,7 +116,7 @@ impl SocketOrchestrator {
                 std::thread::sleep(timeout);
                 Ok(None)
             }
-            Backend::WorkerPool { events, .. } => match events.recv_timeout(timeout) {
+            Backend::WorkerPool { workers, events } => match events.recv_timeout(timeout) {
                 Ok(SocketWorkerEvent::Packet {
                     socket_id,
                     meta,
@@ -137,10 +140,20 @@ impl SocketOrchestrator {
                     }))
                 }
                 Ok(SocketWorkerEvent::Error { socket_id, error }) => {
-                    Err(format!("Socket worker {socket_id} error: {error}"))
+                    let socket_name = workers.get(socket_id).map(|(name, _)| name.as_str());
+                    if let Some(name) = socket_name {
+                        Err(format!("Socket worker {socket_id} ({name}) error: {error}"))
+                    } else {
+                        Err(format!("Socket worker {socket_id} error: {error}"))
+                    }
                 }
                 Ok(SocketWorkerEvent::Closed { socket_id }) => {
-                    Err(format!("Socket worker {socket_id} closed"))
+                    let socket_name = workers.get(socket_id).map(|(name, _)| name.as_str());
+                    if let Some(name) = socket_name {
+                        Err(format!("Socket worker {socket_id} ({name}) closed"))
+                    } else {
+                        Err(format!("Socket worker {socket_id} closed"))
+                    }
                 }
                 Err(RecvTimeoutError::Timeout) => Ok(None),
                 Err(RecvTimeoutError::Disconnected) => {
@@ -159,20 +172,24 @@ impl SocketOrchestrator {
     ) -> Result<(), String> {
         match &mut self.backend {
             Backend::SingleThreadPoller { sockets, .. } => {
-                let sock = sockets
+                let (name, sock) = sockets
                     .get_mut(socket_id)
                     .ok_or_else(|| format!("Socket index {socket_id} out of range"))?;
                 sock.send(id, payload)
+                    .map_err(|e| format!("Unable to send on socket {socket_id} ({name}): {e}"))
             }
-            Backend::WorkerPool { workers, .. } => workers
-                .get(socket_id)
-                .ok_or_else(|| format!("Socket worker index {socket_id} out of range"))?
-                .cmd_tx
-                .send(SocketWorkerCommand::Send {
-                    id,
-                    payload: payload.to_vec(),
-                })
-                .map_err(|e| format!("Unable to send on socket {socket_id}: {e}")),
+            Backend::WorkerPool { workers, .. } => {
+                let (name, worker) = workers
+                    .get(socket_id)
+                    .ok_or_else(|| format!("Socket worker index {socket_id} out of range"))?;
+                worker
+                    .cmd_tx
+                    .send(SocketWorkerCommand::Send {
+                        id,
+                        payload: payload.to_vec(),
+                    })
+                    .map_err(|e| format!("Unable to send on socket {socket_id} ({name}): {e}"))
+            }
         }
     }
 
@@ -180,19 +197,23 @@ impl SocketOrchestrator {
     pub fn broadcast(&mut self, socket_id: SocketId, payload: &[u8]) -> Result<(), String> {
         match &mut self.backend {
             Backend::SingleThreadPoller { sockets, .. } => {
-                let sock = sockets
+                let (name, sock) = sockets
                     .get_mut(socket_id)
                     .ok_or_else(|| format!("Socket index {socket_id} out of range"))?;
                 sock.broadcast(payload)
+                    .map_err(|e| format!("Unable to broadcast on socket {socket_id} ({name}): {e}"))
             }
-            Backend::WorkerPool { workers, .. } => workers
-                .get(socket_id)
-                .ok_or_else(|| format!("Socket worker index {socket_id} out of range"))?
-                .cmd_tx
-                .send(SocketWorkerCommand::Broadcast {
-                    payload: payload.to_vec(),
-                })
-                .map_err(|e| format!("Unable to broadcast on socket {socket_id}: {e}")),
+            Backend::WorkerPool { workers, .. } => {
+                let (name, worker) = workers
+                    .get(socket_id)
+                    .ok_or_else(|| format!("Socket worker index {socket_id} out of range"))?;
+                worker
+                    .cmd_tx
+                    .send(SocketWorkerCommand::Broadcast {
+                        payload: payload.to_vec(),
+                    })
+                    .map_err(|e| format!("Unable to broadcast on socket {socket_id} ({name}): {e}"))
+            }
         }
     }
 
@@ -205,41 +226,44 @@ impl SocketOrchestrator {
     ) -> Result<(), String> {
         match &mut self.backend {
             Backend::SingleThreadPoller { sockets, .. } => {
-                let sock = sockets
+                let (name, sock) = sockets
                     .get_mut(socket_id)
                     .ok_or_else(|| format!("Socket index {socket_id} out of range"))?;
                 sock.update_map(id, token)
+                    .map_err(|e| format!("Unable to update socket {socket_id} ({name}) map: {e}"))
             }
-            Backend::WorkerPool { workers, .. } => workers
-                .get(socket_id)
-                .ok_or_else(|| format!("Socket worker index {socket_id} out of range"))?
-                .cmd_tx
-                .send(SocketWorkerCommand::UpdateMap { id, token })
-                .map_err(|e| format!("Unable to update socket {socket_id} map: {e}")),
+            Backend::WorkerPool { workers, .. } => {
+                let (name, worker) = workers
+                    .get(socket_id)
+                    .ok_or_else(|| format!("Socket worker index {socket_id} out of range"))?;
+                worker
+                    .cmd_tx
+                    .send(SocketWorkerCommand::UpdateMap { id, token })
+                    .map_err(|e| format!("Unable to update socket {socket_id} ({name}) map: {e}"))
+            }
         }
     }
 
     #[cold]
-    pub fn close(mut self) -> Vec<Box<dyn Socket>> {
+    pub fn close(mut self) -> Vec<(String, Box<dyn Socket>)> {
         match &mut self.backend {
             Backend::SingleThreadPoller { sockets, .. } => {
-                for socket in sockets.iter_mut() {
+                for (_, socket) in sockets.iter_mut() {
                     socket.close();
                 }
                 std::mem::take(sockets)
             }
             Backend::WorkerPool { workers, .. } => {
-                for worker in workers.iter() {
+                for (_, worker) in workers.iter() {
                     let _ = worker.cmd_tx.send(SocketWorkerCommand::Close);
                 }
 
                 let mut sockets = Vec::with_capacity(workers.len());
-                for worker in workers.drain(..) {
+                for (socket_id, (name, worker)) in workers.drain(..).enumerate() {
                     match worker.join() {
-                        Ok(socket) => sockets.push(socket),
+                        Ok(socket) => sockets.push((name, socket)),
                         Err(err) => {
-                            error!("{err}");
-                            continue;
+                            error!("Socket worker {socket_id} ({name}) join failed: {err}");
                         }
                     }
                 }

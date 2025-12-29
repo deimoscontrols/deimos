@@ -222,7 +222,6 @@ toml = [
 
 [[package]]
 name = "deimos-controls"
-version = "0.15.0"
 source = { editable = "." }
 
 [package.dev-dependencies]

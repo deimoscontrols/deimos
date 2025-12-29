@@ -64,7 +64,7 @@ python = ["pyo3"]
 name = "multi_daq"
 
 [[example]]
-name = "hootl"
+name = "ipc_plugin"
 
 [[example]]
 name = "sideloading"
