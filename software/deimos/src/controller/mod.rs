@@ -30,7 +30,7 @@ use crate::{
 };
 use deimos_shared::states::*;
 
-use crate::calc::{FieldName, Orchestrator, PeripheralInputName};
+use crate::calc::{CalcOrchestrator, FieldName, PeripheralInputName};
 use crate::dispatcher::{Dispatcher, LatestValueDispatcher, LatestValueHandle, Row, fmt_time};
 use crate::socket::udp::UdpSocket;
 use crate::socket::{Socket, SocketAddr, SocketOrchestrator, SocketRecvMeta};
@@ -59,7 +59,7 @@ pub struct Controller {
     sockets: Vec<Box<dyn Socket>>,
     dispatchers: Vec<Box<dyn Dispatcher>>,
     peripherals: BTreeMap<String, Box<dyn Peripheral>>,
-    orchestrator: Orchestrator,
+    orchestrator: CalcOrchestrator,
 }
 
 /// A snapshot of the values from all peripherals and calcs
@@ -107,7 +107,7 @@ impl Default for Controller {
 
         let dispatchers = Vec::new();
         let peripherals = BTreeMap::new();
-        let orchestrator = Orchestrator::default();
+        let orchestrator = CalcOrchestrator::default();
         let ctx = ControllerCtx::default();
 
         Self {
@@ -140,11 +140,6 @@ impl Controller {
         &self.peripherals
     }
 
-    /// The order in which the calcs will be evaluated at each cycle
-    pub fn orchestrator(&self) -> &Orchestrator {
-        &self.orchestrator
-    }
-
     /// Read-only access to edges from calcs to peripherals
     pub fn peripheral_input_sources(&self) -> &BTreeMap<PeripheralInputName, FieldName> {
         self.orchestrator.peripheral_input_sources()
@@ -152,8 +147,7 @@ impl Controller {
 
     /// Peripheral inputs that can be written manually.
     pub fn manual_input_names(&self) -> Vec<FieldName> {
-        self.orchestrator
-            .manual_input_names_for_peripherals(&self.peripherals)
+        self.orchestrator.manual_input_names(&self.peripherals)
     }
 
     /// Run the control program on a separate thread and return a handle for coordination.
@@ -1066,7 +1060,6 @@ impl Controller {
             // Record timing margin
             let controller_timing_margin = (target_time.as_secs_f64() - t.as_secs_f64()) * 1e9;
             controller_state.controller_metrics.cycle_time_margin_ns = controller_timing_margin;
-
 
             // Check for loss of contact
             match self.ctx.loss_of_contact_policy {

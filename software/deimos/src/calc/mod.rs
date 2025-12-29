@@ -1,6 +1,6 @@
 //! Calculations that are run at each cycle during operation.
 //!
-//! `Calc` objects are registered with the `Orchestrator` and serialized with the controller.
+//! `Calc` objects are registered with the `CalcOrchestrator` and serialized with the controller.
 //! Each calc is a function consuming any number of inputs and producing any number of outputs.
 use std::any::type_name;
 use std::fmt::Debug;
@@ -11,7 +11,7 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 mod orchestrator;
-pub use orchestrator::Orchestrator;
+pub(crate) use orchestrator::CalcOrchestrator;
 
 // Specific calc implementations
 
