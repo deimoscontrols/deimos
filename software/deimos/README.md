@@ -154,5 +154,5 @@ let _deserialized_controller: Controller = serde_json::from_str(&serialized_cont
 // Run the control program
 // (skipped here because there are no peripherals
 // or databases on the network in the test environment).
-// controller.run(&peripheral_plugins);
+// controller.run(&peripheral_plugins, None);
 ```

@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "deimos-controls"
-version = "0.15.0"
+dynamic = ["version"]
 description = "N-dimensional interpolation/extrapolation methods"
 authors = [{ name = "James Logan", email = "jlogan03@gmail.com" }]
 readme = "README.md"
@@ -63,6 +63,7 @@ features = ["python"]
 module-name = "deimos.deimos"
 python-packages = ["deimos"]
 python-source = "src"
+version = { source = "cargo" }
 profile = "release"
 
 #rustc-args = [

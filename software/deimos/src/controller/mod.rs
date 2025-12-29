@@ -1056,20 +1056,17 @@ impl Controller {
         let mut i: u64 = 0;
         controller_state.controller_metrics.cycle_time_margin_ns = self.ctx.dt_ns as f64;
         loop {
-            let cycle_start = Instant::now();
             let time = SystemTime::now();
             let mut t = start_of_operating.elapsed();
 
             i += 1;
             let tmean: i64 = (target_time - cycle_duration / 2).as_nanos() as i64; // Time to drive peripheral packet arrivals toward
             let timestamp = target_time.as_nanos() as i64;
-            let mut controller_timing_margin = 0.0_f64;
 
             // Record timing margin
-            {
-                controller_timing_margin = (target_time.as_secs_f64() - t.as_secs_f64()) * 1e9;
-                controller_state.controller_metrics.cycle_time_margin_ns = controller_timing_margin;
-            }
+            let controller_timing_margin = (target_time.as_secs_f64() - t.as_secs_f64()) * 1e9;
+            controller_state.controller_metrics.cycle_time_margin_ns = controller_timing_margin;
+
 
             // Check for loss of contact
             match self.ctx.loss_of_contact_policy {
@@ -1338,7 +1335,6 @@ impl Controller {
             }
 
             // Send next control input
-            let send_start = Instant::now();
             for (addr, ps) in controller_state.peripheral_state.iter_mut() {
                 // Don't spam Operating inputs to peripherals that are in the process
                 // of being reconnected
@@ -1384,7 +1380,6 @@ impl Controller {
                     // expect that level of micromanagement from a typical user.
                 }
             }
-            let send_duration = send_start.elapsed();
 
             // Receive packets until the start of the next cycle
             //     Unless we hear from each connected peripheral, assume we missed the packet
@@ -1396,8 +1391,6 @@ impl Controller {
 
             let mut worker_error: Option<String> = None;
             t = start_of_operating.elapsed();
-            let recv_start = Instant::now();
-            let recv_intended = target_time.saturating_sub(t);
             while start_of_operating.elapsed() < target_time {
                 // Set maximum time to wait for next packet.
                 let timeout = match self.ctx.loop_method {
@@ -1446,7 +1439,6 @@ impl Controller {
 
                 t = start_of_operating.elapsed();
             }
-            let recv_duration = recv_start.elapsed();
 
             // Exit if any socket has failed.
             if let Some(err) = worker_error {
@@ -1489,12 +1481,10 @@ impl Controller {
             }
 
             // Run calcs
-            let eval_start = Instant::now();
             if let Err(err) = self.orchestrator.eval() {
                 self.sockets = socket_orchestrator.close();
                 return Err(err);
             }
-            let eval_duration = eval_start.elapsed();
 
             // Send outputs to db
             //    Write metrics
@@ -1510,14 +1500,12 @@ impl Controller {
             });
             //    Send to dispatcher
             let mut dispatch_errors = Vec::new();
-            let consume_start = Instant::now();
             for dispatcher in self.dispatchers.iter_mut() {
                 if let Err(err) = dispatcher.consume(time, timestamp, channel_values.clone()) {
                     error!("{err}");
                     dispatch_errors.push(err);
                 }
             }
-            let consume_duration = consume_start.elapsed();
 
             if !dispatch_errors.is_empty() {
                 let msg = dispatch_errors
@@ -1528,22 +1516,6 @@ impl Controller {
                 self.sockets = socket_orchestrator.close();
                 return Err(format!("Dispatcher error(s): {msg}"));
             }
-
-            let cycle_duration_actual = cycle_start.elapsed();
-            let dt_ns = self.ctx.dt_ns as f64;
-            // if controller_timing_margin < 0.9 * dt_ns {
-            //     warn!(
-            //         "Cycle margin low: margin_ns={:.0} dt_ns={} recv_us={} recv_intended_us={} send_us={} eval_us={} consume_us={} cycle_us={}",
-            //         controller_timing_margin,
-            //         self.ctx.dt_ns,
-            //         recv_duration.as_micros(),
-            //         recv_intended.as_micros(),
-            //         send_duration.as_micros(),
-            //         eval_duration.as_micros(),
-            //         consume_duration.as_micros(),
-            //         cycle_duration_actual.as_micros(),
-            //     );
-            // }
 
             // Update next target time
             target_time += cycle_duration;
