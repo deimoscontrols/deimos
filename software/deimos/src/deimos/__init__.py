@@ -1,3 +1,5 @@
+from importlib.metadata import PackageNotFoundError, version
+
 from .deimos import (
     calc,
     dispatcher,
@@ -10,6 +12,11 @@ from .deimos import (
     LoopMethod,
 )
 
+try:
+    __version__ = version("deimos-controls")
+except PackageNotFoundError:
+    __version__ = "0.0.0"
+
 __all__ = [
     "calc",
     "dispatcher",
@@ -20,4 +27,5 @@ __all__ = [
     "Termination",
     "LossOfContactPolicy",
     "LoopMethod",
+    "__version__",
 ]
