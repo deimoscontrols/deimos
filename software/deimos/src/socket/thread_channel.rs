@@ -85,7 +85,7 @@ impl Socket for ThreadChannelSocket {
             .map_err(|e| format!("Failed to send user channel packet: {e}"))
     }
 
-    fn recv_into(&mut self, buf: &mut [u8], timeout: Duration) -> Option<SocketPacketMeta> {
+    fn recv(&mut self, buf: &mut [u8], timeout: Duration) -> Option<SocketPacketMeta> {
         let endpoint = self.endpoint.as_ref()?;
         let msg = if timeout.is_zero() {
             endpoint.rx().try_recv().ok()?

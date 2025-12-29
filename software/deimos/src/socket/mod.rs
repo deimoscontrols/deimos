@@ -18,7 +18,7 @@ pub type SocketId = usize;
 /// Address of a peripheral that is communicating on a socket
 pub type SocketAddr = (usize, PeripheralId);
 
-/// Opaque token for a socket-specific address seen by recv_into().
+/// Opaque token for a socket-specific address seen by recv().
 pub type SocketAddrToken = u64;
 
 pub use orchestrator::SocketOrchestrator;
@@ -67,12 +67,12 @@ pub trait Socket: Send + Sync {
 
     /// Receive a packet, if available, along with an address token
     /// and a timestamp indicating when the packet was received.
-    fn recv_into(&mut self, buf: &mut [u8], timeout: Duration) -> Option<SocketPacketMeta>;
+    fn recv(&mut self, buf: &mut [u8], timeout: Duration) -> Option<SocketPacketMeta>;
 
     /// Send a packet to every reachable peripheral
     fn broadcast(&mut self, msg: &[u8]) -> Result<(), String>;
 
     /// Update address map to associate the address identified by `token`
-    /// (received via recv_into()) with a peripheral id.
+    /// (received via recv()) with a peripheral id.
     fn update_map(&mut self, id: PeripheralId, token: SocketAddrToken) -> Result<(), String>;
 }

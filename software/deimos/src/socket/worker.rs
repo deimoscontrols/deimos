@@ -98,7 +98,7 @@ impl SocketWorker {
             // Check for incoming packets from peripherals
             if handled_commands {
                 let mut payload = vec![0_u8; SOCKET_BUFFER_LEN];
-                if let Some(meta) = self.socket.recv_into(&mut payload, Duration::ZERO) {
+                if let Some(meta) = self.socket.recv(&mut payload, Duration::ZERO) {
                     payload.truncate(meta.size);
                     if self
                         .event_tx
@@ -118,7 +118,7 @@ impl SocketWorker {
             }
 
             let mut payload = vec![0_u8; SOCKET_BUFFER_LEN];
-            if let Some(meta) = self.socket.recv_into(&mut payload, self.recv_timeout) {
+            if let Some(meta) = self.socket.recv(&mut payload, self.recv_timeout) {
                 payload.truncate(meta.size);
                 if self
                     .event_tx

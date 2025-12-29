@@ -276,7 +276,7 @@ impl Controller {
                 sock.open(&self.ctx)?;
             }
             loop {
-                if sock.recv_into(&mut buf, Duration::ZERO).is_none() {
+                if sock.recv(&mut buf, Duration::ZERO).is_none() {
                     break;
                 }
             }
@@ -354,7 +354,7 @@ impl Controller {
         while start_of_binding.elapsed().as_millis() <= binding_timeout_ms as u128 {
             for (sid, socket) in self.sockets.iter_mut().enumerate() {
                 let mut rxbuf = [0_u8; SOCKET_BUFFER_LEN];
-                if let Some(meta) = socket.recv_into(&mut rxbuf, Duration::ZERO) {
+                if let Some(meta) = socket.recv(&mut rxbuf, Duration::ZERO) {
                     // If this is from the right port and it's not capturing our own
                     // broadcast binding request, bind the module
                     // let recvd = &udp_buf[..BindingOutput::BYTE_LEN];
@@ -873,7 +873,7 @@ impl Controller {
             loop {
                 let mut received_any = false;
                 for sock in self.sockets.iter_mut() {
-                    if sock.recv_into(rxbuf, Duration::ZERO).is_some() {
+                    if sock.recv(rxbuf, Duration::ZERO).is_some() {
                         received_any = true;
                     }
                 }
@@ -937,7 +937,7 @@ impl Controller {
             info!("Waiting for peripherals to acknowledge configuration.");
             while start_of_operating_countdown.elapsed() < operating_timeout {
                 for (sid, socket) in self.sockets.iter_mut().enumerate() {
-                    if let Some(meta) = socket.recv_into(rxbuf, Duration::ZERO) {
+                    if let Some(meta) = socket.recv(rxbuf, Duration::ZERO) {
                         let amt = meta.size;
 
                         // Make sure the packet is the right size and the peripheral ID is recognized.
@@ -1415,7 +1415,7 @@ impl Controller {
                 };
 
                 // Wait for the next packet
-                match socket_orchestrator.recv_into(rxbuf, timeout) {
+                match socket_orchestrator.recv(rxbuf, timeout) {
                     Ok(Some(meta)) => {
                         let payload = &rxbuf[..meta.size];
                         // Check if this is a reconnection attempt, and if so,

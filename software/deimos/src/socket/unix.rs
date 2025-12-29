@@ -168,7 +168,7 @@ impl Socket for UnixSocket {
         Ok(())
     }
 
-    fn recv_into(&mut self, buf: &mut [u8], timeout: Duration) -> Option<SocketPacketMeta> {
+    fn recv(&mut self, buf: &mut [u8], timeout: Duration) -> Option<SocketPacketMeta> {
         // Check if there is anything to receive,
         // and filter out packets from unexpected source port
         let sock = self.socket.as_mut()?;

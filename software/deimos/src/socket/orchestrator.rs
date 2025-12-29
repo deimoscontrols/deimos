@@ -83,7 +83,7 @@ impl SocketOrchestrator {
     }
 
     #[inline]
-    pub fn recv_into(
+    pub fn recv(
         &mut self,
         buf: &mut [u8],
         timeout: Duration,
@@ -97,7 +97,7 @@ impl SocketOrchestrator {
                 for _ in 0..n {
                     let idx = *next_idx;
                     *next_idx = (*next_idx + 1) % n;
-                    if let Some(meta) = sockets[idx].recv_into(buf, Duration::ZERO) {
+                    if let Some(meta) = sockets[idx].recv(buf, Duration::ZERO) {
                         return Ok(Some(SocketRecvMeta {
                             socket_id: idx,
                             pid: meta.pid,
