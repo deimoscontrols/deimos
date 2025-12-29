@@ -6,6 +6,8 @@ use std::time::{Duration, SystemTime};
 use std::{collections::BTreeMap, default::Default};
 
 use super::channel::{Channel, Endpoint};
+use super::manual_inputs_default;
+use super::ManualInputMap;
 use crate::buffer_pool::BufferPool;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -193,6 +195,13 @@ pub struct ControllerCtx {
     /// a resource leak.
     pub user_channels: Arc<RwLock<BTreeMap<String, Channel>>>,
 
+    /// Manual input overrides that can be written while the controller is running.
+    #[serde(skip, default = "manual_inputs_default")]
+    pub manual_inputs: ManualInputMap,
+
+    /// Whether manual input overrides should be applied during the control loop.
+    pub enable_manual_inputs: bool,
+
     /// Shared buffer pool for dispatcher outputs.
     #[serde(skip, default = "default_dispatcher_buffer_pool")]
     pub dispatcher_buffer_pool: BufferPool<Vec<f64>>,
@@ -241,6 +250,8 @@ impl Default for ControllerCtx {
             loop_method: LoopMethod::Performant,
             user_ctx: BTreeMap::new(),
             user_channels: Arc::new(RwLock::new(BTreeMap::new())),
+            manual_inputs: manual_inputs_default(),
+            enable_manual_inputs: true,
             dispatcher_buffer_pool: default_dispatcher_buffer_pool(),
         }
     }

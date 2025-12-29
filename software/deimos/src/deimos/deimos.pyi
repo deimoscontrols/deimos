@@ -267,6 +267,13 @@ class Controller:
     @loop_method.setter
     def loop_method(self, v: LoopMethod) -> None: ...
 
+    @property
+    def enable_manual_inputs(self) -> bool:
+        """Whether manual input overrides should be applied during the control loop."""
+        ...
+    @enable_manual_inputs.setter
+    def enable_manual_inputs(self, v: bool) -> None: ...
+
 class _CalcBase:
     def to_json(self) -> str:
         """Serialize to typetagged JSON so Python can pass into trait handoff."""

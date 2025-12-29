@@ -64,7 +64,7 @@ fn main() {
     }
 
     // Run to planned termination
-    controller.run(&None, None, None).unwrap();
+    controller.run(&None, None).unwrap();
 }
 
 /// A dummy calc that calls out the time on a channel each cycle

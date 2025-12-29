@@ -81,7 +81,7 @@ impl Controller {
         std::thread::scope(|s| {
             let ctrl = self.ctrl()?;
             let term_for_thread = termination_signal.clone();
-            let handle = s.spawn(move || ctrl.run(&None, Some(&*term_for_thread), None));
+            let handle = s.spawn(move || ctrl.run(&None, Some(&*term_for_thread)));
 
             // Wait without using too much processor time
             while !handle.is_finished() {
@@ -284,6 +284,17 @@ impl Controller {
     #[setter(loop_method)]
     fn set_loop_method(&mut self, _py: Python<'_>, v: crate::LoopMethod) -> PyResult<()> {
         self.ctx_mut()?.loop_method = v.clone();
+        Ok(())
+    }
+
+    #[getter(enable_manual_inputs)]
+    fn enable_manual_inputs(&self) -> PyResult<bool> {
+        Ok(self.ctx()?.enable_manual_inputs)
+    }
+
+    #[setter(enable_manual_inputs)]
+    fn set_enable_manual_inputs(&mut self, v: bool) -> PyResult<()> {
+        self.ctx_mut()?.enable_manual_inputs = v;
         Ok(())
     }
 

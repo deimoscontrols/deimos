@@ -43,6 +43,10 @@ use tracing::{debug, error, info, warn};
 /// Peripheral inputs set manually from outside the control program.
 pub type ManualInputMap = Arc<RwLock<HashMap<FieldName, f64>>>;
 
+pub(crate) fn manual_inputs_default() -> ManualInputMap {
+    Arc::new(RwLock::new(HashMap::new()))
+}
+
 /// The controller implements the control loop,
 /// synchronizes sample reporting time between the peripherals,
 /// and dispatches measured data, calculations, and metrics to the data pipeline.
@@ -76,7 +80,7 @@ pub struct Snapshot {
 /// A handle to a [Controller] running via [Controller::run_nonblocking] that allows
 /// reading and writing values from outside the control program during operation
 /// and signaling the controller to shut down.
-/// 
+///
 /// Signals the controller to shut down when dropped.
 #[cfg_attr(feature = "python", pyclass)]
 pub struct RunHandle {
@@ -160,20 +164,15 @@ impl Controller {
         let (latest_dispatcher, latest_handle) = LatestValueDispatcher::new();
         controller.add_dispatcher(Box::new(latest_dispatcher));
 
+        // Set up machinery for interacting with the controller during operation.
         let termination_signal = Arc::new(AtomicBool::new(false));
-        let manual_input_values: ManualInputMap = Arc::new(RwLock::new(HashMap::new()));
+        let manual_input_values = manual_inputs_default();
+        controller.ctx.manual_inputs = manual_input_values.clone();
         let manual_input_names = controller.manual_input_names();
 
         let term_for_thread = termination_signal.clone();
-        let manual_inputs_for_thread = manual_input_values.clone();
 
-        let handle = std::thread::spawn(move || {
-            controller.run(
-                &plugins,
-                Some(&*term_for_thread),
-                Some(manual_inputs_for_thread),
-            )
-        });
+        let handle = std::thread::spawn(move || controller.run(&plugins, Some(&*term_for_thread)));
 
         RunHandle {
             termination: termination_signal,
@@ -316,7 +315,7 @@ impl Controller {
                 let socket = self
                     .sockets
                     .get_mut(*socket_id)
-                    .ok_or_else(|| format!("Socket index {socket_id} out of range"))?;
+                    .ok_or_else(|| format!("Socket index {socket_id} out of range."))?;
                 socket
                     .send(*peripheral_id, &buf[..BindingInput::BYTE_LEN])
                     .map_err(|e| {
@@ -368,14 +367,14 @@ impl Controller {
     }
 
     /// Scan the local network for peripherals that are available to bind,
-    /// giving `timeout_ms` for peripherals to respond
+    /// giving `timeout_ms` for peripherals to respond.
     pub fn scan(
         &mut self,
         timeout_ms: u16,
         plugins: &Option<PluginMap>,
     ) -> Result<BTreeMap<SocketAddr, Box<dyn Peripheral>>, String> {
         // Ping with the longer desired timeout for hearing back from the peripherals,
-        // but a zero timeout for the peripherals returning to Binding
+        // but a zero timeout for the peripherals returning to Binding.
         self.bind(None, timeout_ms, 0, plugins)
     }
 
@@ -424,17 +423,25 @@ impl Controller {
             }
         }
 
-        // Reset dispatchers
+        // Reset dispatchers.
         self.dispatchers
             .iter_mut()
             .filter_map(|d| d.terminate().err())
             .for_each(|e| err_rollup.push(e));
 
-        // Reset calc orchestrator
+        // Reset calc orchestrator.
         let _ = self
             .orchestrator
             .terminate()
             .map_err(|e| err_rollup.push(e.to_string()));
+
+        if let Ok(mut guard) = self.ctx.manual_inputs.write() {
+            guard.clear();
+        } else {
+            let msg = "Manual input map lock poisoned; stale manual inputs may persist.";
+            error!("{msg}");
+            err_rollup.push(msg.to_string());
+        }
 
         // Log all errors encountered during shutdown
         if !err_rollup.is_empty() {
@@ -442,6 +449,7 @@ impl Controller {
         }
     }
 
+    /// Handle an incoming packet from a socket.
     fn process_socket_packet(
         &mut self,
         controller_state: &mut ControllerState,
@@ -474,9 +482,9 @@ impl Controller {
         let n = p.operating_roundtrip_output_size();
 
         if amt != n {
-            if cycle_index > 4 {
+            if cycle_index > 10 {
                 // During the first few cycles, we might catch a configuration response
-                // coming in late, which isn't concerning
+                // coming in late, which isn't concerning.
                 warn!("Received malformed packet from peripheral `{}`", &ps.name);
             }
             return;
@@ -515,7 +523,7 @@ impl Controller {
 
         // Handle Binding response
         if packet.size == BindingOutput::BYTE_LEN {
-            // Parse
+            // Parse.
             let binding_response = BindingOutput::read_bytes(packet.payload());
             let pid = binding_response.peripheral_id;
             let addr = (socket_id, pid);
@@ -536,7 +544,7 @@ impl Controller {
                 ConnState::Binding {
                     reconnect_deadline, ..
                 } => reconnect_deadline,
-                _ => return false, // Indicate that this was not a reconnection packet
+                _ => return false, // Indicate that this was not a reconnection packet.
             };
 
             // Update address maps.
@@ -554,7 +562,7 @@ impl Controller {
                 return true;
             }
 
-            // Build Configuring packet
+            // Build Configuring packet.
             let config_input = ConfiguringInput {
                 dt_ns: self.ctx.dt_ns,
                 timeout_to_operating_ns: 0, // Start immediately on next cycle
@@ -568,10 +576,10 @@ impl Controller {
             let buf = lease.as_mut();
             p.emit_configuring(config_input, &mut buf[..num_to_write]);
 
-            // Transmit Configuring packet
+            // Transmit Configuring packet.
             let send_result = socket_orchestrator.send(socket_id, pid, lease, num_to_write);
 
-            // Mark disconnected if the socket fails
+            // Mark disconnected if the socket fails.
             if let Err(err) = send_result {
                 error!("{err}");
                 ps.conn_state = ConnState::Disconnected {
@@ -580,7 +588,7 @@ impl Controller {
                 return true;
             }
 
-            // Update peripheral state
+            // Update peripheral state.
             ps.acknowledged_configuration = false;
             ps.conn_state = ConnState::Configuring {
                 configuring_timeout: now + reconnect_step_timeout,
@@ -589,13 +597,13 @@ impl Controller {
 
             info!("Sent Configuring input packet to peripheral {}", ps.name);
 
-            // Indicate that this was a reconnection packet
+            // Indicate that this was a reconnection packet.
             return true;
         }
 
-        // Handle Configuring response
+        // Handle Configuring response.
         if packet.size == ConfiguringOutput::BYTE_LEN {
-            // Get this peripheral's state info
+            // Get this peripheral's state info.
             let pid = match packet.pid {
                 Some(pid) => pid,
                 None => return false,
@@ -603,7 +611,7 @@ impl Controller {
             let addr = (socket_id, pid);
             let ps = match controller_state.peripheral_state.get_mut(&addr) {
                 Some(ps) => ps,
-                None => return false, // Indicate that this was not a reconnection packet
+                None => return false, // Indicate that this was not a reconnection packet.
             };
 
             // Check if we were expecting a Configuring response from this peripheral.
@@ -613,7 +621,7 @@ impl Controller {
                 ConnState::Configuring {
                     reconnect_deadline, ..
                 } => reconnect_deadline,
-                _ => return false, // Indicate that this was not a reconnection packet
+                _ => return false, // Indicate that this was not a reconnection packet.
             };
 
             // Check whether the configuration was acknowledged by the peripheral.
@@ -628,7 +636,7 @@ impl Controller {
                 }
                 _ => {
                     warn!(
-                        "Peripheral {} rejected configuration during reconnect",
+                        "Peripheral {} rejected configuration during reconnect.",
                         ps.name
                     );
                     ps.conn_state = ConnState::Disconnected {
@@ -638,16 +646,16 @@ impl Controller {
             }
 
             info!(
-                "Peripheral {} ackwnowledged configuration and reentered Operating state",
+                "Peripheral {} ackwnowledged configuration and reentered Operating state.",
                 ps.name
             );
 
-            // Indicate that this was a reconnection packet
+            // Indicate that this was a reconnection packet.
             return true;
         }
 
         // If it didn't match a Binding or Configuring response,
-        // indicate that this was not a reconnection packet
+        // indicate that this was not a reconnection packet.
         false
     }
 
@@ -656,18 +664,26 @@ impl Controller {
         &mut self,
         plugins: &Option<PluginMap>,
         termination_signal: Option<&AtomicBool>,
-        manual_inputs: Option<ManualInputMap>,
     ) -> Result<String, String> {
-        // Start log file
+        // Start log file.
         let (log_file, _logging_guards) =
             logging::init_logging(&self.ctx.op_dir, &self.ctx.op_name)
                 .map_err(|err| format!("Failed to initialize logging: {err}"))?;
         let log_file_canonicalized = log_file
             .canonicalize()
             .map_err(|e| format!("Failed to resolve log file path: {e}"))?;
-        info!("Starting op \"{}\"", &self.ctx.op_name);
-        info!("Using op dir \"{}\"", &self.ctx.op_dir.to_string_lossy());
-        info!("Logging to file {:?}", log_file_canonicalized);
+        info!("Starting op \"{}\".", &self.ctx.op_name);
+        info!("Using op dir \"{}\".", &self.ctx.op_dir.to_string_lossy());
+        info!("Logging to file {:?} .", log_file_canonicalized);
+
+        // Clear stale manual inputs.
+        if let Ok(mut guard) = self.ctx.manual_inputs.write() {
+            guard.clear();
+        } else {
+            let msg = "Manual input map lock poisoned; stale manual inputs may persist.";
+            error!("{msg}");
+            return Err(msg.to_string());
+        }
 
         // Check config
         if matches!(self.ctx.loop_method, LoopMethod::Efficient) && self.ctx.dt_ns < 20_000_000 {
@@ -708,10 +724,10 @@ impl Controller {
             {
                 let succeeded = core_affinity::set_for_current(*core);
                 if !succeeded {
-                    warn!("Failed to set main thread core affinity");
+                    warn!("Failed to set main thread core affinity.");
                 } else {
                     info!(
-                        "Set control loop core affinity to {core:?} for loop method {:?}",
+                        "Set control loop core affinity to {core:?} for loop method {:?}.",
                         self.ctx.loop_method
                     );
                 }
@@ -720,22 +736,22 @@ impl Controller {
             aux_core_cycle
         };
 
-        // Pre-allocated reusable byte buffer pool for transmitting on sockets
+        // Pre-allocated reusable byte buffer pool for transmitting on sockets.
         let socket_buffer_pool = default_socket_buffer_pool();
 
         // Make sure sockets are configured and ports are bound
-        info!("Opening peripheral comm sockets");
+        info!("Opening peripheral comm sockets.");
         self.open_sockets()
             .map_err(|e| format!("Failed to open sockets: {e}"))?;
 
         // Scan to get peripheral addresses
-        info!("Scanning for available units");
+        info!("Scanning for available units.");
         let available_peripherals = self
             .scan(100, plugins)
             .map_err(|e| format!("Failed to scan for peripherals: {e}"))?;
         info!("Found available units: {:?}", &available_peripherals);
 
-        // Check that all required peripherals are available
+        // Check that all required peripherals are available.
         {
             let peripheral_set =
                 BTreeSet::from_iter(available_peripherals.keys().map(|(_sid, pid)| *pid));
@@ -760,7 +776,7 @@ impl Controller {
         }
 
         // Initialize state using scanned addresses
-        info!("Initializing controller run state");
+        info!("Initializing controller run state.");
         let mut controller_state =
             ControllerState::new(&self.peripherals, &available_peripherals, &self.ctx);
         let addresses = controller_state
@@ -780,30 +796,33 @@ impl Controller {
 
         // Set up dispatcher(s)
         // FUTURE: send metrics to calcs so that they can be used as calc inputs
-        info!("Initializing dispatchers");
-        let mut channel_names = Vec::new();
-        let metric_channel_names = controller_state.get_names_to_write();
-        let io_channel_names = self.orchestrator.get_dispatch_names();
-        channel_names.extend(metric_channel_names.iter().cloned());
-        channel_names.extend(io_channel_names.iter().cloned());
-        let n_metrics = metric_channel_names.len();
-        let n_io = io_channel_names.len();
-        let n_channels = n_metrics + n_io;
-        let mut channel_values = vec![0.0; n_channels];
-        for dispatcher in self.dispatchers.iter_mut() {
-            dispatcher
-                .init(&self.ctx, &channel_names, aux_core_cycle.next().unwrap().id)
-                .unwrap();
-        }
+        info!("Initializing dispatchers.");
+        let (n_metrics, n_channels, mut channel_values) = {
+            let mut channel_names = Vec::new();
+            let metric_channel_names = controller_state.get_names_to_write();
+            let io_channel_names = self.orchestrator.get_dispatch_names();
+            channel_names.extend(metric_channel_names.iter().cloned());
+            channel_names.extend(io_channel_names.iter().cloned());
+            let n_metrics = metric_channel_names.len();
+            let n_io = io_channel_names.len();
+            let n_channels = n_metrics + n_io;
+            let channel_values = vec![0.0; n_channels]; // Storage for dispatched values.
+            for dispatcher in self.dispatchers.iter_mut() {
+                dispatcher
+                    .init(&self.ctx, &channel_names, aux_core_cycle.next().unwrap().id)
+                    .unwrap();
+            }
+
+            (n_metrics, n_channels, channel_values)
+        };
         info!("Dispatching data for {n_channels} channels.");
 
-        // Bind & configure
+        // Bind & configure peripherals.
         let mut all_peripherals_acknowledged = false;
-
         'configuring_retry: for i in 0..10 {
-            info!("Binding peripherals");
+            info!("Binding peripherals.");
 
-            // If this is a retry, wait for peripherals to time out back to binding
+            // If this is a retry, wait for peripherals to time out back to binding.
             if i > 0 {
                 // Some peripherals may have received their configuration and proceeded to operating,
                 // in which case we need to wait for them to time out and return to Connecting before retry,
@@ -815,7 +834,7 @@ impl Controller {
                         + self.ctx.configuring_timeout_ms as u64 * 1000
                         + pad_ns,
                 );
-                debug!(?retry_wait, "Waiting to retry configuring");
+                debug!(?retry_wait, "Waiting to retry configuring.");
                 thread::sleep(retry_wait);
             }
 
@@ -829,14 +848,14 @@ impl Controller {
                 };
             }
 
-            // Clear buffers
+            // Clear buffers.
             while self
                 .sockets
                 .iter_mut()
                 .any(|sock| sock.recv(Duration::ZERO).is_some())
             {}
 
-            // Bind
+            // Bind.
             let bound_peripherals = self
                 .bind(
                     Some(&addresses),
@@ -847,12 +866,12 @@ impl Controller {
                 .map_err(|e| format!("Failed to bind peripherals: {e}"))?;
 
             // Operating countdown starts as soon as peripherals receive binding input,
-            // so start the clock now
+            // so start the clock now.
             let start_of_operating_countdown = Instant::now();
 
-            // Configure peripherals
-            //    Send configuration to each peripheral
-            info!("Configuring peripherals");
+            // Configure peripherals.
+            //    Send configuration to each peripheral.
+            info!("Configuring peripherals.");
             let config_input = ConfiguringInput {
                 dt_ns: self.ctx.dt_ns,
                 timeout_to_operating_ns: self.ctx.timeout_to_operating_ns,
@@ -863,26 +882,26 @@ impl Controller {
             let configuring_deadline = start_of_operating_countdown
                 + Duration::from_millis(self.ctx.configuring_timeout_ms as u64);
 
-            //     Get buffer segment
+            //     Get buffer segment.
             let mut config_buf =
                 socket_buffer_pool.lease_or_create(|| Box::new([0_u8; SOCKET_BUFFER_LEN]));
             let buf = config_buf.as_mut();
 
             for addr in addresses.iter() {
-                //     Write configuring packet for this peripheral
+                //     Write configuring packet for this peripheral.
                 let (sid, pid) = addr;
                 let p = bound_peripherals
                     .get(&(*sid, *pid))
-                    .ok_or(format!("Did not find {pid:?} in bound peripherals"))?;
+                    .ok_or(format!("Did not find {pid:?} in bound peripherals."))?;
                 let num_to_write = p.configuring_input_size();
                 p.emit_configuring(config_input, &mut buf[..num_to_write]);
 
-                //     Transmit configuring packet
+                //     Transmit configuring packet.
                 self.sockets[*sid]
                     .send(*pid, &buf[..num_to_write])
                     .map_err(|e| format!("Failed to send configuration to {pid:?}: {e:?}"))?;
 
-                //     Log expected peripheral state transition
+                //     Log expected peripheral state transition.
                 let ps = controller_state.peripheral_state.get_mut(addr).unwrap();
                 ps.conn_state = ConnState::Configuring {
                     configuring_timeout: configuring_deadline,
@@ -890,35 +909,35 @@ impl Controller {
                 };
             }
 
-            //    Wait for peripherals to acknowledge their configuration
+            //    Wait for peripherals to acknowledge their configuration.
             let operating_timeout = Duration::from_nanos(self.ctx.timeout_to_operating_ns as u64);
 
-            info!("Waiting for peripherals to acknowledge configuration");
+            info!("Waiting for peripherals to acknowledge configuration.");
             while start_of_operating_countdown.elapsed() < operating_timeout {
                 for (sid, socket) in self.sockets.iter_mut().enumerate() {
                     if let Some(packet) = socket.recv(Duration::ZERO) {
                         let amt = packet.size;
 
-                        // Make sure the packet is the right size and the peripheral ID is recognized
+                        // Make sure the packet is the right size and the peripheral ID is recognized.
                         match packet.pid {
                             Some(pid) => {
                                 // Parse the (potential) peripheral's response
                                 let p = bound_peripherals.get(&(sid, pid)).unwrap();
                                 if amt != p.configuring_output_size() {
                                     warn!(
-                                        "Received malformed configuration response from peripheral {pid:?} on socket {sid}"
+                                        "Received malformed configuration response from peripheral {pid:?} on socket {sid}."
                                     );
                                     continue;
                                 }
                                 let ack = ConfiguringOutput::read_bytes(packet.payload());
                                 let addr = (sid, pid);
 
-                                // Check if this is peripheral belongs to this controller
+                                // Check if this is peripheral belongs to this controller.
                                 if !controller_state.peripheral_state.contains_key(&addr) {
                                     continue;
                                 }
 
-                                // Check status
+                                // Check status.
                                 match ack.acknowledge {
                                     AcknowledgeConfiguration::Ack => {
                                         let ps = controller_state
@@ -931,7 +950,7 @@ impl Controller {
                                     }
                                     _ => {
                                         return Err(format!(
-                                            "Peripheral at {addr:?} rejected configuration"
+                                            "Peripheral at {addr:?} rejected configuration."
                                         ));
                                     }
                                 }
@@ -957,7 +976,7 @@ impl Controller {
                 }
                 break 'configuring_retry;
             } else {
-                // Figure out which peripherals were missing
+                // Figure out which peripherals were missing.
                 let peripherals_not_acknowledged = controller_state
                     .peripheral_state
                     .iter()
@@ -972,11 +991,11 @@ impl Controller {
         //    If we reached the end of timeout into Operating and all peripherals
         //    acknowledged their configuration, continue to operating
         if !all_peripherals_acknowledged {
-            return Err("Some peripherals did not acknowledge their configuration".to_string());
+            return Err("Some peripherals did not acknowledge their configuration.".to_string());
         }
 
         // Create socket orchestrator to manage socket polling strategy.
-        info!("Initializing socket orchestrator");
+        info!("Initializing socket orchestrator.");
         let worker_timeout = match self.ctx.loop_method {
             LoopMethod::Performant => Duration::ZERO,
             LoopMethod::Efficient => Duration::from_nanos((self.ctx.dt_ns as u64 / 100).max(1_000)),
@@ -1303,8 +1322,8 @@ impl Controller {
             }
 
             // Set manual peripheral inputs from outside the expression graph
-            if let Some(manual_inputs) = manual_inputs.as_ref() {
-                match manual_inputs.read() {
+            if self.ctx.enable_manual_inputs {
+                match self.ctx.manual_inputs.read() {
                     Ok(guard) => {
                         for (name, value) in guard.iter() {
                             if let Err(err) = self.orchestrator.set_manual_input(name, *value) {

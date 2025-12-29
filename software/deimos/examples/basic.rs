@@ -32,5 +32,5 @@ fn main() {
     // std::fs::write("./basic_example.json", &serialized_controller).unwrap();
 
     // Run control program
-    controller.run(&None, None, None).unwrap();
+    controller.run(&None, None).unwrap();
 }

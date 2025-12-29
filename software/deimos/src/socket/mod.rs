@@ -25,15 +25,29 @@ pub type SocketAddrToken = u64;
 pub use orchestrator::SocketOrchestrator;
 pub use worker::{SocketWorker, SocketWorkerCommand, SocketWorkerEvent, SocketWorkerHandle};
 
+/// Packet with metadata for Socket interface.
 pub struct SocketPacket {
+    /// Peripheral ID
     pub pid: Option<PeripheralId>,
+
+    /// Internal address index
     pub token: SocketAddrToken,
+
+    /// Packet arrival time.
+    /// This is used for time synchronization
+    /// and should be as accurate as possible.
     pub time: Instant,
+
+    /// Packet data.
+    /// Storage is returned to the buffer pool when dropped.
     pub buffer: BufferLease<SocketBuffer>,
+
+    /// Packet size in bytes
     pub size: usize,
 }
 
 impl SocketPacket {
+    /// Get the contained data.
     pub fn payload(&self) -> &[u8] {
         &self.buffer.as_ref()[..self.size]
     }
