@@ -5,10 +5,11 @@ use std::time::Duration;
 
 use crossbeam::channel::{Receiver, Sender, TryRecvError, unbounded};
 
+use crate::buffer_pool::SOCKET_BUFFER_LEN;
 use crate::controller::context::ControllerCtx;
 use deimos_shared::peripherals::PeripheralId;
 
-use super::{Socket, SocketAddrToken, SocketId, SocketPacket};
+use super::{Socket, SocketAddrToken, SocketId, SocketPacketMeta};
 
 pub enum SocketWorkerCommand {
     Send {
@@ -28,7 +29,8 @@ pub enum SocketWorkerCommand {
 pub enum SocketWorkerEvent {
     Packet {
         socket_id: SocketId,
-        packet: SocketPacket,
+        meta: SocketPacketMeta,
+        payload: Vec<u8>,
     },
     Error {
         socket_id: SocketId,
@@ -95,12 +97,15 @@ impl SocketWorker {
 
             // Check for incoming packets from peripherals
             if handled_commands {
-                if let Some(packet) = self.socket.recv(Duration::ZERO) {
+                let mut payload = vec![0_u8; SOCKET_BUFFER_LEN];
+                if let Some(meta) = self.socket.recv_into(&mut payload, Duration::ZERO) {
+                    payload.truncate(meta.size);
                     if self
                         .event_tx
                         .send(SocketWorkerEvent::Packet {
                             socket_id: self.socket_id,
-                            packet,
+                            meta,
+                            payload,
                         })
                         .is_err()
                     {
@@ -112,12 +117,15 @@ impl SocketWorker {
                 continue;
             }
 
-            if let Some(packet) = self.socket.recv(self.recv_timeout) {
+            let mut payload = vec![0_u8; SOCKET_BUFFER_LEN];
+            if let Some(meta) = self.socket.recv_into(&mut payload, self.recv_timeout) {
+                payload.truncate(meta.size);
                 if self
                     .event_tx
                     .send(SocketWorkerEvent::Packet {
                         socket_id: self.socket_id,
-                        packet,
+                        meta,
+                        payload,
                     })
                     .is_err()
                 {

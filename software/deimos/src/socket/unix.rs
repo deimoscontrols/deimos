@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use pyo3::prelude::*;
 use tracing::{info, warn};
 
-use crate::buffer_pool::{BufferPool, SOCKET_BUFFER_LEN, SocketBuffer, default_socket_buffer_pool};
 use crate::py_json_methods;
 
 use super::*;
@@ -36,8 +35,6 @@ pub struct UnixSocket {
     #[serde(skip)]
     socket: Option<net::UnixDatagram>,
     #[serde(skip)]
-    buffer_pool: Option<BufferPool<SocketBuffer>>,
-    #[serde(skip)]
     addrs: BTreeMap<PeripheralId, PathBuf>,
     #[serde(skip)]
     pids: BTreeMap<PathBuf, PeripheralId>,
@@ -56,7 +53,6 @@ impl UnixSocket {
         Self {
             name: name.to_owned(),
             socket: None,
-            buffer_pool: None,
             addrs: BTreeMap::new(),
             pids: BTreeMap::new(),
             addr_tokens: BTreeMap::new(),
@@ -111,7 +107,6 @@ impl Socket for UnixSocket {
     fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String> {
         if self.socket.is_none() {
             self.ctx = ctx.clone();
-            self.buffer_pool = Some(default_socket_buffer_pool());
             // Create the socket folders if they don't already exist
             std::fs::create_dir_all(self.ctx.op_dir.join("sock"))
                 .map_err(|e| format!("Unable to create socket folders: {e}"))?;
@@ -138,7 +133,6 @@ impl Socket for UnixSocket {
         // Drop inner socket, releasing port
         let path = self.path();
         self.socket = None;
-        self.buffer_pool = None;
         self.addrs.clear();
         self.pids.clear();
         self.addr_tokens.clear();
@@ -174,22 +168,17 @@ impl Socket for UnixSocket {
         Ok(())
     }
 
-    fn recv(&mut self, timeout: Duration) -> Option<SocketPacket> {
+    fn recv_into(&mut self, buf: &mut [u8], timeout: Duration) -> Option<SocketPacketMeta> {
         // Check if there is anything to receive,
         // and filter out packets from unexpected source port
         let sock = self.socket.as_mut()?;
-        let pool = self.buffer_pool.as_ref()?;
-        let mut lease = pool.lease_or_create(|| Box::new([0u8; SOCKET_BUFFER_LEN]));
         let timeout = if timeout.is_zero() {
             Duration::from_nanos(1)
         } else {
             timeout
         };
         let _ = sock.set_read_timeout(Some(timeout));
-        let (size, src_path, time) = match {
-            let buf = lease.as_mut();
-            sock.recv_from(&mut buf[..])
-        } {
+        let (size, src_path, time) = match sock.recv_from(buf) {
             Ok((size, addr)) => {
                 // Mark the time ASAP
                 let now = Instant::now();
@@ -222,11 +211,10 @@ impl Socket for UnixSocket {
         // Check if we already know which peripheral this is
         let pid = self.pids.get(&src_path).copied();
 
-        Some(SocketPacket {
+        Some(SocketPacketMeta {
             pid,
             token,
             time,
-            buffer: lease,
             size,
         })
     }

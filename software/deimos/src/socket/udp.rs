@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use pyo3::prelude::*;
 use tracing::info;
 
-use crate::buffer_pool::{BufferPool, SOCKET_BUFFER_LEN, SocketBuffer, default_socket_buffer_pool};
 use crate::controller::context::ControllerCtx;
 use crate::{LoopMethod, py_json_methods};
 
@@ -24,8 +23,6 @@ use deimos_shared::{CONTROLLER_RX_PORT, PERIPHERAL_RX_PORT};
 pub struct UdpSocket {
     #[serde(skip)]
     socket: Option<std::net::UdpSocket>,
-    #[serde(skip)]
-    buffer_pool: Option<BufferPool<SocketBuffer>>,
     #[serde(skip)]
     nonblocking: bool,
     #[serde(skip)]
@@ -44,7 +41,6 @@ impl UdpSocket {
     pub fn new() -> Self {
         Self {
             socket: None,
-            buffer_pool: None,
             nonblocking: false,
             addrs: BTreeMap::new(),
             pids: BTreeMap::new(),
@@ -76,8 +72,6 @@ impl Socket for UdpSocket {
             self.close();
         }
 
-        // Set up a fresh buffer pool
-        self.buffer_pool = Some(default_socket_buffer_pool());
         self.nonblocking = false;
 
         // Inner socket populated on access
@@ -103,7 +97,6 @@ impl Socket for UdpSocket {
     fn close(&mut self) {
         // Drop inner socket, releasing port
         self.socket = None;
-        self.buffer_pool = None;
         self.nonblocking = false;
         self.addrs.clear();
         self.pids.clear();
@@ -133,12 +126,10 @@ impl Socket for UdpSocket {
         Ok(())
     }
 
-    fn recv(&mut self, timeout: Duration) -> Option<SocketPacket> {
+    fn recv_into(&mut self, buf: &mut [u8], timeout: Duration) -> Option<SocketPacketMeta> {
         // Check if there is anything to receive,
         // and filter out packets from unexpected source port
         let sock = self.socket.as_mut()?;
-        let pool = self.buffer_pool.as_ref()?;
-        let mut lease = pool.lease_or_create(|| Box::new([0u8; SOCKET_BUFFER_LEN]));
         if timeout.is_zero() {
             if !self.nonblocking {
                 // Avoid blocking forever when polling with zero timeout.
@@ -148,10 +139,7 @@ impl Socket for UdpSocket {
             let _ = sock.set_read_timeout(Some(timeout)); // Guaranteed nonzero duration
         }
 
-        let (size, addr, time) = match {
-            let buf = lease.as_mut();
-            sock.recv_from(&mut buf[..])
-        } {
+        let (size, addr, time) = match sock.recv_from(buf) {
             Ok((size, addr)) => {
                 // Mark the time ASAP
                 let now = Instant::now();
@@ -179,11 +167,10 @@ impl Socket for UdpSocket {
         // Check if we already know which peripheral this is
         let pid = self.pids.get(&addr).copied();
 
-        Some(SocketPacket {
+        Some(SocketPacketMeta {
             pid,
             token,
             time,
-            buffer: lease,
             size,
         })
     }

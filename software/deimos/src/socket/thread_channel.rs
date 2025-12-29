@@ -8,12 +8,11 @@ use serde::{Deserialize, Serialize};
 use pyo3::prelude::*;
 use tracing::info;
 
-use crate::buffer_pool::{BufferPool, SOCKET_BUFFER_LEN, SocketBuffer, default_socket_buffer_pool};
 use crate::controller::channel::{Endpoint, Msg};
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
-use super::{Socket, SocketAddrToken, SocketPacket};
+use super::{Socket, SocketAddrToken, SocketPacketMeta};
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::states::{ByteStruct, ByteStructLen};
 
@@ -24,8 +23,6 @@ pub struct ThreadChannelSocket {
     name: String,
     #[serde(skip)]
     endpoint: Option<Endpoint>,
-    #[serde(skip)]
-    buffer_pool: Option<BufferPool<SocketBuffer>>,
 }
 
 impl ThreadChannelSocket {
@@ -33,7 +30,6 @@ impl ThreadChannelSocket {
         Self {
             name: name.to_owned(),
             endpoint: None,
-            buffer_pool: None,
         }
     }
 
@@ -60,7 +56,6 @@ impl Socket for ThreadChannelSocket {
 
     fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String> {
         self.endpoint = Some(ctx.source_endpoint(&self.name));
-        self.buffer_pool = Some(default_socket_buffer_pool());
         info!(
             "Opened thread channel socket on user channel {}",
             &self.name
@@ -70,7 +65,6 @@ impl Socket for ThreadChannelSocket {
 
     fn close(&mut self) {
         self.endpoint = None;
-        self.buffer_pool = None;
         info!(
             "Closed thread channel socket on user channel {}",
             &self.name
@@ -91,9 +85,8 @@ impl Socket for ThreadChannelSocket {
             .map_err(|e| format!("Failed to send user channel packet: {e}"))
     }
 
-    fn recv(&mut self, timeout: Duration) -> Option<SocketPacket> {
+    fn recv_into(&mut self, buf: &mut [u8], timeout: Duration) -> Option<SocketPacketMeta> {
         let endpoint = self.endpoint.as_ref()?;
-        let pool = self.buffer_pool.as_ref()?;
         let msg = if timeout.is_zero() {
             endpoint.rx().try_recv().ok()?
         } else {
@@ -106,15 +99,12 @@ impl Socket for ThreadChannelSocket {
                 }
                 let pid = PeripheralId::read_bytes(&bytes[..PeripheralId::BYTE_LEN]);
                 let payload = &bytes[PeripheralId::BYTE_LEN..];
-                let mut lease = pool.lease_or_create(|| Box::new([0u8; SOCKET_BUFFER_LEN]));
-                let buf = lease.as_mut();
                 let size = payload.len().min(buf.len());
                 buf[..size].copy_from_slice(&payload[..size]);
-                Some(SocketPacket {
+                Some(SocketPacketMeta {
                     pid: Some(pid),
                     token: 0,
                     time: Instant::now(),
-                    buffer: lease,
                     size,
                 })
             }

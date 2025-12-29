@@ -33,7 +33,7 @@ use deimos_shared::states::*;
 use crate::calc::{FieldName, Orchestrator, PeripheralInputName};
 use crate::dispatcher::{Dispatcher, LatestValueDispatcher, LatestValueHandle, Row, fmt_time};
 use crate::socket::udp::UdpSocket;
-use crate::socket::{Socket, SocketAddr, SocketOrchestrator, SocketPacket, SocketWorkerEvent};
+use crate::socket::{Socket, SocketAddr, SocketOrchestrator, SocketRecvMeta};
 use context::{ControllerCtx, LossOfContactPolicy, Termination};
 use controller_state::ControllerState;
 use peripheral_state::ConnState;
@@ -250,12 +250,13 @@ impl Controller {
     /// Open sockets, bind ports, etc.
     /// No-op if called multiple times without closing sockets.
     pub fn open_sockets(&mut self) -> Result<(), String> {
+        let mut buf = [0_u8; SOCKET_BUFFER_LEN];
         for sock in self.sockets.iter_mut() {
             if !sock.is_open() {
                 sock.open(&self.ctx)?;
             }
             loop {
-                if sock.recv(Duration::ZERO).is_none() {
+                if sock.recv_into(&mut buf, Duration::ZERO).is_none() {
                     break;
                 }
             }
@@ -332,20 +333,21 @@ impl Controller {
         // Collect binding responses
         while start_of_binding.elapsed().as_millis() <= binding_timeout_ms as u128 {
             for (sid, socket) in self.sockets.iter_mut().enumerate() {
-                if let Some(packet) = socket.recv(Duration::ZERO) {
+                let mut rxbuf = [0_u8; SOCKET_BUFFER_LEN];
+                if let Some(meta) = socket.recv_into(&mut rxbuf, Duration::ZERO) {
                     // If this is from the right port and it's not capturing our own
                     // broadcast binding request, bind the module
                     // let recvd = &udp_buf[..BindingOutput::BYTE_LEN];
-                    let amt = packet.size;
+                    let amt = meta.size;
                     if amt == BindingOutput::BYTE_LEN {
-                        let binding_response = BindingOutput::read_bytes(packet.payload());
+                        let binding_response = BindingOutput::read_bytes(&rxbuf[..amt]);
                         match parse_binding(&binding_response, plugins) {
                             Ok(parsed) => {
                                 let pid = parsed.id();
                                 let addr = (sid, pid);
                                 // Update the socket's address map
                                 socket
-                                    .update_map(pid, packet.token)
+                                    .update_map(pid, meta.token)
                                     .map_err(|e| format!("Failed to update socket mapping: {e}"))?;
                                 // Update the controller's address map
                                 available_peripherals.insert(addr, parsed);
@@ -452,17 +454,17 @@ impl Controller {
         controller_state: &mut ControllerState,
         addresses: &[SocketAddr],
         start_of_operating: Instant,
-        socket_id: usize,
-        packet: SocketPacket,
+        meta: &SocketRecvMeta,
+        payload: &[u8],
         cycle_index: u64,
     ) {
-        let amt = packet.size;
-        let pid = match packet.pid {
+        let amt = meta.size;
+        let pid = match meta.pid {
             Some(x) => x,
             None => return,
         };
 
-        let addr = (socket_id, pid);
+        let addr = (meta.socket_id, pid);
         if !addresses.contains(&addr) {
             // To avoid being packet-flooded, we do nothing here
             return;
@@ -491,12 +493,12 @@ impl Controller {
         let metrics = self
             .orchestrator
             .consume_peripheral_outputs(&ps.name, &mut |outputs: &mut [f64]| {
-                p.parse_operating_roundtrip(&packet.payload()[..n], outputs)
+                p.parse_operating_roundtrip(&payload[..n], outputs)
             });
 
         if metrics.id > last_packet_id {
             ps.metrics.operating_metrics = metrics;
-            ps.metrics.last_received_time_ns = (packet.time - start_of_operating).as_nanos() as i64;
+            ps.metrics.last_received_time_ns = (meta.time - start_of_operating).as_nanos() as i64;
             ps.metrics.loss_of_contact_counter = 0.0;
             let cycle_lag_count =
                 (metrics.last_input_id as i64) - (cycle_index.saturating_sub(1) as i64);
@@ -512,18 +514,18 @@ impl Controller {
         &mut self,
         controller_state: &mut ControllerState,
         socket_orchestrator: &mut SocketOrchestrator,
-        socket_id: usize,
-        packet: &SocketPacket,
+        meta: &SocketRecvMeta,
+        payload: &[u8],
         reconnect_step_timeout: Duration,
     ) -> bool {
         let now = Instant::now();
 
         // Handle Binding response
-        if packet.size == BindingOutput::BYTE_LEN {
+        if meta.size == BindingOutput::BYTE_LEN {
             // Parse.
-            let binding_response = BindingOutput::read_bytes(packet.payload());
+            let binding_response = BindingOutput::read_bytes(payload);
             let pid = binding_response.peripheral_id;
-            let addr = (socket_id, pid);
+            let addr = (meta.socket_id, pid);
 
             // Check if this is a response from one of our attached peripherals.
             // It might be from a peripheral on the network that is not associated with this control program.
@@ -547,7 +549,7 @@ impl Controller {
             // Update address maps.
             // If the peripheral's IP address was reassigned or it was physically
             // connected to a different location in the network, its address might have changed.
-            let update_result = socket_orchestrator.update_map(socket_id, pid, packet.token);
+            let update_result = socket_orchestrator.update_map(meta.socket_id, pid, meta.token);
 
             // If we're unable to talk to its socket to update the address map,
             // mark it as Disconnected again.
@@ -572,7 +574,7 @@ impl Controller {
             // Transmit Configuring packet.
             let mut buf = [0_u8; SOCKET_BUFFER_LEN];
             p.emit_configuring(config_input, &mut buf[..num_to_write]);
-            let send_result = socket_orchestrator.send(socket_id, pid, &buf[..num_to_write]);
+            let send_result = socket_orchestrator.send(meta.socket_id, pid, &buf[..num_to_write]);
 
             // Mark disconnected if the socket fails.
             if let Err(err) = send_result {
@@ -597,13 +599,13 @@ impl Controller {
         }
 
         // Handle Configuring response.
-        if packet.size == ConfiguringOutput::BYTE_LEN {
+        if meta.size == ConfiguringOutput::BYTE_LEN {
             // Get this peripheral's state info.
-            let pid = match packet.pid {
+            let pid = match meta.pid {
                 Some(pid) => pid,
                 None => return false,
             };
-            let addr = (socket_id, pid);
+            let addr = (meta.socket_id, pid);
             let ps = match controller_state.peripheral_state.get_mut(&addr) {
                 Some(ps) => ps,
                 None => return false, // Indicate that this was not a reconnection packet.
@@ -621,7 +623,7 @@ impl Controller {
 
             // Check whether the configuration was acknowledged by the peripheral.
             // If not, mark it as Disconnected again.
-            let ack = ConfiguringOutput::read_bytes(packet.payload());
+            let ack = ConfiguringOutput::read_bytes(payload);
             match ack.acknowledge {
                 AcknowledgeConfiguration::Ack => {
                     ps.acknowledged_configuration = true;
@@ -691,6 +693,7 @@ impl Controller {
         //    with maximum size of a standard packet
         let peripheral_input_buffer = &mut [0.0_f64; 1522 / 8 + 1];
         let txbuf: &mut [u8; 1522] = &mut [0_u8; SOCKET_BUFFER_LEN];
+        let rxbuf: &mut [u8; 1522] = &mut [0_u8; SOCKET_BUFFER_LEN];
 
         // Set up core affinity
         let core_ids = core_affinity::get_core_ids().unwrap_or_default();
@@ -847,11 +850,17 @@ impl Controller {
             }
 
             // Clear buffers.
-            while self
-                .sockets
-                .iter_mut()
-                .any(|sock| sock.recv(Duration::ZERO).is_some())
-            {}
+            loop {
+                let mut received_any = false;
+                for sock in self.sockets.iter_mut() {
+                    if sock.recv_into(rxbuf, Duration::ZERO).is_some() {
+                        received_any = true;
+                    }
+                }
+                if !received_any {
+                    break;
+                }
+            }
 
             // Bind.
             let bound_peripherals = self
@@ -908,11 +917,11 @@ impl Controller {
             info!("Waiting for peripherals to acknowledge configuration.");
             while start_of_operating_countdown.elapsed() < operating_timeout {
                 for (sid, socket) in self.sockets.iter_mut().enumerate() {
-                    if let Some(packet) = socket.recv(Duration::ZERO) {
-                        let amt = packet.size;
+                    if let Some(meta) = socket.recv_into(rxbuf, Duration::ZERO) {
+                        let amt = meta.size;
 
                         // Make sure the packet is the right size and the peripheral ID is recognized.
-                        match packet.pid {
+                        match meta.pid {
                             Some(pid) => {
                                 // Parse the (potential) peripheral's response
                                 let p = bound_peripherals.get(&(sid, pid)).unwrap();
@@ -922,7 +931,7 @@ impl Controller {
                                     );
                                     continue;
                                 }
-                                let ack = ConfiguringOutput::read_bytes(packet.payload());
+                                let ack = ConfiguringOutput::read_bytes(&rxbuf[..amt]);
                                 let addr = (sid, pid);
 
                                 // Check if this is peripheral belongs to this controller.
@@ -1081,7 +1090,7 @@ impl Controller {
                             &mut socket_orchestrator,
                         );
                         self.sockets = socket_orchestrator.close();
-                        let reason = format!("Lost contact with peripheral {}", name);
+                        let reason = format!("Lost contact with peripheral `{}`", name);
                         error!("{reason}");
                         return Err(reason);
                     }
@@ -1098,7 +1107,7 @@ impl Controller {
                         {
                             let deadline = reconnect_timeout.map(|d| now + d);
                             p.conn_state = ConnState::Disconnected { deadline };
-                            warn!("Lost contact with {}", p.name);
+                            warn!("Lost contact with peripheral `{}`", p.name);
                         }
 
                         // Check binding and configuring deadlines
@@ -1125,7 +1134,10 @@ impl Controller {
                                     p.conn_state = ConnState::Disconnected {
                                         deadline: reconnect_deadline,
                                     };
-                                    warn!("Did not receive Configuring response from {}", p.name);
+                                    warn!(
+                                        "Did not receive Configuring response from peripheral `{}`",
+                                        p.name
+                                    );
                                 }
                             }
                             _ => {}
@@ -1357,7 +1369,7 @@ impl Controller {
                     &mut txbuf[..n],
                 );
                 let send_result = socket_orchestrator.send(*sid, *pid, &txbuf[..n]);
-                if let Err(e) = send_result {
+                if let Err(_e) = send_result {
                     // If transmission fails, the peripheral is responsible for
                     // registering that contact has been lost and will eventually exit the operating state,
                     // after which the controller will start its loss of contact counter for that peripheral,
@@ -1391,40 +1403,32 @@ impl Controller {
                 };
 
                 // Wait for the next packet
-                match socket_orchestrator.recv_event(timeout) {
-                    Ok(Some(event)) => match event {
-                        SocketWorkerEvent::Packet { socket_id, packet } => {
-                            // Check if this is a reconnection attempt, and if so,
-                            // handle the peripheral state transition and address map update.
-                            let was_reconnection = self.handle_reconnect_packet(
-                                &mut controller_state,
-                                &mut socket_orchestrator,
-                                socket_id,
-                                &packet,
-                                reconnect_step_timeout,
-                            );
-                            if was_reconnection {
-                                continue;
-                            }
+                match socket_orchestrator.recv_into(rxbuf, timeout) {
+                    Ok(Some(meta)) => {
+                        let payload = &rxbuf[..meta.size];
+                        // Check if this is a reconnection attempt, and if so,
+                        // handle the peripheral state transition and address map update.
+                        let was_reconnection = self.handle_reconnect_packet(
+                            &mut controller_state,
+                            &mut socket_orchestrator,
+                            &meta,
+                            payload,
+                            reconnect_step_timeout,
+                        );
+                        if was_reconnection {
+                            continue;
+                        }
 
-                            // If this is not a reconnection attempt, process normally.
-                            self.process_socket_packet(
-                                &mut controller_state,
-                                &addresses,
-                                start_of_operating,
-                                socket_id,
-                                packet,
-                                i,
-                            );
-                        }
-                        SocketWorkerEvent::Error { socket_id, error } => {
-                            worker_error =
-                                Some(format!("Socket worker {socket_id} error: {error}"));
-                        }
-                        SocketWorkerEvent::Closed { socket_id } => {
-                            worker_error = Some(format!("Socket worker {socket_id} closed"));
-                        }
-                    },
+                        // If this is not a reconnection attempt, process normally.
+                        self.process_socket_packet(
+                            &mut controller_state,
+                            &addresses,
+                            start_of_operating,
+                            &meta,
+                            payload,
+                            i,
+                        );
+                    }
                     Ok(None) => {}
                     Err(err) => {
                         worker_error = Some(err);

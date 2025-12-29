@@ -7,7 +7,7 @@ use tracing::error;
 
 use crate::controller::context::ControllerCtx;
 use crate::socket::worker::{SocketWorkerCommand, SocketWorkerEvent, SocketWorkerHandle};
-use crate::socket::{Socket, SocketAddrToken, SocketId};
+use crate::socket::{Socket, SocketAddrToken, SocketId, SocketRecvMeta};
 use deimos_shared::peripherals::PeripheralId;
 
 enum Backend {
@@ -74,6 +74,7 @@ impl SocketOrchestrator {
         Ok(Self { backend })
     }
 
+    #[cold]
     pub fn socket_count(&self) -> usize {
         match &self.backend {
             Backend::SingleThreadPoller { sockets, .. } => sockets.len(),
@@ -81,7 +82,12 @@ impl SocketOrchestrator {
         }
     }
 
-    pub fn recv_event(&mut self, timeout: Duration) -> Result<Option<SocketWorkerEvent>, String> {
+    #[inline]
+    pub fn recv_into(
+        &mut self,
+        buf: &mut [u8],
+        timeout: Duration,
+    ) -> Result<Option<SocketRecvMeta>, String> {
         match &mut self.backend {
             Backend::SingleThreadPoller { sockets, next_idx } => {
                 if sockets.is_empty() {
@@ -91,10 +97,13 @@ impl SocketOrchestrator {
                 for _ in 0..n {
                     let idx = *next_idx;
                     *next_idx = (*next_idx + 1) % n;
-                    if let Some(packet) = sockets[idx].recv(Duration::ZERO) {
-                        return Ok(Some(SocketWorkerEvent::Packet {
+                    if let Some(meta) = sockets[idx].recv_into(buf, Duration::ZERO) {
+                        return Ok(Some(SocketRecvMeta {
                             socket_id: idx,
-                            packet,
+                            pid: meta.pid,
+                            token: meta.token,
+                            time: meta.time,
+                            size: meta.size,
                         }));
                     }
                 }
@@ -105,7 +114,34 @@ impl SocketOrchestrator {
                 Ok(None)
             }
             Backend::WorkerPool { events, .. } => match events.recv_timeout(timeout) {
-                Ok(event) => Ok(Some(event)),
+                Ok(SocketWorkerEvent::Packet {
+                    socket_id,
+                    meta,
+                    payload,
+                }) => {
+                    if payload.len() > buf.len() {
+                        return Err(format!(
+                            "Recv buffer too small: {} > {}",
+                            payload.len(),
+                            buf.len()
+                        ));
+                    }
+                    let size = meta.size.min(payload.len());
+                    buf[..size].copy_from_slice(&payload[..size]);
+                    Ok(Some(SocketRecvMeta {
+                        socket_id,
+                        pid: meta.pid,
+                        token: meta.token,
+                        time: meta.time,
+                        size,
+                    }))
+                }
+                Ok(SocketWorkerEvent::Error { socket_id, error }) => {
+                    Err(format!("Socket worker {socket_id} error: {error}"))
+                }
+                Ok(SocketWorkerEvent::Closed { socket_id }) => {
+                    Err(format!("Socket worker {socket_id} closed"))
+                }
                 Err(RecvTimeoutError::Timeout) => Ok(None),
                 Err(RecvTimeoutError::Disconnected) => {
                     Err("Socket worker channel disconnected".to_string())
@@ -114,6 +150,7 @@ impl SocketOrchestrator {
         }
     }
 
+    #[inline]
     pub fn send(
         &mut self,
         socket_id: SocketId,
@@ -139,6 +176,7 @@ impl SocketOrchestrator {
         }
     }
 
+    #[cold]
     pub fn broadcast(&mut self, socket_id: SocketId, payload: &[u8]) -> Result<(), String> {
         match &mut self.backend {
             Backend::SingleThreadPoller { sockets, .. } => {
@@ -158,6 +196,7 @@ impl SocketOrchestrator {
         }
     }
 
+    #[cold]
     pub fn update_map(
         &mut self,
         socket_id: SocketId,
@@ -180,6 +219,7 @@ impl SocketOrchestrator {
         }
     }
 
+    #[cold]
     pub fn close(mut self) -> Vec<Box<dyn Socket>> {
         match &mut self.backend {
             Backend::SingleThreadPoller { sockets, .. } => {
