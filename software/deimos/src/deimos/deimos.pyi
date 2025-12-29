@@ -155,7 +155,16 @@ class Controller:
         self, latest_value_cutoff_freq: float | None = None
     ) -> RunHandle:
         """Run the control program on a separate thread and return a handle
-        for coordination."""
+        for coordination.
+        
+        Args:
+            latest_value_cutoff_freq: Optional second-order Butterworth low-pass filter
+                                      cutoff frequency to apply to latest-value data.
+                                      If the selected frequency is outside the viable
+                                      range for the filter, the cutoff frequency will
+                                      be clamped to the viable bounds and a warning
+                                      will be emitted.
+        """
         ...
     def scan(self, timeout_ms: int = 10) -> list[PeripheralLike]:
         """Scan the local network (and any other attached sockets)
