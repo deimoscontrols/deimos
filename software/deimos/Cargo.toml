@@ -1,6 +1,6 @@
 [package]
 name = "deimos"
-version = "0.15.0"
+version.workspace = true
 edition = "2024"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "MIT OR Apache-2.0"
@@ -19,42 +19,41 @@ all-features = true
 
 [dependencies]
 # Packet formats shared with hardware
-deimos_shared = { path = "../deimos_shared", version = "0.5.1" }
+deimos_shared = { path = "../deimos_shared", version = "0.15.0" }
 
 # Control loop
-chrono = { version = "0.4.42", features = ["std"], default-features = false }  # timestamp formatting
-core_affinity = "0.8.3"
-branches = "0.4.3"
+chrono = { version = "^0.4.42", features = ["std"], default-features = false }  # timestamp formatting
+core_affinity = "^0.8.3"
+branches = "^0.4.3"
 
 # Calcs
-flaw = { version = "0.6.0", default-features = false, features = ["fma"] }
-interpn = { version = "0.9.0", default-features = false, features = ["fma"] }
-once_cell = "1.21.3"
-nalgebra = "0.34"
-levenberg-marquardt = "0.15.0"
+flaw = { version = "^0.6.0", default-features = false, features = ["fma"] }
+interpn = { version = "^0.9.0", default-features = false, features = ["fma"] }
+once_cell = "^1.21.3"
+nalgebra = "^0.34"
+levenberg-marquardt = "^0.15.0"
 
 # Sideloading support
-crossbeam = "0.8.4"
+crossbeam = "^0.8.4"
 
 # Serialization
 # Loose versioning enables plugins without multiple crate versions per build
 serde = { version = "^1", features = ["derive", "rc"] }
 typetag = "^0.2"
 serde_json = { version = "^1", features = ["preserve_order"] }
-csv = "1.3.1"
+csv = "^1.4.0"
 
 # Timescale DB / Postgres interface
-postgres = "0.19.10"
-postgres-types = "0.2.9"
+postgres = "^0.19.10"
+postgres-types = "^0.2.9"
 
 # Logging
-tracing = "0.1.41"
-tracing-appender = "0.2.3"
-tracing-subscriber = { version = "0.3.20", features = ["fmt", "env-filter", "chrono"] }
+tracing = "^0.1.41"
+tracing-appender = "^0.2.3"
+tracing-subscriber = { version = "^0.3.20", features = ["fmt", "env-filter", "chrono"] }
 
 # Python bindings
-pyo3 = { version = "0.27.2", features = ["extension-module", "abi3-py310", "generate-import-lib"], optional = true }
-#numpy = { version = "0.27.0", optional = true }
+pyo3 = { version = "0.27.2", features = ["extension-module", "abi3-py311", "generate-import-lib"], optional = true }
 
 [features]
 default = ["python"]
