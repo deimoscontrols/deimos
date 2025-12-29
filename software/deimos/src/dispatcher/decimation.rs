@@ -27,13 +27,13 @@ pub struct DecimationDispatcher {
 }
 
 impl DecimationDispatcher {
-    pub fn new(inner: Box<dyn Dispatcher>, nth: NonZeroUsize) -> Self {
-        Self {
+    pub fn new(inner: Box<dyn Dispatcher>, nth: NonZeroUsize) -> Box<Self> {
+        Box::new(Self {
             nth,
             inner,
             remaining: 0,
             initialized: false,
-        }
+        })
     }
 }
 
@@ -45,7 +45,7 @@ py_json_methods!(
         let nth = NonZeroUsize::new(nth).ok_or_else(|| {
             pyo3::exceptions::PyValueError::new_err("Decimation factor must be >= 1")
         })?;
-        Ok(Self::new(inner, nth))
+        Ok(*Self::new(inner, nth))
     }
 );
 

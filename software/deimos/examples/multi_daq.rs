@@ -80,18 +80,17 @@ fn main() {
     controller.add_peripheral("p8", Box::new(DeimosDaqRev6 { serial_number: 5 }));
 
     // Set up database dispatchers
-    let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(
+    let timescale_dispatcher: Box<dyn Dispatcher> = TimescaleDbDispatcher::new(
         "tsdb",
         "/run/postgresql/", // Unix socket interface; TCP works as well
         "jlogan",
         "POSTGRES_PW",
         Duration::from_nanos(1),
         1,
-    ));
-    let csv_dispatcher: Box<dyn Dispatcher> =
-        Box::new(CsvDispatcher::new(50, dispatcher::Overflow::Wrap));
-    controller.add_dispatcher(timescale_dispatcher);
-    controller.add_dispatcher(csv_dispatcher);
+    );
+    let csv_dispatcher: Box<dyn Dispatcher> = CsvDispatcher::new(50, dispatcher::Overflow::Wrap);
+    controller.add_dispatcher("tsdb", timescale_dispatcher);
+    controller.add_dispatcher("csv", csv_dispatcher);
 
     // Set up calc graph
     let duty = Constant::new(0.5, true);

@@ -33,14 +33,14 @@ pub struct LowPassDispatcher {
 }
 
 impl LowPassDispatcher {
-    pub fn new(inner: Box<dyn Dispatcher>, cutoff_hz: f64) -> Self {
-        Self {
+    pub fn new(inner: Box<dyn Dispatcher>, cutoff_hz: f64) -> Box<Self> {
+        Box::new(Self {
             cutoff_hz,
             inner,
             filters: Vec::new(),
             primed: false,
             initialized: false,
-        }
+        })
     }
 
     fn build_filters(
@@ -66,7 +66,7 @@ py_json_methods!(
     Dispatcher,
     #[new]
     fn py_new(inner: Box<dyn Dispatcher>, cutoff_hz: f64) -> PyResult<Self> {
-        Ok(Self::new(inner, cutoff_hz))
+        Ok(*Self::new(inner, cutoff_hz))
     }
 );
 

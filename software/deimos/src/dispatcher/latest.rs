@@ -80,17 +80,17 @@ pub struct LatestValueDispatcher {
 }
 
 impl LatestValueDispatcher {
-    pub fn new() -> (Self, LatestValueHandle) {
+    pub fn new() -> (Box<Self>, LatestValueHandle) {
         let cell = RowCell::new(Row::default());
         let handle = LatestValueHandle {
             row: cell.clone(),
             channel_names: Arc::new(RwLock::new(Vec::new())),
         };
         (
-            Self {
+            Box::new(Self {
                 handle: handle.clone(),
                 worker: None,
-            },
+            }),
             handle,
         )
     }
@@ -102,7 +102,7 @@ py_json_methods!(
     #[new]
     fn py_new() -> PyResult<Self> {
         let (dispatcher, _handle) = Self::new();
-        Ok(dispatcher)
+        Ok(*dispatcher)
     }
 );
 

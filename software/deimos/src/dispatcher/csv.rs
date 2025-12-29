@@ -50,13 +50,13 @@ pub struct CsvDispatcher {
 }
 
 impl CsvDispatcher {
-    pub fn new(chunk_size_megabytes: usize, overflow_behavior: Overflow) -> Self {
-        Self {
+    pub fn new(chunk_size_megabytes: usize, overflow_behavior: Overflow) -> Box<Self> {
+        Box::new(Self {
             chunk_size_megabytes,
             overflow_behavior,
 
             worker: None,
-        }
+        })
     }
 }
 
@@ -65,7 +65,7 @@ py_json_methods!(
     Dispatcher,
     #[new]
     fn py_new(chunk_size_megabytes: usize, overflow_behavior: Overflow) -> PyResult<Self> {
-        Ok(Self::new(chunk_size_megabytes, overflow_behavior))
+        Ok(*Self::new(chunk_size_megabytes, overflow_behavior))
     }
 );
 

@@ -27,13 +27,13 @@ pub struct ChannelFilter {
 }
 
 impl ChannelFilter {
-    pub fn new(inner: Box<dyn Dispatcher>, channels: Vec<String>) -> Self {
-        Self {
+    pub fn new(inner: Box<dyn Dispatcher>, channels: Vec<String>) -> Box<Self> {
+        Box::new(Self {
             channels,
             inner,
             indices: Vec::new(),
             initialized: false,
-        }
+        })
     }
 
     fn build_indices(&self, channel_names: &[String]) -> Result<Vec<usize>, String> {
@@ -67,7 +67,7 @@ py_json_methods!(
     Dispatcher,
     #[new]
     fn py_new(inner: Box<dyn Dispatcher>, channels: Vec<String>) -> PyResult<Self> {
-        Ok(Self::new(inner, channels))
+        Ok(*Self::new(inner, channels))
     }
 );
 

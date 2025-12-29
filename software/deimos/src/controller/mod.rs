@@ -57,7 +57,7 @@ pub struct Controller {
 
     // Appendages
     sockets: Vec<Box<dyn Socket>>,
-    dispatchers: Vec<Box<dyn Dispatcher>>,
+    dispatchers: BTreeMap<String, Box<dyn Dispatcher>>,
     peripherals: BTreeMap<String, Box<dyn Peripheral>>,
     orchestrator: CalcOrchestrator,
 }
@@ -105,7 +105,7 @@ impl Default for Controller {
         // Include a UDP socket by default, but otherwise blank
         let sockets: Vec<Box<dyn Socket>> = vec![Box::new(UdpSocket::new())];
 
-        let dispatchers = Vec::new();
+        let dispatchers = BTreeMap::new();
         let peripherals = BTreeMap::new();
         let orchestrator = CalcOrchestrator::default();
         let ctx = ControllerCtx::default();
@@ -140,6 +140,26 @@ impl Controller {
         &self.peripherals
     }
 
+    /// Read-only access to dispatchers by name.
+    pub fn dispatcher(&self, name: &str) -> Option<&Box<dyn Dispatcher>> {
+        self.dispatchers.get(name)
+    }
+
+    /// Mutable access to dispatchers by name.
+    pub fn dispatcher_mut(&mut self, name: &str) -> Option<&mut Box<dyn Dispatcher>> {
+        self.dispatchers.get_mut(name)
+    }
+
+    /// List dispatcher names.
+    pub fn dispatcher_names(&self) -> Vec<String> {
+        self.dispatchers.keys().cloned().collect()
+    }
+
+    /// Remove a dispatcher by name.
+    pub fn remove_dispatcher(&mut self, name: &str) -> Option<Box<dyn Dispatcher>> {
+        self.dispatchers.remove(name)
+    }
+
     /// Read-only access to edges from calcs to peripherals
     pub fn peripheral_input_sources(&self) -> &BTreeMap<PeripheralInputName, FieldName> {
         self.orchestrator.peripheral_input_sources()
@@ -156,7 +176,7 @@ impl Controller {
 
         // Attach a latest-value dispatcher to expose live data.
         let (latest_dispatcher, latest_handle) = LatestValueDispatcher::new();
-        controller.add_dispatcher(Box::new(latest_dispatcher));
+        controller.add_dispatcher("latest", latest_dispatcher);
 
         // Set up machinery for interacting with the controller during operation.
         let termination_signal = Arc::new(AtomicBool::new(false));
@@ -213,9 +233,12 @@ impl Controller {
         self.peripherals.insert(name.to_owned(), p);
     }
 
-    /// Register a data pipeline dispatcher
-    pub fn add_dispatcher(&mut self, dispatcher: Box<dyn Dispatcher>) {
-        self.dispatchers.push(dispatcher);
+    /// Register a data pipeline dispatcher by name.
+    pub fn add_dispatcher(&mut self, name: &str, dispatcher: Box<dyn Dispatcher>) {
+        if self.dispatchers.contains_key(name) {
+            warn!("Dispatcher '{name}' overwritten.");
+        }
+        self.dispatchers.insert(name.to_string(), dispatcher);
     }
 
     /// Register a socket
@@ -420,7 +443,7 @@ impl Controller {
 
         // Reset dispatchers.
         self.dispatchers
-            .iter_mut()
+            .values_mut()
             .filter_map(|d| d.terminate().err())
             .for_each(|e| err_rollup.push(e));
 
@@ -805,7 +828,7 @@ impl Controller {
             let n_io = io_channel_names.len();
             let n_channels = n_metrics + n_io;
             let channel_values = vec![0.0; n_channels]; // Storage for dispatched values.
-            for dispatcher in self.dispatchers.iter_mut() {
+            for dispatcher in self.dispatchers.values_mut() {
                 dispatcher
                     .init(&self.ctx, &channel_names, aux_core_cycle.next().unwrap().id)
                     .unwrap();
@@ -1493,10 +1516,10 @@ impl Controller {
             });
             //    Send to dispatcher
             let mut dispatch_errors = Vec::new();
-            for dispatcher in self.dispatchers.iter_mut() {
+            for (name, dispatcher) in self.dispatchers.iter_mut() {
                 if let Err(err) = dispatcher.consume(time, timestamp, channel_values.clone()) {
                     error!("{err}");
-                    dispatch_errors.push(err);
+                    dispatch_errors.push(format!("{name}: {err}"));
                 }
             }
 

@@ -109,7 +109,7 @@ impl DataFrameDispatcher {
         max_size_megabytes: usize,
         overflow_behavior: Overflow,
         df: Option<Arc<RwLock<SimpleDataFrame>>>,
-    ) -> (Self, Arc<RwLock<SimpleDataFrame>>) {
+    ) -> (Box<Self>, Arc<RwLock<SimpleDataFrame>>) {
         // Check if the overflow behavior is valid
         match overflow_behavior {
             Overflow::Wrap => (),
@@ -122,12 +122,12 @@ impl DataFrameDispatcher {
         let df_handle = df.clone();
 
         (
-            Self {
+            Box::new(Self {
                 max_size_megabytes,
                 overflow_behavior,
                 df,
                 ..Default::default()
-            },
+            }),
             df_handle,
         )
     }
@@ -146,7 +146,7 @@ py_json_methods!(
     #[new]
     fn py_new(max_size_megabytes: usize, overflow_behavior: Overflow) -> PyResult<Self> {
         let (dispatcher, _df_handle) = Self::new(max_size_megabytes, overflow_behavior, None);
-        Ok(dispatcher)
+        Ok(*dispatcher)
     }
 );
 
@@ -219,7 +219,7 @@ impl Dispatcher for DataFrameDispatcher {
             self.overflow_behavior,
             Some(self.df.clone()),
         );
-        (*self) = dispatcher;
+        (*self) = *dispatcher;
 
         Ok(())
     }

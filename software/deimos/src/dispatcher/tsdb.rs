@@ -66,8 +66,8 @@ impl TimescaleDbDispatcher {
         token_name: &str,
         buffer_time: Duration,
         retention_time_hours: u64,
-    ) -> Self {
-        Self {
+    ) -> Box<Self> {
+        Box::new(Self {
             dbname: dbname.to_owned(),
             host: host.to_owned(),
             user: user.to_owned(),
@@ -75,7 +75,7 @@ impl TimescaleDbDispatcher {
             buffer_time,
             retention_time_hours,
             worker: None,
-        }
+        })
     }
 }
 
@@ -91,7 +91,7 @@ py_json_methods!(
         buffer_time_ns: u64,
         retention_time_hours: u64,
     ) -> PyResult<Self> {
-        Ok(Self::new(
+        Ok(*Self::new(
             dbname,
             host,
             user,

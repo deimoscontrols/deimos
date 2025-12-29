@@ -24,7 +24,7 @@ for i, p in enumerate(peripherals):
 
 # Configure to write data to a CSV file
 csv_dispatcher = deimos.dispatcher.CsvDispatcher(1, Overflow.wrap())
-c.add_dispatcher(csv_dispatcher)
+c.add_dispatcher("csv", csv_dispatcher)
 
 # Add a calc that runs in-the-loop
 five = deimos.calc.Constant(5.0, True)

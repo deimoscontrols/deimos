@@ -314,9 +314,17 @@ impl Controller {
     }
 
     /// Add a dispatcher via a JSON-serializable dispatcher instance.
-    fn add_dispatcher(&mut self, dispatcher: Box<dyn Dispatcher>) -> PyResult<()> {
-        self.ctrl()?.add_dispatcher(dispatcher);
+    fn add_dispatcher(&mut self, name: &str, dispatcher: Box<dyn Dispatcher>) -> PyResult<()> {
+        self.ctrl()?.add_dispatcher(name, dispatcher);
         Ok(())
+    }
+
+    fn dispatcher_names(&mut self) -> PyResult<Vec<String>> {
+        Ok(self.ctrl()?.dispatcher_names())
+    }
+
+    fn remove_dispatcher(&mut self, name: &str) -> PyResult<bool> {
+        Ok(self.ctrl()?.remove_dispatcher(name).is_some())
     }
 
     /// Add a socket via a JSON-serializable socket instance.

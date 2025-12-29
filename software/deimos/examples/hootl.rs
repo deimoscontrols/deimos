@@ -66,7 +66,7 @@ fn main() {
 
     // Add an in-memory data target
     let (df_dispatcher, df_handle) = DataFrameDispatcher::new(1, Overflow::Error, None);
-    controller.add_dispatcher(Box::new(df_dispatcher));
+    controller.add_dispatcher("df", df_dispatcher);
 
     // Register the mockup as a plugin
     let mut pmap: PluginMap = BTreeMap::new();
