@@ -108,14 +108,11 @@ impl Peripheral for AnalogIRev2 {
         // Board temperature is on ain0, but doesn't function on this design
         // Until that's fixed, we can baseline 24C (75F) room temp
         let board_temp = Constant::new(0.0 + 273.15, true);
-        calcs.insert(format!("{name}_board_temp_K"), Box::new(board_temp));
+        calcs.insert(format!("{name}_board_temp_K"), board_temp);
 
         // Bus voltage on the pluggable module is on ain1 with 1/3 scale
         let module_bus_voltage = Affine::new(format!("{name}.ain1"), 3.0, 0.0, true);
-        calcs.insert(
-            format!("{name}_module_bus_voltage_V"),
-            Box::new(module_bus_voltage),
-        );
+        calcs.insert(format!("{name}_module_bus_voltage_V"), module_bus_voltage);
 
         // The sensor analog frontends occupy contiguous blocks of channels
         let milliamp_4_20_range = 2..=7;
@@ -128,10 +125,7 @@ impl Peripheral for AnalogIRev2 {
             let input_name = format!("{name}.ain{i}");
             let calc_name = format!("{name}_4_20_mA_{n}_A");
             let slope = 100.0; // [V/A] due to 100 ohm resistor
-            calcs.insert(
-                calc_name,
-                Box::new(InverseAffine::new(input_name, slope, 0.0, true)),
-            );
+            calcs.insert(calc_name, InverseAffine::new(input_name, slope, 0.0, true));
         }
 
         // RTDs use a 250uA reference current and gain of 25.7
@@ -145,8 +139,8 @@ impl Peripheral for AnalogIRev2 {
             let slope = 250e-6 * 25.7;
             let resistance_calc = InverseAffine::new(input_name, slope, 0.0, true);
             let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
-            calcs.insert(resistance_calc_name, Box::new(resistance_calc));
-            calcs.insert(temperature_calc_name, Box::new(temperature_calc));
+            calcs.insert(resistance_calc_name, resistance_calc);
+            calcs.insert(temperature_calc_name, temperature_calc);
         }
 
         //   Cold junction RTD
@@ -159,8 +153,8 @@ impl Peripheral for AnalogIRev2 {
         let slope = 250e-6 * 25.7;
         let resistance_calc = InverseAffine::new(input_name, slope, 0.0, true);
         let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
-        calcs.insert(resistance_calc_name, Box::new(resistance_calc));
-        calcs.insert(temperature_calc_name.clone(), Box::new(temperature_calc));
+        calcs.insert(resistance_calc_name, resistance_calc);
+        calcs.insert(temperature_calc_name.clone(), temperature_calc);
 
         let board_temp_name = temperature_calc_name;
 
@@ -190,8 +184,8 @@ impl Peripheral for AnalogIRev2 {
                 format!("{board_temp_name}.temperature_K"),
                 true,
             );
-            calcs.insert(voltage_calc_name, Box::new(voltage_calc));
-            calcs.insert(temperature_calc_name, Box::new(temperature_calc));
+            calcs.insert(voltage_calc_name, voltage_calc);
+            calcs.insert(temperature_calc_name, temperature_calc);
         }
 
         calcs

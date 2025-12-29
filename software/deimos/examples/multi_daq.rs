@@ -98,11 +98,11 @@ fn main() {
     let freq1 = Sin::new(20.0, 0.25, 10.0, 200.0, true);
     let dac1 = Sin::new(20.0, 0.0, 0.0, 2.5, true);
     let dac2 = Sin::new(20.0, 5.0, 0.0, 2.5 / 25.7, true);
-    controller.add_calc("duty", Box::new(duty));
-    controller.add_calc("freq0", Box::new(freq));
-    controller.add_calc("freq1", Box::new(freq1));
-    controller.add_calc("dac0", Box::new(dac1));
-    controller.add_calc("dac1", Box::new(dac2));
+    controller.add_calc("duty", duty);
+    controller.add_calc("freq0", freq);
+    controller.add_calc("freq1", freq1);
+    controller.add_calc("dac0", dac1);
+    controller.add_calc("dac1", dac2);
     controller.set_peripheral_input_source("p1.pwm0_duty", "duty.y");
     controller.set_peripheral_input_source("p1.pwm0_freq", "freq0.y");
     controller.set_peripheral_input_source("p1.pwm1_duty", "duty.y");
@@ -149,7 +149,7 @@ fn main() {
     std::fs::write(fp, cfg_str).unwrap();
 
     let machine = SequenceMachine::load_folder(&machine_dir).unwrap();
-    controller.add_calc("sequence_machine", Box::new(machine));
+    controller.add_calc("sequence_machine", machine);
 
     // Serialize and deserialize the controller (for demonstration purposes)
     let serialized_controller = serde_json::to_string_pretty(&controller).unwrap();

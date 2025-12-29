@@ -70,20 +70,20 @@ impl TcKtype {
         voltage_name: String,
         cold_junction_temperature_name: String,
         save_outputs: bool,
-    ) -> Self {
+    ) -> Box<Self> {
         // These will be set during init.
         // Use default indices that will cause an error on the first call if not initialized properly
         let input_indices = vec![];
         let output_index = usize::MAX;
 
-        Self {
+        Box::new(Self {
             voltage_name,
             cold_junction_temperature_name,
             save_outputs,
 
             input_indices,
             output_index,
-        }
+        })
     }
 }
 
@@ -96,7 +96,7 @@ py_json_methods!(
         cold_junction_temperature_name: String,
         save_outputs: bool,
     ) -> Self {
-        Self::new(voltage_name, cold_junction_temperature_name, save_outputs)
+        *Self::new(voltage_name, cold_junction_temperature_name, save_outputs)
     }
 );
 

@@ -112,21 +112,15 @@ impl Peripheral for AnalogIRev3 {
         {
             // 1.024V reference alias
             let vref_1v024 = Affine::new(format!("{name}.ain0"), 1.0, 0.0, true);
-            calcs.insert(format!("{name}_1v024_ref_V"), Box::new(vref_1v024));
+            calcs.insert(format!("{name}_1v024_ref_V"), vref_1v024);
 
             // Bus current measured on shunt resistors with G=50
             let module_bus_current = Affine::new(format!("{name}.ain1"), 4.0 / 1.5, 0.0, true);
-            calcs.insert(
-                format!("{name}_bus_current_A"),
-                Box::new(module_bus_current),
-            );
+            calcs.insert(format!("{name}_bus_current_A"), module_bus_current);
 
             // Bus voltage measured with sub-unity gain
             let module_bus_voltage = Affine::new(format!("{name}.ain2"), 21.5 / 1.5, 0.0, true);
-            calcs.insert(
-                format!("{name}_bus_voltage_V"),
-                Box::new(module_bus_voltage),
-            );
+            calcs.insert(format!("{name}_bus_voltage_V"), module_bus_voltage);
         }
 
         // Cold junction RTD is also board temp
@@ -140,8 +134,8 @@ impl Peripheral for AnalogIRev3 {
             let slope = 250e-6 * 25.7;
             let resistance_calc = InverseAffine::new(input_name, slope, 0.0, false);
             let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
-            calcs.insert(resistance_calc_name, Box::new(resistance_calc));
-            calcs.insert(temperature_calc_name.clone(), Box::new(temperature_calc));
+            calcs.insert(resistance_calc_name, resistance_calc);
+            calcs.insert(temperature_calc_name.clone(), temperature_calc);
         }
 
         // The sensor analog frontends occupy contiguous blocks of channels
@@ -156,10 +150,7 @@ impl Peripheral for AnalogIRev3 {
                 let input_name = format!("{name}.ain{i}");
                 let calc_name = format!("{name}_4_20_mA_{n}_A");
                 let slope = 100.0; // [V/A] due to 100 ohm resistor
-                calcs.insert(
-                    calc_name,
-                    Box::new(InverseAffine::new(input_name, slope, 0.0, true)),
-                );
+                calcs.insert(calc_name, InverseAffine::new(input_name, slope, 0.0, true));
             }
         }
 
@@ -175,8 +166,8 @@ impl Peripheral for AnalogIRev3 {
                 let slope = 250e-6 * 25.7;
                 let resistance_calc = InverseAffine::new(input_name, slope, 0.0, true);
                 let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
-                calcs.insert(resistance_calc_name, Box::new(resistance_calc));
-                calcs.insert(temperature_calc_name, Box::new(temperature_calc));
+                calcs.insert(resistance_calc_name, resistance_calc);
+                calcs.insert(temperature_calc_name, temperature_calc);
             }
         }
 
@@ -198,8 +189,8 @@ impl Peripheral for AnalogIRev3 {
                     format!("{name}_rtd_5.temperature_K"), // TODO: this is swapped because the board temp hardware is bad
                     true,
                 );
-                calcs.insert(voltage_calc_name, Box::new(voltage_calc));
-                calcs.insert(temperature_calc_name, Box::new(temperature_calc));
+                calcs.insert(voltage_calc_name, voltage_calc);
+                calcs.insert(temperature_calc_name, temperature_calc);
             }
         }
         calcs

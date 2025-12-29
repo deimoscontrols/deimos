@@ -42,7 +42,7 @@ impl Pid {
         kd: f64,
         max_integral: f64,
         save_outputs: bool,
-    ) -> Self {
+    ) -> Box<Self> {
         let err = 0.0;
         let integral = 0.0;
 
@@ -52,7 +52,7 @@ impl Pid {
         let input_indices = vec![];
         let output_index = usize::MAX;
 
-        Self {
+        Box::new(Self {
             measurement_name,
             setpoint_name,
             kp,
@@ -67,7 +67,7 @@ impl Pid {
             dt_s,
             input_indices,
             output_index,
-        }
+        })
     }
 }
 
@@ -84,7 +84,7 @@ py_json_methods!(
         max_integral: f64,
         save_outputs: bool,
     ) -> Self {
-        Self::new(
+        *Self::new(
             measurement_name,
             setpoint_name,
             kp,

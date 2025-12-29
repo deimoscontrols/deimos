@@ -20,15 +20,15 @@ pub struct Constant {
 }
 
 impl Constant {
-    pub fn new(y: f64, save_outputs: bool) -> Self {
+    pub fn new(y: f64, save_outputs: bool) -> Box<Self> {
         // Use default indices that will cause an error on the first call if not initialized properly
         let output_index = usize::MAX;
 
-        Self {
+        Box::new(Self {
             y,
             save_outputs,
             output_index,
-        }
+        })
     }
 }
 
@@ -37,7 +37,7 @@ py_json_methods!(
     Calc,
     #[new]
     fn py_new(y: f64, save_outputs: bool) -> PyResult<Self> {
-        Ok(Self::new(y, save_outputs))
+        Ok(*Self::new(y, save_outputs))
     }
 );
 

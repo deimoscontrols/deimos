@@ -135,8 +135,8 @@ controller.add_peripheral("p2", Box::new(AnalogIRev3 { serial_number: 2 }));
 //     Add a constant for duty cycle and a sine wave for frequency
 let freq = Sin::new(1.0 / (rate_hz / 100.0), 0.25, 100.0, 250_000.0, true);
 let duty = Constant::new(0.5, true);
-controller.add_calc("freq", Box::new(freq));
-controller.add_calc("duty", Box::new(duty));
+controller.add_calc("freq", freq);
+controller.add_calc("duty", duty);
 //     Set a PWM on the first peripheral to change its frequency in time
 controller.set_peripheral_input_source("p1.pwm0_freq", "freq.y");  // A value to be written to the hardware
 controller.set_peripheral_input_source("p1.pwm0_duty", "duty.y");

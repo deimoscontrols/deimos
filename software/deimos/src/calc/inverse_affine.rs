@@ -27,13 +27,13 @@ pub struct InverseAffine {
 }
 
 impl InverseAffine {
-    pub fn new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> Self {
+    pub fn new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> Box<Self> {
         // These will be set during init.
         // Use default indices that will cause an error on the first call if not initialized properly
         let input_index = usize::MAX;
         let output_index = usize::MAX;
 
-        Self {
+        Box::new(Self {
             input_name,
             slope,
             offset,
@@ -41,7 +41,7 @@ impl InverseAffine {
 
             input_index,
             output_index,
-        }
+        })
     }
 }
 
@@ -50,7 +50,7 @@ py_json_methods!(
     Calc,
     #[new]
     fn py_new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> Self {
-        Self::new(input_name, slope, offset, save_outputs)
+        *Self::new(input_name, slope, offset, save_outputs)
     }
 );
 

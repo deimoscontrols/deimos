@@ -28,7 +28,6 @@ pub mod hootl_mockup;
 pub use hootl_mockup::{HootlDriver, HootlMockupPeripheral, HootlRunHandle, MockupTransport};
 
 pub use deimos_shared::peripherals::PeripheralId;
-use once_cell::sync::Lazy;
 
 /// Generate Python bindings and JSON helpers for peripherals.
 #[macro_export]
@@ -57,36 +56,6 @@ pub type PluginFn = dyn Fn(&BindingOutput) -> Box<dyn Peripheral> + Send + Sync;
 /// Map of model numbers to initialization functions so that the controller can find
 /// the approriate initialization function.
 pub type PluginMap<'a> = BTreeMap<ModelNumber, &'a PluginFn>;
-
-/// Peripherals that can be prototyped
-pub trait PeripheralProto {
-    fn prototype() -> (String, Box<dyn Peripheral>);
-}
-
-impl<T> PeripheralProto for T
-where
-    T: Peripheral + Default + 'static,
-{
-    fn prototype() -> (String, Box<dyn Peripheral>) {
-        let name = std::any::type_name::<T>()
-            .split("::")
-            .last()
-            .unwrap()
-            .to_owned();
-        let proto: Box<dyn Peripheral> = Box::new(T::default());
-
-        (name, proto)
-    }
-}
-
-/// Prototypes of each
-pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Peripheral>>> = Lazy::new(|| {
-    BTreeMap::<String, Box<dyn Peripheral>>::from([
-        AnalogIRev2::prototype(),
-        AnalogIRev3::prototype(),
-        AnalogIRev4::prototype(),
-    ])
-});
 
 /// Clone isn't inherently object-safe, so to be able to clone dyn trait objects,
 /// we send it for a loop through the serde typetag system, which provides an

@@ -45,11 +45,11 @@ impl core::fmt::Debug for Butter2 {
 }
 
 impl Butter2 {
-    pub fn new(input_name: String, cutoff_hz: f64, save_outputs: bool) -> Self {
+    pub fn new(input_name: String, cutoff_hz: f64, save_outputs: bool) -> Box<Self> {
         let input_index = usize::MAX;
         let output_index = usize::MAX;
 
-        Self {
+        Box::new(Self {
             input_name,
             cutoff_hz,
             save_outputs,
@@ -57,7 +57,7 @@ impl Butter2 {
             output_index,
             filt: SisoIirFilter::default(),
             initialized: false,
-        }
+        })
     }
 }
 
@@ -66,7 +66,7 @@ py_json_methods!(
     Calc,
     #[new]
     fn py_new(input_name: String, cutoff_hz: f64, save_outputs: bool) -> Self {
-        Self::new(input_name, cutoff_hz, save_outputs)
+        *Self::new(input_name, cutoff_hz, save_outputs)
     }
 );
 

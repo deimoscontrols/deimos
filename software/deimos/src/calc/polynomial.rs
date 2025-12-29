@@ -37,15 +37,15 @@ impl Polynomial {
         coefficients: Vec<f64>,
         note: String,
         save_outputs: bool,
-    ) -> Self {
-        Self {
+    ) -> Box<Self> {
+        Box::new(Self {
             input_name,
             coefficients,
             note,
             save_outputs,
             input_index: usize::MAX,
             output_index: usize::MAX,
-        }
+        })
     }
 
     pub fn fit_from_points(
@@ -54,7 +54,7 @@ impl Polynomial {
         order: usize,
         note: &str,
         save_outputs: bool,
-    ) -> Result<Self, String> {
+    ) -> Result<Box<Self>, String> {
         let coefficients = polyfit(points, order)?;
 
         Ok(Self::new(
@@ -76,7 +76,7 @@ py_json_methods!(
         note: String,
         save_outputs: bool,
     ) -> Self {
-        Self::new(input_name, coefficients, note, save_outputs)
+        *Self::new(input_name, coefficients, note, save_outputs)
     }
 );
 

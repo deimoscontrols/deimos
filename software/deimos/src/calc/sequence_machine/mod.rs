@@ -109,7 +109,10 @@ impl Default for SequenceMachine {
 
 impl SequenceMachine {
     /// Store and validate a new SequenceMachine
-    pub fn new(cfg: MachineCfg, sequences: BTreeMap<String, Sequence>) -> Result<Self, String> {
+    pub fn new(
+        cfg: MachineCfg,
+        sequences: BTreeMap<String, Sequence>,
+    ) -> Result<Box<Self>, String> {
         // These will be set during init.
         // Use default indices that will cause an error on the first call if not initialized properly
         let input_indices = Vec::new();
@@ -131,7 +134,7 @@ impl SequenceMachine {
 
         machine.validate()?;
 
-        Ok(machine)
+        Ok(Box::new(machine))
     }
 
     /// Check the validity of sequences, transitions, timeouts, etc
@@ -285,7 +288,7 @@ impl SequenceMachine {
     /// Read a configuration json and sequence CSV files from a folder.
     /// The folder must contain one json representing a [MachineCfg] and
     /// some number of CSV files each representing a [Sequence].
-    pub fn load_folder(path: &dyn AsRef<Path>) -> Result<Self, String> {
+    pub fn load_folder(path: &dyn AsRef<Path>) -> Result<Box<Self>, String> {
         let dir = std::fs::read_dir(path)
             .map_err(|e| format!("Unable to read items in folder {:?}: {e}", path.as_ref()))?;
 
@@ -372,7 +375,7 @@ impl Calc for SequenceMachine {
         // Reload from folder, if linked
         if let Some(rel_path) = &self.cfg.link_folder {
             let folder = ctx.op_dir.join(rel_path);
-            *self = Self::load_folder(&folder)
+            *self = *Self::load_folder(&folder)
                 .map_err(|e| format!("Failed to load sequence machine from linked folder: {e}"))?;
         }
 
@@ -534,7 +537,9 @@ impl SequenceMachine {
     #[pyo3(name = "load_folder")]
     fn py_load_folder(path: &str) -> PyResult<Self> {
         let path = Path::new(path);
-        Self::load_folder(&path).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+        Self::load_folder(&path)
+            .map(|machine| *machine)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
     }
 
     #[pyo3(name = "save_folder")]
@@ -762,11 +767,11 @@ mod tests {
         let _ = std::fs::remove_dir_all(&tmp_dir);
         std::fs::create_dir_all(&tmp_dir).unwrap();
 
-        let original = SequenceMachine::load_folder(&src_dir).unwrap();
+        let original = *SequenceMachine::load_folder(&src_dir).unwrap();
         let original_json = serde_json::to_string_pretty(&original).unwrap();
 
         original.save_folder(&tmp_dir).unwrap();
-        let roundtrip = SequenceMachine::load_folder(&tmp_dir).unwrap();
+        let roundtrip = *SequenceMachine::load_folder(&tmp_dir).unwrap();
         let roundtrip_json = serde_json::to_string_pretty(&roundtrip).unwrap();
 
         assert_eq!(original_json, roundtrip_json);
