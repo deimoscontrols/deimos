@@ -9,8 +9,8 @@ jobs:
   test_python:
     runs-on: ubuntu-latest
     defaults:
-    run:
-      working-directory: ./software/deimos
+      run:
+        working-directory: ./software/deimos
     strategy:
       matrix:
         target: [x86_64]
