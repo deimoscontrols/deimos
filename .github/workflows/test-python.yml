@@ -75,6 +75,7 @@ jobs:
       # or having sudo
       run: |
         # Install something so that clearing the cache doesn't crash later
+        uv venv
         uv pip install pytest
 
         # Run with perms
