@@ -23,6 +23,9 @@ UNIX_SOCKET = "ctrl"
 RATE_HZ = 20.0
 RUN_TIMEOUT_S = 0.6
 LATEST_FILTER_HZ = 5.0
+HAS_UNIX_SOCKET = hasattr(socket, "UnixSocket") and hasattr(
+    peripheral.MockupTransport, "unix_socket"
+)
 
 
 def _metric_channels(peripheral_name: str) -> list[str]:
@@ -38,6 +41,8 @@ def _make_transport(kind: str, name: str | None) -> peripheral.MockupTransport:
             raise ValueError("thread transport requires a name")
         return peripheral.MockupTransport.thread_channel(name)
     if kind == "unix":
+        if not HAS_UNIX_SOCKET:
+            raise RuntimeError("unix socket transport is not available on this platform")
         if name is None:
             raise ValueError("unix transport requires a name")
         return peripheral.MockupTransport.unix_socket(name)
@@ -56,7 +61,8 @@ def _build_controller(
     ctrl.clear_sockets()
     ctrl.add_socket("thread1", socket.ThreadChannelSocket(THREAD_CHANNEL1))
     ctrl.add_socket("thread2", socket.ThreadChannelSocket(THREAD_CHANNEL2))
-    ctrl.add_socket("unix", socket.UnixSocket(UNIX_SOCKET))
+    if HAS_UNIX_SOCKET:
+        ctrl.add_socket("unix", socket.UnixSocket(UNIX_SOCKET))
     ctrl.add_socket("udp", socket.UdpSocket())
 
     ctrl.add_dispatcher("csv", dispatcher.CsvDispatcher(1, Overflow.wrap()))
@@ -83,10 +89,15 @@ def _build_controller(
     specs = [
         ("analog_rev2", peripheral.AnalogIRev2, 1001, ("thread", THREAD_CHANNEL1)),
         ("analog_rev3", peripheral.AnalogIRev3, 1002, ("thread", THREAD_CHANNEL2)),
-        ("analog_rev4", peripheral.AnalogIRev4, 1003, ("unix", "per_analog4")),
-        ("daq_rev5", peripheral.DeimosDaqRev5, 1004, ("unix", "per_daq5")),
-        ("daq_rev6", peripheral.DeimosDaqRev6, 1005, ("udp", None)),
     ]
+    if HAS_UNIX_SOCKET:
+        specs.extend(
+            [
+                ("analog_rev4", peripheral.AnalogIRev4, 1003, ("unix", "per_analog4")),
+                ("daq_rev5", peripheral.DeimosDaqRev5, 1004, ("unix", "per_daq5")),
+            ]
+        )
+    specs.append(("daq_rev6", peripheral.DeimosDaqRev6, 1005, ("udp", None)))
 
     drivers: list[peripheral.HootlDriver] = []
     for name, cls, serial, (transport_kind, transport_name) in specs:

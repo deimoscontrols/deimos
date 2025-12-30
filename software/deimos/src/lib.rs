@@ -17,9 +17,10 @@ pub use controller::{
 pub use dispatcher::{
     ChannelFilter, CsvDispatcher, DecimationDispatcher, Dispatcher, LowPassDispatcher, Overflow,
 };
+#[cfg(unix)]
+pub use socket::unix::UnixSocket;
 pub use socket::{
     Socket, SocketAddr, SocketId, thread_channel::ThreadChannelSocket, udp::UdpSocket,
-    unix::UnixSocket,
 };
 
 pub use dispatcher::DataFrameDispatcher;

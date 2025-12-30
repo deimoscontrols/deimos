@@ -4,6 +4,7 @@
 pub mod orchestrator;
 pub mod thread_channel;
 pub mod udp;
+#[cfg(unix)]
 pub mod unix;
 pub mod worker;
 

@@ -43,10 +43,11 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     #[pymodule]
     #[pyo3(name = "socket")]
     mod socket_ {
+        #[cfg(unix)]
         #[pymodule_export]
-        pub use crate::socket::{
-            thread_channel::ThreadChannelSocket, udp::UdpSocket, unix::UnixSocket,
-        };
+        pub use crate::socket::unix::UnixSocket;
+        #[pymodule_export]
+        pub use crate::socket::{thread_channel::ThreadChannelSocket, udp::UdpSocket};
     }
 
     m.add_wrapped(wrap_pymodule!(socket_))?;

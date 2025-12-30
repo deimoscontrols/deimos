@@ -2,7 +2,9 @@
 
 use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, SocketAddr as UdpSocketAddr, UdpSocket};
+#[cfg(unix)]
 use std::os::unix::net::{SocketAddr as UnixSocketAddr, UnixDatagram};
+#[cfg(unix)]
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -213,6 +215,7 @@ pub enum MockupTransport {
     ThreadChannel { name: String },
 
     /// A unix socket with this name.
+    #[cfg(unix)]
     UnixSocket { name: String },
 
     /// UDP transport bound to PERIPHERAL_RX_PORT.
@@ -228,6 +231,7 @@ impl MockupTransport {
         }
     }
 
+    #[cfg(unix)]
     pub fn unix_socket(name: &str) -> Self {
         Self::UnixSocket {
             name: name.to_owned(),
@@ -248,6 +252,7 @@ impl MockupTransport {
         Self::thread_channel(name)
     }
 
+    #[cfg(unix)]
     #[staticmethod]
     #[pyo3(name = "unix_socket")]
     fn py_unix_socket(name: &str) -> Self {
@@ -580,6 +585,7 @@ enum TransportState {
         name: String,
         endpoint: Option<Endpoint>,
     },
+    #[cfg(unix)]
     UnixSocket {
         name: String,
         socket: Option<UnixDatagram>,
@@ -592,6 +598,7 @@ enum TransportState {
 
 #[derive(Debug)]
 enum TransportAddr {
+    #[cfg(unix)]
     Unix(UnixSocketAddr),
     Udp(UdpSocketAddr),
 }
@@ -603,6 +610,7 @@ impl TransportState {
                 name,
                 endpoint: None,
             },
+            #[cfg(unix)]
             MockupTransport::UnixSocket { name } => Self::UnixSocket {
                 name,
                 socket: None,
@@ -619,6 +627,7 @@ impl TransportState {
                 info!("Opened thread channel socket on user channel `{name}`");
                 Ok(())
             }
+            #[cfg(unix)]
             TransportState::UnixSocket { name, socket, path } => {
                 let socket_path = socket_path(&ctx.op_dir, name);
                 if let Some(parent) = socket_path.parent() {
@@ -654,6 +663,7 @@ impl TransportState {
             TransportState::ThreadChannel { endpoint, .. } => {
                 *endpoint = None;
             }
+            #[cfg(unix)]
             TransportState::UnixSocket { socket, path, .. } => {
                 *socket = None;
                 if let Some(path) = path.take() {
@@ -688,6 +698,7 @@ impl TransportState {
                     _ => None,
                 }
             }
+            #[cfg(unix)]
             TransportState::UnixSocket { socket, .. } => {
                 let sock = socket.as_mut()?;
                 match sock.recv_from(buf).ok() {
@@ -724,6 +735,7 @@ impl TransportState {
                     .send(Msg::Packet(bytes))
                     .map_err(|e| format!("Failed to send thread channel packet: {e}"))
             }
+            #[cfg(unix)]
             TransportState::UnixSocket { socket, .. } => {
                 let sock = socket
                     .as_ref()
@@ -754,6 +766,7 @@ impl TransportState {
     }
 }
 
+#[cfg(unix)]
 fn socket_path(op_dir: &PathBuf, name: &str) -> PathBuf {
     op_dir.join("sock").join("per").join(name)
 }
