@@ -6,7 +6,7 @@ authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/deimoscontrols/deimos/software/deimos"
 homepage = "https://github.com/deimoscontrols/deimos"
-description = "Control-loop and data pipeline for Deimos data acquisition system"
+description = "Control-loop and data pipeline for the Deimos data acquisition system"
 readme = "./README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

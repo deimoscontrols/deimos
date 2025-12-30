@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "deimos-daq"
 dynamic = ["version"]
-description = "N-dimensional interpolation/extrapolation methods"
+description = "Control-loop and data pipeline for the Deimos data acquisition system"
 authors = [{ name = "James Logan", email = "jlogan03@gmail.com" }]
 readme = "README.md"
 license = "MIT OR Apache-2.0"
@@ -30,13 +30,13 @@ test = [
     "ruff >= 0.14.10",
     "ty == 0.0.8",
     "mktestdocs == 0.2.5",
-    "plotly>=5,<6",
+    #"plotly>=6,<7",
 ]
-doc = [
-    "mkdocs >= 1.6.1",
-    "mkdocstrings-python >= 2.0.1",
-    "mkdocs-material >= 9.7.1"
-]
+#doc = [
+#    "mkdocs >= 1.6.1",
+#    "mkdocstrings-python >= 2.0.1",
+#    "mkdocs-material >= 9.7.1"
+#]
 
 [tool.uv]
 cache-keys = [
@@ -73,7 +73,7 @@ include = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "--cov=src --cov-report html --cov-fail-under=70"
+addopts = "--cov=deimos --cov-report html --cov-fail-under=70"
 
 [tool.ruff.lint]
 select = [
