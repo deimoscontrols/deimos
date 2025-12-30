@@ -16,7 +16,8 @@ use super::{Socket, SocketAddrToken, SocketPacketMeta};
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::states::{ByteStruct, ByteStructLen};
 
-/// Socket implementation that communicates over a named user channel.
+/// Socket implementation that consumes a user channel of the same name.
+/// Only one peripheral can be connected per thread socket.
 #[derive(Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "python", pyclass)]
 pub struct ThreadChannelSocket {

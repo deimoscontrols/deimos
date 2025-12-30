@@ -1,0 +1,136 @@
+"""Smoke test for HOOTL mockups with full peripheral/socket/dispatcher coverage."""
+
+from __future__ import annotations
+
+import tempfile
+import time
+from contextlib import ExitStack
+from pathlib import Path
+
+from deimos import (
+    Controller,
+    LoopMethod,
+    Overflow,
+    Termination,
+    dispatcher,
+    peripheral,
+    socket,
+)
+
+THREAD_CHANNEL1 = "hootl_thread1"
+THREAD_CHANNEL2 = "hootl_thread2"
+UNIX_SOCKET = "ctrl"
+RATE_HZ = 20.0
+RUN_TIMEOUT_S = 0.6
+LATEST_FILTER_HZ = 5.0
+
+
+def _metric_channels(peripheral_name: str) -> list[str]:
+    return [
+        f"{peripheral_name}.metrics.cycle_time_ns",
+        f"{peripheral_name}.metrics.loss_of_contact_counter",
+    ]
+
+
+def _make_transport(kind: str, name: str | None) -> peripheral.MockupTransport:
+    if kind == "thread":
+        if name is None:
+            raise ValueError("thread transport requires a name")
+        return peripheral.MockupTransport.thread_channel(name)
+    if kind == "unix":
+        if name is None:
+            raise ValueError("unix transport requires a name")
+        return peripheral.MockupTransport.unix_socket(name)
+    if kind == "udp":
+        return peripheral.MockupTransport.udp()
+    raise ValueError(f"Unknown transport kind: {kind}")
+
+
+def _build_controller(
+    op_dir: Path, loop_method: LoopMethod
+) -> tuple[Controller, list[peripheral.HootlDriver]]:
+    ctrl = Controller(op_name="smoketest", op_dir=str(op_dir), rate_hz=RATE_HZ)
+    ctrl.termination_criteria = Termination.timeout_s(RUN_TIMEOUT_S)
+    ctrl.loop_method = loop_method
+
+    ctrl.clear_sockets()
+    ctrl.add_socket("thread1", socket.ThreadChannelSocket(THREAD_CHANNEL1))
+    ctrl.add_socket("thread2", socket.ThreadChannelSocket(THREAD_CHANNEL2))
+    ctrl.add_socket("unix", socket.UnixSocket(UNIX_SOCKET))
+    ctrl.add_socket("udp", socket.UdpSocket())
+
+    ctrl.add_dispatcher("csv", dispatcher.CsvDispatcher(1, Overflow.wrap()))
+    ctrl.add_dispatcher("latest_value", dispatcher.LatestValueDispatcher())
+    ctrl.add_dispatcher(
+        "channel_filter",
+        dispatcher.ChannelFilter(
+            dispatcher.LatestValueDispatcher(),
+            _metric_channels("analog_rev2"),
+        ),
+    )
+    ctrl.add_dispatcher(
+        "decimation",
+        dispatcher.DecimationDispatcher(dispatcher.LatestValueDispatcher(), 2),
+    )
+    ctrl.add_dispatcher(
+        "low_pass",
+        dispatcher.LowPassDispatcher(
+            dispatcher.LatestValueDispatcher(), LATEST_FILTER_HZ
+        ),
+    )
+    ctrl.add_dataframe_dispatcher("dataframe", 1, Overflow.wrap())
+
+    specs = [
+        ("analog_rev2", peripheral.AnalogIRev2, 1001, ("thread", THREAD_CHANNEL1)),
+        ("analog_rev3", peripheral.AnalogIRev3, 1002, ("thread", THREAD_CHANNEL2)),
+        ("analog_rev4", peripheral.AnalogIRev4, 1003, ("unix", "per_analog4")),
+        ("daq_rev5", peripheral.DeimosDaqRev5, 1004, ("unix", "per_daq5")),
+        ("daq_rev6", peripheral.DeimosDaqRev6, 1005, ("udp", None)),
+    ]
+
+    drivers: list[peripheral.HootlDriver] = []
+    for name, cls, serial, (transport_kind, transport_name) in specs:
+        ctrl.add_peripheral(name, cls(serial))
+        transport = _make_transport(transport_kind, transport_name)
+        drivers.append(peripheral.HootlDriver(cls(serial), transport))
+
+    return ctrl, drivers
+
+
+def _run_controller(
+    loop_method: LoopMethod,
+    blocking: bool,
+    latest_value_cutoff: float | None,
+) -> None:
+    with tempfile.TemporaryDirectory(prefix="deimos-smoketest-") as tmp_dir:
+        op_dir = Path(tmp_dir)
+        ctrl, drivers = _build_controller(op_dir, loop_method)
+
+        with ExitStack() as stack:
+            for driver in drivers:
+                stack.enter_context(driver.run_with(ctrl))
+
+            if blocking:
+                ctrl.run()
+                return
+
+            handle = ctrl.run_nonblocking(latest_value_cutoff)
+            try:
+                time.sleep(0.2)
+                snapshot = handle.read()
+                expected = _metric_channels("analog_rev2")
+                for channel in expected:
+                    assert channel in snapshot.values
+            finally:
+                if handle.is_running():
+                    handle.stop()
+                handle.join()
+
+
+def test_hootl_smoketest() -> None:
+    for loop_method in [LoopMethod.performant(), LoopMethod.efficient()]:
+        _run_controller(loop_method, blocking=True, latest_value_cutoff=None)
+        _run_controller(loop_method, blocking=False, latest_value_cutoff=None)
+        _run_controller(
+            loop_method, blocking=False, latest_value_cutoff=LATEST_FILTER_HZ
+        )

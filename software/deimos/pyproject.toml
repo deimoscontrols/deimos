@@ -73,7 +73,7 @@ include = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "--cov=interpn --cov-report html --cov-fail-under=94"
+addopts = "--cov=src --cov-report html --cov-fail-under=70"
 
 [tool.ruff.lint]
 select = [

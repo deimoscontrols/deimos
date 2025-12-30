@@ -600,7 +600,8 @@ class _SocketModule(ModuleType):
         def __init__(self) -> None: ...
 
     class ThreadChannelSocket(_SocketBase):
-        """Socket implementation that communicates over a named user channel."""
+        """Socket implementation that consumes a user channel of the same name.
+        Only one peripheral can be connected per thread socket."""
         def __init__(self, name: str) -> None: ...
 
 socket: _SocketModule
