@@ -74,6 +74,10 @@ jobs:
       # that make LAN inaccessible without clicking on a GUI element
       # or having sudo
       run: |
+        # Install something so that clearing the cache doesn't crash later
+        uv pip install pytest
+
+        # Run with perms
         UV_BIN="$(command -v uv)"
         sudo "$UV_BIN" sync --locked --no-editable --group test
         sudo "$UV_BIN" run --no-sync pytest .
