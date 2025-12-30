@@ -66,7 +66,20 @@ jobs:
       with:
         python-version: "3.11"
 
-    - name: Test
+    - name: Test (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      # Run with elevated perms on mac because macos-15
+      # introduced new firewall restrictions on local network access
+      # that make LAN inaccessible without clicking on a GUI element
+      # or having sudo
+      run: |
+        UV_BIN="$(command -v uv)"
+        sudo "$UV_BIN" sync --locked --no-editable --group test
+        sudo "$UV_BIN" run --no-sync pytest .
+
+    - name: Test (non-macOS)
+      if: runner.os != 'macOS'
       run: |
         uv sync --locked --no-editable --group test
         uv run --no-sync pytest .
