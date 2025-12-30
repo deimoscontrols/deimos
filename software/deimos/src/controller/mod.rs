@@ -174,7 +174,7 @@ impl Controller {
     }
 
     /// Run the control program on a separate thread and return a handle for coordination.
-    /// 
+    ///
     /// `latest_value_cutoff_freq` enables an
     /// optional second-order Butterworth low-pass filter
     /// cutoff frequency to apply to latest-value data.
@@ -182,7 +182,7 @@ impl Controller {
     /// range for the filter, the cutoff frequency will
     /// be clamped to the viable bounds and a warning
     /// will be emitted.
-    /// 
+    ///
     /// `plugins` provides a mechanism to register user-defined Peripheral objects.
     pub fn run_nonblocking(
         self,
@@ -746,7 +746,7 @@ impl Controller {
     }
 
     /// Start the control program.
-    /// 
+    ///
     /// `plugins` provides a mechanism to register user-defined Peripheral objects.
     /// `termination_signal` signals the controller to shut down when set to `true`.
     pub fn run(
