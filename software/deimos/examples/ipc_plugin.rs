@@ -65,7 +65,7 @@ fn main() {
     controller.add_socket("ipc_ex", Box::new(UnixSocket::new("ipc_ex")));
 
     // Add an in-memory data target
-    let (df_dispatcher, df_handle) = DataFrameDispatcher::new(1, Overflow::Error, None);
+    let (df_dispatcher, df_handle) = DataFrameDispatcher::new(1, Overflow::Wrap, None);
     controller.add_dispatcher("df", df_dispatcher);
 
     // Register the mockup as a plugin

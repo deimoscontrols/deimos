@@ -23,7 +23,7 @@ jobs:
 
         include:
          - target: x86_64
-           python-version: "3.11.0"
+           python-version: "3.11"
            sync-args: --resolution=lowest-direct
 
     steps:
