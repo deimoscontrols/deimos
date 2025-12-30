@@ -156,7 +156,7 @@ class Controller:
     ) -> RunHandle:
         """Run the control program on a separate thread and return a handle
         for coordination.
-        
+
         Args:
             latest_value_cutoff_freq: Optional second-order Butterworth low-pass filter
                                       cutoff frequency to apply to latest-value data.
