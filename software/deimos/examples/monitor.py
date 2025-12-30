@@ -1,4 +1,5 @@
 """A simple program to monitor all peripherals found on the network"""
+
 import time
 from pathlib import Path
 

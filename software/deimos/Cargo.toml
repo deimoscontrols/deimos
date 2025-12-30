@@ -56,7 +56,8 @@ tracing-subscriber = { version = "^0.3.20", features = ["fmt", "env-filter", "ch
 pyo3 = { version = "0.27.2", features = ["extension-module", "abi3-py311", "generate-import-lib"], optional = true }
 
 [features]
-default = ["python"]
+# default = ["python"]  # For development
+default = []
 python = ["pyo3"]
 
 [[example]]

@@ -8,6 +8,10 @@ from contextlib import ExitStack
 from pathlib import Path
 from deimos import Controller, peripheral, socket, Termination, LoopMethod
 
+HAS_UNIX_SOCKET = hasattr(socket, "UnixSocket") and hasattr(
+    peripheral.MockupTransport, "unix_socket"
+)
+
 
 def main() -> None:
     here = Path(__file__).parent.resolve()
@@ -17,21 +21,25 @@ def main() -> None:
 
         # Set up HOOTL drivers
         mock_thread = peripheral.DeimosDaqRev6(1)
-        mock_unix = peripheral.DeimosDaqRev6(2)
         mock_udp = peripheral.DeimosDaqRev6(3)
 
         driver_thread = peripheral.HootlDriver(
             peripheral.DeimosDaqRev6(1),
             peripheral.MockupTransport.thread_channel("mockup_chan"),
         )
-        driver_unix = peripheral.HootlDriver(
-            peripheral.DeimosDaqRev6(2),
-            peripheral.MockupTransport.unix_socket("mockup_unix"),
-        )
         driver_udp = peripheral.HootlDriver(
             peripheral.DeimosDaqRev6(3),
             peripheral.MockupTransport.udp(),
         )
+
+        mock_unix = None
+        driver_unix = None
+        if HAS_UNIX_SOCKET:
+            mock_unix = peripheral.DeimosDaqRev6(2)
+            driver_unix = peripheral.HootlDriver(
+                peripheral.DeimosDaqRev6(2),
+                peripheral.MockupTransport.unix_socket("mockup_unix"),
+            )
 
         # Build control program
         ctrl = Controller(op_name="mockup_demo", op_dir=str(here / "op"), rate_hz=20.0)
@@ -40,11 +48,13 @@ def main() -> None:
 
         ctrl.clear_sockets()
         ctrl.add_socket("mockup_chan", socket.ThreadChannelSocket("mockup_chan"))
-        ctrl.add_socket("ctrl", socket.UnixSocket("ctrl"))
+        if HAS_UNIX_SOCKET:
+            ctrl.add_socket("ctrl", socket.UnixSocket("ctrl"))
         ctrl.add_socket("udp", socket.UdpSocket())  # Included by default, but cleared
 
         ctrl.add_peripheral("mock_thread", mock_thread)
-        ctrl.add_peripheral("mock_unix", mock_unix)
+        if mock_unix is not None:
+            ctrl.add_peripheral("mock_unix", mock_unix)
         ctrl.add_peripheral("mock_udp", mock_udp)
 
         # Run
@@ -52,7 +62,8 @@ def main() -> None:
             # Run the peripheral mockups, which will wait for the controller
             # to send a request to bind
             stack.enter_context(driver_thread.run_with(ctrl))
-            stack.enter_context(driver_unix.run_with(ctrl))
+            if driver_unix is not None:
+                stack.enter_context(driver_unix.run_with(ctrl))
             stack.enter_context(driver_udp.run_with(ctrl))
 
             # Get list of inputs available to set manually.
@@ -69,7 +80,7 @@ def main() -> None:
             try:
                 time.sleep(0.5)
                 handle.write({"mock_thread.dac0": 0.0})
-                
+
                 # Make sure we had stable communication with all the peripheral mockups
                 for k, v in handle.read().values.items():
                     if "loss_of_contact_counter" in k:
