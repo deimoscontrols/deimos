@@ -1,5 +1,5 @@
 use std::sync::{Arc, atomic::AtomicBool};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use pyo3::prelude::*;
 use tracing::warn;
@@ -9,7 +9,7 @@ use crate::RunHandle;
 use crate::Socket;
 use crate::calc::Calc;
 use crate::dispatcher::{DataFrameDispatcher, DataFrameHandle, Dispatcher, Overflow};
-use crate::peripheral::Peripheral;
+use crate::peripheral::{HootlRunHandle, MockupTransport, Peripheral};
 
 use super::*;
 
@@ -307,6 +307,28 @@ impl Controller {
     fn add_peripheral(&mut self, name: &str, p: Box<dyn Peripheral>) -> PyResult<()> {
         self.ctrl()?.add_peripheral(name, p);
         Ok(())
+    }
+
+    #[pyo3(signature=(peripheral_name, transport, end_epoch_ns=None))]
+    fn attach_hootl_driver(
+        &mut self,
+        peripheral_name: &str,
+        transport: MockupTransport,
+        end_epoch_ns: Option<u64>,
+    ) -> PyResult<HootlRunHandle> {
+        let end = match end_epoch_ns {
+            Some(ns) => Some(
+                SystemTime::UNIX_EPOCH
+                    .checked_add(Duration::from_nanos(ns))
+                    .ok_or_else(|| {
+                        pyo3::exceptions::PyValueError::new_err("Invalid end_epoch_ns")
+                    })?,
+            ),
+            None => None,
+        };
+        self.ctrl()?
+            .attach_hootl_driver(peripheral_name, transport, end)
+            .map_err(|e| BackendErr::InvalidPeripheralErr { msg: e }.into())
     }
 
     fn add_calc(&mut self, name: &str, calc: Box<dyn Calc>) -> PyResult<()> {

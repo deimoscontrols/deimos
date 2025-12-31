@@ -26,64 +26,51 @@ use tracing::error;
 use tracing::info;
 use tracing::warn;
 
+use super::Peripheral;
 use crate::calc::Calc;
 use crate::controller::channel::{Endpoint, Msg};
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
-use super::Peripheral;
-
 #[cfg(feature = "python")]
 use crate::python::{BackendErr, controller::Controller as PyController};
 
-/// Peripheral wrapper that emits mock outputs using the ipc_mockup-style state machine.
-#[derive(Serialize, Deserialize, Debug)]
+/// Peripheral wrapper that emits mock outputs using driver-owned state.
+///
+/// Note: this should be attached via `Controller::attach_hootl_driver` to keep
+/// the shared driver state intact. JSON roundtrips will reset the link.
+#[derive(Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "python", pyclass)]
 pub struct HootlMockupPeripheral {
     inner: Box<dyn Peripheral>,
-    configuring_timeout: Duration,
-    end: Option<SystemTime>,
-    #[serde(skip)]
-    state: Mutex<MockState>,
+    #[serde(skip, default = "default_state")]
+    state: Arc<Mutex<MockState>>,
 }
 
 impl HootlMockupPeripheral {
-    pub fn new(
-        inner: Box<dyn Peripheral>,
-        configuring_timeout: Duration,
-        end: Option<SystemTime>,
-    ) -> Self {
-        Self {
-            inner,
-            configuring_timeout,
-            end,
-            state: Mutex::new(MockState::default()),
-        }
+    fn new_driver_owned(inner: Box<dyn Peripheral>, state: Arc<Mutex<MockState>>) -> Self {
+        Self { inner, state }
     }
+
+    pub fn into_inner(self) -> Box<dyn Peripheral> {
+        self.inner
+    }
+}
+
+fn default_state() -> Arc<Mutex<MockState>> {
+    Arc::new(Mutex::new(MockState::default()))
 }
 
 py_json_methods!(
     HootlMockupPeripheral,
     Peripheral,
     #[new]
-    #[pyo3(signature=(inner, configuring_timeout_ms=250, end_epoch_ns=None))]
-    fn py_new(
-        inner: Box<dyn Peripheral>,
-        configuring_timeout_ms: u64,
-        end_epoch_ns: Option<u64>,
-    ) -> PyResult<Self> {
-        let configuring_timeout = Duration::from_millis(configuring_timeout_ms);
-        let end = match end_epoch_ns {
-            Some(ns) => Some(
-                SystemTime::UNIX_EPOCH
-                    .checked_add(Duration::from_nanos(ns))
-                    .ok_or_else(|| {
-                        pyo3::exceptions::PyValueError::new_err("Invalid end_epoch_ns")
-                    })?,
-            ),
-            None => None,
-        };
-        Ok(Self::new(inner, configuring_timeout, end))
+    #[pyo3(signature=(inner))]
+    fn py_new(inner: Box<dyn Peripheral>) -> PyResult<Self> {
+        Ok(Self {
+            inner,
+            state: default_state(),
+        })
     },
     #[getter]
     fn serial_number(&self) -> u64 {
@@ -94,51 +81,22 @@ py_json_methods!(
 #[derive(Debug)]
 struct MockState {
     mode: MockMode,
-    counter: u64,
 }
 
 impl Default for MockState {
     fn default() -> Self {
         Self {
             mode: MockMode::Binding,
-            counter: 0,
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum MockMode {
     Binding,
-    Configuring { start: Instant },
+    Configuring,
     Operating,
     Terminated,
-}
-
-impl MockState {
-    fn advance(&mut self, now: SystemTime, timeout: Duration, end: Option<SystemTime>) {
-        if end.map_or(false, |end| now > end) {
-            self.mode = MockMode::Terminated;
-            return;
-        }
-
-        let next = match std::mem::replace(&mut self.mode, MockMode::Terminated) {
-            MockMode::Binding => MockMode::Configuring {
-                start: Instant::now(),
-            },
-            MockMode::Configuring { start } => {
-                if start.elapsed() > timeout {
-                    MockMode::Binding
-                } else {
-                    self.counter = 0;
-                    MockMode::Operating
-                }
-            }
-            MockMode::Operating => MockMode::Operating,
-            MockMode::Terminated => MockMode::Terminated,
-        };
-
-        self.mode = next;
-    }
 }
 
 #[typetag::serde]
@@ -178,21 +136,21 @@ impl Peripheral for HootlMockupPeripheral {
     fn parse_operating_roundtrip(&self, bytes: &[u8], outputs: &mut [f64]) -> OperatingMetrics {
         let mut metrics = self.inner.parse_operating_roundtrip(bytes, outputs);
 
-        let mut state = match self.state.lock() {
+        let state = match self.state.lock() {
             Ok(state) => state,
             Err(_) => return metrics,
         };
-        state.advance(SystemTime::now(), self.configuring_timeout, self.end);
 
         match state.mode {
             MockMode::Operating => {
+                // FUTURE: connect this to the driver to drive more interesting logic
+                // instead of these placeholder values.
+                let counter = metrics.id;
                 for (idx, value) in outputs.iter_mut().enumerate() {
-                    *value = state.counter as f64 + (idx as f64) * 0.01;
+                    *value = counter as f64 + (idx as f64) * 0.01;
                 }
-                metrics.id = state.counter;
-                state.counter = state.counter.wrapping_add(1);
             }
-            MockMode::Binding | MockMode::Configuring { .. } | MockMode::Terminated => {
+            MockMode::Binding | MockMode::Configuring | MockMode::Terminated => {
                 for value in outputs.iter_mut() {
                     *value = 0.0;
                 }
@@ -293,6 +251,7 @@ struct HootlConfig {
 pub struct HootlDriver {
     config: HootlConfig,
     transport: MockupTransport,
+    state: Arc<Mutex<MockState>>,
 }
 
 #[cfg_attr(feature = "python", pyclass)]
@@ -331,6 +290,14 @@ impl Drop for HootlRunHandle {
 
 impl HootlDriver {
     pub fn new(inner: &dyn Peripheral, transport: MockupTransport) -> Self {
+        Self::new_with_state(inner, transport, Arc::new(Mutex::new(MockState::default())))
+    }
+
+    fn new_with_state(
+        inner: &dyn Peripheral,
+        transport: MockupTransport,
+        state: Arc<Mutex<MockState>>,
+    ) -> Self {
         Self {
             config: HootlConfig {
                 peripheral_id: inner.id(),
@@ -339,6 +306,7 @@ impl HootlDriver {
                 end: None,
             },
             transport,
+            state,
         }
     }
 
@@ -436,6 +404,7 @@ struct HootlRunner {
     config: HootlConfig,
     transport: TransportState,
     stop: Arc<AtomicBool>,
+    state: Arc<Mutex<MockState>>,
 }
 
 impl HootlRunner {
@@ -450,13 +419,24 @@ impl HootlRunner {
             config: driver.config.clone(),
             transport,
             stop,
+            state: driver.state.clone(),
         })
+    }
+
+    fn set_mode(&self, mode: MockMode) {
+        if let Ok(mut state) = self.state.lock() {
+            state.mode = mode;
+        } else {
+            warn!("Hootl runner shared state lock poisoned; unable to update mode.");
+        }
     }
 
     fn run_loop(&mut self) {
         let mut buf = vec![0u8; 1522];
         let mut state = DriverState::Binding;
         let mut controller_addr: Option<TransportAddr> = None;
+
+        self.set_mode(MockMode::Binding);
 
         loop {
             // Check exit criteria
@@ -496,10 +476,9 @@ impl HootlRunner {
                         }
 
                         controller_addr = addr;
-                        state = DriverState::Configuring {
-                            start: Instant::now(),
-                            timeout,
-                        };
+                        let start = Instant::now();
+                        self.set_mode(MockMode::Configuring);
+                        state = DriverState::Configuring { start, timeout };
                     } else {
                         thread::sleep(Duration::from_millis(1));
                     }
@@ -508,6 +487,7 @@ impl HootlRunner {
                     if start.elapsed() > timeout {
                         state = DriverState::Binding;
                         controller_addr = None;
+                        self.set_mode(MockMode::Binding);
                         continue;
                     }
 
@@ -533,6 +513,7 @@ impl HootlRunner {
                             break;
                         }
 
+                        self.set_mode(MockMode::Operating);
                         state = DriverState::Operating { counter: 0 };
                     } else {
                         thread::sleep(Duration::from_millis(1));
@@ -571,6 +552,7 @@ impl HootlRunner {
                             info!(
                                 "Hootl runner failed to send packet during Operating; returning to Binding."
                             );
+                            self.set_mode(MockMode::Binding);
                             continue;
                         }
 
@@ -582,8 +564,21 @@ impl HootlRunner {
             }
         }
 
+        self.set_mode(MockMode::Terminated);
         self.transport.close();
     }
+}
+
+pub(crate) fn build_hootl_pair(
+    inner: Box<dyn Peripheral>,
+    transport: MockupTransport,
+    end: Option<SystemTime>,
+) -> (HootlMockupPeripheral, HootlDriver) {
+    let state = Arc::new(Mutex::new(MockState::default()));
+    let driver =
+        HootlDriver::new_with_state(inner.as_ref(), transport, state.clone()).with_end(end);
+    let peripheral = HootlMockupPeripheral::new_driver_owned(inner, state);
+    (peripheral, driver)
 }
 
 #[derive(Debug)]

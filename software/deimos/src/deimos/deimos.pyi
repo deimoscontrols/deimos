@@ -176,6 +176,14 @@ class Controller:
     def add_peripheral(self, name: str, p: PeripheralLike) -> None:
         """Register a peripheral with the control program"""
         ...
+    def attach_hootl_driver(
+        self,
+        peripheral_name: str,
+        transport: MockupTransport,
+        end_epoch_ns: int | None = None,
+    ) -> HootlRunHandle:
+        """Wrap an existing peripheral with a hootl mockup and start its driver."""
+        ...
     def add_calc(self, name: str, calc: CalcLike) -> None:
         """Add a calc to the expression graph that runs on every cycle"""
         ...
@@ -563,14 +571,12 @@ class _PeripheralModule(ModuleType):
         def __init__(self, serial_number: int) -> None: ...
 
     class HootlMockupPeripheral(_PeripheralBase):
-        """Peripheral wrapper that emits mock outputs
-        using a state machine that imitates hardware peripheral behavior."""
-        def __init__(
-            self,
-            inner: PeripheralLike,
-            configuring_timeout_ms: int = 250,
-            end_epoch_ns: int | None = None,
-        ) -> None: ...
+        """Peripheral wrapper that emits mock outputs using driver-owned state.
+
+        Note: attach this via Controller.attach_hootl_driver to keep the shared
+        driver state intact; JSON roundtrips reset the link.
+        """
+        def __init__(self, inner: PeripheralLike) -> None: ...
 
     MockupTransport = MockupTransport
 
@@ -583,7 +589,7 @@ class _PeripheralModule(ModuleType):
             transport: MockupTransport,
             end_epoch_ns: int | None = None,
         ) -> None: ...
-        """A way to operate a HootlMockupPeripheral from outside the control program."""
+        """A way to operate a hootl mockup driver from outside the control program."""
 
         def run_with(self, controller: Controller) -> HootlRunHandle: ...
         """Start the driver attached to this controller."""

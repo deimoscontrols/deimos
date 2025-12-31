@@ -35,7 +35,7 @@ use deimos::{
     calc::Calc,
     controller::context::{ControllerCtx, Termination},
     dispatcher::{DataFrameDispatcher, Overflow},
-    peripheral::{HootlDriver, MockupTransport, Peripheral, PluginMap},
+    peripheral::{MockupTransport, Peripheral, PluginMap},
     socket::unix::UnixSocket,
     *,
 };
@@ -84,14 +84,9 @@ fn main() {
 
     // Start the mockup driver on another thread,
     // setting a timer for it to terminate at a specific time
-    let end = SystemTime::now() + Duration::from_millis(1000);
-    let mockup_driver = HootlDriver::new(
-        &IpcMockup { serial_number: 0 },
-        MockupTransport::unix_socket("mockup"),
-    )
-    .with_end(Some(end));
-    let mut mockup_handle = mockup_driver
-        .run(&controller.ctx)
+    let end = Some(SystemTime::now() + Duration::from_millis(1000));
+    let mut mockup_handle = controller
+        .attach_hootl_driver("mockup", MockupTransport::unix_socket("mockup"), end)
         .expect("Failed to start mockup driver");
 
     // Scan for peripherals to find the mockup
