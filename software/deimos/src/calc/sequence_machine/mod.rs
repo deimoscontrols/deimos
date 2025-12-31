@@ -181,6 +181,31 @@ impl SequenceMachine {
         Ok(())
     }
 
+    #[cfg(feature = "python")]
+    fn add_transition(
+        &mut self,
+        source_sequence: String,
+        target_sequence: String,
+        transition: Transition,
+    ) -> Result<(), String> {
+        if !self.sequences.contains_key(&source_sequence) {
+            return Err(format!("Unknown source sequence: {source_sequence}"));
+        }
+        if !self.sequences.contains_key(&target_sequence) {
+            return Err(format!("Unknown target sequence: {target_sequence}"));
+        }
+
+        self.cfg
+            .transitions
+            .entry(source_sequence)
+            .or_insert_with(BTreeMap::new)
+            .entry(target_sequence)
+            .or_insert_with(Vec::new)
+            .push(transition);
+
+        Ok(())
+    }
+
     /// Get a reference to the sequence indicated in execution_state.current_sequence
     fn current_sequence(&self) -> &Sequence {
         &self.sequences[&self.execution_state.current_sequence]

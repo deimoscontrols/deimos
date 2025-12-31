@@ -44,11 +44,11 @@ use crate::python::{BackendErr, controller::Controller as PyController};
 pub struct HootlPeripheral {
     inner: Box<dyn Peripheral>,
     #[serde(skip, default = "default_state")]
-    state: Arc<Mutex<MockState>>,
+    state: Arc<Mutex<HootlState>>,
 }
 
 impl HootlPeripheral {
-    fn new_driver_owned(inner: Box<dyn Peripheral>, state: Arc<Mutex<MockState>>) -> Self {
+    fn new_driver_owned(inner: Box<dyn Peripheral>, state: Arc<Mutex<HootlState>>) -> Self {
         Self { inner, state }
     }
 
@@ -57,8 +57,8 @@ impl HootlPeripheral {
     }
 }
 
-fn default_state() -> Arc<Mutex<MockState>> {
-    Arc::new(Mutex::new(MockState::default()))
+fn default_state() -> Arc<Mutex<HootlState>> {
+    Arc::new(Mutex::new(HootlState::default()))
 }
 
 py_json_methods!(
@@ -79,20 +79,20 @@ py_json_methods!(
 );
 
 #[derive(Debug)]
-struct MockState {
-    mode: MockMode,
+struct HootlState {
+    mode: HootlMode,
 }
 
-impl Default for MockState {
+impl Default for HootlState {
     fn default() -> Self {
         Self {
-            mode: MockMode::Binding,
+            mode: HootlMode::Binding,
         }
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-enum MockMode {
+enum HootlMode {
     Binding,
     Configuring,
     Operating,
@@ -142,7 +142,7 @@ impl Peripheral for HootlPeripheral {
         };
 
         match state.mode {
-            MockMode::Operating => {
+            HootlMode::Operating => {
                 // FUTURE: connect this to the driver to drive more interesting logic
                 // instead of these placeholder values.
                 let counter = metrics.id;
@@ -150,7 +150,7 @@ impl Peripheral for HootlPeripheral {
                     *value = counter as f64 + (idx as f64) * 0.01;
                 }
             }
-            MockMode::Binding | MockMode::Configuring | MockMode::Terminated => {
+            HootlMode::Binding | HootlMode::Configuring | HootlMode::Terminated => {
                 for value in outputs.iter_mut() {
                     *value = 0.0;
                 }
@@ -251,7 +251,7 @@ struct HootlConfig {
 pub struct HootlDriver {
     config: HootlConfig,
     transport: HootlTransport,
-    state: Arc<Mutex<MockState>>,
+    state: Arc<Mutex<HootlState>>,
 }
 
 #[cfg_attr(feature = "python", pyclass)]
@@ -290,13 +290,13 @@ impl Drop for HootlRunHandle {
 
 impl HootlDriver {
     pub fn new(inner: &dyn Peripheral, transport: HootlTransport) -> Self {
-        Self::new_with_state(inner, transport, Arc::new(Mutex::new(MockState::default())))
+        Self::new_with_state(inner, transport, Arc::new(Mutex::new(HootlState::default())))
     }
 
     fn new_with_state(
         inner: &dyn Peripheral,
         transport: HootlTransport,
-        state: Arc<Mutex<MockState>>,
+        state: Arc<Mutex<HootlState>>,
     ) -> Self {
         Self {
             config: HootlConfig {
@@ -402,9 +402,10 @@ impl HootlRunHandle {
 
 struct HootlRunner {
     config: HootlConfig,
+    loss_of_contact_timeout: Duration,
     transport: TransportState,
     stop: Arc<AtomicBool>,
-    state: Arc<Mutex<MockState>>,
+    state: Arc<Mutex<HootlState>>,
 }
 
 impl HootlRunner {
@@ -415,15 +416,19 @@ impl HootlRunner {
     ) -> Result<Self, String> {
         let mut transport = TransportState::new(driver.transport.clone());
         transport.open(ctx)?;
+        let loss_of_contact_timeout = Duration::from_nanos(
+            ctx.dt_ns as u64 * ctx.peripheral_loss_of_contact_limit as u64,
+        );
         Ok(Self {
             config: driver.config.clone(),
+            loss_of_contact_timeout,
             transport,
             stop,
             state: driver.state.clone(),
         })
     }
 
-    fn set_mode(&self, mode: MockMode) {
+    fn set_mode(&self, mode: HootlMode) {
         if let Ok(mut state) = self.state.lock() {
             state.mode = mode;
         } else {
@@ -435,8 +440,9 @@ impl HootlRunner {
         let mut buf = vec![0u8; 1522];
         let mut state = DriverState::Binding;
         let mut controller_addr: Option<TransportAddr> = None;
+        let loss_of_contact_timeout = self.loss_of_contact_timeout;
 
-        self.set_mode(MockMode::Binding);
+        self.set_mode(HootlMode::Binding);
 
         loop {
             // Check exit criteria
@@ -477,7 +483,7 @@ impl HootlRunner {
 
                         controller_addr = addr;
                         let start = Instant::now();
-                        self.set_mode(MockMode::Configuring);
+                        self.set_mode(HootlMode::Configuring);
                         state = DriverState::Configuring { start, timeout };
                     } else {
                         thread::sleep(Duration::from_millis(1));
@@ -487,7 +493,7 @@ impl HootlRunner {
                     if start.elapsed() > timeout {
                         state = DriverState::Binding;
                         controller_addr = None;
-                        self.set_mode(MockMode::Binding);
+                        self.set_mode(HootlMode::Binding);
                         continue;
                     }
 
@@ -513,18 +519,25 @@ impl HootlRunner {
                             break;
                         }
 
-                        self.set_mode(MockMode::Operating);
-                        state = DriverState::Operating { counter: 0 };
+                        self.set_mode(HootlMode::Operating);
+                        state = DriverState::Operating {
+                            counter: 0,
+                            last_contact: Instant::now(),
+                        };
                     } else {
                         thread::sleep(Duration::from_millis(1));
                     }
                 }
-                DriverState::Operating { ref mut counter } => {
+                DriverState::Operating {
+                    ref mut counter,
+                    ref mut last_contact,
+                } => {
                     if let Some((size, _addr)) = self.transport.recv_packet(&mut buf) {
                         if size != self.config.input_size {
                             continue;
                         }
 
+                        *last_contact = Instant::now();
                         let last_input_id = if size >= 8 {
                             let mut bytes = [0u8; 8];
                             bytes.copy_from_slice(&buf[..8]);
@@ -549,22 +562,32 @@ impl HootlRunner {
                         if send_status.is_err() {
                             // Return to Binding on error
                             state = DriverState::Binding;
+                            controller_addr = None;
                             info!(
                                 "Hootl runner failed to send packet during Operating; returning to Binding."
                             );
-                            self.set_mode(MockMode::Binding);
+                            self.set_mode(HootlMode::Binding);
                             continue;
                         }
 
                         *counter = counter.wrapping_add(1);
                     } else {
+                        if last_contact.elapsed() >= loss_of_contact_timeout {
+                            state = DriverState::Binding;
+                            controller_addr = None;
+                            info!(
+                                "Hootl runner lost contact with controller during Operating; returning to Binding."
+                            );
+                            self.set_mode(HootlMode::Binding);
+                            continue;
+                        }
                         thread::sleep(Duration::from_millis(1));
                     }
                 }
             }
         }
 
-        self.set_mode(MockMode::Terminated);
+        self.set_mode(HootlMode::Terminated);
         self.transport.close();
     }
 }
@@ -574,7 +597,7 @@ pub(crate) fn build_hootl_pair(
     transport: HootlTransport,
     end: Option<SystemTime>,
 ) -> (HootlPeripheral, HootlDriver) {
-    let state = Arc::new(Mutex::new(MockState::default()));
+    let state = Arc::new(Mutex::new(HootlState::default()));
     let driver =
         HootlDriver::new_with_state(inner.as_ref(), transport, state.clone()).with_end(end);
     let peripheral = HootlPeripheral::new_driver_owned(inner, state);
@@ -585,7 +608,7 @@ pub(crate) fn build_hootl_pair(
 enum DriverState {
     Binding,
     Configuring { start: Instant, timeout: Duration },
-    Operating { counter: u64 },
+    Operating { counter: u64, last_contact: Instant },
 }
 
 #[derive(Debug)]
