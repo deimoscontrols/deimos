@@ -290,7 +290,11 @@ impl Drop for HootlRunHandle {
 
 impl HootlDriver {
     pub fn new(inner: &dyn Peripheral, transport: HootlTransport) -> Self {
-        Self::new_with_state(inner, transport, Arc::new(Mutex::new(HootlState::default())))
+        Self::new_with_state(
+            inner,
+            transport,
+            Arc::new(Mutex::new(HootlState::default())),
+        )
     }
 
     fn new_with_state(
@@ -416,9 +420,8 @@ impl HootlRunner {
     ) -> Result<Self, String> {
         let mut transport = TransportState::new(driver.transport.clone());
         transport.open(ctx)?;
-        let loss_of_contact_timeout = Duration::from_nanos(
-            ctx.dt_ns as u64 * ctx.peripheral_loss_of_contact_limit as u64,
-        );
+        let loss_of_contact_timeout =
+            Duration::from_nanos(ctx.dt_ns as u64 * ctx.peripheral_loss_of_contact_limit as u64);
         Ok(Self {
             config: driver.config.clone(),
             loss_of_contact_timeout,
