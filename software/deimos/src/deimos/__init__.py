@@ -13,7 +13,7 @@ from .deimos import (
 )
 
 try:
-    __version__ = version("deimos-controls")
+    __version__ = version("deimos-daq")
 except PackageNotFoundError:
     __version__ = "0.0.0"
 

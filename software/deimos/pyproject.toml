@@ -62,12 +62,6 @@ python-packages = ["deimos"]
 python-source = "src"
 version = { source = "cargo" }
 profile = "release"
-
-#rustc-args = [
-#    "-Cprofile-use=./scripts/pgo-profiles/interpn.profdata",
-#    "-Cllvm-args=-pgo-warn-missing-function"
-#]
-
 include = [
   { path = "all", format = ["sdist", "wheel"] },
 ]
