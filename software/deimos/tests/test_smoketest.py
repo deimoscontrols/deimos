@@ -24,7 +24,7 @@ RATE_HZ = 20.0
 RUN_TIMEOUT_S = 0.6
 LATEST_FILTER_HZ = 5.0
 HAS_UNIX_SOCKET = hasattr(socket, "UnixSocket") and hasattr(
-    peripheral.MockupTransport, "unix_socket"
+    peripheral.HootlTransport, "unix_socket"
 )
 
 
@@ -35,25 +35,27 @@ def _metric_channels(peripheral_name: str) -> list[str]:
     ]
 
 
-def _make_transport(kind: str, name: str | None) -> peripheral.MockupTransport:
+def _make_transport(kind: str, name: str | None) -> peripheral.HootlTransport:
     if kind == "thread":
         if name is None:
             raise ValueError("thread transport requires a name")
-        return peripheral.MockupTransport.thread_channel(name)
+        return peripheral.HootlTransport.thread_channel(name)
     if kind == "unix":
         if not HAS_UNIX_SOCKET:
-            raise RuntimeError("unix socket transport is not available on this platform")
+            raise RuntimeError(
+                "unix socket transport is not available on this platform"
+            )
         if name is None:
             raise ValueError("unix transport requires a name")
-        return peripheral.MockupTransport.unix_socket(name)
+        return peripheral.HootlTransport.unix_socket(name)
     if kind == "udp":
-        return peripheral.MockupTransport.udp()
+        return peripheral.HootlTransport.udp()
     raise ValueError(f"Unknown transport kind: {kind}")
 
 
 def _build_controller(
     op_dir: Path, loop_method: LoopMethod
-) -> tuple[Controller, list[peripheral.HootlDriver]]:
+) -> tuple[Controller, list[tuple[str, peripheral.HootlTransport]]]:
     ctrl = Controller(op_name="smoketest", op_dir=str(op_dir), rate_hz=RATE_HZ)
     ctrl.termination_criteria = Termination.timeout_s(RUN_TIMEOUT_S)
     ctrl.loop_method = loop_method
@@ -99,13 +101,13 @@ def _build_controller(
         )
     specs.append(("daq_rev6", peripheral.DeimosDaqRev6, 1005, ("udp", None)))
 
-    drivers: list[peripheral.HootlDriver] = []
+    attachments: list[tuple[str, peripheral.HootlTransport]] = []
     for name, cls, serial, (transport_kind, transport_name) in specs:
         ctrl.add_peripheral(name, cls(serial))
         transport = _make_transport(transport_kind, transport_name)
-        drivers.append(peripheral.HootlDriver(cls(serial), transport))
+        attachments.append((name, transport))
 
-    return ctrl, drivers
+    return ctrl, attachments
 
 
 def _run_controller(
@@ -115,11 +117,11 @@ def _run_controller(
 ) -> None:
     with tempfile.TemporaryDirectory(prefix="deimos-smoketest-") as tmp_dir:
         op_dir = Path(tmp_dir)
-        ctrl, drivers = _build_controller(op_dir, loop_method)
+        ctrl, attachments = _build_controller(op_dir, loop_method)
 
         with ExitStack() as stack:
-            for driver in drivers:
-                stack.enter_context(driver.run_with(ctrl))
+            for name, transport in attachments:
+                stack.enter_context(ctrl.attach_hootl_driver(name, transport))
 
             if blocking:
                 ctrl.run()

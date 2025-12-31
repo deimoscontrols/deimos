@@ -179,10 +179,10 @@ class Controller:
     def attach_hootl_driver(
         self,
         peripheral_name: str,
-        transport: MockupTransport,
+        transport: HootlTransport,
         end_epoch_ns: int | None = None,
     ) -> HootlRunHandle:
-        """Wrap an existing peripheral with a hootl mockup and start its driver."""
+        """Wrap an existing peripheral with a hootl wrapper and start its driver."""
         ...
     def add_calc(self, name: str, calc: CalcLike) -> None:
         """Add a calc to the expression graph that runs on every cycle"""
@@ -531,7 +531,7 @@ class _CalcModule(ModuleType):
 
 calc: _CalcModule
 
-class MockupTransport:
+class HootlTransport:
     @staticmethod
     def thread_channel(name: str) -> Self:
         """A thread channel with this name."""
@@ -544,7 +544,7 @@ class MockupTransport:
 
     @staticmethod
     def udp() -> Self:
-        """UDP transport bound to PERIPHERAL_RX_PORT (one mockup at a time)."""
+        """UDP transport bound to PERIPHERAL_RX_PORT (one hootl driver at a time)."""
         ...
 
 class HootlRunHandle:
@@ -570,7 +570,7 @@ class _PeripheralModule(ModuleType):
     class DeimosDaqRev6(_PeripheralBase):
         def __init__(self, serial_number: int) -> None: ...
 
-    class HootlMockupPeripheral(_PeripheralBase):
+    class HootlPeripheral(_PeripheralBase):
         """Peripheral wrapper that emits mock outputs using driver-owned state.
 
         Note: attach this via Controller.attach_hootl_driver to keep the shared
@@ -578,7 +578,7 @@ class _PeripheralModule(ModuleType):
         """
         def __init__(self, inner: PeripheralLike) -> None: ...
 
-    MockupTransport = MockupTransport
+    HootlTransport = HootlTransport
 
     HootlRunHandle = HootlRunHandle
 
@@ -586,10 +586,10 @@ class _PeripheralModule(ModuleType):
         def __init__(
             self,
             inner: PeripheralLike,
-            transport: MockupTransport,
+            transport: HootlTransport,
             end_epoch_ns: int | None = None,
         ) -> None: ...
-        """A way to operate a hootl mockup driver from outside the control program."""
+        """A way to operate a hootl driver from outside the control program."""
 
         def run_with(self, controller: Controller) -> HootlRunHandle: ...
         """Start the driver attached to this controller."""

@@ -26,7 +26,7 @@ use crate::{
     buffer_pool::SOCKET_BUFFER_LEN,
     calc::Calc,
     logging,
-    peripheral::{HootlRunHandle, MockupTransport, Peripheral, PluginMap, parse_binding},
+    peripheral::{HootlRunHandle, HootlTransport, Peripheral, PluginMap, parse_binding},
 };
 use deimos_shared::states::*;
 
@@ -280,17 +280,17 @@ impl Controller {
         self.peripherals.insert(name.to_owned(), p);
     }
 
-    /// Replace a peripheral with a hootl mockup wrapper and start its driver.
+    /// Replace a peripheral with a hootl wrapper and start its driver.
     pub fn attach_hootl_driver(
         &mut self,
         peripheral_name: &str,
-        transport: MockupTransport,
+        transport: HootlTransport,
         end: Option<SystemTime>,
     ) -> Result<HootlRunHandle, String> {
         if let Some(existing) = self.peripherals.get(peripheral_name) {
-            if existing.kind() == "HootlMockupPeripheral" {
+            if existing.kind() == "HootlPeripheral" {
                 return Err(format!(
-                    "Peripheral `{peripheral_name}` is already a HootlMockupPeripheral"
+                    "Peripheral `{peripheral_name}` is already a HootlPeripheral"
                 ));
             }
         }
@@ -300,8 +300,7 @@ impl Controller {
             .remove(peripheral_name)
             .ok_or_else(|| format!("Peripheral `{peripheral_name}` not found"))?;
 
-        let (wrapper, driver) =
-            crate::peripheral::hootl_mockup::build_hootl_pair(inner, transport, end);
+        let (wrapper, driver) = crate::peripheral::hootl::build_hootl_pair(inner, transport, end);
         match driver.run(&self.ctx) {
             Ok(handle) => {
                 self.peripherals

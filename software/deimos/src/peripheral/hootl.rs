@@ -41,13 +41,13 @@ use crate::python::{BackendErr, controller::Controller as PyController};
 /// the shared driver state intact. JSON roundtrips will reset the link.
 #[derive(Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "python", pyclass)]
-pub struct HootlMockupPeripheral {
+pub struct HootlPeripheral {
     inner: Box<dyn Peripheral>,
     #[serde(skip, default = "default_state")]
     state: Arc<Mutex<MockState>>,
 }
 
-impl HootlMockupPeripheral {
+impl HootlPeripheral {
     fn new_driver_owned(inner: Box<dyn Peripheral>, state: Arc<Mutex<MockState>>) -> Self {
         Self { inner, state }
     }
@@ -62,7 +62,7 @@ fn default_state() -> Arc<Mutex<MockState>> {
 }
 
 py_json_methods!(
-    HootlMockupPeripheral,
+    HootlPeripheral,
     Peripheral,
     #[new]
     #[pyo3(signature=(inner))]
@@ -100,7 +100,7 @@ enum MockMode {
 }
 
 #[typetag::serde]
-impl Peripheral for HootlMockupPeripheral {
+impl Peripheral for HootlPeripheral {
     fn id(&self) -> deimos_shared::peripherals::PeripheralId {
         self.inner.id()
     }
@@ -169,7 +169,7 @@ impl Peripheral for HootlMockupPeripheral {
 #[cfg(unix)]
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "python", pyclass)]
-pub enum MockupTransport {
+pub enum HootlTransport {
     /// A thread channel with this name.
     ThreadChannel { name: String },
 
@@ -178,25 +178,25 @@ pub enum MockupTransport {
 
     /// UDP transport bound to PERIPHERAL_RX_PORT.
     /// Because the port can only be bound once, this can only
-    /// be used by one mockup at a time.
+    /// be used by one hootl driver at a time.
     Udp(),
 }
 
 #[cfg(not(unix))] // Can't put this directive inside pyclass
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "python", pyclass)]
-pub enum MockupTransport {
+pub enum HootlTransport {
     /// A thread channel with this name.
     ThreadChannel { name: String },
 
     // No unix socket
     /// UDP transport bound to PERIPHERAL_RX_PORT.
     /// Because the port can only be bound once, this can only
-    /// be used by one mockup at a time.
+    /// be used by one hootl driver at a time.
     Udp(),
 }
 
-impl MockupTransport {
+impl HootlTransport {
     pub fn thread_channel(name: &str) -> Self {
         Self::ThreadChannel {
             name: name.to_owned(),
@@ -217,7 +217,7 @@ impl MockupTransport {
 
 #[cfg(feature = "python")]
 #[pymethods]
-impl MockupTransport {
+impl HootlTransport {
     #[staticmethod]
     #[pyo3(name = "thread_channel")]
     fn py_thread_channel(name: &str) -> Self {
@@ -250,7 +250,7 @@ struct HootlConfig {
 #[cfg_attr(feature = "python", pyclass)]
 pub struct HootlDriver {
     config: HootlConfig,
-    transport: MockupTransport,
+    transport: HootlTransport,
     state: Arc<Mutex<MockState>>,
 }
 
@@ -289,13 +289,13 @@ impl Drop for HootlRunHandle {
 }
 
 impl HootlDriver {
-    pub fn new(inner: &dyn Peripheral, transport: MockupTransport) -> Self {
+    pub fn new(inner: &dyn Peripheral, transport: HootlTransport) -> Self {
         Self::new_with_state(inner, transport, Arc::new(Mutex::new(MockState::default())))
     }
 
     fn new_with_state(
         inner: &dyn Peripheral,
-        transport: MockupTransport,
+        transport: HootlTransport,
         state: Arc<Mutex<MockState>>,
     ) -> Self {
         Self {
@@ -319,9 +319,9 @@ impl HootlDriver {
         let stop = Arc::new(AtomicBool::new(false));
         let mut runner = HootlRunner::new(self, ctx, stop.clone())?;
         let join = std::thread::Builder::new()
-            .name("hootl-mockup-runner".to_string())
+            .name("hootl-runner".to_string())
             .spawn(move || runner.run_loop())
-            .expect("Failed to spawn hootl mockup runner thread");
+            .expect("Failed to spawn hootl runner thread");
         Ok(HootlRunHandle {
             stop,
             join: Some(join),
@@ -336,7 +336,7 @@ impl HootlDriver {
     #[pyo3(signature=(inner, transport, end_epoch_ns=None))]
     fn py_new(
         inner: Box<dyn Peripheral>,
-        transport: MockupTransport,
+        transport: HootlTransport,
         end_epoch_ns: Option<u64>,
     ) -> PyResult<Self> {
         let mut driver = Self::new(inner.as_ref(), transport);
@@ -571,13 +571,13 @@ impl HootlRunner {
 
 pub(crate) fn build_hootl_pair(
     inner: Box<dyn Peripheral>,
-    transport: MockupTransport,
+    transport: HootlTransport,
     end: Option<SystemTime>,
-) -> (HootlMockupPeripheral, HootlDriver) {
+) -> (HootlPeripheral, HootlDriver) {
     let state = Arc::new(Mutex::new(MockState::default()));
     let driver =
         HootlDriver::new_with_state(inner.as_ref(), transport, state.clone()).with_end(end);
-    let peripheral = HootlMockupPeripheral::new_driver_owned(inner, state);
+    let peripheral = HootlPeripheral::new_driver_owned(inner, state);
     (peripheral, driver)
 }
 
@@ -613,19 +613,19 @@ enum TransportAddr {
 }
 
 impl TransportState {
-    fn new(transport: MockupTransport) -> Self {
+    fn new(transport: HootlTransport) -> Self {
         match transport {
-            MockupTransport::ThreadChannel { name } => Self::ThreadChannel {
+            HootlTransport::ThreadChannel { name } => Self::ThreadChannel {
                 name,
                 endpoint: None,
             },
             #[cfg(unix)]
-            MockupTransport::UnixSocket { name } => Self::UnixSocket {
+            HootlTransport::UnixSocket { name } => Self::UnixSocket {
                 name,
                 socket: None,
                 path: None,
             },
-            MockupTransport::Udp() => Self::UdpSocket { socket: None },
+            HootlTransport::Udp() => Self::UdpSocket { socket: None },
         }
     }
 

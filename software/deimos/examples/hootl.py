@@ -9,7 +9,7 @@ from pathlib import Path
 from deimos import Controller, peripheral, socket, Termination, LoopMethod
 
 HAS_UNIX_SOCKET = hasattr(socket, "UnixSocket") and hasattr(
-    peripheral.MockupTransport, "unix_socket"
+    peripheral.HootlTransport, "unix_socket"
 )
 
 
@@ -42,20 +42,20 @@ def main() -> None:
             stack.enter_context(
                 ctrl.attach_hootl_driver(
                     "mock_thread",
-                    peripheral.MockupTransport.thread_channel("mockup_chan"),
+                    peripheral.HootlTransport.thread_channel("mockup_chan"),
                 )
             )
             if HAS_UNIX_SOCKET:
                 stack.enter_context(
                     ctrl.attach_hootl_driver(
                         "mock_unix",
-                        peripheral.MockupTransport.unix_socket("mockup_unix"),
+                        peripheral.HootlTransport.unix_socket("mockup_unix"),
                     )
                 )
             stack.enter_context(
                 ctrl.attach_hootl_driver(
                     "mock_udp",
-                    peripheral.MockupTransport.udp(),
+                    peripheral.HootlTransport.udp(),
                 )
             )
 

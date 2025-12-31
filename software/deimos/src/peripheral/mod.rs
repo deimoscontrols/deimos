@@ -24,8 +24,8 @@ pub use deimos_daq_rev5::DeimosDaqRev5;
 pub mod deimos_daq_rev6;
 pub use deimos_daq_rev6::DeimosDaqRev6;
 
-pub mod hootl_mockup;
-pub use hootl_mockup::{HootlDriver, HootlMockupPeripheral, HootlRunHandle, MockupTransport};
+pub mod hootl;
+pub use hootl::{HootlDriver, HootlPeripheral, HootlRunHandle, HootlTransport};
 
 pub use deimos_shared::peripherals::PeripheralId;
 

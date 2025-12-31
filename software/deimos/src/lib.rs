@@ -25,7 +25,7 @@ pub use socket::{
 
 pub use dispatcher::DataFrameDispatcher;
 pub use dispatcher::TimescaleDbDispatcher;
-pub use peripheral::{HootlDriver, HootlMockupPeripheral, HootlRunHandle, MockupTransport};
+pub use peripheral::{HootlDriver, HootlPeripheral, HootlRunHandle, HootlTransport};
 
 #[cfg(feature = "python")]
 pub mod python;

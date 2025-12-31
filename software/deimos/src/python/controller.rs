@@ -9,7 +9,7 @@ use crate::RunHandle;
 use crate::Socket;
 use crate::calc::Calc;
 use crate::dispatcher::{DataFrameDispatcher, DataFrameHandle, Dispatcher, Overflow};
-use crate::peripheral::{HootlRunHandle, MockupTransport, Peripheral};
+use crate::peripheral::{HootlRunHandle, HootlTransport, Peripheral};
 
 use super::*;
 
@@ -313,7 +313,7 @@ impl Controller {
     fn attach_hootl_driver(
         &mut self,
         peripheral_name: &str,
-        transport: MockupTransport,
+        transport: HootlTransport,
         end_epoch_ns: Option<u64>,
     ) -> PyResult<HootlRunHandle> {
         let end = match end_epoch_ns {
