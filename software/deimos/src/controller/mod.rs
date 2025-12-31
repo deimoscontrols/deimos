@@ -1107,6 +1107,7 @@ impl Controller {
                 for ps in controller_state.peripheral_state.values_mut() {
                     ps.conn_state = ConnState::Operating();
                 }
+                info!("All peripherals acknowledged configuration.");
                 break 'configuring_retry;
             } else {
                 // Figure out which peripherals were missing.

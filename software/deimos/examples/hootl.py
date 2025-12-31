@@ -21,7 +21,7 @@ def main() -> None:
 
         # Set up HOOTL peripherals (drivers are attached via the controller)
         ctrl = Controller(op_name="mockup_demo", op_dir=str(here / "op"), rate_hz=20.0)
-        ctrl.termination_criteria = Termination.timeout_s(1.0)
+        ctrl.termination_criteria = Termination.timeout_s(2.0)
         ctrl.loop_method = loop_method
 
         ctrl.clear_sockets()
