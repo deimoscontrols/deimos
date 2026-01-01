@@ -14,10 +14,10 @@ The control program and the firmware-software shared library share a
 
 | Feature Category | Features |
 |------------------|----------|
-| Control Loop     | ✅ Fixed-dt roundtrip control loop<br>✅ Network scanning for available hardware<br>✅ Planned loop termination<br>✅ Global event logging<br>💡 Reconnect policy|
+| Control Loop     | ✅ Fixed-dt roundtrip control loop<br>✅ Network scanning for available hardware<br>✅ Planned loop termination<br>✅ Global event logging<br>✅ Reconnection<br>✅ Low-CPU-usage background operation|
 | Control Calcs    | ✅ User-defined custom calcs<br>✅ Explicit (acyclic) calc expression<br>✅ Low-pass filters<br>✅ Sequenced state machines<br>✅ Polynomial calibration curves<br>💡 Cyclic expressions with explicit time-delay<br>💡 Prototype calc w/ rhai script-defined inner function |
-| Data Integrations| ✅ User-defined custom targets<br>✅ CSV<br>✅ TimescaleDB<br>💡 InfluxDB<br>💡 Zarr file/bucket<br>💡 Generic sqlite, postgres, etc.<br>✅ In-memory dataframe|
-| Hardware Peripherals| ✅ Deimos DAQs<br>✅ User-defined custom hardware<br>✅ User-defined custom in-memory / IPC mockup|
+| Data Integrations| ✅ User-defined custom targets<br>✅ Manual read/write<br>✅ CSV<br>✅ In-memory dataframe<br>✅ TimescaleDB<br>💡 InfluxDB<br>💡 Zarr file/bucket<br>💡 Generic sqlite, postgres, etc.|
+| Hardware Peripherals| ✅ Deimos DAQs<br>✅ User-defined custom hardware<br>✅ User-defined hardware drivers<br>✅ Hardware-out-of-the-loop wrapper|
 | Socket Interfaces<br>(peripheral I/O)| ✅ User-defined custom interfaces<br>✅ UDP/IPV4<br>✅ Unix socket<br>✅ Thread channel sideloading<br>💡 TCP<br>💡 UDP/IPV6 |
 
 ## Concept of Operation
@@ -120,7 +120,7 @@ let timescale_dispatcher: Box<dyn Dispatcher> = TimescaleDbDispatcher::new(
 );
 controller.add_dispatcher("tsdb", timescale_dispatcher);
 
-//    A 50MB CSV file that will be wrapped an overwritten when full
+//    A 50MB CSV file that will be wrapped and overwritten when full
 let csv_dispatcher: Box<dyn Dispatcher> =
     CsvDispatcher::new(50, dispatcher::Overflow::Wrap);
 controller.add_dispatcher("csv", csv_dispatcher);

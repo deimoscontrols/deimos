@@ -30,6 +30,7 @@ HAS_UNIX_SOCKET = hasattr(socket, "UnixSocket") and hasattr(
 
 
 def _metric_channels(peripheral_name: str) -> list[str]:
+    """Limited channel list to reduce disk I/O during testing"""
     return [
         f"{peripheral_name}.metrics.cycle_time_ns",
         f"{peripheral_name}.metrics.loss_of_contact_counter",
