@@ -568,9 +568,7 @@ impl HootlRunner {
                             state = DriverState::Binding;
                             controller_addr = None;
                             self.set_mode(HootlMode::Binding);
-                            info!(
-                                "Hootl driver failed to send packet; Operating -> Binding."
-                            );
+                            info!("Hootl driver failed to send packet; Operating -> Binding.");
                             continue;
                         }
 

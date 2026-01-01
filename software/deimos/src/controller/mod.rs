@@ -190,6 +190,7 @@ impl Controller {
         latest_value_cutoff_freq: Option<f64>,
     ) -> RunHandle {
         let mut controller = self;
+        info!("Building nonblocking controller.");
 
         // Attach a latest-value dispatcher to expose live data.
         let existing_names = BTreeSet::from_iter(controller.dispatcher_names().clone());
@@ -237,6 +238,8 @@ impl Controller {
                 result
             })
             .expect("Failed to spawn controller thread");
+
+        info!("Spawned nonblocking controller thread.");
 
         RunHandle {
             termination: termination_signal,
