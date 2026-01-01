@@ -22,7 +22,7 @@ THREAD_CHANNEL1 = "hootl_thread1"
 THREAD_CHANNEL2 = "hootl_thread2"
 UNIX_SOCKET = "ctrl"
 RATE_HZ = 20.0
-RUN_TIMEOUT_S = 10.0  # Accommodate slow CI runners
+RUN_TIMEOUT_S = 10.0  # Accommodate slow CI runners (we don't actually run this long)
 LATEST_FILTER_HZ = 5.0
 HAS_UNIX_SOCKET = hasattr(socket, "UnixSocket") and hasattr(
     peripheral.HootlTransport, "unix_socket"
@@ -133,7 +133,6 @@ def _run_controller(
 
             handle = ctrl.run_nonblocking(latest_value_cutoff)
             try:
-                time.sleep(1.5)  # Accommodate CI runners
                 snapshot = handle.read()
                 expected = _metric_channels("analog_rev2")
                 for channel in expected:

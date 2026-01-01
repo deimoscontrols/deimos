@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use crossbeam::channel::{Receiver, Sender, TryRecvError, unbounded};
 
-use crate::buffer_pool::SOCKET_BUFFER_LEN;
+use crate::SOCKET_BUFFER_LEN;
 use crate::controller::context::ControllerCtx;
 use deimos_shared::peripherals::PeripheralId;
 

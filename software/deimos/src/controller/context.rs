@@ -8,7 +8,6 @@ use std::{collections::BTreeMap, default::Default};
 use super::ManualInputMap;
 use super::channel::{Channel, Endpoint};
 use super::manual_inputs_default;
-use crate::buffer_pool::BufferPool;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
@@ -18,12 +17,6 @@ use std::sync::{Arc, RwLock};
 use pyo3::prelude::*;
 #[cfg(feature = "python")]
 use tracing::warn;
-
-const DEFAULT_DISPATCHER_BUFFER_POOL_CAPACITY: usize = 8;
-
-fn default_dispatcher_buffer_pool() -> BufferPool<Vec<f64>> {
-    BufferPool::with_factory(DEFAULT_DISPATCHER_BUFFER_POOL_CAPACITY, Vec::new)
-}
 
 /// Criteria for exiting the control program
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -201,10 +194,6 @@ pub struct ControllerCtx {
 
     /// Whether manual input overrides should be applied during the control loop.
     pub enable_manual_inputs: bool,
-
-    /// Shared buffer pool for dispatcher outputs.
-    #[serde(skip, default = "default_dispatcher_buffer_pool")]
-    pub dispatcher_buffer_pool: BufferPool<Vec<f64>>,
 }
 
 impl ControllerCtx {
@@ -252,7 +241,6 @@ impl Default for ControllerCtx {
             user_channels: Arc::new(RwLock::new(BTreeMap::new())),
             manual_inputs: manual_inputs_default(),
             enable_manual_inputs: true,
-            dispatcher_buffer_pool: default_dispatcher_buffer_pool(),
         }
     }
 }

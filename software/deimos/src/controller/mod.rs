@@ -9,7 +9,7 @@ mod timing;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -23,7 +23,7 @@ use crate::python::BackendErr;
 
 use crate::controller::context::LoopMethod;
 use crate::{
-    buffer_pool::SOCKET_BUFFER_LEN,
+    SOCKET_BUFFER_LEN,
     calc::Calc,
     logging,
     peripheral::{HootlRunHandle, HootlTransport, Peripheral, PluginMap, parse_binding},
@@ -49,6 +49,78 @@ pub(crate) fn manual_inputs_default() -> ManualInputMap {
     Arc::new(RwLock::new(HashMap::new()))
 }
 
+/// Boolean predicates to support the ReadySignal condvar
+/// because condvars can generate spurious wake signals.
+#[derive(Clone, Copy, Debug, Default)]
+struct ReadyState {
+    ready: bool,
+    finished: bool,
+}
+
+/// Classic predicate-signal pair for inter-thread signaling
+/// using OS-scheduled condition variable.
+#[derive(Debug, Default)]
+struct ReadySignal {
+    state: Mutex<ReadyState>,
+    cvar: Condvar,
+}
+
+impl ReadySignal {
+    /// Clear predicates.
+    fn reset(&self) {
+        let mut state = self.state.lock().unwrap();
+        state.ready = false;
+        state.finished = false;
+    }
+
+    /// Set ready predicate and signal condvar.
+    fn mark_ready(&self) {
+        let mut state = self.state.lock().unwrap();
+        if !state.ready {
+            state.ready = true;
+            self.cvar.notify_all();
+        }
+    }
+
+    /// Set finished predicate and signal condvar.
+    fn mark_finished(&self) {
+        let mut state = self.state.lock().unwrap();
+        state.finished = true;
+        self.cvar.notify_all();
+    }
+
+    /// Check ready predicate.
+    fn is_ready(&self) -> bool {
+        self.state.lock().unwrap().ready
+    }
+
+    /// Wait for signal indicating the thread is either ready or already finished.
+    /// Uses efficient-but-imprecise OS-scheduled waiting.
+    fn wait_ready_or_finished(&self) -> ReadyState {
+        let mut state = self.state.lock().unwrap();
+        while !state.ready && !state.finished {
+            state = self.cvar.wait(state).unwrap();
+        }
+        *state
+    }
+}
+
+/// Drop-guard to guarantee that the ready signal is marked
+/// finished if the controller exits the loop for any reason.
+struct ReadyFinishGuard {
+    ready: Arc<ReadySignal>,
+}
+
+impl Drop for ReadyFinishGuard {
+    fn drop(&mut self) {
+        self.ready.mark_finished();
+    }
+}
+
+fn default_ready_signal() -> Arc<ReadySignal> {
+    Arc::new(ReadySignal::default())
+}
+
 /// The controller implements the control loop,
 /// synchronizes sample reporting time between the peripherals,
 /// and dispatches measured data, calculations, and metrics to the data pipeline.
@@ -62,6 +134,9 @@ pub struct Controller {
     dispatchers: BTreeMap<String, Box<dyn Dispatcher>>,
     peripherals: BTreeMap<String, Box<dyn Peripheral>>,
     orchestrator: CalcOrchestrator,
+
+    #[serde(skip, default = "default_ready_signal")]
+    ready: Arc<ReadySignal>,
 }
 
 /// A snapshot of the values from all peripherals and calcs
@@ -100,6 +175,9 @@ pub struct RunHandle {
 
     /// Names of all peripheral inputs that can be set manually.
     manual_input_names: Vec<String>,
+
+    /// Shared readiness signal from the controller.
+    ready: Arc<ReadySignal>,
 }
 
 impl Default for Controller {
@@ -112,6 +190,7 @@ impl Default for Controller {
         let peripherals = BTreeMap::new();
         let orchestrator = CalcOrchestrator::default();
         let ctx = ControllerCtx::default();
+        let ready = default_ready_signal();
 
         Self {
             ctx,
@@ -119,6 +198,7 @@ impl Default for Controller {
             dispatchers,
             peripherals,
             orchestrator,
+            ready,
         }
     }
 }
@@ -183,13 +263,17 @@ impl Controller {
     /// be clamped to the viable bounds and a warning
     /// will be emitted.
     ///
+    /// If `wait_for_ready` is true, block until the controller completes its first cycle.
+    ///
     /// `plugins` provides a mechanism to register user-defined Peripheral objects.
     pub fn run_nonblocking(
         self,
         plugins: Option<PluginMap<'static>>,
         latest_value_cutoff_freq: Option<f64>,
-    ) -> RunHandle {
+        wait_for_ready: bool,
+    ) -> Result<RunHandle, String> {
         let mut controller = self;
+        controller.ready.reset();
         info!("Building nonblocking controller.");
 
         // Attach a latest-value dispatcher to expose live data.
@@ -224,11 +308,16 @@ impl Controller {
 
         // Make a handle to the termination signal.
         let term_for_thread = termination_signal.clone();
+        let ready_for_thread = controller.ready.clone();
+        let ready_for_handle = controller.ready.clone();
 
         // Run the controller on a separate thread.
         let handle = thread::Builder::new()
             .name("controller-run".to_string())
             .spawn(move || {
+                let _ready_guard = ReadyFinishGuard {
+                    ready: ready_for_thread,
+                };
                 // Run to completion.
                 let result = controller.run(&plugins, Some(&*term_for_thread));
 
@@ -241,13 +330,38 @@ impl Controller {
 
         info!("Spawned nonblocking controller thread.");
 
-        RunHandle {
+        let mut run_handle = RunHandle {
             termination: termination_signal,
             latest: latest_handle,
             join: Some(handle),
             manual_input_values,
             manual_input_names,
+            ready: ready_for_handle,
+        };
+
+        if !wait_for_ready {
+            return Ok(run_handle);
         }
+
+        info!("Waiting for controller thread to indicate readiness.");
+        let ready_state = run_handle.ready.wait_ready_or_finished();
+        if ready_state.ready {
+            return Ok(run_handle);
+        }
+
+        warn!("Controller run did not indicate readiness.");
+        // If we waited for readiness but the wait ended without readiness being indicated,
+        // then the control program already ended.
+        let err = match run_handle.join.take() {
+            Some(handle) => match handle.join() {
+                Ok(Ok(msg)) => format!("Controller exited before ready: {msg}"),
+                Ok(Err(e)) => e,
+                Err(e) => format!("Controller thread panicked: {e:?}"),
+            },
+            None => "Controller thread already joined or not started".to_string(),
+        };
+
+        Err(err)
     }
 
     /// Register a calc function
@@ -514,6 +628,7 @@ impl Controller {
         packet_index: u64,
         socket_orchestrator: &mut SocketOrchestrator,
     ) {
+        self.ready.reset();
         peripheral_input_buffer.fill(0.0);
         let mut err_rollup: Vec<String> = Vec::new();
 
@@ -792,6 +907,7 @@ impl Controller {
         plugins: &Option<PluginMap>,
         termination_signal: Option<&AtomicBool>,
     ) -> Result<String, String> {
+        self.ready.reset();
         // Start log file.
         let (log_file, _logging_guards) =
             logging::init_logging(&self.ctx.op_dir, &self.ctx.op_name)
@@ -1189,6 +1305,7 @@ impl Controller {
         info!("Entering control loop.");
         let mut i: u64 = 0;
         controller_state.controller_metrics.cycle_time_margin_ns = self.ctx.dt_ns as f64;
+        let mut ready_signaled = false;
         loop {
             let time = SystemTime::now();
             let mut t = start_of_operating.elapsed();
@@ -1650,6 +1767,11 @@ impl Controller {
                 return Err(format!("Dispatcher error(s): {msg}"));
             }
 
+            if !ready_signaled {
+                self.ready.mark_ready();
+                ready_signaled = true;
+            }
+
             // Update next target time
             target_time += cycle_duration;
         }
@@ -1669,6 +1791,11 @@ impl RunHandle {
             .as_ref()
             .map(|h| !h.is_finished())
             .unwrap_or(false)
+    }
+
+    /// Check if the controller has completed its first cycle.
+    pub fn is_ready(&self) -> bool {
+        self.ready.is_ready()
     }
 
     /// Wait for the controller thread to finish.
@@ -1768,6 +1895,11 @@ impl RunHandle {
     #[pyo3(name = "is_running")]
     fn py_is_running(&self) -> bool {
         self.is_running()
+    }
+
+    #[pyo3(name = "is_ready")]
+    fn py_is_ready(&self) -> bool {
+        self.is_ready()
     }
 
     #[pyo3(name = "join")]

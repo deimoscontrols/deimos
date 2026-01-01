@@ -6,7 +6,7 @@ import runpy
 
 import pytest
 
-os.environ["MPLBACKEND"] = "Agg"
+os.environ["DEIMOS_TESTING"] = "True"
 
 EXAMPLES_DIR = pathlib.Path(__file__).parent / "../examples"
 EXAMPLES = [

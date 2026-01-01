@@ -1,5 +1,6 @@
-"""A simple program to monitor all peripherals found on the network"""
+"""A simple program to monitor all peripherals found on the network."""
 
+import os
 import time
 from pathlib import Path
 
@@ -7,6 +8,8 @@ import deimos
 from deimos import LoopMethod, Overflow, LossOfContactPolicy
 
 here = Path(__file__).parent.absolute()
+
+testing = os.environ.get("DEIMOS_TESTING", False)
 
 # Build a new control program to run at 5Hz (the minimum)
 # in efficient (OS-scheduled) mode.
@@ -35,7 +38,7 @@ c.add_calc("five", five)
 if len(peripherals) > 0:
     h = c.run_nonblocking()
     try:
-        for _ in range(20):  # poll for ~4 seconds
+        for _ in range(20 if not testing else 1):  # poll for ~4 seconds
             snap = h.read()
             vals = list(snap.values.items())
             print(f"t={snap.timestamp} {snap.system_time} {vals[:3]}")

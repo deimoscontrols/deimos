@@ -21,7 +21,7 @@ def main() -> None:
 
         # Set up HOOTL peripherals (drivers are attached via the controller)
         ctrl = Controller(op_name="mockup_demo", op_dir=str(here / "op"), rate_hz=20.0)
-        ctrl.termination_criteria = Termination.timeout_s(3.0)
+        ctrl.termination_criteria = Termination.timeout_s(0.2)
         ctrl.loop_method = loop_method
 
         ctrl.clear_sockets()
@@ -72,7 +72,6 @@ def main() -> None:
             handle = ctrl.run_nonblocking()
 
             try:
-                time.sleep(1.5)  # Generous delay for CI workers
                 handle.write({"mock_thread.dac0": 0.0})
 
                 # Make sure we had stable communication with all the peripheral mockups

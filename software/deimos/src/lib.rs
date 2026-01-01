@@ -1,7 +1,6 @@
 #![doc = include_str!("../README.md")]
 #![allow(clippy::needless_range_loop)]
 
-pub mod buffer_pool;
 pub mod calc;
 pub mod controller;
 pub mod dispatcher;
@@ -26,6 +25,9 @@ pub use socket::{
 pub use dispatcher::DataFrameDispatcher;
 pub use dispatcher::TimescaleDbDispatcher;
 pub use peripheral::{HootlDriver, HootlPeripheral, HootlRunHandle, HootlTransport};
+
+/// [bytes] Fixed maximum size of socket packets.
+pub const SOCKET_BUFFER_LEN: usize = 1522;
 
 #[cfg(feature = "python")]
 pub mod python;

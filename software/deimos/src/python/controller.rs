@@ -110,12 +110,18 @@ impl Controller {
     }
 
     /// Run the control program on a separate thread and return a handle for coordination.
-    #[pyo3(signature=(latest_value_cutoff_freq=None))]
-    fn run_nonblocking(&mut self, latest_value_cutoff_freq: Option<f64>) -> PyResult<RunHandle> {
+    #[pyo3(signature=(latest_value_cutoff_freq=None, wait_for_ready=true))]
+    fn run_nonblocking(
+        &mut self,
+        latest_value_cutoff_freq: Option<f64>,
+        wait_for_ready: bool,
+    ) -> PyResult<RunHandle> {
         let controller = self.controller.take().ok_or_else(|| BackendErr::RunErr {
             msg: "Controller has already been moved into a running thread".to_string(),
         })?;
-        Ok(controller.run_nonblocking(None, latest_value_cutoff_freq))
+        controller
+            .run_nonblocking(None, latest_value_cutoff_freq, wait_for_ready)
+            .map_err(|e| BackendErr::RunErr { msg: e }.into())
     }
 
     /// Scan the local network (and any other attached sockets) for available peripherals.

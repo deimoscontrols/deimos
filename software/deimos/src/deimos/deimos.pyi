@@ -114,6 +114,9 @@ class RunHandle:
     def is_running(self) -> bool:
         """Check if the controller thread is still running."""
         ...
+    def is_ready(self) -> bool:
+        """Check if the controller has completed its first cycle."""
+        ...
     def join(self) -> str:
         """Wait for the controller thread to finish."""
         ...
@@ -152,7 +155,9 @@ class Controller:
         """Run the control program."""
         ...
     def run_nonblocking(
-        self, latest_value_cutoff_freq: float | None = None
+        self,
+        latest_value_cutoff_freq: float | None = None,
+        wait_for_ready: bool = True,
     ) -> RunHandle:
         """Run the control program on a separate thread and return a handle
         for coordination.
@@ -164,6 +169,7 @@ class Controller:
                                       range for the filter, the cutoff frequency will
                                       be clamped to the viable bounds and a warning
                                       will be emitted.
+            wait_for_ready: Block until the controller has completed its first cycle.
         """
         ...
     def scan(self, timeout_ms: int = 10) -> list[PeripheralLike]:
