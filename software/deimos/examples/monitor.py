@@ -39,10 +39,10 @@ if len(peripherals) > 0:
     h = c.run_nonblocking()
     try:
         for _ in range(20 if not testing else 1):  # poll for ~4 seconds
+            time.sleep(0.2)
             snap = h.read()
             vals = list(snap.values.items())
             print(f"t={snap.timestamp} {snap.system_time} {vals[:3]}")
-            time.sleep(0.2)
     finally:
         h.stop()
         try:
