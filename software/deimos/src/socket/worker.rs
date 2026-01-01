@@ -1,4 +1,7 @@
 //! Socket worker that runs a socket on its own thread.
+//!
+//! The worker owns a socket, receives controller commands over a channel, and
+//! forwards inbound packets to the orchestrator as events.
 
 use std::thread::{Builder, JoinHandle};
 use std::time::Duration;
@@ -11,36 +14,36 @@ use deimos_shared::peripherals::PeripheralId;
 
 use super::{Socket, SocketAddrToken, SocketId, SocketPacketMeta};
 
+/// Commands sent to a socket worker by the orchestrator.
 pub enum SocketWorkerCommand {
-    Send {
-        id: PeripheralId,
-        payload: Vec<u8>,
-    },
-    Broadcast {
-        payload: Vec<u8>,
-    },
+    /// Send a payload to a peripheral ID.
+    Send { id: PeripheralId, payload: Vec<u8> },
+    /// Broadcast a payload on the socket.
+    Broadcast { payload: Vec<u8> },
+    /// Update the socket's address map for a peripheral.
     UpdateMap {
         id: PeripheralId,
         token: SocketAddrToken,
     },
+    /// Shut down the worker.
     Close,
 }
 
+/// Events emitted by a socket worker to the orchestrator.
 pub enum SocketWorkerEvent {
+    /// Incoming packet data and metadata.
     Packet {
         socket_id: SocketId,
         meta: SocketPacketMeta,
         payload: Vec<u8>,
     },
-    Error {
-        socket_id: SocketId,
-        error: String,
-    },
-    Closed {
-        socket_id: SocketId,
-    },
+    /// Error from the worker's socket I/O path.
+    Error { socket_id: SocketId, error: String },
+    /// Worker has closed its socket and is exiting.
+    Closed { socket_id: SocketId },
 }
 
+/// Worker instance that runs a socket on a dedicated thread.
 pub struct SocketWorker {
     socket_id: SocketId,
     socket: Box<dyn Socket>,
@@ -51,6 +54,7 @@ pub struct SocketWorker {
 }
 
 impl SocketWorker {
+    /// Construct a new worker with its socket, channels, and timing configuration.
     pub fn new(
         socket_id: SocketId,
         socket: Box<dyn Socket>,
@@ -69,6 +73,7 @@ impl SocketWorker {
         }
     }
 
+    /// Run the worker loop until shutdown, returning the owned socket.
     pub fn run(mut self) -> Box<dyn Socket> {
         // Open socket
         if !self.socket.is_open() {
@@ -145,7 +150,11 @@ impl SocketWorker {
         self.socket
     }
 
-    // Process incoming messages from the controller
+    /// Drain queued commands from the controller.
+    ///
+    /// Returns `(keep_running, handled_any)` where `keep_running` indicates
+    /// whether the worker should continue and `handled_any` tracks if a command
+    /// was processed in this cycle.
     fn drain_commands(&mut self) -> (bool, bool) {
         let mut handled_any = false;
         loop {
@@ -162,7 +171,9 @@ impl SocketWorker {
         }
     }
 
-    // Process a specific incoming message from the controller
+    /// Process a single controller command.
+    ///
+    /// Returns `false` when the worker should shut down.
     fn handle_command(&mut self, command: SocketWorkerCommand) -> bool {
         let result = match command {
             SocketWorkerCommand::Send { id, payload } => self.socket.send(id, payload.as_slice()),
