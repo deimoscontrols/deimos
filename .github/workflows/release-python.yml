@@ -22,8 +22,9 @@ jobs:
         platform:
           - runner: ubuntu-22.04
             target: x86_64
-          - runner: ubuntu-22.04
-            target: x86
+          # Removed 32-bit linux due to crashing CI runner
+          # - runner: ubuntu-22.04
+          #   target: x86
           - runner: ubuntu-22.04
             target: aarch64
           - runner: ubuntu-22.04
