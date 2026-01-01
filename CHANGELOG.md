@@ -2,7 +2,7 @@
 
 ## 2026-01-01 deimos 0.15.0
 
-Broad refactor and many new features to improve usability of software interface.
+Broad refactor and many new features to improve usability of software interface. 
 
 ### Added
 
