@@ -23,10 +23,13 @@
 //!   <https://srdata.nist.gov/its90/useofdatabase/use_of_database.html#Coefficients%20Tables>
 use once_cell::sync::Lazy;
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use interpn::MulticubicRegular;
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names};
+use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
 
 /// Cold-junction-correction interpolator shared between all instances of the calc.
 ///
@@ -46,6 +49,7 @@ pub static INTERPOLATOR: Lazy<MulticubicRegular<'static, f64, 2>> = Lazy::new(||
 
 /// Calculate a K-type thermocouple's temperature reading in (K) from voltage,
 /// using the ITS-90 method for cold-junction correction.
+#[cfg_attr(feature = "python", pyclass)]
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct TcKtype {
     // User inputs
@@ -66,22 +70,35 @@ impl TcKtype {
         voltage_name: String,
         cold_junction_temperature_name: String,
         save_outputs: bool,
-    ) -> Self {
+    ) -> Box<Self> {
         // These will be set during init.
         // Use default indices that will cause an error on the first call if not initialized properly
         let input_indices = vec![];
         let output_index = usize::MAX;
 
-        Self {
+        Box::new(Self {
             voltage_name,
             cold_junction_temperature_name,
             save_outputs,
 
             input_indices,
             output_index,
-        }
+        })
     }
 }
+
+py_json_methods!(
+    TcKtype,
+    Calc,
+    #[new]
+    fn py_new(
+        voltage_name: String,
+        cold_junction_temperature_name: String,
+        save_outputs: bool,
+    ) -> Self {
+        *Self::new(voltage_name, cold_junction_temperature_name, save_outputs)
+    }
+);
 
 #[typetag::serde]
 impl Calc for TcKtype {

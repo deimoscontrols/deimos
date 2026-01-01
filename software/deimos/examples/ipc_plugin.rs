@@ -7,16 +7,14 @@
 //!
 //! Demonstrated here:
 //!   * Using unix socket for communication with a peripheral
-//!   * Defining a mockup of a peripheral state machine in software
-//!   * Defining the controller's representation of that peripheral state machine
+//!   * Running a mock peripheral using the built-in mockup driver
+//!   * Defining the controller's representation of that mock peripheral
 //!   * Using an in-memory data target
 //!   * Running a control program with no hardware in the loop
 
 use std::{
     collections::BTreeMap,
-    os::unix::net,
-    thread::{self, JoinHandle},
-    time::{Duration, Instant, SystemTime},
+    time::{Duration, SystemTime},
 };
 
 // For defining the peripheral mockup
@@ -27,9 +25,7 @@ use deimos_shared::{
         analog_i_rev_3::operating_roundtrip::{OperatingRoundtripInput, OperatingRoundtripOutput},
         model_numbers::EXPERIMENTAL_MODEL_NUMBER,
     },
-    states::{
-        BindingInput, BindingOutput, ByteStruct, ByteStructLen, ConfiguringInput, ConfiguringOutput,
-    },
+    states::{ByteStruct, ByteStructLen},
 };
 
 use serde::{Deserialize, Serialize};
@@ -38,13 +34,13 @@ use serde::{Deserialize, Serialize};
 use deimos::{
     calc::Calc,
     controller::context::{ControllerCtx, Termination},
-    dispatcher::{DataFrameDispatcher, Overflow, fmt_time},
-    peripheral::{Peripheral, PluginMap},
+    dispatcher::{DataFrameDispatcher, Overflow},
+    peripheral::{HootlTransport, Peripheral, PluginMap},
     socket::unix::UnixSocket,
     *,
 };
 
-use tracing::{error, info};
+use tracing::info;
 
 fn main() {
     // Clear sockets
@@ -59,18 +55,18 @@ fn main() {
     ctx.dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
 
     // Set termination criteria to end the control loop after a set duration from start of operating
-    ctx.termination_criteria = vec![Termination::Timeout(Duration::from_millis(500))];
+    ctx.termination_criteria = Some(Termination::Timeout(Duration::from_millis(500)));
 
     // Define idle controller
     let mut controller = Controller::new(ctx);
 
     // Remove the default UDP socket and add a unix socket
     controller.clear_sockets();
-    controller.add_socket(Box::new(UnixSocket::new("ipc_ex")));
+    controller.add_socket("ipc_ex", Box::new(UnixSocket::new("ipc_ex")));
 
     // Add an in-memory data target
-    let (df_dispatcher, df_handle) = DataFrameDispatcher::new(1, Overflow::Error, None);
-    controller.add_dispatcher(Box::new(df_dispatcher));
+    let (df_dispatcher, df_handle) = DataFrameDispatcher::new(1, Overflow::Wrap, None);
+    controller.add_dispatcher("df", df_dispatcher);
 
     // Register the mockup as a plugin
     let mut pmap: PluginMap = BTreeMap::new();
@@ -86,22 +82,12 @@ fn main() {
     let p = IpcMockup { serial_number: 0 };
     controller.add_peripheral("mockup", Box::new(p));
 
-    // Scan to trigger the controller to build the socket folder structure
-    if let Err(err) = controller.scan(100, &plugins) {
-        error!("Initial scan failed: {err}");
-    }
-
-    // Open a socket for the peripheral mockup
-    let sock = net::UnixDatagram::bind("./sock/per/mockup").unwrap();
-    sock.set_nonblocking(true).unwrap();
-
-    // Start the in-memory peripheral on a another thread,
+    // Start the mockup driver on another thread,
     // setting a timer for it to terminate at a specific time
-    let mockup = PState::Binding {
-        end: SystemTime::now() + Duration::from_millis(1000),
-        sock,
-    };
-    let mockup_thread = mockup.run();
+    let end = Some(SystemTime::now() + Duration::from_millis(1000));
+    let mut mockup_handle = controller
+        .attach_hootl_driver("mockup", HootlTransport::unix_socket("mockup"), end)
+        .expect("Failed to start mockup driver");
 
     // Scan for peripherals to find the mockup
     let scan_result = controller
@@ -116,11 +102,11 @@ fn main() {
     }
 
     // Start the controller
-    let exit_status = controller.run(&plugins);
+    let exit_status = controller.run(&plugins, None);
     info!("Controller exit status: {exit_status:?}");
 
     // Wait for the mockup to finish running
-    mockup_thread.join().unwrap();
+    mockup_handle.join().unwrap();
 
     // Get collected dataframe
     let df = df_handle.try_read().unwrap();
@@ -214,180 +200,5 @@ impl Peripheral for IpcMockup {
     /// into a useable format.
     fn standard_calcs(&self, _name: String) -> BTreeMap<String, Box<dyn Calc>> {
         BTreeMap::new()
-    }
-}
-
-/// The actual in-memory peripheral mockup,
-/// reusing the AnalogIRev3's packet formats for convenience.
-///
-/// Bare-bones peripheral state machine with a fixed end time.
-/// This simple implementation does not respect the target dt_ns,
-/// instead responding immediately on receiving a controller input.
-enum PState {
-    Binding {
-        end: SystemTime,
-        sock: net::UnixDatagram,
-    },
-    Configuring {
-        controller: net::SocketAddr,
-        timeout: Duration,
-        end: SystemTime,
-        sock: net::UnixDatagram,
-    },
-    Operating {
-        controller: net::SocketAddr,
-        end: SystemTime,
-        sock: net::UnixDatagram,
-    },
-    Terminated,
-}
-
-impl PState {
-    /// Run state machine until arriving at Terminated
-    fn run(self) -> JoinHandle<()> {
-        let mut state = self;
-        thread::spawn(|| {
-            loop {
-                state = match state.step() {
-                    Self::Terminated => {
-                        info!("Peripheral -> Terminated");
-                        return;
-                    }
-                    x => x,
-                }
-            }
-        })
-    }
-
-    /// Proceed to next state transition
-    fn step(self) -> Self {
-        match self {
-            Self::Binding { end, sock } => {
-                info!("Peripheral -> Binding");
-                let buf = &mut vec![0_u8; 1522][..];
-                loop {
-                    // Check for planned termination
-                    if SystemTime::now() > end {
-                        info!("Peripheral reached full duration at {}", fmt_time(end));
-                        return Self::Terminated;
-                    }
-
-                    // Receive packet
-                    if let Ok((size, src_addr)) = sock.recv_from(buf) {
-                        // For this example, just check if the packet is the right length
-                        if size != BindingInput::BYTE_LEN {
-                            continue;
-                        }
-
-                        // Parse input
-                        let msg = BindingInput::read_bytes(&buf[..size]);
-
-                        // Build output
-                        let resp = BindingOutput {
-                            peripheral_id: PeripheralId {
-                                model_number: EXPERIMENTAL_MODEL_NUMBER,
-                                serial_number: 0,
-                            },
-                        };
-
-                        resp.write_bytes(&mut buf[..BindingOutput::BYTE_LEN]);
-                        sock.send_to_addr(&buf[..BindingOutput::BYTE_LEN], &src_addr)
-                            .unwrap();
-
-                        let timeout = Duration::from_millis(msg.configuring_timeout_ms as u64);
-
-                        return Self::Configuring {
-                            controller: src_addr,
-                            timeout,
-                            end,
-                            sock,
-                        };
-                    }
-                }
-            }
-            Self::Configuring {
-                controller,
-                timeout,
-                end,
-                sock,
-            } => {
-                info!("Peripheral -> Configuring");
-                let buf = &mut vec![0_u8; 1522][..];
-                let start_of_configuring = Instant::now();
-                loop {
-                    // Check for planned termination
-                    if SystemTime::now() > end {
-                        info!("Peripheral reached full duration at {}", fmt_time(end));
-                        return Self::Terminated;
-                    }
-
-                    // Check for timeout
-                    if start_of_configuring.elapsed() > timeout {
-                        return Self::Binding { sock, end };
-                    }
-
-                    // Receive packet
-                    if let Ok((size, _src_addr)) = sock.recv_from(buf) {
-                        if size != ConfiguringInput::BYTE_LEN {
-                            continue;
-                        }
-
-                        let resp = ConfiguringOutput {
-                            acknowledge: deimos_shared::states::AcknowledgeConfiguration::Ack,
-                        };
-
-                        resp.write_bytes(&mut buf[..ConfiguringOutput::BYTE_LEN]);
-                        sock.send_to_addr(&buf[..ConfiguringOutput::BYTE_LEN], &controller)
-                            .unwrap();
-
-                        return Self::Operating {
-                            controller,
-                            end,
-                            sock,
-                        };
-                    }
-                }
-            }
-            Self::Operating {
-                controller,
-                end,
-                sock,
-            } => {
-                let buf = &mut vec![0_u8; 1522][..];
-                let mut i = 0;
-                info!("Peripheral -> Operating");
-                loop {
-                    // Check for planned termination
-                    if SystemTime::now() > end {
-                        info!("Peripheral reached full duration at {}", fmt_time(end));
-                        return Self::Terminated;
-                    }
-
-                    // Receive packet
-                    if let Ok((size, _src_addr)) = sock.recv_from(buf) {
-                        if size != OperatingRoundtripInput::BYTE_LEN {
-                            continue;
-                        }
-
-                        let inp = OperatingRoundtripInput::read_bytes(&buf[..size]);
-                        let last_received_id = inp.id;
-
-                        let mut resp = OperatingRoundtripOutput::default();
-                        resp.metrics.last_input_id = last_received_id;
-                        resp.metrics.id = i;
-
-                        resp.write_bytes(&mut buf[..OperatingRoundtripOutput::BYTE_LEN]);
-                        let _ = sock
-                            .send_to_addr(&buf[..OperatingRoundtripOutput::BYTE_LEN], &controller);
-
-                        i += 1;
-                    }
-                }
-            }
-            Self::Terminated => {
-                info!("Peripheral -> Terminated");
-                Self::Terminated
-            }
-        }
     }
 }

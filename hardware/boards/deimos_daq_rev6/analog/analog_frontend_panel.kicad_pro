@@ -496,7 +496,7 @@
       "pos_files": "",
       "specctra_dsn": "",
       "step": "",
-      "svg": "enclosure/",
+      "svg": "../enclosure/",
       "vrml": ""
     },
     "page_layout_descr_file": ""

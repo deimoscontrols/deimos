@@ -3,7 +3,7 @@
 
 use std::io::Write;
 use std::sync::mpsc::{Sender, channel};
-use std::thread::{self, JoinHandle, spawn};
+use std::thread::{self, Builder, JoinHandle};
 use std::time::{Duration, SystemTime};
 
 use postgres::{Client, NoTls, Statement};
@@ -11,7 +11,11 @@ use postgres_types::{ToSql, Type};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use crate::controller::context::ControllerCtx;
+use crate::py_json_methods;
 
 use super::{Dispatcher, csv_row};
 
@@ -27,6 +31,7 @@ use super::{Dispatcher, csv_row};
 /// Does not support TLS, and as a result, is recommended for communication with databases
 /// on the same internal network, not on the open web.
 #[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct TimescaleDbDispatcher {
     /// Name of the database. The table name will be the controller's op name.
     dbname: String,
@@ -61,8 +66,8 @@ impl TimescaleDbDispatcher {
         token_name: &str,
         buffer_time: Duration,
         retention_time_hours: u64,
-    ) -> Self {
-        Self {
+    ) -> Box<Self> {
+        Box::new(Self {
             dbname: dbname.to_owned(),
             host: host.to_owned(),
             user: user.to_owned(),
@@ -70,9 +75,32 @@ impl TimescaleDbDispatcher {
             buffer_time,
             retention_time_hours,
             worker: None,
-        }
+        })
     }
 }
+
+py_json_methods!(
+    TimescaleDbDispatcher,
+    Dispatcher,
+    #[new]
+    fn py_new(
+        dbname: &str,
+        host: &str,
+        user: &str,
+        token_name: &str,
+        buffer_time_ns: u64,
+        retention_time_hours: u64,
+    ) -> PyResult<Self> {
+        Ok(*Self::new(
+            dbname,
+            host,
+            user,
+            token_name,
+            Duration::from_nanos(buffer_time_ns),
+            retention_time_hours,
+        ))
+    }
+);
 
 #[typetag::serde]
 impl Dispatcher for TimescaleDbDispatcher {
@@ -198,73 +226,75 @@ impl WorkerHandle {
         let use_copy = n_buffer > 1;
 
         // Run database I/O on a separate thread to avoid blocking controller
-        let _thread = spawn(move || {
-            // Bind to assigned core, and set priority only if the core is not shared with the control loop
-            {
+        let _thread = Builder::new()
+            .name("tsdb-dispatcher".to_string())
+            .spawn(move || {
+                // Bind to assigned core
                 core_affinity::set_for_current(core_affinity::CoreId {
                     id: core_assignment,
                 });
-            }
 
-            loop {
-                match rx.recv() {
-                    Err(_) => {
-                        // Channel closed; controller is shutting down
-                        // Flush and exit
-                        if use_copy {
-                            let mut writer = client.copy_in(&copy_query).unwrap();
-                            writer.write_all(linebuf.as_bytes()).unwrap();
-                            writer.finish().unwrap();
-                        }
-
-                        return;
-                    }
-                    Ok(vals) => {
-                        // Send
-
-                        // COPY INTO method for batches of points
-                        if use_copy {
-                            //    Buffer this line
-                            csv_row(&mut stringbuf, vals);
-                            linebuf.push_str(&stringbuf);
-                            n_lines_buffered += 1;
-                            //    Flush buffer if ready
-                            if n_lines_buffered >= n_buffer {
+                loop {
+                    match rx.recv() {
+                        Err(_) => {
+                            // Channel closed; controller is shutting down
+                            // Flush and exit
+                            if use_copy {
                                 let mut writer = client.copy_in(&copy_query).unwrap();
                                 writer.write_all(linebuf.as_bytes()).unwrap();
                                 writer.finish().unwrap();
-                                n_lines_buffered = 0;
-                                linebuf.clear();
                             }
+
+                            return;
                         }
-                        // INSERT method for single points
-                        else {
-                            // It would be nice to not have to allocate this every time,
-                            // but the borrowed values don't live long enough
-                            let mut query_vals: Vec<&(dyn ToSql + Sync)> =
-                                Vec::with_capacity(2 + channel_names.len());
-
-                            let (time, timestamp, channel_values) = vals;
-                            query_vals.push(&timestamp);
-                            query_vals.push(&time);
-                            for v in channel_values.iter() {
-                                query_vals.push(v);
-                            }
-
+                        Ok(vals) => {
                             // Send
-                            client.execute(&prepared_query, &query_vals).unwrap();
 
-                            // Reset
-                            query_vals.clear();
+                            // COPY INTO method for batches of points
+                            if use_copy {
+                                //    Buffer this line
+                                let (time, timestamp, channel_values) = vals;
+                                csv_row(&mut stringbuf, (time, timestamp, &channel_values));
+                                linebuf.push_str(&stringbuf);
+                                n_lines_buffered += 1;
+                                //    Flush buffer if ready
+                                if n_lines_buffered >= n_buffer {
+                                    let mut writer = client.copy_in(&copy_query).unwrap();
+                                    writer.write_all(linebuf.as_bytes()).unwrap();
+                                    writer.finish().unwrap();
+                                    n_lines_buffered = 0;
+                                    linebuf.clear();
+                                }
+                            }
+                            // INSERT method for single points
+                            else {
+                                // It would be nice to not have to allocate this every time,
+                                // but the borrowed values don't live long enough
+                                let mut query_vals: Vec<&(dyn ToSql + Sync)> =
+                                    Vec::with_capacity(2 + channel_names.len());
+
+                                let (time, timestamp, channel_values) = vals;
+                                query_vals.push(&timestamp);
+                                query_vals.push(&time);
+                                for v in channel_values.iter() {
+                                    query_vals.push(v);
+                                }
+
+                                // Send
+                                client.execute(&prepared_query, &query_vals).unwrap();
+
+                                // Reset
+                                query_vals.clear();
+                            }
                         }
                     }
-                }
 
-                // Deliberately yield the thread to make time for the OS
-                // and to avoid interfering with other loops
-                thread::yield_now();
-            }
-        });
+                    // Deliberately yield the thread to make time for the OS
+                    // and to avoid interfering with other loops
+                    thread::yield_now();
+                }
+            })
+            .expect("Failed to spawn TSDB dispatcher thread");
 
         Ok(Self { tx, _thread })
     }
@@ -277,9 +307,13 @@ fn init_timescaledb_client(
     user: &str,
     pw: &str,
 ) -> Result<Client, String> {
+    // Use provided port if it exists, otherwise the default port 5432
+    let (host, port) = split_host(host);
+    let port = port.unwrap_or("5432".to_string());
+
     // Connect to database backend
     Client::connect(
-        &format!("dbname={dbname} host={host} user={user} password={pw}"),
+        &format!("dbname={dbname} host={host} port={port} user={user} password={pw}"),
         NoTls,
     )
     .map_err(|e| format!("Failed to connect postgres client: {e}"))
@@ -366,4 +400,14 @@ fn prepare_timescaledb_query(
             &channel_types,
         )
         .map_err(|e| format!("Failed to build prepared postgres query: {e}"))
+}
+
+fn split_host(host: &str) -> (String, Option<String>) {
+    let parts: Vec<String> = host.split(":").map(|x| x.to_string()).collect();
+    let n = parts.len();
+    if n < 2 {
+        (host.to_string(), None)
+    } else {
+        (parts[..n - 1].join(""), parts.last().cloned())
+    }
 }

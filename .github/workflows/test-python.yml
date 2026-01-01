@@ -1,0 +1,90 @@
+name: test-python
+on:
+  pull_request:
+    branches: [ "*" ]
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  test_python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./software/deimos
+    strategy:
+      matrix:
+        target: [x86_64]
+        python-version:
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+        sync-args: [--locked]
+
+        include:
+         - target: x86_64
+           python-version: "3.11"
+           sync-args: --resolution=lowest-direct
+
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install
+      run: |
+        uv sync --group test ${{ matrix.sync-args }}
+      
+    - name: Lint & typecheck
+      run: |
+        uv run --no-sync ty check ./src
+        uv run --no-sync ruff check ./src
+        uv run --no-sync ruff format --check ./src
+
+    - name: Test
+      run: uv run --no-sync pytest .
+
+  test_platforms:
+    runs-on: ${{ matrix.platform.runner }}
+    defaults:
+      run:
+        working-directory: ./software/deimos
+    strategy:
+      matrix:
+        platform:
+          - runner: windows-latest
+          # - runner: ubuntu-latest
+          - runner: ubuntu-24.04-arm  # aarch64
+          - runner: macos-15-intel    # x86_64
+          - runner: macos-15          # aarch64
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        python-version: "3.11"
+
+    - name: Test (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      # Run with elevated perms on mac because macos-15
+      # introduced new firewall restrictions on local network access
+      # that make LAN inaccessible without clicking on a GUI element
+      # or having sudo
+      run: |
+        # Install something so that clearing the cache doesn't crash later
+        uv venv
+        uv pip install pytest
+
+        # Run with perms
+        UV_BIN="$(command -v uv)"
+        sudo "$UV_BIN" sync --locked --no-editable --group test
+        sudo "$UV_BIN" run --no-sync pytest .
+
+    - name: Test (non-macOS)
+      if: runner.os != 'macOS'
+      run: |
+        uv sync --locked --no-editable --group test
+        uv run --no-sync pytest .

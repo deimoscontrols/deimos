@@ -2,10 +2,14 @@
 
 use core::f64;
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names};
+use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
 
 /// Sin wave between `low` and `high` with a period of `period_s` and phase offset of `offset_s`
+#[cfg_attr(feature = "python", pyclass)]
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Sin {
     // User inputs
@@ -30,7 +34,7 @@ pub struct Sin {
 }
 
 impl Sin {
-    pub fn new(period_s: f64, offset_s: f64, low: f64, high: f64, save_outputs: bool) -> Self {
+    pub fn new(period_s: f64, offset_s: f64, low: f64, high: f64, save_outputs: bool) -> Box<Self> {
         // These will be set during init.
         // Use default indices that will cause an error on the first call if not initialized properly
         let output_index = usize::MAX;
@@ -39,7 +43,7 @@ impl Sin {
         let (high, low) = (high.max(low), low.min(high));
         let scale = (high - low) / 2.0;
 
-        Self {
+        Box::new(Self {
             period_s,
             offset_s,
             low,
@@ -50,9 +54,18 @@ impl Sin {
             rad_per_cycle,
             angle_rad,
             scale,
-        }
+        })
     }
 }
+
+py_json_methods!(
+    Sin,
+    Calc,
+    #[new]
+    fn py_new(period_s: f64, offset_s: f64, low: f64, high: f64, save_outputs: bool) -> Self {
+        *Self::new(period_s, offset_s, low, high, save_outputs)
+    }
+);
 
 #[typetag::serde]
 impl Calc for Sin {

@@ -5,15 +5,22 @@
 use std::collections::BTreeMap;
 use std::os::unix::net; //{SocketAddr, UnixDatagram};
 use std::path::PathBuf;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+use tracing::{info, warn};
+
+use crate::py_json_methods;
 
 use super::*;
 use deimos_shared::peripherals::PeripheralId;
 
-/// Implementation of Socket trait for stdlib UDP socket on IPV4
+/// Implementation of Socket trait for stdlib unix socket
 #[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct UnixSocket {
     /// The name of the socket will be combined with the op directory
     /// to make a socket address like {op_dir}/sock/{name} .
@@ -28,13 +35,15 @@ pub struct UnixSocket {
     #[serde(skip)]
     socket: Option<net::UnixDatagram>,
     #[serde(skip)]
-    rxbuf: Vec<u8>,
-    #[serde(skip)]
     addrs: BTreeMap<PeripheralId, PathBuf>,
     #[serde(skip)]
     pids: BTreeMap<PathBuf, PeripheralId>,
     #[serde(skip)]
-    last_received_addr: Option<PathBuf>,
+    addr_tokens: BTreeMap<PathBuf, SocketAddrToken>,
+    #[serde(skip)]
+    token_addrs: BTreeMap<SocketAddrToken, PathBuf>,
+    #[serde(skip)]
+    next_addr_token: SocketAddrToken,
     #[serde(skip)]
     ctx: ControllerCtx,
 }
@@ -43,11 +52,12 @@ impl UnixSocket {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_owned(),
-            rxbuf: vec![0; 1522],
             socket: None,
             addrs: BTreeMap::new(),
             pids: BTreeMap::new(),
-            last_received_addr: None,
+            addr_tokens: BTreeMap::new(),
+            token_addrs: BTreeMap::new(),
+            next_addr_token: 0,
             ctx: ControllerCtx::default(),
         }
     }
@@ -79,6 +89,15 @@ impl UnixSocket {
     }
 }
 
+py_json_methods!(
+    UnixSocket,
+    Socket,
+    #[new]
+    fn py_new(name: &str) -> PyResult<Self> {
+        Ok(Self::new(name))
+    }
+);
+
 #[typetag::serde]
 impl Socket for UnixSocket {
     fn is_open(&self) -> bool {
@@ -94,15 +113,17 @@ impl Socket for UnixSocket {
             std::fs::create_dir_all(self.peripheral_socket_dir())
                 .map_err(|e| format!("Unable to create socket folders: {e}"))?;
 
+            let path = self.path();
+            if path.exists() {
+                let _ = std::fs::remove_file(&path);
+            }
             // Bind the socket
-            let socket = net::UnixDatagram::bind(self.path())
+            let socket = net::UnixDatagram::bind(&path)
                 .map_err(|e| format!("Unable to bind unix socket: {e}"))?;
-            socket
-                .set_nonblocking(true)
-                .map_err(|e| format!("Unable to set unix socket to nonblocking mode: {e}"))?;
             self.socket = Some(socket);
+            info!("Opened controller unix socket at {path:?}");
         } else {
-            return Err("Socket already open".to_string());
+            return Err("Controller unix socket already open".to_string());
         }
 
         Ok(())
@@ -114,11 +135,17 @@ impl Socket for UnixSocket {
         self.socket = None;
         self.addrs.clear();
         self.pids.clear();
-        self.last_received_addr = None;
+        self.addr_tokens.clear();
+        self.token_addrs.clear();
+        self.next_addr_token = 0;
         self.ctx = ControllerCtx::default();
+        info!("Closed controller unix socket at {path:?}");
         // Attempt to delete socket file so that it is not left dangling.
         // This may fail on permissions.
-        let _ = std::fs::remove_file(path);
+        let file_remove_status = std::fs::remove_file(&path);
+        if file_remove_status.is_err() {
+            warn!("Failed to remove unix socket file: {file_remove_status:?}");
+        }
     }
 
     fn send(&mut self, id: PeripheralId, msg: &[u8]) -> Result<(), String> {
@@ -141,34 +168,55 @@ impl Socket for UnixSocket {
         Ok(())
     }
 
-    fn recv(&mut self) -> Option<(Option<PeripheralId>, Instant, &[u8])> {
+    fn recv(&mut self, buf: &mut [u8], timeout: Duration) -> Option<SocketPacketMeta> {
         // Check if there is anything to receive,
         // and filter out packets from unexpected source port
-        let (size, src_path, time) = match self.socket.as_mut() {
-            Some(sock) => match sock.recv_from(&mut self.rxbuf).ok() {
-                Some((size, addr)) => {
-                    // Mark the time ASAP
-                    let now = Instant::now();
+        let sock = self.socket.as_mut()?;
+        let timeout = if timeout.is_zero() {
+            Duration::from_nanos(1)
+        } else {
+            timeout
+        };
+        let _ = sock.set_read_timeout(Some(timeout));
+        let (size, src_path, time) = match sock.recv_from(buf) {
+            Ok((size, addr)) => {
+                // Mark the time ASAP
+                let now = Instant::now();
 
-                    if let Some(src_path) = addr.as_pathname() {
-                        // TODO: eliminate allocation here by copying into a reusable buffer
-                        let src_path = src_path.to_owned();
-                        (size, src_path, now)
-                    } else {
-                        return None;
-                    }
+                if let Some(src_path) = addr.as_pathname() {
+                    // FUTURE: eliminate allocation here by copying into a reusable buffer
+                    let src_path = src_path.to_owned();
+                    (size, src_path, now)
+                } else {
+                    return None;
                 }
-                None => return None,
+            }
+            Err(err) => match err.kind() {
+                std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut => return None,
+                _ => return None,
             },
-            None => return None,
         };
 
-        self.last_received_addr = Some(src_path.to_owned());
+        let token = match self.addr_tokens.get(&src_path).copied() {
+            Some(token) => token,
+            None => {
+                let token = self.next_addr_token;
+                self.next_addr_token = self.next_addr_token.wrapping_add(1);
+                self.addr_tokens.insert(src_path.clone(), token);
+                self.token_addrs.insert(token, src_path.clone());
+                token
+            }
+        };
 
         // Check if we already know which peripheral this is
         let pid = self.pids.get(&src_path).copied();
 
-        Some((pid, time, &self.rxbuf[..size]))
+        Some(SocketPacketMeta {
+            pid,
+            token,
+            time,
+            size,
+        })
     }
 
     fn broadcast(&mut self, msg: &[u8]) -> Result<(), String> {
@@ -202,17 +250,19 @@ impl Socket for UnixSocket {
 
             // Try to send to each file, since we don't have a rigorous way to check
             // which ones are unix sockets and which ones are not
+            let files: Vec<PathBuf> = files.collect();
+            info!("Unix socket broadcasting to {files:?}");
             for f in files {
-                // TODO log errors
-                let _ = sock.send_to(msg, &f);
+                sock.send_to(msg, &f)
+                    .map_err(|e| format!("Failed to send unix socket packet: {e}"))?;
             }
         }
 
         Ok(())
     }
 
-    fn update_map(&mut self, id: PeripheralId) -> Result<(), String> {
-        if let Some(addr) = &self.last_received_addr {
+    fn update_map(&mut self, id: PeripheralId, token: SocketAddrToken) -> Result<(), String> {
+        if let Some(addr) = self.token_addrs.get(&token) {
             self.addrs.insert(id, addr.clone());
             self.pids.insert(addr.clone(), id);
 
@@ -222,6 +272,8 @@ impl Socket for UnixSocket {
                     &self.addrs, &self.pids
                 ));
             }
+        } else {
+            return Err(format!("Unknown address token {token}"));
         }
 
         Ok(())

@@ -1,10 +1,14 @@
 //! A slope and offset, y = ax + b
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names};
+use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
 
 /// A slope and offset, y = ax + b
 #[derive(Default, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct Affine {
     // User inputs
     input_name: String,
@@ -21,13 +25,13 @@ pub struct Affine {
 }
 
 impl Affine {
-    pub fn new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> Self {
+    pub fn new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> Box<Self> {
         // These will be set during init.
         // Use default indices that will cause an error on the first call if not initialized properly
         let input_index = usize::MAX;
         let output_index = usize::MAX;
 
-        Self {
+        Box::new(Self {
             input_name,
             slope,
             offset,
@@ -35,9 +39,18 @@ impl Affine {
 
             input_index,
             output_index,
-        }
+        })
     }
 }
+
+py_json_methods!(
+    Affine,
+    Calc,
+    #[new]
+    fn py_new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> PyResult<Self> {
+        Ok(*Self::new(input_name, slope, offset, save_outputs))
+    }
+);
 
 #[typetag::serde]
 impl Calc for Affine {

@@ -12,7 +12,7 @@ use deimos_shared::states::OperatingMetrics;
 
 /// Internal state of calc orchestrator
 #[derive(Default)]
-struct OrchestratorState {
+struct CalcOrchestratorState {
     /// Values of every input and output field for calcs and peripherals.
     /// Notably does not include peripheral metrics.
     calc_tape: Vec<f64>,
@@ -37,13 +37,16 @@ struct OrchestratorState {
     /// Where to get values to write to peripheral inputs,
     /// and where to put them.
     peripheral_input_source_indices: Vec<(DstIndex, SrcIndex)>,
+
+    /// Peripheral input fields that can be written manually, and their indices.
+    manual_input_indices: BTreeMap<FieldName, usize>,
 }
 
 /// Calculations that are run at each cycle during operation.
 /// Because the results of the calculations are needed at each cycle,
 /// they are run synchronously, and must complete before the next cycle.
 ///
-/// `Calc` objects are registered with the `Orchestrator` and serialized with the controller.
+/// `Calc` objects are registered with the `CalcOrchestrator` and serialized with the controller.
 /// Each calc is a function consuming any number of inputs and producing any number of outputs.
 ///
 /// During init, the orchestrator determines the correct order in which to evaluate the calcs
@@ -55,21 +58,22 @@ struct OrchestratorState {
 /// where its inputs and outputs will be placed. During evaluation, each calc is responsible
 /// for using those indices to read its inputs and write its outputs.
 #[derive(Serialize, Deserialize, Default)]
-pub struct Orchestrator {
+pub(crate) struct CalcOrchestrator {
     calcs: BTreeMap<CalcName, Box<dyn Calc>>,
     peripheral_input_sources: BTreeMap<PeripheralInputName, FieldName>,
 
     #[serde(skip)]
-    state: OrchestratorState,
+    state: CalcOrchestratorState,
 }
 
-impl Orchestrator {
+impl CalcOrchestrator {
     /// Synchronize calc state using latest outputs from peripherals
     /// by running each calc in the order determined during init.
     ///
     /// # Panics
     /// * If eval() is called before init()
     /// * If evaluation of individual calcs panics
+    #[inline]
     pub fn eval(&mut self) -> Result<(), String> {
         // Evaluate calcs in order
         for name in self.state.eval_order.iter() {
@@ -113,11 +117,43 @@ impl Orchestrator {
     }
 
     /// Provide latest values fields marked for dispatch
+    #[inline]
     pub fn provide_dispatcher_outputs(&self, mut f: impl FnMut(&mut dyn Iterator<Item = f64>)) {
         let inds = self.state.dispatch_indices.iter();
         let mut vals = inds.map(|&i| self.state.calc_tape[i]);
 
         f(&mut vals);
+    }
+
+    /// Names of peripheral inputs that can be written manually for given peripherals.
+    pub fn manual_input_names(
+        &self,
+        peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
+    ) -> Vec<String> {
+        let mut names = Vec::new();
+        for (name, peripheral) in peripherals.iter() {
+            for field in peripheral.input_names() {
+                let full = format!("{name}.{field}");
+                if self.peripheral_input_sources.contains_key(&full) {
+                    continue;
+                }
+                names.push(full);
+            }
+        }
+        names
+    }
+
+    /// Set a manual input value by field name.
+    pub fn set_manual_input(&mut self, name: &str, value: f64) -> Result<(), String> {
+        match self.state.manual_input_indices.get(name) {
+            Some(&index) => {
+                self.state.calc_tape[index] = value;
+                Ok(())
+            }
+            None => Err(format!(
+                "Manual input `{name}` is not available for manual writes"
+            )),
+        }
     }
 
     /// Get names of fields marked to dispatch
@@ -151,12 +187,6 @@ impl Orchestrator {
     pub fn clear_calcs(&mut self) {
         self.calcs.clear();
         self.peripheral_input_sources.clear();
-    }
-
-    /// Add a calc, replacing an entry if it already exists
-    pub fn replace_calc(&mut self, name: &str, calc: Box<dyn Calc>) {
-        let name = name.to_owned();
-        self.calcs.insert(name, calc);
     }
 
     /// Read-only access to calc nodes
@@ -272,6 +302,7 @@ impl Orchestrator {
         let mut peripheral_output_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
         let mut peripheral_input_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
         let mut peripheral_input_source_indices: Vec<(usize, usize)> = Vec::new();
+        let mut peripheral_input_fields: Vec<FieldName> = Vec::new();
 
         let mut dispatch_names: Vec<FieldName> = Vec::new();
         let mut dispatch_indices: Vec<usize> = Vec::new();
@@ -317,8 +348,9 @@ impl Orchestrator {
             {
                 fields_order.push(field.clone());
                 field_index_map.insert(field.clone(), i);
-                dispatch_names.push(field);
+                dispatch_names.push(field.clone());
                 dispatch_indices.push(i);
+                peripheral_input_fields.push(field);
                 i += 1;
             }
         }
@@ -406,11 +438,25 @@ impl Orchestrator {
             peripheral_input_source_indices.push((dst_index, src_index));
         }
 
+        // Track peripheral inputs that are not driven by calc outputs
+        let mut manual_input_indices = BTreeMap::new();
+        let mut manual_input_names = Vec::new();
+        for field in peripheral_input_fields {
+            if self.peripheral_input_sources.contains_key(&field) {
+                continue;
+            }
+            let index = *field_index_map.get(&field).ok_or_else(|| {
+                format!("Did not find field index for peripheral input `{field}`")
+            })?;
+            manual_input_indices.insert(field.clone(), index);
+            manual_input_names.push(field);
+        }
+
         // Initialize the calc tape
         let calc_tape: Vec<f64> = vec![0.0_f64; fields_order.len()];
 
         // Take new internal state
-        self.state = OrchestratorState {
+        self.state = CalcOrchestratorState {
             calc_tape,
             eval_order,
             dispatch_names,
@@ -418,13 +464,14 @@ impl Orchestrator {
             peripheral_output_slices,
             peripheral_input_slices,
             peripheral_input_source_indices,
+            manual_input_indices,
         };
         Ok(())
     }
 
     /// Clear state to reset for another run
     pub fn terminate(&mut self) -> Result<(), String> {
-        self.state = OrchestratorState::default();
+        self.state = CalcOrchestratorState::default();
         let mut errors = Vec::new();
         for (name, calc) in self.calcs.iter_mut() {
             if let Err(e) = calc.terminate() {

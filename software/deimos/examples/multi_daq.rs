@@ -38,7 +38,7 @@ fn main() {
     let peripheral_plugins = None;
 
     // Set control rate
-    let rate_hz = 100.0;
+    let rate_hz = 200.0;
     let dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
 
     // Define idle controller
@@ -50,8 +50,16 @@ fn main() {
     //   a static address and may drop out for a few seconds while renewing its IP address.
     //   For a real network, the control server and peripherals should be assigned
     //   static addresses, and this limit can be comfortably set as low as 2-3 cycles.
-    ctx.controller_loss_of_contact_limit = (4.0 * rate_hz).min(1e4) as u16;
-    ctx.peripheral_loss_of_contact_limit = (4.0 * rate_hz).min(1e4) as u16;
+    ctx.controller_loss_of_contact_limit = 10;
+    ctx.peripheral_loss_of_contact_limit = 10;
+    ctx.loss_of_contact_policy = LossOfContactPolicy::Reconnect(Some(Duration::from_secs(10)));
+    //   At higher control rate, switch to busy-waiting mode to maintain timing.
+    if rate_hz > 50.0 {
+        ctx.loop_method = LoopMethod::Performant;
+    } else {
+        ctx.loop_method = LoopMethod::Efficient;
+    }
+    //   Build the controller, but don't connect sockets or run anything yet.
     let mut controller = Controller::new(ctx);
 
     // Scan for peripherals on LAN
@@ -69,21 +77,20 @@ fn main() {
     controller.add_peripheral("p6", Box::new(AnalogIRev4 { serial_number: 4 }));
     // controller.add_peripheral("p7", Box::new(AnalogIRev4 { serial_number: 5 }));
     // controller.add_peripheral("p8", Box::new(AnalogIRev4 { serial_number: 6 }));
-    controller.add_peripheral("p8", Box::new(DeimosDaqRev6 { serial_number: 1 }));
+    controller.add_peripheral("p8", Box::new(DeimosDaqRev6 { serial_number: 5 }));
 
     // Set up database dispatchers
-    let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(
+    let timescale_dispatcher: Box<dyn Dispatcher> = TimescaleDbDispatcher::new(
         "tsdb",
         "/run/postgresql/", // Unix socket interface; TCP works as well
         "jlogan",
         "POSTGRES_PW",
         Duration::from_nanos(1),
         1,
-    ));
-    let csv_dispatcher: Box<dyn Dispatcher> =
-        Box::new(CsvDispatcher::new(50, dispatcher::Overflow::Wrap));
-    controller.add_dispatcher(timescale_dispatcher);
-    controller.add_dispatcher(csv_dispatcher);
+    );
+    let csv_dispatcher: Box<dyn Dispatcher> = CsvDispatcher::new(50, dispatcher::Overflow::Wrap);
+    controller.add_dispatcher("tsdb", timescale_dispatcher);
+    controller.add_dispatcher("csv", csv_dispatcher);
 
     // Set up calc graph
     let duty = Constant::new(0.5, true);
@@ -91,22 +98,22 @@ fn main() {
     let freq1 = Sin::new(20.0, 0.25, 10.0, 200.0, true);
     let dac1 = Sin::new(20.0, 0.0, 0.0, 2.5, true);
     let dac2 = Sin::new(20.0, 5.0, 0.0, 2.5 / 25.7, true);
-    controller.add_calc("duty", Box::new(duty));
-    controller.add_calc("freq", Box::new(freq));
-    controller.add_calc("freq1", Box::new(freq1));
-    controller.add_calc("dac1", Box::new(dac1));
-    controller.add_calc("dac2", Box::new(dac2));
+    controller.add_calc("duty", duty);
+    controller.add_calc("freq0", freq);
+    controller.add_calc("freq1", freq1);
+    controller.add_calc("dac0", dac1);
+    controller.add_calc("dac1", dac2);
     controller.set_peripheral_input_source("p1.pwm0_duty", "duty.y");
-    controller.set_peripheral_input_source("p1.pwm0_freq", "freq.y");
+    controller.set_peripheral_input_source("p1.pwm0_freq", "freq0.y");
     controller.set_peripheral_input_source("p1.pwm1_duty", "duty.y");
     controller.set_peripheral_input_source("p1.pwm1_freq", "freq1.y");
     controller.set_peripheral_input_source("p1.pwm3_duty", "sequence_machine.duty");
-    controller.set_peripheral_input_source("p1.pwm3_freq", "freq.y");
+    controller.set_peripheral_input_source("p1.pwm3_freq", "freq0.y");
 
     controller.set_peripheral_input_source("p8.pwm0_duty", "duty.y");
-    controller.set_peripheral_input_source("p8.pwm0_freq", "freq.y");
+    controller.set_peripheral_input_source("p8.pwm0_freq", "freq0.y");
+    controller.set_peripheral_input_source("p8.dac0", "dac0.y");
     controller.set_peripheral_input_source("p8.dac1", "dac1.y");
-    controller.set_peripheral_input_source("p8.dac2", "dac2.y");
 
     let timeouts = BTreeMap::from([
         ("low".to_owned(), Timeout::Loop),
@@ -119,7 +126,7 @@ fn main() {
             BTreeMap::from([(
                 "high".to_owned(),
                 vec![Transition::ConstantThresh(
-                    "freq.y".to_owned(),
+                    "freq0.y".to_owned(),
                     ThreshOp::Gt { by: 0.0 },
                     100_000.0,
                 )],
@@ -142,7 +149,7 @@ fn main() {
     std::fs::write(fp, cfg_str).unwrap();
 
     let machine = SequenceMachine::load_folder(&machine_dir).unwrap();
-    controller.add_calc("sequence_machine", Box::new(machine));
+    controller.add_calc("sequence_machine", machine);
 
     // Serialize and deserialize the controller (for demonstration purposes)
     let serialized_controller = serde_json::to_string_pretty(&controller).unwrap();
@@ -151,5 +158,5 @@ fn main() {
 
     // Run the control program
     info!("Starting controller");
-    controller.run(&peripheral_plugins).unwrap();
+    controller.run(&peripheral_plugins, None).unwrap();
 }

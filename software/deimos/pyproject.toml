@@ -1,0 +1,79 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "deimos-daq"
+dynamic = ["version"]
+description = "Control-loop and data pipeline for the Deimos data acquisition system"
+authors = [{ name = "James Logan", email = "jlogan03@gmail.com" }]
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = []
+
+[project.urls]
+repository = "https://github.com/deimoscontrols/deimos/"
+documentation = "https://deimoscontrols.com/api/api-python/"
+changelog = "https://github.com/deimoscontrols/deimos/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+test = [
+    "pytest >= 9",
+    "pytest-cov >= 7.0.0",
+    "ruff >= 0.14.10",
+    "ty == 0.0.8",
+    "mktestdocs == 0.2.5",
+    #"plotly>=6,<7",
+]
+
+[tool.uv]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "Cargo.toml" },
+    { file = ".cargo/config.toml" },
+    { file = "src/**/*.rs" },
+    { env = "RUSTFLAGS" },
+]
+
+no-build-package = [
+    "numpy",
+    "pydantic-core",
+    "scipy",
+    "coverage",
+    "ruff",
+]
+
+[tool.maturin]
+features = ["python"]
+module-name = "deimos.deimos"
+python-packages = ["deimos"]
+python-source = "src"
+version = { source = "cargo" }
+profile = "release"
+include = [
+  { path = "all", format = ["sdist", "wheel"] },
+]
+
+[tool.pytest.ini_options]
+addopts = "--cov=deimos --cov-report html --cov-fail-under=70"
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+]

@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use crate::peripheral::Peripheral;
 use deimos_shared::{peripherals::PeripheralId, states::OperatingMetrics};
 
@@ -32,6 +34,21 @@ pub(crate) struct PeripheralMetrics {
     pub cycle_lag_count: f64,
 }
 
+pub(crate) enum ConnState {
+    Binding {
+        binding_timeout: Instant,
+        reconnect_deadline: Option<Instant>,
+    },
+    Configuring {
+        configuring_timeout: Instant,
+        reconnect_deadline: Option<Instant>,
+    },
+    Operating(),
+    Disconnected {
+        deadline: Option<Instant>,
+    },
+}
+
 /// Peripheral-specific metrics, readings, channel names, etc
 pub(crate) struct PeripheralState {
     /// Ethernet address
@@ -51,6 +68,9 @@ pub(crate) struct PeripheralState {
     /// configuration frame yet?
     pub acknowledged_configuration: bool,
 
+    /// Connection state tracking binding/configuring/operating timeouts.
+    pub conn_state: ConnState,
+
     /// Timing and comm metrics
     pub metrics: PeripheralMetrics,
 
@@ -63,7 +83,12 @@ pub(crate) struct PeripheralState {
 
 impl PeripheralState {
     #[allow(clippy::borrowed_box)] // Fixing this with trait objects requires using Any
-    pub fn new(name: &String, addr: SocketAddr, p: &Box<dyn Peripheral>) -> Self {
+    pub fn new(
+        name: &String,
+        addr: SocketAddr,
+        p: &Box<dyn Peripheral>,
+        ctx: &crate::controller::context::ControllerCtx,
+    ) -> Self {
         // Metric names are pretty manual
         let mut mnames = Vec::new();
         for orig in [
@@ -83,6 +108,10 @@ impl PeripheralState {
 
         let metrics = PeripheralMetrics::default();
         let acknowledged_configuration = false;
+        let conn_state = ConnState::Binding {
+            binding_timeout: Instant::now() + Duration::from_millis(ctx.binding_timeout_ms as u64),
+            reconnect_deadline: None,
+        };
         let id = p.id();
 
         Self {
@@ -90,6 +119,7 @@ impl PeripheralState {
             id,
             name: name.to_owned(),
             acknowledged_configuration,
+            conn_state,
             metrics,
             metric_full_names: mnames,
         }

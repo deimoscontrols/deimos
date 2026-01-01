@@ -1,13 +1,17 @@
 //! A second-order Butterworth low-pass filter
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names};
+use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
 use flaw::{
     SisoIirFilter, butter2,
     generated::butter::butter2::{MAX_CUTOFF_RATIO, MIN_CUTOFF_RATIO},
 };
 
 /// Single-input, single-output Butterworth low-pass filter implemented with `flaw::butter2`
+#[cfg_attr(feature = "python", pyclass)]
 #[derive(Default, Serialize, Deserialize)]
 pub struct Butter2 {
     // User inputs
@@ -41,11 +45,11 @@ impl core::fmt::Debug for Butter2 {
 }
 
 impl Butter2 {
-    pub fn new(input_name: String, cutoff_hz: f64, save_outputs: bool) -> Self {
+    pub fn new(input_name: String, cutoff_hz: f64, save_outputs: bool) -> Box<Self> {
         let input_index = usize::MAX;
         let output_index = usize::MAX;
 
-        Self {
+        Box::new(Self {
             input_name,
             cutoff_hz,
             save_outputs,
@@ -53,9 +57,18 @@ impl Butter2 {
             output_index,
             filt: SisoIirFilter::default(),
             initialized: false,
-        }
+        })
     }
 }
+
+py_json_methods!(
+    Butter2,
+    Calc,
+    #[new]
+    fn py_new(input_name: String, cutoff_hz: f64, save_outputs: bool) -> Self {
+        *Self::new(input_name, cutoff_hz, save_outputs)
+    }
+);
 
 #[typetag::serde]
 impl Calc for Butter2 {
@@ -100,7 +113,7 @@ impl Calc for Butter2 {
         let y = if branches::unlikely(!self.initialized) {
             // Pass through the first value to avoid excessive timing
             // on first cycle due to initialization
-            self.filt.initialize(x as f32);
+            self.filt.set_steady_state(x as f32);
             self.initialized = true;
             x
         } else {

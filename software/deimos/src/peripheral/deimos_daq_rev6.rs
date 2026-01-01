@@ -6,10 +6,18 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
+use crate::py_peripheral_methods;
+
 #[derive(Serialize, Deserialize, Debug, Default)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct DeimosDaqRev6 {
     pub serial_number: u64,
 }
+
+py_peripheral_methods!(DeimosDaqRev6);
 
 #[typetag::serde]
 impl Peripheral for DeimosDaqRev6 {
@@ -31,8 +39,8 @@ impl Peripheral for DeimosDaqRev6 {
             names.push(format!("pwm{i}_freq").to_owned())
         }
 
+        names.push("dac0".to_string());
         names.push("dac1".to_string());
-        names.push("dac2".to_string());
 
         names
     }
@@ -119,17 +127,11 @@ impl Peripheral for DeimosDaqRev6 {
             // Bus current measured on 6mohm shunt with G=50
             let module_bus_current =
                 Affine::new(format!("{name}.ain0"), 1.0 / (0.006 * 50.0), 0.0, true);
-            calcs.insert(
-                format!("{name}_bus_current_A"),
-                Box::new(module_bus_current),
-            );
+            calcs.insert(format!("{name}_bus_current_A"), module_bus_current);
 
             // Bus voltage measured with sub-unity gain
             let module_bus_voltage = Affine::new(format!("{name}.ain1"), 21.5 / 1.5, 0.0, true);
-            calcs.insert(
-                format!("{name}_bus_voltage_V"),
-                Box::new(module_bus_voltage),
-            );
+            calcs.insert(format!("{name}_bus_voltage_V"), module_bus_voltage);
         }
 
         // Cold junction RTD is also board temp
@@ -143,13 +145,13 @@ impl Peripheral for DeimosDaqRev6 {
             let slope = 250e-6 * 25.7;
             let resistance_calc = InverseAffine::new(input_name, slope, 0.0, true);
             let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
-            calcs.insert(resistance_calc_name, Box::new(resistance_calc));
-            calcs.insert(temperature_calc_name.clone(), Box::new(temperature_calc));
+            calcs.insert(resistance_calc_name, resistance_calc);
+            calcs.insert(temperature_calc_name.clone(), temperature_calc);
 
             let filtered_calc_name = format!("{name}_board_rtd_filtered");
             let filtered_calc =
                 Butter2::new(format!("{temperature_calc_name}.temperature_K"), 1.0, true);
-            calcs.insert(filtered_calc_name, Box::new(filtered_calc));
+            calcs.insert(filtered_calc_name, filtered_calc);
         }
 
         // The sensor analog frontends occupy contiguous blocks of channels
@@ -159,22 +161,19 @@ impl Peripheral for DeimosDaqRev6 {
 
         // 4-20mA channels use a 75 ohm reference resistor and G=1 amp
         {
-            let mut n = 1;
+            let mut n = 0;
             for i in milliamp_4_20_range {
                 let input_name = format!("{name}.ain{i}");
                 let calc_name = format!("{name}_4_20_mA_{n}_A");
                 let slope = 75.0; // [V/A] due to 75 ohm resistor
-                calcs.insert(
-                    calc_name,
-                    Box::new(InverseAffine::new(input_name, slope, 0.0, true)),
-                );
+                calcs.insert(calc_name, InverseAffine::new(input_name, slope, 0.0, true));
                 n += 1;
             }
         }
 
         // Resistance sensors use a 250uA reference current and gain of 25.7
         {
-            let mut n = 1;
+            let mut n = 0;
             for i in rtd_range {
                 let input_name = format!("{name}.ain{i}");
                 let resistance_calc_name = format!("{name}_ohm_{n}");
@@ -184,8 +183,8 @@ impl Peripheral for DeimosDaqRev6 {
                 let slope = 250e-6 * 25.7;
                 let resistance_calc = InverseAffine::new(input_name, slope, 0.0, true);
                 let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
-                calcs.insert(resistance_calc_name, Box::new(resistance_calc));
-                calcs.insert(temperature_calc_name, Box::new(temperature_calc));
+                calcs.insert(resistance_calc_name, resistance_calc);
+                calcs.insert(temperature_calc_name, temperature_calc);
                 n += 1;
             }
         }
@@ -193,7 +192,7 @@ impl Peripheral for DeimosDaqRev6 {
         // TCs use a gain of 25.7 as well, and an output offset
         // to allow measuring temperatures below 0C
         {
-            let mut n = 1;
+            let mut n = 0;
             for i in tc_range {
                 let slope = 25.7;
                 let offset = 1.024;
@@ -208,8 +207,8 @@ impl Peripheral for DeimosDaqRev6 {
                     format!("{name}_board_rtd_filtered.y"),
                     true,
                 );
-                calcs.insert(voltage_calc_name, Box::new(voltage_calc));
-                calcs.insert(temperature_calc_name, Box::new(temperature_calc));
+                calcs.insert(voltage_calc_name, voltage_calc);
+                calcs.insert(temperature_calc_name, temperature_calc);
                 n += 1;
             }
         }
@@ -217,44 +216,44 @@ impl Peripheral for DeimosDaqRev6 {
         // Variety of raw voltages with different gains
         {
             let input_name = format!("{name}.ain12");
-            let voltage_calc_name = format!("{name}_0_2V5_1");
+            let voltage_calc_name = format!("{name}_0_2V5_0");
             let voltage_calc = Affine::new(input_name, 1.0, 0.0, true);
-            calcs.insert(voltage_calc_name, Box::new(voltage_calc));
+            calcs.insert(voltage_calc_name, voltage_calc);
         }
 
         {
             let input_name = format!("{name}.ain15");
-            let voltage_calc_name = format!("{name}_0_2V5_2");
+            let voltage_calc_name = format!("{name}_0_2V5_1");
             let voltage_calc = Affine::new(input_name, 1.0, 0.0, true);
-            calcs.insert(voltage_calc_name, Box::new(voltage_calc));
+            calcs.insert(voltage_calc_name, voltage_calc);
         }
 
         {
             let input_name = format!("{name}.ain16");
-            let voltage_calc_name = format!("{name}_0_15V_1");
+            let voltage_calc_name = format!("{name}_0_15V_0");
             let voltage_calc = Affine::new(input_name, 6.0, 0.0, true);
-            calcs.insert(voltage_calc_name, Box::new(voltage_calc));
+            calcs.insert(voltage_calc_name, voltage_calc);
         }
 
         {
             let input_name = format!("{name}.ain17");
-            let voltage_calc_name = format!("{name}_0_15V_2");
+            let voltage_calc_name = format!("{name}_0_15V_1");
             let voltage_calc = Affine::new(input_name, 6.0, 0.0, true);
-            calcs.insert(voltage_calc_name, Box::new(voltage_calc));
+            calcs.insert(voltage_calc_name, voltage_calc);
         }
 
         {
             let input_name = format!("{name}.ain18");
             let voltage_calc_name = format!("{name}_x26");
             let voltage_calc = InverseAffine::new(input_name, 25.7, 1.024, true);
-            calcs.insert(voltage_calc_name, Box::new(voltage_calc));
+            calcs.insert(voltage_calc_name, voltage_calc);
         }
 
         {
             let input_name = format!("{name}.ain19");
             let voltage_calc_name = format!("{name}_x660");
             let voltage_calc = InverseAffine::new(input_name, 1.0 + 49.4e3 / 75.0, 1.024, true);
-            calcs.insert(voltage_calc_name, Box::new(voltage_calc));
+            calcs.insert(voltage_calc_name, voltage_calc);
         }
 
         calcs

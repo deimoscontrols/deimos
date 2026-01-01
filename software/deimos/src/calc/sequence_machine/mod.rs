@@ -7,415 +7,20 @@ use std::{collections::HashSet, path::Path};
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-use interpn::one_dim::{Interp1D, RectilinearGrid1D};
-// use tracing::info;
-
 pub type StateName = String;
+
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
 
 use super::*;
 
-/// Choice of behavior when a given sequence reaches the end of its lookup table
-#[derive(Default, Debug, Serialize, Deserialize)]
-#[non_exhaustive]
-pub enum Timeout {
-    /// Transition to the next sequence
-    Transition(StateName),
+mod lookup;
+mod sequence;
+mod transition;
 
-    /// Start over from the beginning of the table
-    #[default]
-    Loop,
-
-    /// Raise an error with a message
-    Error(String),
-}
-
-/// A logical operator used to evaluate whether a transition should occur.
-#[derive(Serialize, Deserialize, Debug)]
-pub enum ThreshOp {
-    /// Greater than
-    Gt { by: f64 },
-
-    /// Less than
-    Lt { by: f64 },
-
-    /// Approximately equal
-    Approx { rtol: f64, atol: f64 },
-}
-
-impl Default for ThreshOp {
-    fn default() -> Self {
-        Self::Gt { by: 0.0 }
-    }
-}
-
-impl ThreshOp {
-    /// Check whether a value meets a threshold based on this operation.
-    pub fn eval(&self, v: f64, thresh: f64) -> bool {
-        // Check for NaN
-        assert!(
-            !v.is_nan() && !thresh.is_nan(),
-            "Unable to assess transition criteria involving NaN values."
-        );
-
-        // Evaluate whether a transition should occur
-        match self {
-            ThreshOp::Gt { by } => v > thresh + by,
-            ThreshOp::Lt { by } => v < thresh - by,
-            ThreshOp::Approx { rtol, atol } => {
-                let drel = rtol * thresh.abs();
-                let dtot = drel + atol;
-                (v - thresh).abs() < dtot
-            }
-        }
-    }
-}
-
-/// Methods for checking whether a sequence transition should occur
-#[derive(Serialize, Deserialize, Debug)]
-#[non_exhaustive]
-pub enum Transition {
-    /// Transition if a value of some input exceeds a threshold value
-    /// based on some choice of comparison operation.
-    ///
-    /// This may be used, for example, to exit when overheating is detected,
-    /// or to wait until a controlled parameter has converged to a value
-    /// before proceeding into the next part of an operation.
-    ConstantThresh(CalcInputName, ThreshOp, f64),
-
-    /// Transition if a value of some input exceeds the value of another input
-    /// based on some choice of comparison operation.
-    ///
-    /// This is an adaptable way to continue to the next sequence
-    /// once a controller has converged (for example, waiting to preheat)
-    /// by comparing the target state and measured state, without the need
-    /// to update the threshold value every time the setpoint changes.
-    ChannelThresh(CalcInputName, ThreshOp, CalcInputName),
-
-    /// Transition if a value of some input exceeds a threshold value
-    /// that is interpolated from a lookup table based on some choice
-    /// of comparison operation and interpolation method.
-    ///
-    /// This type of threshold can help maintain guard rails around sensitive values
-    /// during sensitive transient operations.
-    LookupThresh(CalcInputName, ThreshOp, SequenceLookup),
-}
-
-impl Transition {
-    /// Get a list of the names of inputs needed by this transition check
-    pub fn get_input_names(&self) -> Vec<FieldName> {
-        let mut names = Vec::new();
-        match self {
-            Self::ConstantThresh(name, _, _) => names.push(name.clone()),
-            Self::ChannelThresh(first, _, second) => {
-                names.extend_from_slice(&[first.clone(), second.clone()])
-            }
-            Self::LookupThresh(name, _, _) => names.push(name.clone()),
-        };
-
-        names
-    }
-}
-
-/// Interpolation method for sequence lookups
-#[derive(Default, Debug, Serialize, Deserialize)]
-#[non_exhaustive]
-pub enum InterpMethod {
-    /// Linear interpolation inside the grid. Outside the grid,
-    /// the nearest value is held constant to prevent runaway extrapolation.
-    Linear,
-
-    /// Hold the value on the left side of the current cell.
-    ///
-    /// Hold-left is the default because intermediate values may not be
-    /// valid values in some cases, while the values at the control points
-    /// are valid to the extent that the user's intent is valid.
-    #[default]
-    Left,
-
-    /// Hold the value on the right side of the current cell.
-    Right,
-
-    /// Hold the nearest value to the left or right of the current cell.
-    Nearest,
-}
-
-impl InterpMethod {
-    /// Attempt to parse a string into an interpolation method.
-    /// Case-insensitive and discards whitespace.
-    pub fn try_parse(s: &str) -> Result<Self, String> {
-        let lower = s.to_lowercase();
-        let normalized = lower.trim();
-        match normalized {
-            "linear" => Ok(Self::Linear),
-            "left" => Ok(Self::Left),
-            "right" => Ok(Self::Right),
-            "nearest" => Ok(Self::Nearest),
-            _ => Err(format!("Unable to process method: `{s}`")),
-        }
-    }
-}
-
-/// A lookup table defining one sequenced output from a Sequence
-#[derive(Serialize, Deserialize, Debug)]
-pub struct SequenceLookup {
-    /// Interpolation method
-    method: InterpMethod,
-
-    /// Grid to interpolate on. Must be the same length as `vals`.
-    time_s: Vec<f64>,
-
-    /// Values to interpolate. Must be the same length as `time_s`.
-    vals: Vec<f64>,
-}
-
-impl SequenceLookup {
-    /// Validate and store lookup
-    pub fn new(method: InterpMethod, time_s: Vec<f64>, vals: Vec<f64>) -> Result<Self, String> {
-        let seq = Self {
-            method,
-            time_s,
-            vals,
-        };
-
-        match seq.validate() {
-            Ok(()) => Ok(seq),
-            Err(x) => Err(x),
-        }
-    }
-
-    /// Check that time is monotonic and lengths are correct
-    pub fn validate(&self) -> Result<(), String> {
-        if !self.time_s.is_sorted() {
-            return Err("Sequence time entries must be monotonically increasing".to_owned());
-        }
-
-        // Run the interpolator at the first and last times
-        let first_time = self
-            .time_s
-            .first()
-            .ok_or_else(|| "Empty sequence".to_string())?;
-        match self.eval_checked(*first_time) {
-            Ok(_) => Ok(()),
-            Err(x) => Err(x),
-        }?;
-
-        let last_time = self
-            .time_s
-            .last()
-            .ok_or_else(|| "Empty sequence".to_string())?;
-        match self.eval_checked(*last_time) {
-            Ok(_) => Ok(()),
-            Err(x) => Err(x),
-        }?;
-
-        Ok(())
-    }
-
-    /// Sample the lookup, propagating any errors encountered while assembling or evaluating the interpolator.
-    pub fn eval_checked(&self, sequence_time_s: f64) -> Result<f64, String> {
-        let grid = RectilinearGrid1D::new(&self.time_s, &self.vals).map_err(|e| e.to_owned())?;
-
-        match self.method {
-            InterpMethod::Linear => interpn::LinearHoldLast1D::new(grid)
-                .eval_one(sequence_time_s)
-                .map_err(|e| e.to_owned()),
-            InterpMethod::Left => interpn::Left1D::new(grid)
-                .eval_one(sequence_time_s)
-                .map_err(|e| e.to_owned()),
-            InterpMethod::Right => interpn::Right1D::new(grid)
-                .eval_one(sequence_time_s)
-                .map_err(|e| e.to_owned()),
-            InterpMethod::Nearest => interpn::Nearest1D::new(grid)
-                .eval_one(sequence_time_s)
-                .map_err(|e| e.to_owned()),
-        }
-    }
-
-    /// Sample the lookup at a point in time
-    pub fn eval(&self, sequence_time_s: f64) -> f64 {
-        self.eval_checked(sequence_time_s).unwrap()
-    }
-}
-
-/// A state in a SequenceMachine, defined by a set of time-dependent
-/// sequence lookups.
-#[derive(Default, Debug, Serialize, Deserialize)]
-pub struct Sequence {
-    /// Sequence interpolation data
-    data: BTreeMap<CalcOutputName, SequenceLookup>,
-}
-
-impl Sequence {
-    /// Get the final time point defined for any of the lookups in the sequence
-    pub fn get_end_time_s(&self) -> f64 {
-        let mut t = f64::NEG_INFINITY;
-        for d in self.data.values() {
-            t = t.max(*d.time_s.last().unwrap());
-        }
-        t
-    }
-
-    /// Get the first time point in the sequence
-    pub fn get_start_time_s(&self) -> f64 {
-        let mut t = f64::INFINITY;
-        for d in self.data.values() {
-            t = t.min(d.time_s[0]);
-        }
-        t
-    }
-
-    /// Check for misconfiguration
-    pub fn validate(&self) -> Result<(), String> {
-        for lookup in self.data.values() {
-            lookup.validate()?;
-        }
-
-        Ok(())
-    }
-
-    /// Shuffle internal ordering of outputs to match the provided order
-    pub fn permute(&mut self, output_names: &[String]) {
-        let mut new_map = BTreeMap::new();
-        for n in output_names.iter() {
-            new_map.insert(n.clone(), self.data.remove(n).unwrap());
-        }
-        assert!(
-            self.data.is_empty(),
-            "State eval order permutation was missing entres: {:?}",
-            self.data.keys()
-        );
-        self.data = new_map;
-    }
-
-    /// Run the interpolators for this timestep
-    pub fn eval(&self, sequence_time_s: f64, output_range: Range<usize>, tape: &mut [f64]) {
-        // First entry is sequence time
-        let time_ind = output_range.start;
-        tape[time_ind] = sequence_time_s;
-
-        // Later entries are lookup outputs
-        for (i, d) in output_range.skip(1).zip(self.data.values()) {
-            tape[i] = d.eval(sequence_time_s);
-        }
-    }
-
-    /// Load sequence from a CSV string
-    pub fn from_csv_str(data_csv: &str) -> Result<Self, String> {
-        let mut lines = data_csv.lines();
-
-        // Parse header row, discarding time column name
-        let output_names: Vec<String> = lines
-            .next()
-            .ok_or_else(|| "Empty csv".to_string())?
-            .split(",")
-            .skip(1)
-            .map(|s| s.to_owned())
-            .collect();
-
-        // Parse interpolation methods
-        let mut methods: Vec<InterpMethod> = Vec::new();
-        for s in lines
-            .next()
-            .ok_or_else(|| "Empty csv".to_string())?
-            .split(",")
-            .skip(1)
-        {
-            let m = InterpMethod::try_parse(s.trim())?;
-            methods.push(m);
-        }
-
-        // Parse values from remaining lines
-        let mut vals = vec![vec![]; methods.len()];
-        let mut time_s = vec![vec![]; methods.len()];
-        for (i, line) in lines.enumerate() {
-            let mut entries = line.split(",");
-            let ne = line.chars().filter(|c| *c == ',').count() + 1; // Size hint is not exact for split
-            let ne_expected = methods.len() + 1; // Expected number of entries per line
-
-            // If the line is empty, skip to the next line.
-            if ne == 0 {
-                continue;
-            }
-
-            // If the line is not empty but doesn't contain exactly one entry for each column,
-            // we can't be sure that we are interpreting the user's intent correctly
-            if ne < ne_expected {
-                return Err(format!("CSV missing column on line {i}"));
-            }
-            if ne > ne_expected {
-                return Err(format!("CSV has an extra column on line {i}"));
-            }
-
-            // Leftmost column is the time index
-            let time = entries
-                .next()
-                .ok_or_else(|| format!("CSV read error on line {i}, empty line"))?
-                .trim()
-                .parse::<f64>()
-                .map_err(|e| format!("Error parsing time value in CSV on line {i}: {e}"))?;
-
-            // Parse column values
-            for (j, entry) in entries.enumerate() {
-                // Whitespace-only entries are null
-                if entry.trim() == "" {
-                    continue;
-                }
-
-                // Entries that are not empty or whitespace should be valid numbers
-                let v = entry.parse::<f64>().map_err(|e| {
-                    format!("CSV parse error on line {i} column {j} with entry {entry}: {e:?}")
-                })?;
-
-                time_s[j].push(time);
-                vals[j].push(v);
-            }
-        }
-
-        // Make sure all the columns have the same start time
-        let start_time = time_s[0][0];
-        for i in 0..methods.len() {
-            let n = &output_names[i];
-            if time_s[i][0] != start_time {
-                return Err(format!(
-                    "Value at start time missing for column {i} (`{n}`)"
-                ));
-            }
-        }
-
-        // Make sure time is sorted
-        for (i, t) in time_s.iter().enumerate() {
-            let n = &output_names[i];
-            if !t.is_sorted() {
-                return Err(format!("Out-of-order sequence for column {i} (`{n}`)"));
-            }
-        }
-
-        // Pack parsed values
-        let mut data = BTreeMap::new();
-        methods.reverse();
-        time_s.reverse();
-        vals.reverse();
-        for i in 0..methods.len() {
-            data.insert(
-                output_names[i].clone(),
-                SequenceLookup {
-                    method: methods.pop().unwrap(),
-                    time_s: time_s.pop().unwrap(),
-                    vals: vals.pop().unwrap(),
-                },
-            );
-        }
-
-        Ok(Self { data })
-    }
-
-    /// Load sequence from a CSV file
-    pub fn from_csv_file(path: &dyn AsRef<Path>) -> Result<Self, String> {
-        let csv_str =
-            std::fs::read_to_string(path).map_err(|e| format!("CSV file read error: {e}"))?;
-        Self::from_csv_str(&csv_str)
-    }
-}
+pub use lookup::{InterpMethod, SequenceLookup};
+pub use sequence::Sequence;
+pub use transition::{ThreshOp, Timeout, Transition};
 
 #[derive(Default, Debug)]
 struct ExecutionState {
@@ -467,6 +72,7 @@ pub struct MachineCfg {
 /// Unlike most calcs, the names of the inputs and outputs of this calc
 /// are not known at compile-time, and are assembled from inputs instead.
 #[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct SequenceMachine {
     /// State transition criteria and other configuration
     cfg: MachineCfg,
@@ -503,7 +109,10 @@ impl Default for SequenceMachine {
 
 impl SequenceMachine {
     /// Store and validate a new SequenceMachine
-    pub fn new(cfg: MachineCfg, sequences: BTreeMap<String, Sequence>) -> Result<Self, String> {
+    pub fn new(
+        cfg: MachineCfg,
+        sequences: BTreeMap<String, Sequence>,
+    ) -> Result<Box<Self>, String> {
         // These will be set during init.
         // Use default indices that will cause an error on the first call if not initialized properly
         let input_indices = Vec::new();
@@ -525,7 +134,7 @@ impl SequenceMachine {
 
         machine.validate()?;
 
-        Ok(machine)
+        Ok(Box::new(machine))
     }
 
     /// Check the validity of sequences, transitions, timeouts, etc
@@ -572,6 +181,31 @@ impl SequenceMachine {
         Ok(())
     }
 
+    #[cfg(feature = "python")]
+    fn add_transition(
+        &mut self,
+        source_sequence: String,
+        target_sequence: String,
+        transition: Transition,
+    ) -> Result<(), String> {
+        if !self.sequences.contains_key(&source_sequence) {
+            return Err(format!("Unknown source sequence: {source_sequence}"));
+        }
+        if !self.sequences.contains_key(&target_sequence) {
+            return Err(format!("Unknown target sequence: {target_sequence}"));
+        }
+
+        self.cfg
+            .transitions
+            .entry(source_sequence)
+            .or_insert_with(BTreeMap::new)
+            .entry(target_sequence)
+            .or_insert_with(Vec::new)
+            .push(transition);
+
+        Ok(())
+    }
+
     /// Get a reference to the sequence indicated in execution_state.current_sequence
     fn current_sequence(&self) -> &Sequence {
         &self.sequences[&self.execution_state.current_sequence]
@@ -607,7 +241,6 @@ impl SequenceMachine {
                     self.transition(sequence_name.clone());
                     Ok(())
                 }
-                Timeout::Error(msg) => Err(msg.clone()),
             };
         }
 
@@ -656,7 +289,7 @@ impl SequenceMachine {
     /// Read a configuration json and sequence CSV files from a folder.
     /// The folder must contain one json representing a [MachineCfg] and
     /// some number of CSV files each representing a [Sequence].
-    pub fn load_folder(path: &dyn AsRef<Path>) -> Result<Self, String> {
+    pub fn load_folder(path: &dyn AsRef<Path>) -> Result<Box<Self>, String> {
         let dir = std::fs::read_dir(path)
             .map_err(|e| format!("Unable to read items in folder {:?}: {e}", path.as_ref()))?;
 
@@ -709,6 +342,26 @@ impl SequenceMachine {
 
         Self::new(cfg, sequences)
     }
+
+    /// Save a configuration json and sequence CSV files to a folder.
+    pub fn save_folder(&self, path: &dyn AsRef<Path>) -> Result<(), String> {
+        let dir = path.as_ref();
+        std::fs::create_dir_all(dir)
+            .map_err(|e| format!("Unable to create folder {:?}: {e}", dir))?;
+
+        let cfg_path = dir.join("cfg.json");
+        let cfg_json = serde_json::to_string_pretty(&self.cfg)
+            .map_err(|e| format!("Failed to serialize config json: {e}"))?;
+        std::fs::write(&cfg_path, cfg_json)
+            .map_err(|e| format!("Failed to write config json: {e}"))?;
+
+        for (name, seq) in self.sequences.iter() {
+            let csv_path = dir.join(format!("{name}.csv"));
+            seq.to_csv(&csv_path)?;
+        }
+
+        Ok(())
+    }
 }
 
 #[typetag::serde]
@@ -723,7 +376,7 @@ impl Calc for SequenceMachine {
         // Reload from folder, if linked
         if let Some(rel_path) = &self.cfg.link_folder {
             let folder = ctx.op_dir.join(rel_path);
-            *self = Self::load_folder(&folder)
+            *self = *Self::load_folder(&folder)
                 .map_err(|e| format!("Failed to load sequence machine from linked folder: {e}"))?;
         }
 
@@ -848,5 +501,280 @@ impl Calc for SequenceMachine {
     #[allow(unused)]
     fn set_config(&mut self, cfg: &BTreeMap<String, f64>) -> Result<(), String> {
         Err("No settable config fields".to_string())
+    }
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl SequenceMachine {
+    #[new]
+    fn py_new(entry: String) -> Self {
+        let mut cfg = MachineCfg::default();
+        cfg.save_outputs = true;
+        cfg.entry = entry;
+
+        Self {
+            cfg,
+            sequences: BTreeMap::new(),
+            execution_state: ExecutionState::default(),
+        }
+    }
+
+    /// Serialize to typetagged JSON so Python can pass into trait handoff
+    fn to_json(&self) -> PyResult<String> {
+        let payload: &dyn Calc = self;
+        serde_json::to_string(payload)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// Deserialize from typetagged JSON
+    #[staticmethod]
+    fn from_json(s: &str) -> PyResult<Self> {
+        serde_json::from_str::<Self>(s)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    #[staticmethod]
+    #[pyo3(name = "load_folder")]
+    fn py_load_folder(path: &str) -> PyResult<Self> {
+        let path = Path::new(path);
+        Self::load_folder(&path)
+            .map(|machine| *machine)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+    }
+
+    #[pyo3(name = "save_folder")]
+    fn py_save_folder(&self, path: &str) -> PyResult<()> {
+        let path = Path::new(path);
+        Self::save_folder(self, &path).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+    }
+
+    fn get_entry(&self) -> PyResult<String> {
+        Ok(self.cfg.entry.clone())
+    }
+
+    fn set_entry(&mut self, entry: String) -> PyResult<()> {
+        if !self.sequences.is_empty() && !self.sequences.contains_key(&entry) {
+            return Err(pyo3::exceptions::PyKeyError::new_err(format!(
+                "Unknown entry sequence: {entry}"
+            )));
+        }
+        self.cfg.entry = entry;
+        Ok(())
+    }
+
+    fn get_link_folder(&self) -> PyResult<Option<String>> {
+        Ok(self.cfg.link_folder.clone())
+    }
+
+    fn set_link_folder(&mut self, link_folder: Option<String>) -> PyResult<()> {
+        self.cfg.link_folder = link_folder;
+        Ok(())
+    }
+
+    fn get_timeout(&self, sequence: String) -> PyResult<Option<String>> {
+        let timeout = self.cfg.timeouts.get(&sequence).ok_or_else(|| {
+            pyo3::exceptions::PyKeyError::new_err(format!("Unknown sequence: {sequence}"))
+        })?;
+
+        match timeout {
+            Timeout::Loop => Ok(None),
+            Timeout::Transition(target) => Ok(Some(target.clone())),
+        }
+    }
+
+    fn set_timeout(&mut self, sequence: String, target: Option<String>) -> PyResult<()> {
+        if !self.sequences.contains_key(&sequence) {
+            return Err(pyo3::exceptions::PyKeyError::new_err(format!(
+                "Unknown sequence: {sequence}"
+            )));
+        }
+
+        let timeout = match target {
+            Some(target_sequence) => {
+                if !self.sequences.contains_key(&target_sequence) {
+                    return Err(pyo3::exceptions::PyKeyError::new_err(format!(
+                        "Unknown target sequence: {target_sequence}"
+                    )));
+                }
+                Timeout::Transition(target_sequence)
+            }
+            None => Timeout::Loop,
+        };
+
+        self.cfg.timeouts.insert(sequence, timeout);
+        Ok(())
+    }
+
+    fn add_sequence(
+        &mut self,
+        name: String,
+        tables: BTreeMap<String, (Vec<f64>, Vec<f64>, String)>,
+        timeout: Option<String>,
+    ) -> PyResult<()> {
+        // Data is required
+        if tables.is_empty() {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Sequence data is empty".to_string(),
+            ));
+        }
+
+        // Check if this sequence is already defined
+        if self.sequences.contains_key(&name) {
+            return Err(pyo3::exceptions::PyKeyError::new_err(format!(
+                "Sequence already exists: {name}"
+            )));
+        }
+
+        // Build lookups from data
+        let mut data = BTreeMap::new();
+        for (name, (time_s, vals, method)) in tables {
+            // Parse interpolation method
+            let method = InterpMethod::try_parse(&method).map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!(
+                    "Output `{name}` has invalid interp method: {e}"
+                ))
+            })?;
+
+            // Build interpolator
+            let lookup = SequenceLookup::new(method, time_s, vals).map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!(
+                    "Output `{name}` has invalid lookup data: {e}"
+                ))
+            })?;
+            data.insert(name, lookup);
+        }
+
+        if let Some(existing) = self.sequences.values().next() {
+            // Make sure all the sequences have the same columns
+            let expected: HashSet<String> = existing.data.keys().cloned().collect();
+            let provided: HashSet<String> = data.keys().cloned().collect();
+
+            // If the columns don't match, give an informative error
+            if expected != provided {
+                let mut missing: Vec<String> = expected.difference(&provided).cloned().collect();
+                let mut extra: Vec<String> = provided.difference(&expected).cloned().collect();
+
+                // List discrepancies in a consistent order to avoid confusing messages during troubleshooting
+                missing.sort();
+                extra.sort();
+
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Sequence outputs must match existing sequences. Missing: {missing:?}. Extra: {extra:?}"
+                )));
+            }
+        }
+
+        // Build and validate the combined sequence
+        let sequence = Sequence { data };
+        sequence.validate().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid Sequence: {e:?}"))
+        })?;
+
+        // Add the sequence and its timeout setting to the machine
+        self.sequences.insert(name.clone(), sequence);
+        let timeout = match timeout {
+            Some(target_state) => Timeout::Transition(target_state),
+            None => Timeout::Loop,
+        };
+        self.cfg.timeouts.insert(name.clone(), timeout);
+        self.cfg
+            .transitions
+            .entry(name)
+            .or_insert_with(BTreeMap::new);
+
+        Ok(())
+    }
+
+    /// Add a constant threshold transition for a sequence.
+    fn add_constant_thresh_transition(
+        &mut self,
+        source_target: (String, String),
+        channel: String,
+        op: (&str, f64),
+        threshold: f64,
+    ) -> PyResult<()> {
+        // Unpack and parse
+        let (source_sequence, target_sequence) = source_target;
+        let op = ThreshOp::try_parse(op).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+
+        // Add to machine
+        let transition = Transition::ConstantThresh(channel, op, threshold);
+        self.add_transition(source_sequence, target_sequence, transition)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+    }
+
+    /// Add a channel threshold transition for a sequence.
+    fn add_channel_thresh_transition(
+        &mut self,
+        source_target: (String, String),
+        channel: String,
+        op: (&str, f64),
+        threshold_channel: String,
+    ) -> PyResult<()> {
+        // Unpack and parse
+        let (source_sequence, target_sequence) = source_target;
+        let op = ThreshOp::try_parse(op).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+
+        // Add to machine
+        let transition = Transition::ChannelThresh(channel, op, threshold_channel);
+        self.add_transition(source_sequence, target_sequence, transition)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+    }
+
+    /// Add a lookup threshold transition for a sequence.
+    fn add_lookup_thresh_transition(
+        &mut self,
+        source_target: (String, String),
+        channel: String,
+        op: (&str, f64),
+        threshold_lookup: (Vec<f64>, Vec<f64>, &str),
+    ) -> PyResult<()> {
+        // Unpack and parse
+        let (source_sequence, target_sequence) = source_target;
+        let (time_s, vals, method) = threshold_lookup;
+        let op = ThreshOp::try_parse(op).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+        let method = InterpMethod::try_parse(&method).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "Lookup has invalid interp method: {e}"
+            ))
+        })?;
+
+        // Build lookup interpolator
+        let lookup = SequenceLookup::new(method, time_s, vals).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Lookup has invalid data: {e}"))
+        })?;
+
+        // Add to machine
+        let transition = Transition::LookupThresh(channel, op, lookup);
+        self.add_transition(source_sequence, target_sequence, transition)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SequenceMachine;
+    use std::path::PathBuf;
+
+    /// Check that we can save and load the human-readable folder format
+    /// without losing or corrupting information
+    #[test]
+    fn roundtrip_sequence_machine_folder() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let src_dir = root.join("examples").join("machine");
+        let tmp_dir = std::env::temp_dir().join("deimos_sequence_roundtrip");
+
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+
+        let original = *SequenceMachine::load_folder(&src_dir).unwrap();
+        let original_json = serde_json::to_string_pretty(&original).unwrap();
+
+        original.save_folder(&tmp_dir).unwrap();
+        let roundtrip = *SequenceMachine::load_folder(&tmp_dir).unwrap();
+        let roundtrip_json = serde_json::to_string_pretty(&roundtrip).unwrap();
+
+        assert_eq!(original_json, roundtrip_json);
     }
 }

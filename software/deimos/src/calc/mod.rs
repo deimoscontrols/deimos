@@ -1,17 +1,16 @@
 //! Calculations that are run at each cycle during operation.
 //!
-//! `Calc` objects are registered with the `Orchestrator` and serialized with the controller.
+//! `Calc` objects are registered with the `CalcOrchestrator` and serialized with the controller.
 //! Each calc is a function consuming any number of inputs and producing any number of outputs.
 use std::any::type_name;
 use std::fmt::Debug;
 use std::iter::Iterator;
 use std::{collections::BTreeMap, ops::Range};
 
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 mod orchestrator;
-pub use orchestrator::Orchestrator;
+pub(crate) use orchestrator::CalcOrchestrator;
 
 // Specific calc implementations
 
@@ -53,43 +52,6 @@ pub type CalcConfigName = String;
 
 pub type SrcIndex = usize;
 pub type DstIndex = usize;
-
-/// Calcs that can be prototyped
-pub trait CalcProto {
-    fn prototype() -> (String, Box<dyn Calc>);
-}
-
-impl<T> CalcProto for T
-where
-    T: Calc + Default + 'static,
-{
-    fn prototype() -> (String, Box<dyn Calc>) {
-        let name = std::any::type_name::<T>()
-            .split("::")
-            .last()
-            .unwrap()
-            .to_owned();
-        let proto: Box<dyn Calc> = Box::new(T::default());
-
-        (name, proto)
-    }
-}
-
-/// Prototypes of each calc
-pub static PROTOTYPES: Lazy<BTreeMap<String, Box<dyn Calc>>> = Lazy::new(|| {
-    BTreeMap::<String, Box<dyn Calc>>::from([
-        Affine::prototype(),
-        Butter2::prototype(),
-        Constant::prototype(),
-        InverseAffine::prototype(),
-        Pid::prototype(),
-        Polynomial::prototype(),
-        RtdPt100::prototype(),
-        TcKtype::prototype(),
-        Sin::prototype(),
-        SequenceMachine::prototype(),
-    ])
-});
 
 /// Clone isn't inherently object-safe, so to be able to clone dyn trait objects,
 /// we send it for a loop through the serde typetag system, which provides an

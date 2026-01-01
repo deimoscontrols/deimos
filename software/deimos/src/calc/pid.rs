@@ -1,9 +1,13 @@
 //! A PID controller with simple saturation for anti-windup
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names};
+use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
 
 /// A PID controller with simple saturation for anti-windup
+#[cfg_attr(feature = "python", pyclass)]
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Pid {
     // User inputs
@@ -38,7 +42,7 @@ impl Pid {
         kd: f64,
         max_integral: f64,
         save_outputs: bool,
-    ) -> Self {
+    ) -> Box<Self> {
         let err = 0.0;
         let integral = 0.0;
 
@@ -48,7 +52,7 @@ impl Pid {
         let input_indices = vec![];
         let output_index = usize::MAX;
 
-        Self {
+        Box::new(Self {
             measurement_name,
             setpoint_name,
             kp,
@@ -63,9 +67,34 @@ impl Pid {
             dt_s,
             input_indices,
             output_index,
-        }
+        })
     }
 }
+
+py_json_methods!(
+    Pid,
+    Calc,
+    #[new]
+    fn py_new(
+        measurement_name: String,
+        setpoint_name: String,
+        kp: f64,
+        ki: f64,
+        kd: f64,
+        max_integral: f64,
+        save_outputs: bool,
+    ) -> Self {
+        *Self::new(
+            measurement_name,
+            setpoint_name,
+            kp,
+            ki,
+            kd,
+            max_integral,
+            save_outputs,
+        )
+    }
+);
 
 #[typetag::serde]
 impl Calc for Pid {

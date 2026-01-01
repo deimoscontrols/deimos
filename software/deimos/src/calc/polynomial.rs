@@ -1,15 +1,20 @@
 //! Evaluate an Nth order polynomial calibration curve.
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use super::*;
 use crate::{
     calc_config, calc_input_names, calc_output_names,
     math::{polyfit, polyval},
+    py_json_methods,
 };
 
 /// Polynomial calibration: y = c0 + c1*x + c2*x^2 + ...
 /// with an attached note that should include traceability info
 /// like a sensor serial number.
 /// Coefficients ordered by increasing polynomial order.
+#[cfg_attr(feature = "python", pyclass)]
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Polynomial {
     // User inputs
@@ -32,15 +37,15 @@ impl Polynomial {
         coefficients: Vec<f64>,
         note: String,
         save_outputs: bool,
-    ) -> Self {
-        Self {
+    ) -> Box<Self> {
+        Box::new(Self {
             input_name,
             coefficients,
             note,
             save_outputs,
             input_index: usize::MAX,
             output_index: usize::MAX,
-        }
+        })
     }
 
     pub fn fit_from_points(
@@ -49,7 +54,7 @@ impl Polynomial {
         order: usize,
         note: &str,
         save_outputs: bool,
-    ) -> Result<Self, String> {
+    ) -> Result<Box<Self>, String> {
         let coefficients = polyfit(points, order)?;
 
         Ok(Self::new(
@@ -60,6 +65,20 @@ impl Polynomial {
         ))
     }
 }
+
+py_json_methods!(
+    Polynomial,
+    Calc,
+    #[new]
+    fn py_new(
+        input_name: String,
+        coefficients: Vec<f64>,
+        note: String,
+        save_outputs: bool,
+    ) -> Self {
+        *Self::new(input_name, coefficients, note, save_outputs)
+    }
+);
 
 #[typetag::serde]
 impl Calc for Polynomial {

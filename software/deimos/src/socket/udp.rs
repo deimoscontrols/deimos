@@ -2,11 +2,16 @@
 
 use std::collections::BTreeMap;
 use std::net::Ipv4Addr;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+use tracing::info;
+
 use crate::controller::context::ControllerCtx;
+use crate::{LoopMethod, py_json_methods};
 
 use super::*;
 use deimos_shared::peripherals::PeripheralId;
@@ -14,30 +19,46 @@ use deimos_shared::{CONTROLLER_RX_PORT, PERIPHERAL_RX_PORT};
 
 /// Implementation of Socket trait for stdlib UDP socket on IPV4
 #[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct UdpSocket {
     #[serde(skip)]
     socket: Option<std::net::UdpSocket>,
     #[serde(skip)]
-    rxbuf: Vec<u8>,
+    nonblocking: bool,
     #[serde(skip)]
     addrs: BTreeMap<PeripheralId, std::net::SocketAddr>,
     #[serde(skip)]
     pids: BTreeMap<std::net::SocketAddr, PeripheralId>,
     #[serde(skip)]
-    last_received_addr: Option<std::net::SocketAddr>,
+    addr_tokens: BTreeMap<std::net::SocketAddr, SocketAddrToken>,
+    #[serde(skip)]
+    token_addrs: BTreeMap<SocketAddrToken, std::net::SocketAddr>,
+    #[serde(skip)]
+    next_addr_token: SocketAddrToken,
 }
 
 impl UdpSocket {
     pub fn new() -> Self {
         Self {
-            rxbuf: vec![0; 1522],
             socket: None,
+            nonblocking: false,
             addrs: BTreeMap::new(),
             pids: BTreeMap::new(),
-            last_received_addr: None,
+            addr_tokens: BTreeMap::new(),
+            token_addrs: BTreeMap::new(),
+            next_addr_token: 0,
         }
     }
 }
+
+py_json_methods!(
+    UdpSocket,
+    Socket,
+    #[new]
+    fn py_new() -> PyResult<Self> {
+        Ok(Self::new())
+    }
+);
 
 #[typetag::serde]
 impl Socket for UdpSocket {
@@ -45,18 +66,30 @@ impl Socket for UdpSocket {
         self.socket.is_some()
     }
 
-    fn open(&mut self, _ctx: &ControllerCtx) -> Result<(), String> {
-        if self.socket.is_none() {
-            // Socket populated on access
-            let socket = std::net::UdpSocket::bind(format!("0.0.0.0:{CONTROLLER_RX_PORT}"))
-                .map_err(|e| format!("Unable to bind UDP socket: {e}"))?;
+    fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String> {
+        // If it's already open, close it and reopen to clear settings
+        if self.socket.is_some() {
+            self.close();
+        }
+
+        self.nonblocking = false;
+
+        // Inner socket populated on access
+        let addr = format!("0.0.0.0:{CONTROLLER_RX_PORT}");
+        let socket = std::net::UdpSocket::bind(&addr)
+            .map_err(|e| format!("Unable to bind UDP socket: {e}"))?;
+
+        // Set nonblocking if we're in Performant mode and will be busywaiting
+        if matches!(ctx.loop_method, LoopMethod::Performant) {
             socket
                 .set_nonblocking(true)
-                .map_err(|e| format!("Unable to set UDP socket to nonblocking mode: {e}"))?;
-            self.socket = Some(socket);
-        } else {
-            // If the socket is already open, do nothing
+                .map_err(|e| format!("Failed to set socket to nonblocking mode: {e}"))?;
+            self.nonblocking = true;
         }
+
+        // Done
+        self.socket = Some(socket);
+        info!("Opened controller UDP socket at {addr:?}");
 
         Ok(())
     }
@@ -64,9 +97,13 @@ impl Socket for UdpSocket {
     fn close(&mut self) {
         // Drop inner socket, releasing port
         self.socket = None;
+        self.nonblocking = false;
         self.addrs.clear();
         self.pids.clear();
-        self.last_received_addr = None;
+        self.addr_tokens.clear();
+        self.token_addrs.clear();
+        self.next_addr_token = 0;
+        info!("Closed controller UDP socket at 0.0.0.0:{CONTROLLER_RX_PORT}");
     }
 
     fn send(&mut self, id: PeripheralId, msg: &[u8]) -> Result<(), String> {
@@ -89,31 +126,53 @@ impl Socket for UdpSocket {
         Ok(())
     }
 
-    fn recv(&mut self) -> Option<(Option<PeripheralId>, Instant, &[u8])> {
+    fn recv(&mut self, buf: &mut [u8], timeout: Duration) -> Option<SocketPacketMeta> {
         // Check if there is anything to receive,
         // and filter out packets from unexpected source port
-        let (size, addr, time) = match self.socket.as_mut() {
-            Some(sock) => match sock.recv_from(&mut self.rxbuf).ok() {
-                Some((size, addr)) => {
-                    // Mark the time ASAP
-                    let now = Instant::now();
-                    // Make sure the source port is consistent with a peripheral
-                    if addr.port() != PERIPHERAL_RX_PORT {
-                        return None;
-                    }
-                    (size, addr, now)
+        let sock = self.socket.as_mut()?;
+        if timeout.is_zero() {
+            if !self.nonblocking {
+                // Avoid blocking forever when polling with zero timeout.
+                let _ = sock.set_read_timeout(Some(Duration::from_nanos(1)));
+            }
+        } else {
+            let _ = sock.set_read_timeout(Some(timeout)); // Guaranteed nonzero duration
+        }
+
+        let (size, addr, time) = match sock.recv_from(buf) {
+            Ok((size, addr)) => {
+                // Mark the time ASAP
+                let now = Instant::now();
+                // Make sure the source port is consistent with a peripheral
+                if addr.port() != PERIPHERAL_RX_PORT {
+                    return None;
                 }
-                None => return None,
-            },
-            None => return None,
+                (size, addr, now)
+            }
+            Err(_) => return None, // Nothing to receive yet
         };
 
-        self.last_received_addr = Some(addr);
+        // Update address index map
+        let token = match self.addr_tokens.get(&addr).copied() {
+            Some(token) => token,
+            None => {
+                let token = self.next_addr_token;
+                self.next_addr_token = self.next_addr_token.wrapping_add(1);
+                self.addr_tokens.insert(addr, token);
+                self.token_addrs.insert(token, addr);
+                token
+            }
+        };
 
         // Check if we already know which peripheral this is
         let pid = self.pids.get(&addr).copied();
 
-        Some((pid, time, &self.rxbuf[..size]))
+        Some(SocketPacketMeta {
+            pid,
+            token,
+            time,
+            size,
+        })
     }
 
     fn broadcast(&mut self, msg: &[u8]) -> Result<(), String> {
@@ -136,8 +195,8 @@ impl Socket for UdpSocket {
         Ok(())
     }
 
-    fn update_map(&mut self, id: PeripheralId) -> Result<(), String> {
-        if let Some(addr) = self.last_received_addr {
+    fn update_map(&mut self, id: PeripheralId, token: SocketAddrToken) -> Result<(), String> {
+        if let Some(addr) = self.token_addrs.get(&token).copied() {
             self.addrs.insert(id, addr);
             self.pids.insert(addr, id);
 
@@ -150,6 +209,8 @@ impl Socket for UdpSocket {
                     &self.addrs, &self.pids
                 ));
             }
+        } else {
+            return Err(format!("Unknown address token {token}"));
         }
 
         Ok(())

@@ -1,10 +1,14 @@
 //! A calc that produces a constant value
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names};
+use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
+
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
 
 /// Simplest calc that does anything at all
 #[derive(Serialize, Deserialize, Default, Debug)]
+#[cfg_attr(feature = "python", pyo3::prelude::pyclass)]
 pub struct Constant {
     // User inputs
     y: f64,
@@ -16,17 +20,26 @@ pub struct Constant {
 }
 
 impl Constant {
-    pub fn new(y: f64, save_outputs: bool) -> Self {
+    pub fn new(y: f64, save_outputs: bool) -> Box<Self> {
         // Use default indices that will cause an error on the first call if not initialized properly
         let output_index = usize::MAX;
 
-        Self {
+        Box::new(Self {
             y,
             save_outputs,
             output_index,
-        }
+        })
     }
 }
+
+py_json_methods!(
+    Constant,
+    Calc,
+    #[new]
+    fn py_new(y: f64, save_outputs: bool) -> PyResult<Self> {
+        Ok(*Self::new(y, save_outputs))
+    }
+);
 
 #[typetag::serde]
 impl Calc for Constant {

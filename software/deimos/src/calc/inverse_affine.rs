@@ -1,11 +1,15 @@
 //! Derive input voltage from linear amplifier reading
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names};
+use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
 
 /// Derive input voltage from linear amplifier reading
 ///
 /// First subtracts the output offset, then divides by the slope.
+#[cfg_attr(feature = "python", pyclass)]
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct InverseAffine {
     // User inputs
@@ -23,13 +27,13 @@ pub struct InverseAffine {
 }
 
 impl InverseAffine {
-    pub fn new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> Self {
+    pub fn new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> Box<Self> {
         // These will be set during init.
         // Use default indices that will cause an error on the first call if not initialized properly
         let input_index = usize::MAX;
         let output_index = usize::MAX;
 
-        Self {
+        Box::new(Self {
             input_name,
             slope,
             offset,
@@ -37,9 +41,18 @@ impl InverseAffine {
 
             input_index,
             output_index,
-        }
+        })
     }
 }
+
+py_json_methods!(
+    InverseAffine,
+    Calc,
+    #[new]
+    fn py_new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> Self {
+        *Self::new(input_name, slope, offset, save_outputs)
+    }
+);
 
 #[typetag::serde]
 impl Calc for InverseAffine {

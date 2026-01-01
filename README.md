@@ -15,11 +15,11 @@ Realtime data acquisition and controls ecosystem, including hardware, firmware, 
 
 | Model | I/O Medium | Sample/Control Rate | Input Capabilities | Output Capabilities |
 |------|------------|------------|--------------------|---------------------|
-| [Analog I 4.0.x](https://github.com/deimoscontrols/deimos/tree/main/hardware/boards/analog_i_rev4) | UDP over IPV4<br> on ethernet with LAN-only (non-routeable) MAC address | 5Hz-5kHz roundtrip<br><br>Performance depends on network and host machine | External:<br>5x 4-20mA (24V)<br>5x Pt100 RTD<br>4x K-Type TC<br>3x 0-2.5V<br>1x Encoder<br>1x Counter<br>2x Freq<br><br>Internal:<br>- Cold-junction RTD<br>- Bus current<br>- Bus voltage | 4x PWM (1Hz-1MHz, 3.3V) |
+| [Deimos DAQ 6.0.x](https://github.com/deimoscontrols/deimos/tree/main/hardware/boards/deimos_daq_rev6) | UDP over IPV4<br> on ethernet with LAN-only (non-routeable) MAC address | 5Hz-5kHz roundtrip<br><br>Performance depends on network and host machine | External:<br>4x 4-20mA (24V)<br>3x Pt100 RTD<br>2x K-Type TC<br>2x 0-2.5V<br>2x 0-15V<br>2x 25.7x gain<br>1x 660x gain<br>1x Encoder<br>1x Counter<br>2x Freq<br><br>Internal:<br>- Cold-junction RTD<br>- Bus current<br>- Bus voltage | 4x PWM (1Hz-1MHz, 3.3V)<br>2x 0-2.5V analog |
 
 # Controller Comm. Media
 
-Communication with peripherals is done via message passing on an arbitrary socket. New communication media can be used by implementing the `SuperSocket` trait.
+Communication with peripherals is done via message passing on an arbitrary socket. New communication media can be used by implementing the `Socket` trait.
 
 While the controller can accommodate multiple communication media, a peripheral will typically only implement one method for reliability reasons.
 
@@ -39,6 +39,7 @@ Data integration implementations perform I/O and database transactions on a sepa
 | CSV    | Disk | Fixed-width row format.<br>Wrap, split, or terminate at end of pre-sized file. |
 | DataFrame | RAM | Wrap or terminate at end of preallocated in-memory storage. |
 | TimescaleDB (postgres) | TCP or unix socket | Create table & schema or reuse existing.<br>Insert individual rows or write buffered batches for increased total ingestion rate.<br>Set fixed retention duration. |
+| Latest-value | RAM | Read the latest data manually from outside the control program. |
 
 # Calculation Functions
 
@@ -48,6 +49,8 @@ Data integration implementations perform I/O and database transactions on a sepa
 | TcKtype | K-type thermocouple tables with cold-junction correction | Based on ITS-90 tables |
 | RtdPt100 | 100-ohm platinum RTD temperature-resistance tables | Based on DIN-43-760 and ITS-90 |
 | Pid | Simple proportion-integral-derivative controller with primitive saturation anti-windup protection | |
+| Butter | Second-order Butterworth low-pass filter | |
+| Polynomial | Fast evaluation of polynomials for calibrations | Includes Levenberg-Marquardt curve-fitting utility |
 
 ... in addition to a variety of unremarkable math functions.
 
@@ -57,7 +60,7 @@ The goals of this ecosystem are:
 
 * Tightly-integrated sensor frontends
 * _Fully independent_ input and output channels; every advertised channel is available _at the same time_
-* Full reassertion of state at each control cycle
+* Full reassertion of state at each control cycle; robust to packet loss
 * Zero-calibration operation; NIST-traceable calibrations available, but not required
 * Control program without required root/admin access or drivers
 * Run on standard networking hardware with sub-microsecond time sync

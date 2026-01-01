@@ -7,10 +7,13 @@
 //!   <https://srdata.nist.gov/its90/useofdatabase/use_of_database.html#Coefficients%20Tables>
 use once_cell::sync::Lazy;
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use interpn::MulticubicRegular;
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names};
+use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
 
 /// Temperature interpolator shared between all instances of the calc.
 ///
@@ -29,6 +32,7 @@ pub static INTERPOLATOR: Lazy<MulticubicRegular<'static, f64, 1>> = Lazy::new(||
 });
 
 /// Derive input voltage from amplifier output
+#[cfg_attr(feature = "python", pyclass)]
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct RtdPt100 {
     // User inputs
@@ -44,21 +48,30 @@ pub struct RtdPt100 {
 }
 
 impl RtdPt100 {
-    pub fn new(resistance_name: String, save_outputs: bool) -> Self {
+    pub fn new(resistance_name: String, save_outputs: bool) -> Box<Self> {
         // These will be set during init.
         // Use default indices that will cause an error on the first call if not initialized properly
         let input_index = usize::MAX;
         let output_index = usize::MAX;
 
-        Self {
+        Box::new(Self {
             resistance_name,
             save_outputs,
 
             input_index,
             output_index,
-        }
+        })
     }
 }
+
+py_json_methods!(
+    RtdPt100,
+    Calc,
+    #[new]
+    fn py_new(resistance_name: String, save_outputs: bool) -> Self {
+        *Self::new(resistance_name, save_outputs)
+    }
+);
 
 #[typetag::serde]
 impl Calc for RtdPt100 {

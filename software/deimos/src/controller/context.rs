@@ -5,14 +5,22 @@ use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 use std::{collections::BTreeMap, default::Default};
 
+use super::ManualInputMap;
 use super::channel::{Channel, Endpoint};
+use super::manual_inputs_default;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+#[cfg(feature = "python")]
+use tracing::warn;
+
 /// Criteria for exiting the control program
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[cfg_attr(feature = "python", pyclass)]
 #[non_exhaustive]
 pub enum Termination {
     /// A duration after which the control program should terminate.
@@ -24,25 +32,102 @@ pub enum Termination {
 
     /// Schedule termination at a specific "realtime" date or time.
     Scheduled(SystemTime),
-    // TODO: add machinery to Orchestrator to support extracting values during run
-    // /// Terminate on any nonzero output of this calc output.
-    // Calc(String)
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl Termination {
+    #[staticmethod]
+    pub fn timeout_s(s: f64) -> Self {
+        let duration_s = if s <= 0.0 {
+            warn!("Termination timeout is zero or negative; clamping to zero.");
+            0.0
+        } else {
+            s
+        };
+        Self::Timeout(Duration::from_secs_f64(duration_s))
+    }
+
+    #[staticmethod]
+    pub fn scheduled_epoch_ns(ns: u64) -> PyResult<Self> {
+        let when = SystemTime::UNIX_EPOCH
+            .checked_add(Duration::from_nanos(ns))
+            .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid epoch nanoseconds"))?;
+        Ok(Self::Scheduled(when))
+    }
 }
 
 /// Response to losing contact with a peripheral
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[non_exhaustive]
+#[cfg_attr(feature = "python", pyclass)]
 pub enum LossOfContactPolicy {
     /// Terminate the control program
-    Terminate,
-    // TODO: implement reconnection
+    Terminate(),
 
-    // /// Attempt to reconnect indefinitely
-    // Reconnect,
+    /// Attempt to reconnect until some time has elapsed,
+    /// then terminate if unsuccessful. If no timeout is set,
+    /// attempt reconnection indefinitely.
+    Reconnect(Option<Duration>),
+}
 
-    // /// Attempt to reconnect until some time has elapsed,
-    // /// then terminate if unsuccessful
-    // ReconnectWithTimeout(Duration)
+#[cfg(feature = "python")]
+#[pymethods]
+impl LossOfContactPolicy {
+    #[staticmethod]
+    pub fn terminate() -> Self {
+        Self::Terminate()
+    }
+
+    #[staticmethod]
+    pub fn reconnect_s(timeout_s: f64) -> Self {
+        let duration = if timeout_s.is_sign_negative() {
+            Duration::ZERO
+        } else {
+            Duration::from_secs_f64(timeout_s)
+        };
+        Self::Reconnect(Some(duration))
+    }
+
+    #[staticmethod]
+    pub fn reconnect_indefinite() -> Self {
+        Self::Reconnect(None)
+    }
+}
+
+/// Whether to prioritize performance or efficiency in control loop.
+///
+/// When prioritizing performance, the control loop will consume 100% of time
+/// on the first CPU in order to ensure timing accuracy.
+///
+/// When prioritizing efficiency, the control loop will rely on the operating system
+/// to wake the thread when packets are received from peripherals, which drastically reduces
+/// CPU usage, but degrades performance due to OS timing granularity and context-switching
+/// overhead.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[cfg_attr(feature = "python", pyclass)]
+pub enum LoopMethod {
+    /// Use 100% of CPU 0 to ensure cycle timing and prevent context switching.
+    Performant,
+
+    /// Use operating system scheduling to sleep until packets are received.
+    ///
+    /// Reduces CPU usage by roughly a factor of 100, but degrades
+    /// performance at higher control rates (above about 100Hz).
+    Efficient,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl LoopMethod {
+    #[staticmethod]
+    pub fn performant() -> Self {
+        Self::Performant
+    }
+
+    #[staticmethod]
+    pub fn efficient() -> Self {
+        Self::Efficient
+    }
 }
 
 /// Operation context, provided to appendages during init
@@ -80,11 +165,15 @@ pub struct ControllerCtx {
     /// after which the controller should assume contact has been lost
     pub controller_loss_of_contact_limit: u16,
 
-    /// A set of conditions for exiting the control loop, to be checked at each cycle
-    pub termination_criteria: Vec<Termination>,
+    /// A condition for exiting the control loop, to be checked at each cycle
+    pub termination_criteria: Option<Termination>,
 
     /// Response to losing contact with a peripheral
     pub loss_of_contact_policy: LossOfContactPolicy,
+
+    /// Whether to prioritize performance or efficiency in the
+    /// control loop.
+    pub loop_method: LoopMethod,
 
     /// An escape hatch for sideloading user context (likely json-encoded)
     /// that is not yet implemented as a standalone field.
@@ -98,6 +187,13 @@ pub struct ControllerCtx {
     /// when a freerunning thread should terminate, as this will often result in
     /// a resource leak.
     pub user_channels: Arc<RwLock<BTreeMap<String, Channel>>>,
+
+    /// Manual input overrides that can be written while the controller is running.
+    #[serde(skip, default = "manual_inputs_default")]
+    pub manual_inputs: ManualInputMap,
+
+    /// Whether manual input overrides should be applied during the control loop.
+    pub enable_manual_inputs: bool,
 }
 
 impl ControllerCtx {
@@ -138,10 +234,13 @@ impl Default for ControllerCtx {
             configuring_timeout_ms: 20,
             peripheral_loss_of_contact_limit: 10,
             controller_loss_of_contact_limit: 10,
-            termination_criteria: Vec::new(),
-            loss_of_contact_policy: LossOfContactPolicy::Terminate,
+            termination_criteria: None,
+            loss_of_contact_policy: LossOfContactPolicy::Terminate(),
+            loop_method: LoopMethod::Performant,
             user_ctx: BTreeMap::new(),
             user_channels: Arc::new(RwLock::new(BTreeMap::new())),
+            manual_inputs: manual_inputs_default(),
+            enable_manual_inputs: true,
         }
     }
 }

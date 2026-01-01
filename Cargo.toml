@@ -10,6 +10,7 @@ resolver = "3"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/deimoscontrols/deimos"
+version = "0.15.0"
 
 [workspace.metadata."docs.rs"]
 all-features = true

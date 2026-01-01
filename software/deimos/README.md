@@ -8,16 +8,28 @@ the goals and state of the project.
 The control program and the firmware-software shared library share a
 [changelog](https://github.com/deimoscontrols/deimos/blob/main/CHANGELOG.md) at the workspace level.
 
+### Install - Rust
+
+```bash
+cargo add deimos
+```
+
+### Install - Python
+
+```bash
+pip install deimos-daq
+```
+
 ## Features & Roadmap
 
 ✅ Implemented | 💡 Planned
 
 | Feature Category | Features |
 |------------------|----------|
-| Control Loop     | ✅ Fixed-dt roundtrip control loop<br>✅ Network scanning for available hardware<br>✅ Planned loop termination<br>✅ Global event logging<br>💡 Reconnect policy|
+| Control Loop     | ✅ Fixed-dt roundtrip control loop<br>✅ Network scanning for available hardware<br>✅ Planned loop termination<br>✅ Global event logging<br>✅ Reconnection<br>✅ Low-CPU-usage background operation|
 | Control Calcs    | ✅ User-defined custom calcs<br>✅ Explicit (acyclic) calc expression<br>✅ Low-pass filters<br>✅ Sequenced state machines<br>✅ Polynomial calibration curves<br>💡 Cyclic expressions with explicit time-delay<br>💡 Prototype calc w/ rhai script-defined inner function |
-| Data Integrations| ✅ User-defined custom targets<br>✅ CSV<br>✅ TimescaleDB<br>💡 InfluxDB<br>💡 Zarr file/bucket<br>💡 Generic sqlite, postgres, etc.<br>✅ In-memory dataframe|
-| Hardware Peripherals| ✅ Deimos DAQs<br>✅ User-defined custom hardware<br>✅ User-defined custom in-memory / IPC mockup|
+| Data Integrations| ✅ User-defined custom targets<br>✅ Manual read/write<br>✅ CSV<br>✅ In-memory dataframe<br>✅ TimescaleDB<br>💡 InfluxDB<br>💡 Zarr file/bucket<br>💡 Generic sqlite, postgres, etc.|
+| Hardware Peripherals| ✅ Deimos DAQs<br>✅ User-defined custom hardware<br>✅ User-defined hardware drivers<br>✅ Hardware-out-of-the-loop wrapper|
 | Socket Interfaces<br>(peripheral I/O)| ✅ User-defined custom interfaces<br>✅ UDP/IPV4<br>✅ Unix socket<br>✅ Thread channel sideloading<br>💡 TCP<br>💡 UDP/IPV6 |
 
 ## Concept of Operation
@@ -110,20 +122,20 @@ let mut controller = Controller::new(ctx);
 //    TSDB-flavored postgres database
 let buffer_window = Duration::from_nanos(1); // Non-buffering mode
 let retention_time_hours = 1;
-let timescale_dispatcher: Box<dyn Dispatcher> = Box::new(TimescaleDbDispatcher::new(
+let timescale_dispatcher: Box<dyn Dispatcher> = TimescaleDbDispatcher::new(
     "<database name>",  // Database name
     "<database address>", // URL or unix socket interface
     "<username>",  // Login name; for unix socket, must match OS username
     "<token env var>",  // Environment variable containing password or token
     buffer_window,
     retention_time_hours,
-));
-controller.add_dispatcher(timescale_dispatcher);
+);
+controller.add_dispatcher("tsdb", timescale_dispatcher);
 
-//    A 50MB CSV file that will be wrapped an overwritten when full
+//    A 50MB CSV file that will be wrapped and overwritten when full
 let csv_dispatcher: Box<dyn Dispatcher> =
-    Box::new(CsvDispatcher::new(50, dispatcher::Overflow::Wrap));
-controller.add_dispatcher(csv_dispatcher);
+    CsvDispatcher::new(50, dispatcher::Overflow::Wrap);
+controller.add_dispatcher("csv", csv_dispatcher);
 
 // Associate hardware peripherals that we expect to find on the network
 // The controller can also run with no peripherals at all, and simply do
@@ -135,8 +147,8 @@ controller.add_peripheral("p2", Box::new(AnalogIRev3 { serial_number: 2 }));
 //     Add a constant for duty cycle and a sine wave for frequency
 let freq = Sin::new(1.0 / (rate_hz / 100.0), 0.25, 100.0, 250_000.0, true);
 let duty = Constant::new(0.5, true);
-controller.add_calc("freq", Box::new(freq));
-controller.add_calc("duty", Box::new(duty));
+controller.add_calc("freq", freq);
+controller.add_calc("duty", duty);
 //     Set a PWM on the first peripheral to change its frequency in time
 controller.set_peripheral_input_source("p1.pwm0_freq", "freq.y");  // A value to be written to the hardware
 controller.set_peripheral_input_source("p1.pwm0_duty", "duty.y");
@@ -154,5 +166,5 @@ let _deserialized_controller: Controller = serde_json::from_str(&serialized_cont
 // Run the control program
 // (skipped here because there are no peripherals
 // or databases on the network in the test environment).
-// controller.run(&peripheral_plugins);
+// controller.run(&peripheral_plugins, None);
 ```

@@ -8,10 +8,14 @@ use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::{Sender, channel};
-use std::thread::{self, JoinHandle, spawn};
-use tracing::{info, warn};
+use std::thread::{self, Builder, JoinHandle};
+use tracing::{error, info, warn};
+
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
 
 use crate::controller::context::ControllerCtx;
+use crate::py_json_methods;
 
 use super::{Dispatcher, Overflow, csv_header, csv_row_fixed_width};
 
@@ -33,6 +37,7 @@ use super::{Dispatcher, Overflow, csv_header, csv_row_fixed_width};
 ///
 /// Writes to disk on a separate thread to avoid blocking the control loop.
 #[derive(Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct CsvDispatcher {
     /// Size per file
     chunk_size_megabytes: usize,
@@ -45,15 +50,24 @@ pub struct CsvDispatcher {
 }
 
 impl CsvDispatcher {
-    pub fn new(chunk_size_megabytes: usize, overflow_behavior: Overflow) -> Self {
-        Self {
+    pub fn new(chunk_size_megabytes: usize, overflow_behavior: Overflow) -> Box<Self> {
+        Box::new(Self {
             chunk_size_megabytes,
             overflow_behavior,
 
             worker: None,
-        }
+        })
     }
 }
+
+py_json_methods!(
+    CsvDispatcher,
+    Dispatcher,
+    #[new]
+    fn py_new(chunk_size_megabytes: usize, overflow_behavior: Overflow) -> PyResult<Self> {
+        Ok(*Self::new(chunk_size_megabytes, overflow_behavior))
+    }
+);
 
 #[typetag::serde]
 impl Dispatcher for CsvDispatcher {
@@ -138,77 +152,86 @@ impl WorkerHandle {
         let mut file_size = header_len;
         let mut shard_number: u64 = 0;
 
-        let _thread = spawn(move || {
-            // Bind to assigned core, and set priority only if the core is not shared with the control loop
-            {
-                let success = core_affinity::set_for_current(core_affinity::CoreId {
-                    id: core_assignment,
-                });
-                if !success {
-                    warn!("Failed to set core affinity for CSV dispatcher");
-                }
-            }
-
-            // Make single-line buffer that will grow and
-            // permanently maintain the largest line length that has been seen
-            // so that reallocations should happen rarely if ever
-            let mut stringbuf = String::new();
-            loop {
-                match rx.recv() {
-                    Err(_) => {
-                        // If we are shutting down, flush the buffer and
-                        // trim the file length to release remaining reserved space
-                        let _ = writer.flush();
-                        let mut file = writer.into_inner().unwrap();
-                        let len = get_file_loc(&mut file);
-                        file.set_len(len).unwrap();
-                        return;
+        let _thread = Builder::new()
+            .name("csv-dispatcher".to_string())
+            .spawn(move || {
+                // Bind to assigned core, and set priority only if the core is not shared with the control loop
+                {
+                    let success = core_affinity::set_for_current(core_affinity::CoreId {
+                        id: core_assignment,
+                    });
+                    if !success {
+                        warn!("Failed to set core affinity for CSV dispatcher");
                     }
-                    Ok(vals) => {
-                        csv_row_fixed_width(&mut stringbuf, vals);
+                }
 
-                        // Make sure there is space in the file,
-                        // otherwise wrap back to the beginning and overwrite
-                        // TODO: right now this may cause a tear in the file if NaN values are encountered
-                        let n_to_write = stringbuf.len();
-                        if get_file_loc(&mut writer) as usize + n_to_write > total_size {
-                            match overflow_behavior {
-                                Overflow::Wrap => {
-                                    writer.seek(SeekFrom::Start(header_len as u64)).unwrap();
-                                }
-                                Overflow::Error => {
-                                    panic!(
-                                        "CSV dispatcher overflowed with `Error` behavior selected"
-                                    );
-                                }
-                                Overflow::NewFile => {
-                                    shard_number += 1;
+                // Make single-line buffer that will grow and
+                // permanently maintain the largest line length that has been seen
+                // so that reallocations should happen rarely if ever
+                let mut stringbuf = String::new();
+                loop {
+                    match rx.recv() {
+                        Err(_) => {
+                            // If we are shutting down, flush the buffer and
+                            // trim the file length to release remaining reserved space
+                            let _ = writer.flush();
+                            let mut file = writer.into_inner().unwrap();
+                            let len = get_file_loc(&mut file);
+                            let _ = file.set_len(len);
+                            return;
+                        }
+                        Ok((time, timestamp, channel_values)) => {
+                            csv_row_fixed_width(
+                                &mut stringbuf,
+                                (time, timestamp, channel_values.as_slice()),
+                            );
 
-                                    // Assemble new file name
-                                    let filename_new =
-                                        format!("{original_filename}_{shard_number}.csv");
-                                    info!("Reserving new CSV file at {}", &filename_new);
-                                    let path_new: PathBuf =
-                                        path.parent().unwrap().join(filename_new);
+                            // Make sure there is space in the file,
+                            // otherwise wrap back to the beginning and overwrite
+                            // TODO: right now this may cause a tear in the file if NaN values are encountered
+                            let n_to_write = stringbuf.len();
+                            if get_file_loc(&mut writer) as usize + n_to_write > total_size {
+                                match overflow_behavior {
+                                    Overflow::Wrap => {
+                                        writer.seek(SeekFrom::Start(header_len as u64)).unwrap();
+                                    }
+                                    Overflow::Error => {
+                                        error!(
+                                            "CSV file is full with overflow policy set to Error"
+                                        );
+                                        return;
+                                    }
+                                    Overflow::NewFile => {
+                                        shard_number += 1;
 
-                                    writer = new_file(&path_new, &header, total_size).unwrap();
+                                        // Assemble new file name
+                                        let filename_new =
+                                            format!("{original_filename}_{shard_number}.csv");
+                                        info!("Reserving new CSV file at {}", &filename_new);
+                                        let path_new: PathBuf =
+                                            path.parent().unwrap().join(filename_new);
+
+                                        writer = new_file(&path_new, &header, total_size).unwrap();
+
+                                        info!("CSV dispatcher moved to new file at {path_new:?}")
+                                    }
                                 }
                             }
+
+                            // Write to disk
+                            writer.write_all(stringbuf.as_bytes()).unwrap();
+
+                            // Keep track of the largest file size so far
+                            file_size = file_size.max(get_file_loc(&mut writer) as usize);
                         }
-
-                        // Write to disk
-                        writer.write_all(stringbuf.as_bytes()).unwrap();
-
-                        // Keep track of the largest file size so far
-                        file_size = file_size.max(get_file_loc(&mut writer) as usize);
                     }
-                }
 
-                // Deliberately yield the thread to make time for the OS
-                // and to avoid interfering with other loops
-                thread::yield_now();
-            }
-        });
+                    // Deliberately yield the thread to make time for the OS
+                    // and to avoid interfering with other loops
+                    thread::yield_now();
+                }
+            })
+            .expect("Failed to spawn CSV dispatcher thread");
 
         Ok(Self { tx, _thread })
     }
