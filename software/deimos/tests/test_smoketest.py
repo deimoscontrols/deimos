@@ -134,7 +134,7 @@ def _run_controller(
 
             handle = ctrl.run_nonblocking(latest_value_cutoff)
             try:
-                time.sleep(0.2)
+                time.sleep(0.2)  # Accommodate slow CI runners
                 snapshot = handle.read()
                 expected = _metric_channels("analog_rev2")
                 for channel in expected:
