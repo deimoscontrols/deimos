@@ -22,7 +22,7 @@ THREAD_CHANNEL1 = "hootl_thread1"
 THREAD_CHANNEL2 = "hootl_thread2"
 UNIX_SOCKET = "ctrl"
 RATE_HZ = 20.0
-RUN_TIMEOUT_S = 3.0  # Accommodate slow CI runners
+RUN_TIMEOUT_S = 10.0  # Accommodate slow CI runners
 LATEST_FILTER_HZ = 5.0
 HAS_UNIX_SOCKET = hasattr(socket, "UnixSocket") and hasattr(
     peripheral.HootlTransport, "unix_socket"
@@ -125,6 +125,9 @@ def _run_controller(
                 stack.enter_context(ctrl.attach_hootl_driver(name, transport))
 
             if blocking:
+                # Use shorter timeout for blocking mode, since we don't need to read
+                # values live.
+                ctrl.termination_criteria = Termination.timeout_s(0.2)
                 ctrl.run()
                 return
 
@@ -137,12 +140,16 @@ def _run_controller(
                     assert channel in snapshot.values
                 
                 for k, v in snapshot.values.items():
-                    assert not isnan(v), f"Channel {k} did not read successfully"
+                    assert not isnan(v), f"Channel {k} did not read successfully."
                 
             finally:
                 if handle.is_running():
+                    print("Sending controller stop signal from Python.")
                     handle.stop()
                 handle.join()
+
+    # Pause for hootl drivers to shut down
+    time.sleep(0.1)
 
 
 def test_hootl_smoketest() -> None:

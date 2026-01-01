@@ -72,7 +72,7 @@ def main() -> None:
             handle = ctrl.run_nonblocking()
 
             try:
-                time.sleep(2.5)  # Generous delay for CI workers
+                time.sleep(1.5)  # Generous delay for CI workers
                 handle.write({"mock_thread.dac0": 0.0})
 
                 # Make sure we had stable communication with all the peripheral mockups
