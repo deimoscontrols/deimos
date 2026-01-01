@@ -1,4 +1,8 @@
 //! Socket orchestration for single-thread polling or worker fan-in.
+//!
+//! The orchestrator picks a backend based on the controller loop method:
+//! a round-robin single-thread poller for performant loops, or a worker
+//! pool that fan-ins packets via a channel for efficient loops.
 
 use std::time::Duration;
 
@@ -27,13 +31,14 @@ enum Backend {
 }
 
 /// Unified polling interface for multiple sockets in either
-/// * Performant loop method: a single-threaded 1:1 configuration, or
-/// * Efficient loop method:  multithreaded N:1 fan-in configuration.
+/// * Performant loop method: a single-threaded round-robin poller, or
+/// * Efficient loop method:  multithreaded N:1 fan-in via worker threads.
 pub struct SocketOrchestrator {
     backend: Backend,
 }
 
 impl SocketOrchestrator {
+    /// Construct a new orchestrator and open any sockets that are not already open.
     pub fn new(
         mut sockets: Vec<(String, Box<dyn Socket>)>,
         ctx: &ControllerCtx,
@@ -86,6 +91,11 @@ impl SocketOrchestrator {
     }
 
     #[inline]
+    /// Receive a packet into `buf`, returning metadata when available.
+    ///
+    /// Returns `Ok(None)` on timeout. For the single-threaded backend, sockets
+    /// are polled round-robin with nonblocking reads and a final sleep to honor
+    /// the timeout. For the worker backend, this waits on the worker event queue.
     pub fn recv(
         &mut self,
         buf: &mut [u8],
@@ -164,6 +174,7 @@ impl SocketOrchestrator {
     }
 
     #[inline]
+    /// Send a payload to a specific socket/peripheral pair.
     pub fn send(
         &mut self,
         socket_id: SocketId,
@@ -194,6 +205,7 @@ impl SocketOrchestrator {
     }
 
     #[cold]
+    /// Broadcast a payload on the target socket.
     pub fn broadcast(&mut self, socket_id: SocketId, payload: &[u8]) -> Result<(), String> {
         match &mut self.backend {
             Backend::SingleThreadPoller { sockets, .. } => {
@@ -218,6 +230,7 @@ impl SocketOrchestrator {
     }
 
     #[cold]
+    /// Update the address mapping for a peripheral on the target socket.
     pub fn update_map(
         &mut self,
         socket_id: SocketId,
@@ -245,6 +258,7 @@ impl SocketOrchestrator {
     }
 
     #[cold]
+    /// Close all sockets and return ownership of the underlying socket objects.
     pub fn close(mut self) -> Vec<(String, Box<dyn Socket>)> {
         match &mut self.backend {
             Backend::SingleThreadPoller { sockets, .. } => {

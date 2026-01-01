@@ -15,10 +15,13 @@ Broad refactor and many new features to improve usability of software interface.
         * This provides robustness to IP address reconfiguration, hot-swapping modules, etc
         * Provide a timeout duration or allow indefinite reconnection attempts
     * Add `peripheral::hootl` module with machinery for building software mockup wrappers of hardware
+        * Includes UDP loopback implementaiton to mimic hardware as fully as possible
     * Add `python` module with python bindings
     * Add `socket::orchestrator` module with new layer of socket abstraction
         * Option 1 (used for Performant operation mode) is similar to previous (synchronous nonblocking rx/tx)
         * Option 2 (used for Efficient operation mode) uses a fan-in thread channel system to defer rx waiting to OS scheduling and places sockets on separate threads during run
+    * Add `socket::thread_channel` module with a Socket implementation that uses a user channel for comms
+        * This supports HOOTL testing on non-unix platforms with the unix socket is not available
     * Add `socket::worker` module with socket thread workers for use with Efficient operation mode fan-in pattern
     * Add `Efficient` operation mode
         * Uses OS scheduling instead of busy-waiting, and thread channel fan-in pattern for comms instead of polling

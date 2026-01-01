@@ -1,4 +1,7 @@
 //! Socket implementation backed by a controller user channel.
+//!
+//! This socket is intended for in-process mock peripherals and tests. It uses
+//! a single named channel to exchange packets without any OS networking.
 
 use std::time::{Duration, Instant};
 
@@ -18,6 +21,9 @@ use deimos_shared::states::{ByteStruct, ByteStructLen};
 
 /// Socket implementation that consumes a user channel of the same name.
 /// Only one peripheral can be connected per thread socket.
+///
+/// Packets are framed with a `PeripheralId` prefix, and `broadcast` is
+/// best-effort by sending a single packet on the channel.
 #[derive(Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "python", pyclass)]
 pub struct ThreadChannelSocket {
@@ -27,6 +33,7 @@ pub struct ThreadChannelSocket {
 }
 
 impl ThreadChannelSocket {
+    /// Create a socket bound to the named controller user channel.
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_owned(),
