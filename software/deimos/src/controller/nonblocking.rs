@@ -11,6 +11,12 @@ use crate::dispatcher::{
 };
 use crate::peripheral::PluginMap;
 
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
+#[cfg(feature = "python")]
+use crate::python::BackendErr;
+
 use tracing::{info, warn};
 
 impl super::Controller {
