@@ -1,5 +1,53 @@
 # Changelog
 
+## 2026-01-01 deimos 0.15.0, deimos_shared 0.15.0
+
+Broad refactor and many new features to improve usability of software interface.
+
+### Added
+
+* Rust
+    * Add `python` feature for building python bindings
+    * Add `controller::nonblocking` module with machinery for running the controller on a separate thread
+        * Includes external termination signal and live manual read/write handles
+    * Add reconnection logic to controller
+        * `LossOfContactPolicy::Reconnect` allows attempting reconnection after losing contact with peripherals during run
+        * This provides robustness to IP address reconfiguration, hot-swapping modules, etc
+        * Provide a timeout duration or allow indefinite reconnection attempts
+    * Add `peripheral::hootl` module with machinery for building software mockup wrappers of hardware
+    * Add `python` module with python bindings
+    * Add `socket::orchestrator` module with new layer of socket abstraction
+        * Option 1 (used for Performant operation mode) is similar to previous (synchronous nonblocking rx/tx)
+        * Option 2 (used for Efficient operation mode) uses a fan-in thread channel system to defer rx waiting to OS scheduling and places sockets on separate threads during run
+    * Add `socket::worker` module with socket thread workers for use with Efficient operation mode fan-in pattern
+    * Add `Efficient` operation mode
+        * Uses OS scheduling instead of busy-waiting
+        * Reduces CPU usage to around 1% at the expense of degraded performance above 50Hz
+        * Does not pin core affinity
+    * Add `dispatcher::latest` for extracting the latest values during run
+    * Add `dispatcher::low_pass` wrapper for running a low-pass filter on each channel
+    * Add `dispatcher::decimation` wrapper for taking every Nth value
+    * Add `dispatcher::channel_filter` wrapper for selecting only specific channels to be passed along
+* Python
+    * Add python bindings and type stubs
+    * Add python examples, tests, and deployment workflow
+
+### Changed
+
+* Rust
+    * Remove `calc::Orchestrator` from public API and rename to `CalcOrchestrator`
+    * Refactor `Socket` trait for new optional fan-in system
+    * Refactor `Controller` and `Context`
+        * Accommodate both Performant and Efficient operating methods
+        * Implement reconnection logic
+        * Implement nonblocking operation and external read/write/stop handles
+    * Refactor `Calc` and `Dispatcher` implementations to return `Box<Self>` from `new` to reduce boilerplate
+    * Set up workspace versioning
+* Hardware
+    * Improve manufacturability of silkscreen on Deimos DAQ Rev6
+* Firmware
+    * Update Deimos DAQ Rev6 firmware to use latest version of `flaw` filtering library
+
 ## 2025-10-26 Deimos DAQ Rev 6.0.2 hardware
 
 ### Changed
