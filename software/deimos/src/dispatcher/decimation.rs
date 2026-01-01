@@ -1,4 +1,4 @@
-//! Dispatcher wrapper that decimates rows before forwarding them.
+//! Dispatcher wrapper that forwards every Nth row to reduce data rate.
 
 use std::num::NonZeroUsize;
 use std::time::SystemTime;
@@ -14,6 +14,10 @@ use crate::py_json_methods;
 use super::Dispatcher;
 
 /// Wraps another dispatcher and forwards every Nth row.
+///
+/// The first row is forwarded, then `nth - 1` rows are dropped, repeating.
+/// Timestamps and channel values are passed through unchanged for forwarded rows.
+/// The decimation factor must be >= 1.
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "python", pyclass)]
 pub struct DecimationDispatcher {
@@ -27,6 +31,7 @@ pub struct DecimationDispatcher {
 }
 
 impl DecimationDispatcher {
+    /// Create a decimating wrapper with a nonzero decimation factor.
     pub fn new(inner: Box<dyn Dispatcher>, nth: NonZeroUsize) -> Box<Self> {
         Box::new(Self {
             nth,

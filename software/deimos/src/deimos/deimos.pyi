@@ -700,11 +700,20 @@ class _DispatcherModule(ModuleType):
         initialized properly from Python.
 
         Dispatcher that always keeps the latest row available via a shared handle.
+
+        The latest row is updated on a dedicated worker thread so the controller
+        loop does not block on reader access. Before the first dispatch, the row
+        is initialized with NaN channel values and a UNIX_EPOCH timestamp.
         """
         def __init__(self) -> None: ...
 
     class ChannelFilter(_DispatcherBase):
-        """Wraps another dispatcher and forwards a subset of channels by name."""
+        """Wraps another dispatcher and forwards a subset of channels by name.
+
+        Channel names are validated during initialization. Missing or duplicate
+        names are treated as errors, and the output order follows `channels`.
+        Timestamps are forwarded unchanged; only per-channel values are filtered.
+        """
         def __init__(
             self,
             inner: DispatcherLike,
@@ -712,7 +721,11 @@ class _DispatcherModule(ModuleType):
         ) -> None: ...
 
     class DecimationDispatcher(_DispatcherBase):
-        """Wraps another dispatcher and forwards every Nth row."""
+        """Wraps another dispatcher and forwards every Nth row.
+
+        The first row is forwarded, then `nth - 1` rows are dropped, repeating.
+        Timestamps and channel values are passed through unchanged for forwarded rows.
+        """
         def __init__(
             self,
             inner: DispatcherLike,
@@ -721,7 +734,12 @@ class _DispatcherModule(ModuleType):
 
     class LowPassDispatcher(_DispatcherBase):
         """Wraps another dispatcher and applies a 2nd order Butterworth low-pass
-        filter per channel."""
+        filter per channel.
+
+        The cutoff frequency is clamped to a stable ratio of the sample rate.
+        The filter is primed on the first row by setting each channel's steady-state
+        value to the incoming sample.
+        """
         def __init__(
             self,
             inner: DispatcherLike,

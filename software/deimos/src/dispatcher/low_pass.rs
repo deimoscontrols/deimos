@@ -18,6 +18,10 @@ use crate::py_json_methods;
 use super::Dispatcher;
 
 /// Wraps another dispatcher and applies a 2nd order Butterworth low-pass filter per channel.
+///
+/// The cutoff frequency is clamped to a stable ratio of the sample rate.
+/// The filter is primed on the first row by setting each channel's steady-state
+/// value to the incoming sample, avoiding a cold-start transient.
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "python", pyclass)]
 pub struct LowPassDispatcher {
@@ -33,6 +37,7 @@ pub struct LowPassDispatcher {
 }
 
 impl LowPassDispatcher {
+    /// Create a low-pass wrapper with the requested cutoff frequency in Hz.
     pub fn new(inner: Box<dyn Dispatcher>, cutoff_hz: f64) -> Box<Self> {
         Box::new(Self {
             cutoff_hz,
@@ -100,21 +105,18 @@ impl Dispatcher for LowPassDispatcher {
         if !self.initialized {
             return Err("LowPassDispatcher must be initialized before consuming data".to_string());
         }
+
+        // Update in-place and reuse the Vec to avoid reallocating
         let values = &mut channel_values[..];
-        if values.len() != self.filters.len() {
-            return Err(format!(
-                "LowPassDispatcher expected {} values, got {}",
-                self.filters.len(),
-                values.len()
-            ));
-        }
 
         if !self.primed {
+            // On the first consume, use the value to initialize the filter.
             for (filter, value) in self.filters.iter_mut().zip(values.iter()) {
                 filter.set_steady_state(*value as f32);
             }
             self.primed = true;
         } else {
+            // After the first consume, update the filter and return the filtered value.
             for (filter, value) in self.filters.iter_mut().zip(values.iter_mut()) {
                 *value = filter.update(*value as f32) as f64;
             }

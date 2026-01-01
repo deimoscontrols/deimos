@@ -70,6 +70,10 @@ impl LatestValueHandle {
 }
 
 /// Dispatcher that always keeps the latest row available via a shared handle.
+///
+/// The latest row is updated on a dedicated worker thread so the controller
+/// loop does not block on reader access. Before the first dispatch, the row
+/// is initialized with NaN channel values and a UNIX_EPOCH timestamp.
 #[derive(Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "python", pyclass)]
 pub struct LatestValueDispatcher {
@@ -80,6 +84,7 @@ pub struct LatestValueDispatcher {
 }
 
 impl LatestValueDispatcher {
+    /// Create the dispatcher and a cloneable handle for reading the latest row.
     pub fn new() -> (Box<Self>, LatestValueHandle) {
         let cell = RowCell::new(Row::default());
         let handle = LatestValueHandle {
