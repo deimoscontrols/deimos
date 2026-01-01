@@ -9,7 +9,7 @@ on:
 
 jobs:
   dispatch:
-    if: ${{ secrets.DEIMOS_WEBSITE_DISPATCH_TOKEN != '' }} && github.ref == 'refs/heads/main'
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     steps:
       - name: Dispatch docs build

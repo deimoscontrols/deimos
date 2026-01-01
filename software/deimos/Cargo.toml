@@ -24,7 +24,7 @@ deimos_shared = { path = "../deimos_shared", version = "0.15.0" }
 # Control loop
 chrono = { version = "^0.4.42", features = ["std"], default-features = false }  # timestamp formatting
 core_affinity = "^0.8.3"
-branches = "^0.4.3"
+branches = { version = "^0.4.3", default-features = false }
 
 # Calcs
 flaw = { version = "^0.6.0", default-features = false, features = ["fma"] }
