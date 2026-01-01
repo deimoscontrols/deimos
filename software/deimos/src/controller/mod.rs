@@ -5,11 +5,12 @@ pub mod context;
 mod controller_state;
 mod peripheral_state;
 mod timing;
+mod nonblocking;
 
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Condvar, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -40,6 +41,8 @@ use context::{ControllerCtx, LossOfContactPolicy, Termination};
 use controller_state::ControllerState;
 use peripheral_state::ConnState;
 use timing::TimingPID;
+use nonblocking::{ReadySignal, ReadyFinishGuard, default_ready_signal};
+
 use tracing::{debug, error, info, warn};
 
 /// Peripheral inputs set manually from outside the control program.
@@ -47,78 +50,6 @@ pub type ManualInputMap = Arc<RwLock<HashMap<FieldName, f64>>>;
 
 pub(crate) fn manual_inputs_default() -> ManualInputMap {
     Arc::new(RwLock::new(HashMap::new()))
-}
-
-/// Boolean predicates to support the ReadySignal condvar
-/// because condvars can generate spurious wake signals.
-#[derive(Clone, Copy, Debug, Default)]
-struct ReadyState {
-    ready: bool,
-    finished: bool,
-}
-
-/// Classic predicate-signal pair for inter-thread signaling
-/// using OS-scheduled condition variable.
-#[derive(Debug, Default)]
-struct ReadySignal {
-    state: Mutex<ReadyState>,
-    cvar: Condvar,
-}
-
-impl ReadySignal {
-    /// Clear predicates.
-    fn reset(&self) {
-        let mut state = self.state.lock().unwrap();
-        state.ready = false;
-        state.finished = false;
-    }
-
-    /// Set ready predicate and signal condvar.
-    fn mark_ready(&self) {
-        let mut state = self.state.lock().unwrap();
-        if !state.ready {
-            state.ready = true;
-            self.cvar.notify_all();
-        }
-    }
-
-    /// Set finished predicate and signal condvar.
-    fn mark_finished(&self) {
-        let mut state = self.state.lock().unwrap();
-        state.finished = true;
-        self.cvar.notify_all();
-    }
-
-    /// Check ready predicate.
-    fn is_ready(&self) -> bool {
-        self.state.lock().unwrap().ready
-    }
-
-    /// Wait for signal indicating the thread is either ready or already finished.
-    /// Uses efficient-but-imprecise OS-scheduled waiting.
-    fn wait_ready_or_finished(&self) -> ReadyState {
-        let mut state = self.state.lock().unwrap();
-        while !state.ready && !state.finished {
-            state = self.cvar.wait(state).unwrap();
-        }
-        *state
-    }
-}
-
-/// Drop-guard to guarantee that the ready signal is marked
-/// finished if the controller exits the loop for any reason.
-struct ReadyFinishGuard {
-    ready: Arc<ReadySignal>,
-}
-
-impl Drop for ReadyFinishGuard {
-    fn drop(&mut self) {
-        self.ready.mark_finished();
-    }
-}
-
-fn default_ready_signal() -> Arc<ReadySignal> {
-    Arc::new(ReadySignal::default())
 }
 
 /// The controller implements the control loop,
