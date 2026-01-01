@@ -21,7 +21,7 @@ Broad refactor and many new features to improve usability of software interface.
         * Option 2 (used for Efficient operation mode) uses a fan-in thread channel system to defer rx waiting to OS scheduling and places sockets on separate threads during run
     * Add `socket::worker` module with socket thread workers for use with Efficient operation mode fan-in pattern
     * Add `Efficient` operation mode
-        * Uses OS scheduling instead of busy-waiting
+        * Uses OS scheduling instead of busy-waiting, and thread channel fan-in pattern for comms instead of polling
         * Reduces CPU usage to around 1% at the expense of degraded performance above 50Hz
         * Does not pin core affinity
     * Add `dispatcher::latest` for extracting the latest values during run
@@ -41,8 +41,13 @@ Broad refactor and many new features to improve usability of software interface.
         * Accommodate both Performant and Efficient operating methods
         * Implement reconnection logic
         * Implement nonblocking operation and external read/write/stop handles
+        * Fine-tune control loop performance to reduce cycle busy time to about 12 microseconds and eliminate context switching opportunities from main loop, allowing at least 20kHz stable operation of control software under real-life conditions with 7 DAQs attached on UDP and 447 channels of data stored (now limited primarily by hardware performance)
     * Refactor `Calc` and `Dispatcher` implementations to return `Box<Self>` from `new` to reduce boilerplate
+    * Refactor `logging` module to allow reentrant runs without conflict due to duplicate logger setup
     * Set up workspace versioning
+    * Update and unpin dep versions to be more friendly to use within a larger project
+    * Gate unix socket functionality behind `#[cfg(unix)]` to allow Windows builds to run
+    * Improve logging and error handling across entire project
 * Hardware
     * Improve manufacturability of silkscreen on Deimos DAQ Rev6
 * Firmware
