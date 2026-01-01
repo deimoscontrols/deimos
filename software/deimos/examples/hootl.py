@@ -68,6 +68,7 @@ def main() -> None:
             print(f"    ...and {len(manual_inputs) - 3} more")
 
             # Run the controller, which will bind the peripheral mockups
+            start = time.perf_counter()
             handle = ctrl.run_nonblocking()
 
             try:
@@ -81,6 +82,11 @@ def main() -> None:
                         # core affinity, which causes sporadic packet loss.
                         assert v < 2.0, f"Missed packet: {k} = {v:.0f}"
             except Exception:
+                end = time.perf_counter()
+                print(
+                    "Sending termination signal to run handle"
+                    f" from Python after {end - start:.2f}s."
+                )
                 handle.stop()
                 raise
             finally:

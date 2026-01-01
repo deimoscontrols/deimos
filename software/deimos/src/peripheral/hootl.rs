@@ -527,6 +527,7 @@ impl HootlRunner {
                             counter: 0,
                             last_contact: Instant::now(),
                         };
+                        info!("HOOTL driver acknowledged config; Configuring -> Operating.");
                     } else {
                         thread::sleep(Duration::from_millis(1));
                     }
@@ -566,10 +567,10 @@ impl HootlRunner {
                             // Return to Binding on error
                             state = DriverState::Binding;
                             controller_addr = None;
-                            info!(
-                                "Hootl runner failed to send packet during Operating; returning to Binding."
-                            );
                             self.set_mode(HootlMode::Binding);
+                            info!(
+                                "Hootl driver failed to send packet; Operating -> Binding."
+                            );
                             continue;
                         }
 
@@ -578,10 +579,10 @@ impl HootlRunner {
                         if last_contact.elapsed() >= loss_of_contact_timeout {
                             state = DriverState::Binding;
                             controller_addr = None;
-                            info!(
-                                "Hootl runner lost contact with controller during Operating; returning to Binding."
-                            );
                             self.set_mode(HootlMode::Binding);
+                            info!(
+                                "Hootl driver lost contact with controller; Operating -> Binding."
+                            );
                             continue;
                         }
                         thread::sleep(Duration::from_millis(1));
