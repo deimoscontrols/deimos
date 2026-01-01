@@ -17,9 +17,6 @@ jobs:
 
   linux:
     runs-on: ${{ matrix.platform.runner }}
-    defaults:
-      run:
-        working-directory: ./software/deimos
     strategy:
       matrix:
         platform:
@@ -55,9 +52,6 @@ jobs:
 
   musllinux:
     runs-on: ${{ matrix.platform.runner }}
-    defaults:
-      run:
-        working-directory: ./software/deimos
     strategy:
       matrix:
         platform:
@@ -89,9 +83,6 @@ jobs:
 
   windows:
     runs-on: ${{ matrix.platform.runner }}
-    defaults:
-      run:
-        working-directory: ./software/deimos
     strategy:
       matrix:
         platform:
@@ -117,9 +108,6 @@ jobs:
 
   macos:
     runs-on: ${{ matrix.platform.runner }}
-    defaults:
-      run:
-        working-directory: ./software/deimos
     strategy:
       matrix:
         platform:
@@ -146,9 +134,6 @@ jobs:
 
   sdist:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./software/deimos
     steps:
       - uses: actions/checkout@v6
       - name: Build sdist
@@ -165,9 +150,6 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./software/deimos
     if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
     needs: [test_python, linux, musllinux, windows, macos, sdist]
     permissions:
