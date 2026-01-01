@@ -16,12 +16,6 @@ use std::time::{Duration, Instant, SystemTime};
 
 use flaw::MedianFilter;
 
-#[cfg(feature = "python")]
-use pyo3::prelude::*;
-
-#[cfg(feature = "python")]
-use crate::python::BackendErr;
-
 use crate::controller::context::LoopMethod;
 use crate::{
     SOCKET_BUFFER_LEN,
