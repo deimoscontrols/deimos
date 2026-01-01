@@ -98,6 +98,11 @@ pub struct DataFrameDispatcher {
 }
 
 /// Shared handle for accessing collected dataframe data.
+///
+/// Rows are returned in their stored order. When the dispatcher uses wrap
+/// overflow, older rows are overwritten in-place, so ordering may not be
+/// strictly chronological. Use `time()` and `timestamp()` for time columns;
+/// `columns()` returns channel values only.
 #[cfg_attr(feature = "python", pyclass)]
 #[derive(Clone, Default)]
 pub struct DataFrameHandle {
@@ -116,6 +121,7 @@ impl DataFrameHandle {
     }
 
     /// Convert row data into column-major format keyed by channel name.
+    /// The returned columns follow the stored row order.
     pub fn columns(&self) -> Result<HashMap<String, Vec<f64>>, String> {
         let df = self.read()?;
         let row_count = df.rows.len();
@@ -139,6 +145,7 @@ impl DataFrameHandle {
     }
 
     /// Extract the time column (RFC3339 UTC strings) for all rows.
+    /// The returned values follow the stored row order.
     pub fn time(&self) -> Result<Vec<String>, String> {
         let df = self.read()?;
         let mut out = Vec::with_capacity(df.rows.len());
@@ -149,6 +156,7 @@ impl DataFrameHandle {
     }
 
     /// Extract the timestamp column (ns since start) for all rows.
+    /// The returned values follow the stored row order.
     pub fn timestamp(&self) -> Result<Vec<i64>, String> {
         let df = self.read()?;
         let mut out = Vec::with_capacity(df.rows.len());

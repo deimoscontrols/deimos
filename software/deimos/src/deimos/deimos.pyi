@@ -689,7 +689,13 @@ class _DispatcherModule(ModuleType):
         def handle(self) -> dispatcher.DataFrameHandle: ...
 
     class DataFrameHandle:
-        """Shared handle for reading collected dataframe data."""
+        """Shared handle for reading collected dataframe data.
+
+        Rows are returned in their stored order. When the dispatcher uses wrap
+        overflow, older rows are overwritten in-place, so ordering may not be
+        strictly chronological. Use `time()` and `timestamp()` for time columns;
+        `columns()` returns channel values only.
+        """
         def columns(self) -> dict[str, list[float]]: ...
         def time(self) -> list[str]: ...
         def timestamp(self) -> list[int]: ...

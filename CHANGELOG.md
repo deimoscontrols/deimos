@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026-01-01 deimos 0.15.0, deimos_shared 0.15.0
+## 2026-01-01 deimos 0.15.0
 
 Broad refactor and many new features to improve usability of software interface.
 
@@ -42,16 +42,29 @@ Broad refactor and many new features to improve usability of software interface.
         * Implement reconnection logic
         * Implement nonblocking operation and external read/write/stop handles
         * Fine-tune control loop performance to reduce cycle busy time to about 12 microseconds and eliminate context switching opportunities from main loop, allowing at least 20kHz stable operation of control software under real-life conditions with 7 DAQs attached on UDP and 447 channels of data stored (now limited primarily by hardware performance)
+        * Store, add, and remove sockets and dispatchers by name
     * Refactor `Calc` and `Dispatcher` implementations to return `Box<Self>` from `new` to reduce boilerplate
     * Refactor `logging` module to allow reentrant runs without conflict due to duplicate logger setup
+    * Refactor `calc::sequence_machine` module into a folder with multiple files and remove Timeout::Error option
     * Set up workspace versioning
     * Update and unpin dep versions to be more friendly to use within a larger project
     * Gate unix socket functionality behind `#[cfg(unix)]` to allow Windows builds to run
     * Improve logging and error handling across entire project
+    * Use `x86-64-v3` reference cpu target instead of manually enabling instruction sets
+    * Update readme
+    * Move `dispatcher::tsdb::Row` up to `dispatcher` for reuse
+    * Add live-reading handle to `dispatcher::df` for use from python
+    * Add `Send + Sync` to trait bounds for `peripheral::PluginFn` to support nonblocking run method
 * Hardware
     * Improve manufacturability of silkscreen on Deimos DAQ Rev6
 * Firmware
     * Update Deimos DAQ Rev6 firmware to use latest version of `flaw` filtering library
+
+### Removed
+
+* Rust
+    * Remove `CalcProto` and `PeripheralProto` object prototyping interfaces and related types and constants.
+    * Remove `Orchestrator` (from public API)
 
 ## 2025-10-26 Deimos DAQ Rev 6.0.2 hardware
 
