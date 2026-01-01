@@ -1,6 +1,7 @@
 """Smoke test for HOOTL mockups with full peripheral/socket/dispatcher coverage."""
 
 from __future__ import annotations
+from math import isnan
 
 import tempfile
 import time
@@ -21,7 +22,7 @@ THREAD_CHANNEL1 = "hootl_thread1"
 THREAD_CHANNEL2 = "hootl_thread2"
 UNIX_SOCKET = "ctrl"
 RATE_HZ = 20.0
-RUN_TIMEOUT_S = 0.6
+RUN_TIMEOUT_S = 3.0  # Accommodate slow CI runners
 LATEST_FILTER_HZ = 5.0
 HAS_UNIX_SOCKET = hasattr(socket, "UnixSocket") and hasattr(
     peripheral.HootlTransport, "unix_socket"
@@ -129,11 +130,15 @@ def _run_controller(
 
             handle = ctrl.run_nonblocking(latest_value_cutoff)
             try:
-                time.sleep(0.2)
+                time.sleep(1.5)  # Accommodate CI runners
                 snapshot = handle.read()
                 expected = _metric_channels("analog_rev2")
                 for channel in expected:
                     assert channel in snapshot.values
+                
+                for k, v in snapshot.values.items():
+                    assert not isnan(v), f"Channel {k} did not read successfully"
+                
             finally:
                 if handle.is_running():
                     handle.stop()
