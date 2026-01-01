@@ -1,12 +1,14 @@
 //! Components to support nonblocking operation.
-use super::{RunHandle, manual_inputs_default};
+use super::{ManualInputMap, manual_inputs_default};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::atomic::AtomicBool;
 
-use crate::dispatcher::{Dispatcher, LatestValueDispatcher, LowPassDispatcher};
+use crate::dispatcher::{
+    Dispatcher, LatestValueDispatcher, LatestValueHandle, LowPassDispatcher, Row,
+};
 use crate::peripheral::PluginMap;
 
 use tracing::{info, warn};
@@ -121,6 +123,240 @@ impl super::Controller {
         };
 
         Err(err)
+    }
+}
+
+/// A snapshot of the values from all peripherals and calcs
+/// at the end of a cycle.
+#[cfg_attr(feature = "python", pyclass)]
+#[derive(Clone, Debug, Default)]
+pub struct Snapshot {
+    /// Cycle-end UTC system time in RFC3339 format with nanoseconds.
+    pub system_time: String,
+
+    /// [ns] Cycle-end time in nanoseconds since the start of run.
+    pub timestamp: i64,
+
+    /// Map of the latest readings from all peripherals and calcs.
+    pub values: HashMap<String, f64>,
+}
+
+/// A handle to a [Controller] running via [Controller::run_nonblocking] that allows
+/// reading and writing values from outside the control program during operation
+/// and signaling the controller to shut down.
+///
+/// Signals the controller to shut down when dropped.
+#[cfg_attr(feature = "python", pyclass)]
+pub struct RunHandle {
+    /// Signal to stop the controller.
+    termination: Arc<AtomicBool>,
+
+    /// Link to the running controller to get a snapshot of the output.
+    latest: LatestValueHandle,
+
+    /// Thread handle for the running controller.
+    join: Option<std::thread::JoinHandle<Result<String, String>>>,
+
+    /// Manual input values for peripherals to set.
+    manual_input_values: ManualInputMap,
+
+    /// Names of all peripheral inputs that can be set manually.
+    manual_input_names: Vec<String>,
+
+    /// Shared readiness signal from the controller.
+    ready: Arc<ReadySignal>,
+}
+
+impl RunHandle {
+    /// Signal the controller to stop.
+    pub fn stop(&self) {
+        self.termination
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Check if the controller thread is still running.
+    pub fn is_running(&self) -> bool {
+        self.join
+            .as_ref()
+            .map(|h| !h.is_finished())
+            .unwrap_or(false)
+    }
+
+    /// Check if the controller has completed its first cycle.
+    pub fn is_ready(&self) -> bool {
+        self.ready.is_ready()
+    }
+
+    /// Wait for the controller thread to finish.
+    pub fn join(&mut self) -> Result<String, String> {
+        match self.join.take() {
+            Some(h) => match h.join() {
+                Ok(Ok(msg)) => Ok(msg),
+                Ok(Err(e)) => Err(e),
+                Err(e) => Err(format!("Controller thread panicked: {e:?}")),
+            },
+            None => Err("Controller thread already joined or not started".to_string()),
+        }
+    }
+
+    /// Get the latest row: (system_time, timestamp, channel_values).
+    pub fn latest_row(&self) -> (String, i64, Vec<f64>) {
+        let row: Arc<Row> = self.latest.latest_row();
+        (
+            row.system_time.clone(),
+            row.timestamp,
+            row.channel_values.clone(),
+        )
+    }
+
+    /// Column headers including timestamp/time.
+    pub fn headers(&self) -> Vec<String> {
+        self.latest.headers()
+    }
+
+    /// Read the latest row mapped to header names.
+    pub fn read(&self) -> Snapshot {
+        let headers = self.latest.headers();
+        let row = self.latest.latest_row();
+        let mut map = HashMap::new();
+        // First two headers are timestamp, time.
+        if headers.len() >= 2 {
+            for (name, val) in headers.iter().skip(2).zip(row.channel_values.iter()) {
+                map.insert(name.clone(), *val);
+            }
+        }
+        Snapshot {
+            system_time: row.system_time.clone(),
+            timestamp: row.timestamp,
+            values: map,
+        }
+    }
+
+    /// List peripheral inputs that can be written manually.
+    pub fn available_inputs(&self) -> Vec<String> {
+        self.manual_input_names.clone()
+    }
+
+    /// Write values to peripheral inputs not driven by calcs.
+    pub fn write(&self, values: HashMap<String, f64>) -> Result<(), String> {
+        if !self.is_running() {
+            return Err("Controller is not running".to_string());
+        }
+
+        if values.is_empty() {
+            return Ok(());
+        }
+
+        let allowed = &self.manual_input_names;
+        for name in values.keys() {
+            if !allowed.contains(name) {
+                return Err(format!(
+                    "Manual input `{name}` is not available for manual writes"
+                ));
+            }
+        }
+
+        let mut manual_guard = self
+            .manual_input_values
+            .write()
+            .map_err(|_| "Manual input map lock poisoned".to_string())?;
+        for (name, value) in values {
+            manual_guard.insert(name, value);
+        }
+        Ok(())
+    }
+}
+
+impl Drop for RunHandle {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl RunHandle {
+    #[pyo3(name = "stop")]
+    fn py_stop(&self) {
+        self.stop();
+    }
+
+    #[pyo3(name = "is_running")]
+    fn py_is_running(&self) -> bool {
+        self.is_running()
+    }
+
+    #[pyo3(name = "is_ready")]
+    fn py_is_ready(&self) -> bool {
+        self.is_ready()
+    }
+
+    #[pyo3(name = "join")]
+    fn py_join(&mut self) -> PyResult<String> {
+        self.join()
+            .map_err(|e| PyErr::from(BackendErr::RunErr { msg: e }))
+    }
+
+    #[pyo3(name = "latest_row")]
+    fn py_latest_row(&self) -> (String, i64, Vec<f64>) {
+        self.latest_row()
+    }
+
+    #[pyo3(name = "headers")]
+    fn py_headers(&self) -> Vec<String> {
+        self.headers()
+    }
+
+    #[pyo3(name = "read")]
+    fn py_read(&self) -> Snapshot {
+        self.read()
+    }
+
+    #[pyo3(name = "available_inputs")]
+    fn py_available_inputs(&self) -> Vec<String> {
+        self.available_inputs()
+    }
+
+    #[pyo3(name = "write")]
+    fn py_write(&self, values: HashMap<String, f64>) -> PyResult<()> {
+        self.write(values)
+            .map_err(|e| PyErr::from(BackendErr::RunErr { msg: e }))
+    }
+
+    fn __enter__(slf: PyRefMut<'_, Self>) -> PyResult<PyRefMut<'_, Self>> {
+        Ok(slf)
+    }
+
+    fn __exit__(
+        &mut self,
+        _exc_type: Option<Py<PyAny>>,
+        _exc: Option<Py<PyAny>>,
+        _traceback: Option<Py<PyAny>>,
+    ) -> PyResult<bool> {
+        self.stop();
+        Ok(false)
+    }
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl Snapshot {
+    #[getter]
+    #[pyo3(name = "system_time")]
+    fn py_system_time(&self) -> String {
+        self.system_time.clone()
+    }
+
+    #[getter]
+    #[pyo3(name = "timestamp")]
+    fn py_timestamp(&self) -> i64 {
+        self.timestamp
+    }
+
+    #[getter]
+    #[pyo3(name = "values")]
+    fn py_values(&self) -> HashMap<String, f64> {
+        self.values.clone()
     }
 }
 
