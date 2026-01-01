@@ -1,0 +1,21 @@
+name: Trigger website docs build
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      DEIMOS_WEBSITE_DISPATCH_TOKEN:
+        required: false
+
+jobs:
+  dispatch:
+    if: ${{ secrets.DEIMOS_WEBSITE_DISPATCH_TOKEN != '' }} && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch docs build
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.DEIMOS_WEBSITE_DISPATCH_TOKEN }}" \
+            https://api.github.com/repos/deimoscontrols/deimos-website/dispatches \
+            -d '{"event_type":"deimos-docs"}'

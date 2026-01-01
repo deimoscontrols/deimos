@@ -174,3 +174,10 @@ jobs:
         with:
           command: upload
           args: --non-interactive --skip-existing wheels-*/*
+
+  notify_website_docs:
+    name: Notify website docs
+    needs: release
+    if: ${{ needs.release.result == 'success' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/notify-website-docs.yml
+    secrets: inherit
