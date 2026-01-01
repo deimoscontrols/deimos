@@ -19,8 +19,8 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-repository = "https://github.com/deimoscontrols/deimos/software/deimos"
-documentation = "https://github.com/deimoscontrols/deimos/software/deimos"
+repository = "https://github.com/deimoscontrols/deimos/"
+documentation = "https://deimoscontrols.com/api/api-python/"
 changelog = "https://github.com/deimoscontrols/deimos/blob/main/CHANGELOG.md"
 
 [dependency-groups]
@@ -32,11 +32,6 @@ test = [
     "mktestdocs == 0.2.5",
     #"plotly>=6,<7",
 ]
-#doc = [
-#    "mkdocs >= 1.6.1",
-#    "mkdocstrings-python >= 2.0.1",
-#    "mkdocs-material >= 9.7.1"
-#]
 
 [tool.uv]
 cache-keys = [

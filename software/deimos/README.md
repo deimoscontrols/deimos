@@ -8,6 +8,18 @@ the goals and state of the project.
 The control program and the firmware-software shared library share a
 [changelog](https://github.com/deimoscontrols/deimos/blob/main/CHANGELOG.md) at the workspace level.
 
+### Install - Rust
+
+```bash
+cargo add deimos
+```
+
+### Install - Python
+
+```bash
+pip install deimos-daq
+```
+
 ## Features & Roadmap
 
 ✅ Implemented | 💡 Planned
