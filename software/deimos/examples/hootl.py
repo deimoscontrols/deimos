@@ -71,7 +71,7 @@ def main() -> None:
             handle = ctrl.run_nonblocking()
 
             try:
-                time.sleep(1.0)
+                time.sleep(0.1)
                 handle.write({"mock_thread.dac0": 0.0})
 
                 # Make sure we had stable communication with all the peripheral mockups
