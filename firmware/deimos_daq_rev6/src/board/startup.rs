@@ -265,14 +265,11 @@ impl<'a> Board<'a> {
             // Set up DAC registers
             let (dac1, dac2) = dp.DAC.dac((pa4, pa5), ccdr.peripheral.DAC12);
 
-            // Enable DACs
-            // using unbuffered mode in order to allow rail-to-rail operation.
-            // In buffered mode, the DAC can't go below 20mV above ground, or
-            // above 20mV below VREF.
-            let mut dac1: stm32h7xx_hal::dac::C1<DAC, stm32h7xx_hal::dac::EnabledUnbuffered> =
-                dac1.enable_unbuffered();
-            let mut dac2: stm32h7xx_hal::dac::C2<DAC, stm32h7xx_hal::dac::EnabledUnbuffered> =
-                dac2.enable_unbuffered();
+            // Calibrate
+            let mut dac1: stm32h7xx_hal::dac::C1<DAC, stm32h7xx_hal::dac::Enabled> =
+                dac1.calibrate_buffer(&mut delay).enable();
+            let mut dac2: stm32h7xx_hal::dac::C2<DAC, stm32h7xx_hal::dac::Enabled> =
+                dac2.calibrate_buffer(&mut delay).enable();
 
             dac1.set_value(0);
             dac2.set_value(0);

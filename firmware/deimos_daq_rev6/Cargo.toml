@@ -23,7 +23,7 @@ flaw = { version = "0.6.0", default-features = false }
 atomic_float = "1.1.0"
 array-macro = "2.1.8"
 
-deimos_shared = { path = "../../software/deimos_shared", version="0.5.0" }
+deimos_shared = { path = "../../software/deimos_shared", version="0.15.0" }
 
 [dependencies.smoltcp]
 version = "0.11.0"
