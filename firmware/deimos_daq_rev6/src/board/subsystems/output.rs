@@ -14,8 +14,8 @@ pub struct Outputs {
     pub pwm1: Pwm<TIM12, 0, ComplementaryImpossible>,
     pub pwm2: Pwm<TIM16, 0, ComplementaryDisabled>,
     pub pwm3: Pwm<TIM17, 0, ComplementaryDisabled>,
-    pub dac1: stm32h7xx_hal::dac::C1<DAC, stm32h7xx_hal::dac::EnabledUnbuffered>,
-    pub dac2: stm32h7xx_hal::dac::C2<DAC, stm32h7xx_hal::dac::EnabledUnbuffered>,
+    pub dac1: stm32h7xx_hal::dac::C1<DAC, stm32h7xx_hal::dac::Enabled>,
+    pub dac2: stm32h7xx_hal::dac::C2<DAC, stm32h7xx_hal::dac::Enabled>,
 }
 
 // Set PWM frequency and duty cycle

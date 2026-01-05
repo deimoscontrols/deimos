@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-01-04 Rev6 Firmware 0.5.1
+
+### Changed
+
+* Use buffered mode for DACs again
+    * Unbuffered mode produces some voltage error
+    * Buffered mode rails at 20mV on the low end, but this will be resolved in hardware in a later rev
+
 ## 2026-01-01 deimos 0.15.0
 
 Broad refactor and many new features to improve usability of software interface. 
