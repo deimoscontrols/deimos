@@ -22,11 +22,7 @@ fn main() {
     controller.add_peripheral("p1", Box::new(AnalogIRev4 { serial_number: 1 }));
 
     // Set up data targets
-    let csv_dispatcher: Box<dyn Dispatcher> = 
-        CsvDispatcher::new(
-            50,
-            dispatcher::Overflow::Wrap
-        );
+    let csv_dispatcher: Box<dyn Dispatcher> = CsvDispatcher::new(50, dispatcher::Overflow::Wrap);
     controller.add_dispatcher("csv", csv_dispatcher);
 
     // Serialize and deserialize the controller (for demonstration purposes)

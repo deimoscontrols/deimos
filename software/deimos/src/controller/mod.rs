@@ -46,6 +46,10 @@ pub(crate) fn manual_inputs_default() -> ManualInputMap {
     Arc::new(RwLock::new(HashMap::new()))
 }
 
+fn elapsed_ns_i64(start: &Instant) -> i64 {
+    start.elapsed().as_nanos().min(i64::MAX as u128) as i64
+}
+
 /// The controller implements the control loop,
 /// synchronizes sample reporting time between the peripherals,
 /// and dispatches measured data, calculations, and metrics to the data pipeline.
@@ -1080,6 +1084,7 @@ impl Controller {
         controller_state.controller_metrics.cycle_time_margin_ns = self.ctx.dt_ns as f64;
         let mut ready_signaled = false;
         loop {
+            let cycle_start = Instant::now();
             let time = SystemTime::now();
             let mut t = start_of_operating.elapsed();
 
@@ -1090,6 +1095,15 @@ impl Controller {
             // Record timing margin
             let controller_timing_margin = (target_time.as_secs_f64() - t.as_secs_f64()) * 1e9;
             controller_state.controller_metrics.cycle_time_margin_ns = controller_timing_margin;
+            controller_state.controller_metrics.reconnect_end_ns = 0;
+            controller_state
+                .controller_metrics
+                .termination_checks_end_ns = 0;
+            controller_state.controller_metrics.peripheral_send_end_ns = 0;
+            controller_state
+                .controller_metrics
+                .peripheral_receive_end_ns = 0;
+            controller_state.controller_metrics.orchestrator_eval_end_ns = 0;
 
             // Check for loss of contact
             match self.ctx.loss_of_contact_policy {
@@ -1258,6 +1272,9 @@ impl Controller {
                     return reason;
                 }
             }
+            controller_state
+                .controller_metrics
+                .termination_checks_end_ns = elapsed_ns_i64(&cycle_start);
 
             // Periodically broadcast bind requests on sockets with Disconnected peripherals.
             // To avoid overwhelming the network, we only do this once per reconnect attempt window
@@ -1340,6 +1357,7 @@ impl Controller {
                     .iter_mut()
                     .for_each(|targets| targets.clear());
             }
+            controller_state.controller_metrics.reconnect_end_ns = elapsed_ns_i64(&cycle_start);
 
             // Set manual peripheral inputs from outside the expression graph
             if self.ctx.enable_manual_inputs {
@@ -1403,6 +1421,8 @@ impl Controller {
                     // expect that level of micromanagement from a typical user.
                 }
             }
+            controller_state.controller_metrics.peripheral_send_end_ns =
+                elapsed_ns_i64(&cycle_start);
 
             // Receive packets until the start of the next cycle
             //     Unless we hear from each connected peripheral, assume we missed the packet
@@ -1462,6 +1482,9 @@ impl Controller {
 
                 t = start_of_operating.elapsed();
             }
+            controller_state
+                .controller_metrics
+                .peripheral_receive_end_ns = elapsed_ns_i64(&cycle_start);
 
             // Exit if any socket has failed.
             if let Some(err) = worker_error {
@@ -1504,7 +1527,10 @@ impl Controller {
             }
 
             // Run calcs
-            if let Err(err) = self.orchestrator.eval() {
+            let eval_result = self.orchestrator.eval();
+            controller_state.controller_metrics.orchestrator_eval_end_ns =
+                elapsed_ns_i64(&cycle_start);
+            if let Err(err) = eval_result {
                 self.sockets = socket_orchestrator.close().into_iter().collect();
                 return Err(err);
             }

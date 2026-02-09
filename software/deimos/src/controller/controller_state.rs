@@ -12,11 +12,23 @@ use super::peripheral_state::*;
 #[derive(Default)]
 pub(crate) struct ControllerOperatingMetrics {
     pub cycle_time_margin_ns: f64,
+    pub reconnect_end_ns: i64,
+    pub termination_checks_end_ns: i64,
+    pub peripheral_send_end_ns: i64,
+    pub peripheral_receive_end_ns: i64,
+    pub orchestrator_eval_end_ns: i64,
 }
 
 impl ControllerOperatingMetrics {
     pub fn names_to_write(&self) -> Vec<String> {
-        const OUT: [&str; 1] = ["ctrl.cycle_time_margin_ns"];
+        const OUT: [&str; 6] = [
+            "ctrl.cycle_time_margin_ns",
+            "ctrl.reconnect_end_ns",
+            "ctrl.termination_checks_end_ns",
+            "ctrl.peripheral_send_end_ns",
+            "ctrl.peripheral_receive_end_ns",
+            "ctrl.orchestrator_eval_end_ns",
+        ];
         const {
             assert!(OUT.len() == Self::num_to_write());
         }
@@ -24,11 +36,16 @@ impl ControllerOperatingMetrics {
     }
 
     pub const fn num_to_write() -> usize {
-        1
+        6
     }
 
     pub fn write_metric_values(&self, out: &mut [f64]) {
         out[0] = self.cycle_time_margin_ns;
+        out[1] = self.reconnect_end_ns as f64;
+        out[2] = self.termination_checks_end_ns as f64;
+        out[3] = self.peripheral_send_end_ns as f64;
+        out[4] = self.peripheral_receive_end_ns as f64;
+        out[5] = self.orchestrator_eval_end_ns as f64;
     }
 }
 
