@@ -151,6 +151,13 @@ class Controller:
         This constructor does not run the controller or attach any peripherals.
         """
         ...
+    def to_json(self) -> str:
+        """Serialize to typetagged JSON so Python can pass into trait handoff."""
+        ...
+    @classmethod
+    def from_json(cls, s: str) -> Self:
+        """Deserialize from typetagged JSON."""
+        ...
     def run(self) -> str:
         """Run the control program."""
         ...

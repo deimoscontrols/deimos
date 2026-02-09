@@ -73,6 +73,25 @@ impl Controller {
         })
     }
 
+    /// Serialize to typetagged JSON.
+    fn to_json(&self) -> PyResult<String> {
+        let controller = self.controller.as_ref().ok_or_else(|| BackendErr::RunErr {
+            msg: "Controller has been moved into a running thread".to_string(),
+        })?;
+        serde_json::to_string(controller)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// Deserialize from typetagged JSON.
+    #[staticmethod]
+    fn from_json(s: &str) -> PyResult<Self> {
+        let controller = serde_json::from_str::<crate::Controller>(s)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(Self {
+            controller: Some(controller),
+        })
+    }
+
     /// Run the control program
     fn run(&mut self, py: Python<'_>) -> PyResult<String> {
         // Shared signal indicating whether the controller should exit
