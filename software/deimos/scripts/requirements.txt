@@ -1,5 +1,5 @@
 # Using python 3.11, but should be compatible with any python 3.6+
 matplotlib == 3.9.0
-numpy == 1.26.4
+numpy > 2
 pandas == 2.2.2
-interpn == 0.2.1
+interpn == 0.11.0
