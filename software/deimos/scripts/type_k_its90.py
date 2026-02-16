@@ -152,7 +152,7 @@ for i in range(len(cjtemps)):
     vals = hjtemps_interpolated[:, i]
     err = vals - ref
     plt.plot(vals, err, label=f"{cjtemps[i] - 273.15} (C)")
-plt.title("Final Inverted Table")
+plt.title("Final Inverted Table (ITS-90)")
 plt.xlabel("Hot Junction Temp (K)")
 plt.ylabel("Error (K)")
 plt.legend(bbox_to_anchor=[1.0, 1.0], ncol=2, title="Cold Junc. Temp")

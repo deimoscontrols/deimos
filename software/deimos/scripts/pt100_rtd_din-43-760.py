@@ -23,6 +23,11 @@ import numpy as np
 from interpn import MulticubicRectilinear
 
 import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set_palette("crest", 21)
+sns.set_style("whitegrid")
+sns.set_context("paper", font_scale=1.4)
 
 here = Path(__file__).parent
 
@@ -38,8 +43,12 @@ resistances_orig = df["Ohms"].values  # [ohm]
 #   across regions with changing spacing in the original data
 ngrid = 2 * len(temps_orig)
 
-temp_interpolator = MulticubicRectilinear.new([resistances_orig], temps_orig, linearize_extrapolation=True)
-resistances = np.linspace(np.min(resistances_orig), np.max(resistances_orig), ngrid, endpoint=True)  # [ohm]
+temp_interpolator = MulticubicRectilinear.new(
+    [resistances_orig], temps_orig, linearize_extrapolation=True
+)
+resistances = np.linspace(
+    np.min(resistances_orig), np.max(resistances_orig), ngrid, endpoint=True
+)  # [ohm]
 temps = temp_interpolator.eval([resistances])  # [K]
 temps = [float(x) for x in temps]
 
@@ -48,22 +57,31 @@ with open(here / "pt100_rtd_din-43-76_rust.txt", "w") as f:
     step = float(resistances[1] - resistances[0])
     start = float(resistances[0])
     n = len(resistances)
-    f.write('// [ohm] probe resistance, regular grid\n')
+    f.write("// [ohm] probe resistance, regular grid\n")
     f.write(f"const PROBE_RESISTANCE_START_OHM: f64 = {start};  // [ohm]\n")
     f.write(f"const PROBE_RESISTANCE_STEP_OHM: f64 = {step};  // [ohm]\n")
     f.write(f"const PROBE_RESISTANCE_N: usize = {n};\n\n")
 
     f.write(
-        '// [K] Temperature at the probe, 1d table mapping resistance => probe_temp.\n'
+        "// [K] Temperature at the probe, 1d table mapping resistance => probe_temp.\n"
     )
     f.write("#[rustfmt::skip]\n")
-    f.write(
-        f"const PROBE_TEMP_K: [f64; {len(temps)}] = "
-        + str(temps)
-        + ";  // [K]\n"
-    )
+    f.write(f"const PROBE_TEMP_K: [f64; {len(temps)}] = " + str(temps) + ";  // [K]\n")
 
-plt.plot(resistances, temps, color='k', linewidth=2)
-plt.xlabel("resistance [ohm]")
-plt.ylabel("temperature [K]")
+plt.figure(figsize=(6, 7))
+plt.plot(resistances, temps, color="k", linewidth=2)
+plt.plot(
+    [resistances[0], resistances[-1]],
+    [temps[0], temps[-1]],
+    linewidth=2,
+    linestyle="dashed",
+    color="k",
+    alpha=0.3,
+)
+plt.xlabel("Resistance (ohm)")
+plt.ylabel("Temperature (K)")
+plt.title("PT100 RTD Table (DIN-43-760)")
+plt.gca().set_ylim(0)
+plt.tight_layout()
+plt.savefig("./pt100.svg")
 plt.show()
