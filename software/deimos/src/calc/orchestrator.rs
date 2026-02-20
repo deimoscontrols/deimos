@@ -290,7 +290,7 @@ impl CalcOrchestrator {
         // Formatting configuration
         let mut dot = String::new();
         dot.push_str("digraph calc_expression {\n");
-        dot.push_str("  graph [nodesep=0.2, ranksep=\"1.2 equally\", concentrate=true];\n");
+        dot.push_str("  graph [nodesep=0.2, ranksep=\"3.0 equally\", concentrate=true];\n");
         dot.push_str("  rankdir=LR;\n");
         dot.push_str("  splines=true;\n");
         dot.push_str("  node [\n");
