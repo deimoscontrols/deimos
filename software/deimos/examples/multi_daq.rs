@@ -157,7 +157,11 @@ fn main() {
     // std::fs::write("./multi_daq.json", &serialized_controller);
 
     // Print graphviz dot representation of expression graph
-    // println!("{}", controller.graphviz_dot());
+    println!("{}", controller.graphviz_dot());
+
+    // Print graphviz dot representation of sequence machine
+    let machine = SequenceMachine::load_folder(&machine_dir).unwrap();
+    println!("{}", machine.graphviz_dot());
 
     // Run the control program
     info!("Starting controller");

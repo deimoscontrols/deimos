@@ -2,7 +2,11 @@
 //! each sequence, and transitions between sequences based on set criteria.
 
 use core::f64;
-use std::{collections::HashSet, path::Path};
+use std::fmt::Write;
+use std::{
+    collections::{BTreeSet, HashSet},
+    path::Path,
+};
 
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -362,6 +366,178 @@ impl SequenceMachine {
 
         Ok(())
     }
+
+    /// Render this sequence machine's state graph as Graphviz DOT text.
+    pub fn graphviz_dot(&self) -> String {
+        fn dot_quote_id(id: &str) -> String {
+            let escaped = id.replace('\\', "\\\\").replace('"', "\\\"");
+            format!("\"{escaped}\"")
+        }
+
+        fn dot_escape_label(label: &str) -> String {
+            let mut escaped = String::new();
+            for ch in label.chars() {
+                match ch {
+                    '\\' => escaped.push_str("\\\\"),
+                    '"' => escaped.push_str("\\\""),
+                    '\n' => escaped.push_str("\\n"),
+                    _ => escaped.push(ch),
+                }
+            }
+            escaped
+        }
+
+        fn sequence_node_id(name: &str) -> String {
+            format!("seq::{name}")
+        }
+
+        fn criterion_label(criterion: &Transition) -> String {
+            fn thresh_expr(lhs: &str, op: &ThreshOp, rhs: &str) -> String {
+                match op {
+                    ThreshOp::Gt { by } => {
+                        if *by == 0.0 {
+                            format!("{lhs} > {rhs}")
+                        } else {
+                            format!("{lhs} > {rhs} + {by}")
+                        }
+                    }
+                    ThreshOp::Lt { by } => {
+                        if *by == 0.0 {
+                            format!("{lhs} < {rhs}")
+                        } else {
+                            format!("{lhs} < {rhs} - {by}")
+                        }
+                    }
+                    ThreshOp::Approx { atol } => {
+                        format!("|{lhs} - {rhs}| < {atol}")
+                    }
+                }
+            }
+
+            match criterion {
+                Transition::ConstantThresh(channel, op, threshold) => {
+                    thresh_expr(channel, op, &threshold.to_string())
+                }
+                Transition::ChannelThresh(channel, op, threshold_channel) => {
+                    thresh_expr(channel, op, threshold_channel)
+                }
+                Transition::LookupThresh(channel, op, lookup) => {
+                    let expr = thresh_expr(channel, op, "lookup(t)");
+                    let t_start = lookup.time_s.first().copied().unwrap_or(f64::NAN);
+                    let t_end = lookup.time_s.last().copied().unwrap_or(f64::NAN);
+                    format!(
+                        "{expr}\nlookup: {} [{:.3e}, {:.3e}]",
+                        lookup.method.to_str(),
+                        t_start,
+                        t_end
+                    )
+                }
+            }
+        }
+
+        let mut state_names: BTreeSet<String> = BTreeSet::new();
+        state_names.extend(self.sequences.keys().cloned());
+        state_names.extend(self.cfg.timeouts.keys().cloned());
+        state_names.extend(self.cfg.transitions.keys().cloned());
+        for timeout in self.cfg.timeouts.values() {
+            if let Timeout::Transition(target) = timeout {
+                state_names.insert(target.clone());
+            }
+        }
+        for targets in self.cfg.transitions.values() {
+            state_names.extend(targets.keys().cloned());
+        }
+        if !self.cfg.entry.is_empty() {
+            state_names.insert(self.cfg.entry.clone());
+        }
+
+        let mut dot = String::new();
+        dot.push_str("digraph sequence_machine {\n");
+        dot.push_str("  rankdir=LR;\n");
+        dot.push_str("  graph [concentrate=true, ranksep=\"1.2 equally\"];\n");
+        dot.push_str("  node [shape=box, fontname=\"monospace\", margin=\"0.5,0.10\"];\n");
+        dot.push_str("  edge [fontname=\"monospace\"];\n\n");
+
+        for state in &state_names {
+            let node_id = sequence_node_id(state);
+            if let Some(seq) = self.sequences.get(state) {
+                let label = format!(
+                    "{state}\n[{:.3e}, {:.3e}] s",
+                    seq.get_start_time_s(),
+                    seq.get_end_time_s()
+                );
+                let _ = writeln!(
+                    dot,
+                    "  {} [label=\"{}\"];",
+                    dot_quote_id(&node_id),
+                    dot_escape_label(&label)
+                );
+            } else {
+                let label = format!("{state}\n(missing sequence data)");
+                let _ = writeln!(
+                    dot,
+                    "  {} [style=dashed, color=\"red\", label=\"{}\"];",
+                    dot_quote_id(&node_id),
+                    dot_escape_label(&label)
+                );
+            }
+        }
+
+        if !self.cfg.entry.is_empty() {
+            let entry_node_id = "__entry";
+            let _ = writeln!(
+                dot,
+                "  {} [shape=point, width=0.15, label=\"\"];",
+                dot_quote_id(entry_node_id)
+            );
+            let _ = writeln!(
+                dot,
+                "  {} -> {} [label=\"entry\"];",
+                dot_quote_id(entry_node_id),
+                dot_quote_id(&sequence_node_id(&self.cfg.entry))
+            );
+        }
+        dot.push('\n');
+
+        for (source, timeout) in self.cfg.timeouts.iter() {
+            let source_id = sequence_node_id(source);
+            match timeout {
+                Timeout::Transition(target) => {
+                    let _ = writeln!(
+                        dot,
+                        "  {} -> {} [style=dashed, label=\"timeout\"];",
+                        dot_quote_id(&source_id),
+                        dot_quote_id(&sequence_node_id(target))
+                    );
+                }
+                Timeout::Loop => {
+                    let _ = writeln!(
+                        dot,
+                        "  {} -> {} [style=dashed, label=\"timeout loop\"];",
+                        dot_quote_id(&source_id),
+                        dot_quote_id(&source_id)
+                    );
+                }
+            }
+        }
+
+        for (source, targets) in self.cfg.transitions.iter() {
+            for (target, criteria) in targets.iter() {
+                for criterion in criteria {
+                    let _ = writeln!(
+                        dot,
+                        "  {} -> {} [label=\"{}\"];",
+                        dot_quote_id(&sequence_node_id(source)),
+                        dot_quote_id(&sequence_node_id(target)),
+                        dot_escape_label(&criterion_label(criterion))
+                    );
+                }
+            }
+        }
+
+        dot.push_str("}\n");
+        dot
+    }
 }
 
 #[typetag::serde]
@@ -572,6 +748,12 @@ impl SequenceMachine {
         Ok(())
     }
 
+    /// Render this sequence machine's state graph as Graphviz DOT text.
+    #[pyo3(name = "graphviz_dot")]
+    fn py_graphviz_dot(&self) -> PyResult<String> {
+        Ok(self.graphviz_dot())
+    }
+
     fn get_timeout(&self, sequence: String) -> PyResult<Option<String>> {
         let timeout = self.cfg.timeouts.get(&sequence).ok_or_else(|| {
             pyo3::exceptions::PyKeyError::new_err(format!("Unknown sequence: {sequence}"))
@@ -776,5 +958,19 @@ mod tests {
         let roundtrip_json = serde_json::to_string_pretty(&roundtrip).unwrap();
 
         assert_eq!(original_json, roundtrip_json);
+    }
+
+    #[test]
+    fn graphviz_dot_contains_entry_and_transitions() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let src_dir = root.join("examples").join("machine");
+        let machine = *SequenceMachine::load_folder(&src_dir).unwrap();
+
+        let dot = machine.graphviz_dot();
+
+        assert!(dot.contains("digraph sequence_machine"));
+        assert!(dot.contains("\"__entry\" -> \"seq::low\" [label=\"entry\"];"));
+        assert!(dot.contains("\"seq::low\" -> \"seq::high\""));
+        assert!(dot.contains("\"seq::high\" -> \"seq::low\" [style=dashed, label=\"timeout\"];"));
     }
 }
