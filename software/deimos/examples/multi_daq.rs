@@ -156,6 +156,9 @@ fn main() {
     let _: Controller = serde_json::from_str(&serialized_controller).unwrap();
     // std::fs::write("./multi_daq.json", &serialized_controller);
 
+    // Print graphviz dot representation of expression graph
+    // println!("{}", controller.graphviz_dot());
+
     // Run the control program
     info!("Starting controller");
     controller.run(&peripheral_plugins, None).unwrap();

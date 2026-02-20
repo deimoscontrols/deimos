@@ -1,8 +1,9 @@
 //! Calculations that are run at each cycle during operation.
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::fmt::Write;
 use std::iter::Iterator;
-use std::{collections::BTreeMap, ops::Range};
+use std::ops::Range;
 
 use serde::{Deserialize, Serialize};
 
@@ -40,6 +41,81 @@ struct CalcOrchestratorState {
 
     /// Peripheral input fields that can be written manually, and their indices.
     manual_input_indices: BTreeMap<FieldName, usize>,
+}
+
+#[derive(Clone)]
+struct DotPortEndpoint {
+    node_id: String,
+    port_id: String,
+}
+
+fn dot_quote_id(id: &str) -> String {
+    let escaped = id.replace('\\', "\\\\").replace('"', "\\\"");
+    format!("\"{escaped}\"")
+}
+
+fn dot_escape_string(text: &str) -> String {
+    let mut escaped = String::new();
+    for ch in text.chars() {
+        match ch {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\n"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
+fn dot_escape_record_text(text: &str) -> String {
+    let mut escaped = String::new();
+    for ch in text.chars() {
+        match ch {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\n"),
+            '{' | '}' | '|' | '<' | '>' => {
+                escaped.push('\\');
+                escaped.push(ch);
+            }
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
+fn dot_record_label(center: &str, inputs: &[String], outputs: &[String]) -> String {
+    let mut label = String::new();
+    label.push_str("{{");
+
+    for (i, input_name) in inputs.iter().enumerate() {
+        if i > 0 {
+            label.push('|');
+        }
+        let _ = write!(
+            label,
+            "<in_{i}> {}",
+            dot_escape_record_text(input_name.as_str())
+        );
+    }
+
+    label.push_str("}|");
+    label.push_str(&dot_escape_record_text(center));
+    label.push_str("|{");
+
+    for (i, output_name) in outputs.iter().enumerate() {
+        if i > 0 {
+            label.push('|');
+        }
+        let _ = write!(
+            label,
+            "<out_{i}> {}",
+            dot_escape_record_text(output_name.as_str())
+        );
+    }
+
+    label.push_str("}}");
+    label
 }
 
 /// Calculations that are run at each cycle during operation.
@@ -203,6 +279,228 @@ impl CalcOrchestrator {
     pub fn set_peripheral_input_source(&mut self, input_field: &str, source_field: &str) {
         self.peripheral_input_sources
             .insert(input_field.to_owned(), source_field.to_owned());
+    }
+
+    /// Render the current calc expression graph as Graphviz DOT with record ports.
+    pub fn graphviz_dot(&self, peripherals: &BTreeMap<String, Box<dyn Peripheral>>) -> String {
+        fn unknown_field_node_id(field_name: &str) -> String {
+            format!("field::{field_name}")
+        }
+
+        // Formatting configuration
+        let mut dot = String::new();
+        dot.push_str("digraph calc_expression {\n");
+        dot.push_str("  graph [nodesep=0.2, ranksep=\"1.2 equally\", concentrate=true];\n");
+        dot.push_str("  rankdir=LR;\n");
+        dot.push_str("  splines=true;\n");
+        dot.push_str("  node [\n");
+        dot.push_str("    shape=record,\n");
+        dot.push_str("    fontname=\"monospace\",\n");
+        dot.push_str("    margin=\"0.5,0.10\",\n");
+        dot.push_str("  ];\n");
+        dot.push_str("  edge [fontname=\"monospace\"];\n\n");
+
+        let mut source_ports: BTreeMap<FieldName, DotPortEndpoint> = BTreeMap::new();
+        let mut calc_input_ports: BTreeMap<FieldName, DotPortEndpoint> = BTreeMap::new();
+        let mut peripheral_input_ports: BTreeMap<FieldName, DotPortEndpoint> = BTreeMap::new();
+        let mut peripheral_input_node_ids = Vec::new();
+        let mut peripheral_output_node_ids = Vec::new();
+
+        // Calc nodes with input and output ports
+        dot.push_str("  subgraph cluster_calcs {\n");
+        dot.push_str("    label=\"calcs\";\n");
+        for (calc_name, calc) in self.calcs.iter() {
+            let node_id = format!("calc::{calc_name}");
+            let input_names = calc.get_input_names();
+            let output_names = calc.get_output_names();
+            let label = dot_record_label(calc_name, &input_names, &output_names);
+            let _ = writeln!(dot, "    {} [label=\"{}\"];", dot_quote_id(&node_id), label);
+
+            for (i, input_name) in input_names.iter().enumerate() {
+                calc_input_ports.insert(
+                    format!("{calc_name}.{input_name}"),
+                    DotPortEndpoint {
+                        node_id: node_id.clone(),
+                        port_id: format!("in_{i}"),
+                    },
+                );
+            }
+
+            for (i, output_name) in output_names.iter().enumerate() {
+                source_ports.insert(
+                    format!("{calc_name}.{output_name}"),
+                    DotPortEndpoint {
+                        node_id: node_id.clone(),
+                        port_id: format!("out_{i}"),
+                    },
+                );
+            }
+        }
+        dot.push_str("  }\n\n");
+
+        // Peripheral inputs and outputs as separate nodes so that they can be ordered
+        // to the left and right to make a coherent dependency flow
+        dot.push_str("  subgraph cluster_peripherals {\n");
+        dot.push_str("    label=\"peripherals\";\n");
+        for (name, peripheral) in peripherals.iter() {
+            let input_names = peripheral.input_names();
+            let output_names = peripheral.output_names();
+            let output_node_id = format!("periph::{name}::out");
+            let input_node_id = format!("periph::{name}::in");
+            peripheral_output_node_ids.push(output_node_id.clone());
+            peripheral_input_node_ids.push(input_node_id.clone());
+
+            let output_label = dot_record_label(&format!("{name} outputs"), &[], &output_names);
+            let input_label = dot_record_label(&format!("{name} inputs"), &input_names, &[]);
+
+            let _ = writeln!(
+                dot,
+                "    {} [label=\"{}\"];",
+                dot_quote_id(&output_node_id),
+                output_label
+            );
+            let _ = writeln!(
+                dot,
+                "    {} [label=\"{}\"];",
+                dot_quote_id(&input_node_id),
+                input_label
+            );
+            let _ = writeln!(
+                dot,
+                "    {} -> {} [style=invis, weight=100];",
+                dot_quote_id(&output_node_id),
+                dot_quote_id(&input_node_id)
+            ); // Invisible chain ordering
+
+            for (i, input_name) in input_names.iter().enumerate() {
+                let field = format!("{name}.{input_name}");
+                let endpoint = DotPortEndpoint {
+                    node_id: input_node_id.clone(),
+                    port_id: format!("in_{i}"),
+                };
+                source_ports.insert(field.clone(), endpoint.clone());
+                peripheral_input_ports.insert(field, endpoint);
+            }
+
+            for (i, output_name) in output_names.iter().enumerate() {
+                source_ports.insert(
+                    format!("{name}.{output_name}"),
+                    DotPortEndpoint {
+                        node_id: output_node_id.clone(),
+                        port_id: format!("out_{i}"),
+                    },
+                );
+            }
+        }
+        dot.push_str("  }\n\n");
+
+        // Set peripheral input and output node rank to push left and right
+        if !peripheral_input_node_ids.is_empty() {
+            dot.push_str("  subgraph peripheral_input_rank {\n");
+            dot.push_str("    rank=max;\n");
+            for node_id in &peripheral_input_node_ids {
+                let _ = writeln!(dot, "    {};", dot_quote_id(node_id));
+            }
+            dot.push_str("  }\n");
+        }
+
+        if !peripheral_output_node_ids.is_empty() {
+            dot.push_str("  subgraph peripheral_output_rank {\n");
+            dot.push_str("    rank=min;\n");
+            for node_id in &peripheral_output_node_ids {
+                let _ = writeln!(dot, "    {};", dot_quote_id(node_id));
+            }
+            dot.push_str("  }\n");
+        }
+        dot.push('\n');
+
+        // Set rank based on eval depth
+        if let Ok((_, eval_depth_groups)) = self.eval_order() {
+            for group in eval_depth_groups.iter().filter(|x| !x.is_empty()) {
+                dot.push_str("  { rank=same;");
+                for calc_name in group {
+                    let _ = write!(dot, " {}", dot_quote_id(&format!("calc::{calc_name}")));
+                }
+                dot.push_str(" }\n");
+            }
+            dot.push('\n');
+        }
+
+        let mut unresolved_fields: BTreeSet<FieldName> = BTreeSet::new();
+        let mut edges = Vec::new();
+
+        // Add calc edges
+        for (calc_name, calc) in self.calcs.iter() {
+            let input_map = calc.get_input_map();
+            for input_name in calc.get_input_names() {
+                let key = format!("{calc_name}.{input_name}");
+                let Some(dst) = calc_input_ports.get(&key) else {
+                    continue;
+                };
+                let Some(src_field) = input_map.get(&input_name) else {
+                    continue;
+                };
+
+                if let Some(src) = source_ports.get(src_field) {
+                    edges.push(format!(
+                        "  {}:{} -> {}:{};",
+                        dot_quote_id(&src.node_id),
+                        src.port_id,
+                        dot_quote_id(&dst.node_id),
+                        dst.port_id
+                    ));
+                } else {
+                    unresolved_fields.insert(src_field.clone());
+                    edges.push(format!(
+                        "  {} -> {}:{};",
+                        dot_quote_id(&unknown_field_node_id(src_field)),
+                        dot_quote_id(&dst.node_id),
+                        dst.port_id
+                    ));
+                }
+            }
+        }
+
+        // Add peripheral edges
+        for (dst_field, src_field) in self.peripheral_input_sources.iter() {
+            let src_ref = if let Some(src) = source_ports.get(src_field) {
+                format!("{}:{}", dot_quote_id(&src.node_id), src.port_id)
+            } else {
+                unresolved_fields.insert(src_field.clone());
+                dot_quote_id(&unknown_field_node_id(src_field))
+            };
+
+            let dst_ref = if let Some(dst) = peripheral_input_ports.get(dst_field) {
+                format!("{}:{}", dot_quote_id(&dst.node_id), dst.port_id)
+            } else {
+                unresolved_fields.insert(dst_field.clone());
+                dot_quote_id(&unknown_field_node_id(dst_field))
+            };
+
+            edges.push(format!("  {src_ref} -> {dst_ref};"));
+        }
+
+        // Account for any leftovers (there shouldn't be any, but if there are, they won't be invisible)
+        if !unresolved_fields.is_empty() {
+            for field_name in unresolved_fields.iter() {
+                let node_id = unknown_field_node_id(field_name);
+                let _ = writeln!(
+                    dot,
+                    "  {} [shape=plaintext, label=\"{}\"];",
+                    dot_quote_id(&node_id),
+                    dot_escape_string(field_name)
+                );
+            }
+            dot.push('\n');
+        }
+
+        for edge in edges {
+            dot.push_str(&edge);
+            dot.push('\n');
+        }
+
+        dot.push_str("}\n");
+        dot
     }
 
     /// Determine the order to evaluate the calcs by traversing the calc graph
@@ -484,5 +782,31 @@ impl CalcOrchestrator {
         } else {
             Err(format!("Failed to terminate calcs: {}", errors.join("")))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::calc::Affine;
+    use crate::peripheral::AnalogIRev3;
+
+    #[test]
+    fn graphviz_dot_uses_node_ports() {
+        let mut orchestrator = CalcOrchestrator::default();
+        orchestrator.add_calc("c0", Affine::new("p.ain0".to_owned(), 1.0, 0.0, true));
+        orchestrator.add_calc("c1", Affine::new("c0.y".to_owned(), 2.0, 0.0, true));
+        orchestrator.set_peripheral_input_source("p.pwm0_duty", "c1.y");
+
+        let peripherals: BTreeMap<String, Box<dyn Peripheral>> = BTreeMap::from([(
+            "p".to_owned(),
+            Box::new(AnalogIRev3 { serial_number: 1 }) as _,
+        )]);
+
+        let dot = orchestrator.graphviz_dot(&peripherals);
+
+        assert!(dot.contains("\"periph::p::out\":out_0 -> \"calc::c0\":in_0;"));
+        assert!(dot.contains("\"calc::c0\":out_0 -> \"calc::c1\":in_0;"));
+        assert!(dot.contains("\"calc::c1\":out_0 -> \"periph::p::in\":in_0;"));
     }
 }

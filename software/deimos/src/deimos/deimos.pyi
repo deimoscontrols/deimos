@@ -179,6 +179,9 @@ class Controller:
     def available_inputs(self) -> list[str]:
         """List peripheral inputs that can be written manually."""
         ...
+    def graphviz_dot(self) -> str:
+        """Render the current calc expression graph as Graphviz DOT text."""
+        ...
     def add_peripheral(self, name: str, p: PeripheralLike) -> None:
         """Register a peripheral with the control program"""
         ...

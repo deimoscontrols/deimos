@@ -132,6 +132,11 @@ impl Controller {
         self.orchestrator.peripheral_input_sources()
     }
 
+    /// Render the current calc expression graph as Graphviz DOT text.
+    pub fn graphviz_dot(&self) -> String {
+        self.orchestrator.graphviz_dot(&self.peripherals)
+    }
+
     /// Peripheral inputs that can be written manually.
     pub fn manual_input_names(&self) -> Vec<FieldName> {
         self.orchestrator.manual_input_names(&self.peripherals)
