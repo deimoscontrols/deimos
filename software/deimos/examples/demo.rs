@@ -115,7 +115,7 @@ fn main() {
     controller.set_peripheral_input_source("p8.dac0", "dac0.y");
     controller.set_peripheral_input_source("p8.dac1", "dac1.y");
 
-    let sensed_current = Affine::new("p8_0_15V_1.y".to_string(), 1.0 / 1.5, -0.4 + 0.025, true);
+    let sensed_current = Affine::new("p8_0_15V_1.y".to_string(), 1.0 / 1.5, 0.0, true);
     controller.add_calc("p8_valve_current_A", sensed_current);
     let sensed_current_filtered = Butter2::new("p8_valve_current_A.y".to_string(), 10.0, true);
     controller.add_calc("p8_valve_current_filt_A", sensed_current_filtered);
