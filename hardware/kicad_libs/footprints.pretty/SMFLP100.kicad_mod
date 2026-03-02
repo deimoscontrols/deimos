@@ -1,41 +1,318 @@
-(module "SMFLP100" (layer F.Cu)
-  (descr "SMFLP10.0-2")
-  (tags "LED")
-  (fp_text reference LED** (at 0.000 0) (layer F.SilkS)
-    (effects (font (size 1.27 1.27) (thickness 0.254)))
-  )
-  (fp_text user %R (at 0.000 0) (layer F.Fab)
-    (effects (font (size 1.27 1.27) (thickness 0.254)))
-  )
-  (fp_text value "SMFLP100" (at 0.000 0) (layer F.SilkS) hide
-    (effects (font (size 1.27 1.27) (thickness 0.254)))
-  )
-  (fp_line (start -4.5 -6.5) (end 4.5 -6.5) (layer F.CrtYd) (width 0.1))
-  (fp_line (start 4.5 -6.5) (end 4.5 6.5) (layer F.CrtYd) (width 0.1))
-  (fp_line (start 4.5 6.5) (end -4.5 6.5) (layer F.CrtYd) (width 0.1))
-  (fp_line (start -4.5 6.5) (end -4.5 -6.5) (layer F.CrtYd) (width 0.1))
-  (fp_line (start -3.5 -2) (end -3.5 2) (layer F.Fab) (width 0.1))
-  (fp_line (start -3.5 2) (end -3.5 2) (layer F.Fab) (width 0.1))
-  (fp_line (start 3.5 2) (end 3.5 -2) (layer F.Fab) (width 0.1))
-  (fp_line (start 3.5 -2) (end 3.5 -2) (layer F.Fab) (width 0.1))
-  (fp_line (start -3.5 -2) (end -3.5 2) (layer F.SilkS) (width 0.2))
-  (fp_line (start -3.5 2) (end -3.5 2) (layer F.SilkS) (width 0.2))
-  (fp_line (start 3.5 2) (end 3.5 -2) (layer F.SilkS) (width 0.2))
-  (fp_line (start 3.5 -2) (end 3.5 -2) (layer F.SilkS) (width 0.2))
-  (fp_line (start -4.1 -0) (end -4.1 -0) (layer F.SilkS) (width 0.1))
-  (fp_line (start -4.2 -0) (end -4.2 -0) (layer F.SilkS) (width 0.1))
-  (fp_arc (start 0 2) (end -3.500 2) (angle -180) (layer F.Fab) (width 0.1))
-  (fp_arc (start 0 -2) (end 3.500 -2) (angle -180) (layer F.Fab) (width 0.1))
-  (fp_arc (start 0 2) (end -3.500 2) (angle -180) (layer F.SilkS) (width 0.2))
-  (fp_arc (start 0 -2) (end 3.500 -2) (angle -180) (layer F.SilkS) (width 0.2))
-  (fp_arc (start -4.15 -0) (end -4.100 -0) (angle -180) (layer F.SilkS) (width 0.1))
-  (fp_arc (start -4.15 -0) (end -4.200 -0) (angle -180) (layer F.SilkS) (width 0.1))
-  (pad 1 smd rect (at 0.000 -0 90) (size 3.800 3.800) (layers F.Cu F.Paste F.Mask))
-  (pad MH1 np_thru_hole circle (at 0.000 3.7) (size 2.5654 2.5654) (drill 2.5654) (layers *.Cu *.Mask))
-  (pad MH2 np_thru_hole circle (at 0.000 -3.7) (size 2.5654 2.5654) (drill 2.5654) (layers *.Cu *.Mask))
-  (model SMFLP10.0.stp
-    (at (xyz 0 0 0))
-    (scale (xyz 1 1 1))
-    (rotate (xyz 0 0 0))
-  )
+(footprint "SMFLP100"
+	(version 20240108)
+	(generator "pcbnew")
+	(generator_version "8.0")
+	(layer "F.Cu")
+	(descr "SMFLP10.0-2")
+	(tags "LED")
+	(property "Reference" "LED**"
+		(at 0 0 0)
+		(layer "F.SilkS")
+		(uuid "12d65059-e52e-4e24-8a4e-2ac0e23ece0e")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+			)
+		)
+	)
+	(property "Value" "SMFLP100"
+		(at 0 0 0)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "6d5eddd8-4d35-41f5-acdf-c5a40636809c")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+			)
+		)
+	)
+	(property "Footprint" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "22139820-ab9f-4c0a-9333-db7c27c60913")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "aa8c3c05-ce48-4441-a507-dc78f4638540")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "d48be254-0463-4fd1-8bcf-671521f46a69")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr through_hole)
+	(fp_line
+		(start -4.2 0)
+		(end -4.2 0)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "14c98b91-c117-4820-846a-e6f5733c2129")
+	)
+	(fp_line
+		(start -4.1 0)
+		(end -4.1 0)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "e119742e-3ea0-4287-aa65-47fa5762de76")
+	)
+	(fp_line
+		(start -3.5 -2)
+		(end -3.5 2)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "038d6e94-d7cf-4481-bce9-5e53397120e5")
+	)
+	(fp_line
+		(start -3.5 2)
+		(end -3.5 2)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "671b6375-2d73-4d4d-b85c-05b0b3b4a081")
+	)
+	(fp_line
+		(start 3.5 -2)
+		(end 3.5 -2)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "c4f56066-b189-49d8-9d90-249923a55298")
+	)
+	(fp_line
+		(start 3.5 2)
+		(end 3.5 -2)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "ba8bde53-38ac-4410-951b-10266cea71f3")
+	)
+	(fp_arc
+		(start -4.2 0)
+		(mid -4.15 -0.05)
+		(end -4.1 0)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "8dfadbfb-6bc9-4a17-b8b6-c450bacb3e62")
+	)
+	(fp_arc
+		(start -4.1 0)
+		(mid -4.15 0.05)
+		(end -4.2 0)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "e3de8c69-274f-4c4c-891e-8bfb3e3a6aad")
+	)
+	(fp_arc
+		(start -3.5 -2)
+		(mid 0 -5.5)
+		(end 3.5 -2)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "8e2223eb-254b-49e8-9104-dcdd31b98f3b")
+	)
+	(fp_arc
+		(start 3.5 2)
+		(mid 0 5.5)
+		(end -3.5 2)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "a368f951-392a-4986-b351-d11150756552")
+	)
+	(fp_line
+		(start -4.5 -6.5)
+		(end 4.5 -6.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "14b4df2b-e002-4c43-aac1-421e5de54d0f")
+	)
+	(fp_line
+		(start -4.5 6.5)
+		(end -4.5 -6.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "5800f9c0-e0aa-4336-89f8-497a22b290b5")
+	)
+	(fp_line
+		(start 4.5 -6.5)
+		(end 4.5 6.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "17e6d131-bfb0-41d5-913a-49c09fd18f92")
+	)
+	(fp_line
+		(start 4.5 6.5)
+		(end -4.5 6.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "1c557bd2-bb39-43b1-9c95-95237491247b")
+	)
+	(fp_line
+		(start -3.5 -2)
+		(end -3.5 2)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "dac81b65-9306-494b-ab1b-16416c4bdcdc")
+	)
+	(fp_line
+		(start -3.5 2)
+		(end -3.5 2)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "ee7e1839-1743-4e4a-b309-d2f32aa45412")
+	)
+	(fp_line
+		(start 3.5 -2)
+		(end 3.5 -2)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "40f25ca0-b0b1-48f2-bf23-3857ce630976")
+	)
+	(fp_line
+		(start 3.5 2)
+		(end 3.5 -2)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "94c50da0-580a-490d-8d6c-39e6346ff234")
+	)
+	(fp_arc
+		(start -3.5 -2)
+		(mid 0 -5.5)
+		(end 3.5 -2)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "be2a978e-ef2e-4a06-bcff-2a0f0f0a9f72")
+	)
+	(fp_arc
+		(start 3.5 2)
+		(mid 0 5.5)
+		(end -3.5 2)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "5bc2333c-dd73-4f72-8718-ded9a1c70a2f")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(uuid "6d12baa0-8acf-4a67-b755-9fa3f4cd4145")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+			)
+		)
+	)
+	(pad "" np_thru_hole circle
+		(at 0 -3.7)
+		(size 2.5654 2.5654)
+		(drill 2.5654)
+		(layers "*.Cu" "*.Mask" "In3.Cu" "In4.Cu" "In5.Cu" "In6.Cu" "In7.Cu" "In8.Cu"
+			"In9.Cu" "In10.Cu" "In11.Cu" "In12.Cu" "In13.Cu" "In14.Cu" "In15.Cu" "In16.Cu"
+			"In17.Cu" "In18.Cu" "In19.Cu" "In20.Cu" "In21.Cu" "In22.Cu" "In23.Cu"
+			"In24.Cu" "In25.Cu" "In26.Cu" "In27.Cu" "In28.Cu" "In29.Cu" "In30.Cu"
+		)
+		(uuid "23c19113-a008-48be-9d62-c70f0b89dd5f")
+	)
+	(pad "" np_thru_hole circle
+		(at 0 3.7)
+		(size 2.5654 2.5654)
+		(drill 2.5654)
+		(layers "*.Cu" "*.Mask" "In3.Cu" "In4.Cu" "In5.Cu" "In6.Cu" "In7.Cu" "In8.Cu"
+			"In9.Cu" "In10.Cu" "In11.Cu" "In12.Cu" "In13.Cu" "In14.Cu" "In15.Cu" "In16.Cu"
+			"In17.Cu" "In18.Cu" "In19.Cu" "In20.Cu" "In21.Cu" "In22.Cu" "In23.Cu"
+			"In24.Cu" "In25.Cu" "In26.Cu" "In27.Cu" "In28.Cu" "In29.Cu" "In30.Cu"
+		)
+		(uuid "9a1f1aef-6b9c-4b3f-a791-f1d956f6165b")
+	)
+	(model "SMFLP10.0.stp"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
 )

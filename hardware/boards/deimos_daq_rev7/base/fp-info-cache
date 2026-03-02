@@ -1,4 +1,4 @@
-24537125798517689
+24613629905729515
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -49811,69 +49811,6 @@ Mini USB 2.0 Type B
 0
 9
 6
-Connector_Video
-DVI-D_Molex_74320-4004_Horizontal
-DVI-D Dual Link connector, horizontal, 24 pins, Molex P/N 74320-4004, https://www.molex.com/content/dam/molex/molex-dot-com/products/automated/en-us/salesdrawingpdf/743/74320/743204004_sd.pdf?inline
-dvi right angle
-0
-26
-25
-Connector_Video
-DVI-I_Molex_74320-1004_Horizontal
-DVI-I Dual Link connector, horizontal, 29 pins, Molex P/N 74320-1004, https://www.molex.com/content/dam/molex/molex-dot-com/products/automated/en-us/salesdrawingpdf/743/74320/743201004_sd.pdf?inline
-dvi right angle
-0
-32
-30
-Connector_Video
-HDMI_A_Amphenol_10029449-x01xLF_Horizontal
-HDMI Type A connector, Amphenol 10029449-001TLF 10029449-001RLF 10029449-101TLF 10029449-101RLF, Right Angle(https://cdn.amphenol-icc.com/media/wysiwyg/files/drawing/10029449.pdf)
-hdmi right angle
-0
-23
-20
-Connector_Video
-HDMI_A_Contact_Technology_HDMI-19APL2_Horizontal
-HDMI Contact Technology Type A http://www.contactswitch.com/en/download.aspx?id=1449
-HDMI Contact Technology Type A
-0
-23
-20
-Connector_Video
-HDMI_A_Kycon_KDMIX-SL1-NS-WS-B15_VerticalRightAngle
-HDMI, Type A, Kycon KDMIX-SL1-NS-WS-B15, Vertical Right Angle, http://www.kycon.com/Pub_Eng_Draw/KDMIX-SL1-NS-WS-B15.pdf
-hdmi type a
-0
-23
-20
-Connector_Video
-HDMI_A_Molex_208658-1001_Horizontal
-HDMI Molex Type A https://www.molex.com/pdm_docs/sd/2086581001_sd.pdf
-HDMI Molex Type A
-0
-23
-20
-Connector_Video
-HDMI_Micro-D_Molex_46765-0x01
-HDMI, Micro, Type D, SMD, 0.4mm pitch, 19 ckt, right angle (http://www.molex.com/pdm_docs/sd/467651301_sd.pdf)
-hdmi micro type d right angle smd
-0
-23
-20
-Connector_Video
-HDMI_Micro-D_Molex_46765-1x01
-HDMI, Micro, Type D, THT, 0.4mm pitch, 19 ckt, right angle (http://www.molex.com/pdm_docs/sd/467651301_sd.pdf)
-hdmi micro type d right angle tht
-0
-23
-20
-Connector_Video
-HDMI_Micro-D_Molex_46765-2x0x
-HDMI, Micro, Type D, THT/SMD hybrid, 0.4mm pitch, 19 ckt, right angle (http://www.molex.com/pdm_docs/sd/467651301_sd.pdf)
-hdmi micro type d right angle tht smd hybrid 
-0
-23
-20
 Connector_Wago
 Wago_734-132_1x02_P3.50mm_Vertical
 Molex 734 Male header (for PCBs); Straight solder pin 1 x 1 mm, 734-132 , 2 Pins (http://www.farnell.com/datasheets/2157639.pdf), generated with kicad-footprint-generator
@@ -98713,3 +98650,367 @@ Varistor VF
 0
 2
 2
+aaa
+7499211121A
+7499211121A-2
+Connector
+0
+16
+16
+aaa
+1725038
+1725038
+Connector
+0
+4
+4
+aaa
+12401832E402A
+12401832E402A-1
+Connector
+0
+28
+28
+aaa
+63391601
+6339160-1-2
+Connector
+0
+10
+10
+aaa
+74982104400
+74982104400-1
+Connector
+0
+15
+15
+aaa
+AM-K-PCB
+
+
+0
+2
+2
+aaa
+DSUB-9_Female_Horizontal_P2.77x2.84mm_EdgePinOffset8.08mm_Housed_MountingHolesOffset9.63mm
+9-pin D-Sub connector, horizontal/angled (90 deg), THT-mount, female, pitch 2.77x2.84mm, pin-PCB-offset 7.699999999999999mm, distance of mounting holes 25mm, distance of mounting holes to PCB edge 9.12mm, see https://disti-assets.s3.amazonaws.com/tonar/files/datasheets/16730.pdf
+9-pin D-Sub connector horizontal angled 90deg THT female pitch 2.77x2.84mm pin-PCB-offset 7.699999999999999mm mounting-holes-distance 25mm mounting-hole-offset 25mm
+0
+11
+10
+aaa
+EVPASKC1A
+EVP-ASKC1A-1
+Switch
+0
+2
+2
+aaa
+INDPM4040X300N
+FNR4030S681MT
+Inductor
+0
+2
+2
+aaa
+KC2016Z327680C15XXK
+KC2016Z32.7680C15XXK-1
+Crystal or Oscillator
+0
+4
+4
+aaa
+KF141V-2.54-10P
+Through hole straight pin header, 1x10, 2.54mm pitch, single row
+Through hole pin header THT 1x10 2.54mm single row
+0
+20
+10
+aaa
+KF141V-2.54-12P
+Through hole straight pin header, 1x10, 2.54mm pitch, single row
+Through hole pin header THT 1x10 2.54mm single row
+0
+24
+12
+aaa
+MTJ-88TX1-FSD-PGB
+Shielded, https://www.amphenolcanada.com/ProductSearch/drawings/AC/RJHSE538X.pdf
+RJ45 8p8c ethernet cat5
+0
+10
+9
+aaa
+NX2016SA32MEXS00ACS06465
+NX2016SA_1-1
+Crystal or Oscillator
+0
+4
+4
+aaa
+NX3215SA32768KSTDMUA14
+NX3215SA-32.768K-STD-MUA-14-3
+Crystal or Oscillator
+0
+2
+2
+aaa
+OS102011MA1QN1
+OS102011MA1QN1
+Switch
+0
+5
+5
+aaa
+PCC-SMD_Left
+
+
+0
+2
+1
+aaa
+PCC-SMD_Right
+
+
+0
+2
+1
+aaa
+PCC-SMD_Symmetric
+
+
+0
+3
+1
+aaa
+QFN50P400X400X100-25N-D
+24VQFN
+Integrated Circuit
+0
+25
+25
+aaa
+QFP40P1600X1600X120-128N
+PDT (S-PQFP-G128)
+Integrated Circuit
+0
+128
+128
+aaa
+QFP50P900X900X160-48N
+PT (S-PQFP-G48)
+Integrated Circuit
+0
+48
+48
+aaa
+QFP50P2200X2200X160-144N
+LQFP144_
+Integrated Circuit
+0
+144
+144
+aaa
+RCHRC01133
+RCH RC01133-4
+Connector
+0
+10
+10
+aaa
+SHDR12W85P0X381_1X12_4660X700X935P
+WJ15EDGVC-3.81-12P
+Connector
+0
+12
+12
+aaa
+SHDR26W70P254_2X13_4030X820X900P
+XG4C-2631
+Connector
+0
+26
+26
+aaa
+SHDRRA26W70P254_2X13_4030X850X900P
+XG4C2634
+Connector
+0
+26
+26
+aaa
+SIT1602AI2233E48000000G
+SIT1602AI-22-33E-48.000000G-1
+Crystal or Oscillator
+0
+4
+4
+aaa
+SIT8008BI8133E68000000
+SIT8008BI-81-33E-68.000000-2
+Crystal or Oscillator
+0
+4
+4
+aaa
+SMFLP100
+SMFLP10.0-2
+LED
+0
+1
+1
+aaa
+SOIC127P600X175-8N
+SOIC 8
+Integrated Circuit
+0
+8
+8
+aaa
+SOIC127P940X622-16N
+H1102NL
+Transformer
+0
+16
+16
+aaa
+SOT65P210X110-5N
+DCK (R-PDSO-G5)
+Integrated Circuit
+0
+5
+5
+aaa
+SOT95P280X145-5N
+TLV333IDBVR-1
+Integrated Circuit
+0
+5
+5
+aaa
+SOT95P280X145-6N
+DBV0006A
+Integrated Circuit
+0
+6
+6
+aaa
+Screw_Terminal_3_P5.08mm
+simple 3-pin terminal block, pitch 5.08mm, revamped version of bornier3
+terminal block bornier3
+0
+3
+3
+aaa
+SiT1602_7.0x5.0mm
+SiT1602_7.0x5.0mm
+Crystal or Oscillator
+0
+4
+4
+aaa
+TBL004-508-02BE-2GY
+Through hole straight pin header, 2x02, 2.54mm pitch, double rows
+Through hole pin header THT 2x02 2.54mm double row
+0
+4
+2
+aaa
+TS1187ABAB
+TS-1187A-B-A-B-1
+Switch
+0
+4
+4
+aaa
+TestPoint
+
+
+0
+1
+1
+aaa
+U262161N4BS1735
+U262-161N-4BS1735-3
+Connector
+0
+16
+16
+aaa
+WJ15EDGRM-3.81-12P
+WJ15EDGRM-3.81-16P-2
+Connector
+0
+12
+12
+aaa
+WJ15EDGRM38116P
+WJ15EDGRM-3.81-16P-2
+Connector
+0
+16
+16
+aaa
+Wurth_Transformer_1
+
+
+0
+8
+8
+aaa
+hole_4.5mm
+
+
+0
+0
+0
+logo_lib
+logo
+
+
+0
+0
+0
+logo_lib
+logo_12p7_by_10p9_mm
+
+
+0
+0
+0
+logo_lib
+logo_16p9_by_13p5_mm
+
+
+0
+0
+0
+logo_lib
+logo_25p4_by_20p3_mm
+
+
+0
+0
+0
+logo_lib
+logo_minimal_12p7_by_10p9_mm
+
+
+0
+0
+0
+logo_lib
+logo_minimal_16p9_by_13p5_mm
+
+
+0
+0
+0
+logo_lib
+logo_minimal_25p4_by_20p3_mm
+
+
+0
+0
+0
