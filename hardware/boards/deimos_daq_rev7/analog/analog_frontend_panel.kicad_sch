@@ -1500,6 +1500,16 @@
 	)
 	(wire
 		(pts
+			(xy 448.056 90.424) (xy 445.516 90.424)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "048e7084-e1d5-4d55-aeee-c15839038321")
+	)
+	(wire
+		(pts
 			(xy 26.67 262.89) (xy 26.67 265.43)
 		)
 		(stroke
@@ -1517,6 +1527,16 @@
 			(type default)
 		)
 		(uuid "08b329bc-0b9d-43a7-91d1-b6a915cdaa55")
+	)
+	(wire
+		(pts
+			(xy 452.882 153.924) (xy 452.882 57.404)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0a5f64df-2b55-480b-a5f0-4dcc45663ae3")
 	)
 	(wire
 		(pts
@@ -1670,16 +1690,6 @@
 	)
 	(wire
 		(pts
-			(xy 448.056 90.932) (xy 448.056 63.5)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "22830fc1-994a-4693-8270-63f3c847693f")
-	)
-	(wire
-		(pts
 			(xy 140.97 60.452) (xy 140.97 48.768)
 		)
 		(stroke
@@ -1727,6 +1737,16 @@
 			(type default)
 		)
 		(uuid "279291a7-35c2-41df-a2c2-2ad3ed1e992c")
+	)
+	(wire
+		(pts
+			(xy 448.056 63.5) (xy 448.056 90.424)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "27ad76f6-5ee3-4ece-ac9b-cbddc4c89c2b")
 	)
 	(wire
 		(pts
@@ -1850,6 +1870,16 @@
 	)
 	(wire
 		(pts
+			(xy 451.866 138.684) (xy 445.262 138.684)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3431a62f-7b8d-40fe-ae21-86a439c9caad")
+	)
+	(wire
+		(pts
 			(xy 153.67 92.71) (xy 160.782 92.71)
 		)
 		(stroke
@@ -1867,16 +1897,6 @@
 			(type default)
 		)
 		(uuid "3611fdeb-9532-44e4-842d-e11c2edd32ec")
-	)
-	(wire
-		(pts
-			(xy 452.882 154.178) (xy 452.882 57.404)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "369dfd4e-fab4-4fcb-8131-af5053e1268c")
 	)
 	(wire
 		(pts
@@ -1950,13 +1970,13 @@
 	)
 	(wire
 		(pts
-			(xy 445.516 90.932) (xy 448.056 90.932)
+			(xy 445.262 153.924) (xy 452.882 153.924)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "42248386-e420-4e8f-a036-e319132e1d99")
+		(uuid "4298b6c9-4478-418c-b959-6cc700625ad3")
 	)
 	(wire
 		(pts
@@ -1970,7 +1990,7 @@
 	)
 	(wire
 		(pts
-			(xy 450.088 122.174) (xy 450.088 60.198)
+			(xy 450.088 60.198) (xy 450.088 122.682)
 		)
 		(stroke
 			(width 0)
@@ -2030,16 +2050,6 @@
 	)
 	(wire
 		(pts
-			(xy 445.262 138.176) (xy 451.866 138.176)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "4f3f7c68-2244-44dc-b751-d076589ec1eb")
-	)
-	(wire
-		(pts
 			(xy 380.746 106.934) (xy 384.302 106.934)
 		)
 		(stroke
@@ -2077,6 +2087,16 @@
 			(type default)
 		)
 		(uuid "56699c01-1e27-46b3-aece-8d69c133f12c")
+	)
+	(wire
+		(pts
+			(xy 450.088 122.682) (xy 445.262 122.682)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "56f7ac5f-62a5-42d0-b6bf-0a3b563d407a")
 	)
 	(wire
 		(pts
@@ -2560,16 +2580,6 @@
 	)
 	(wire
 		(pts
-			(xy 445.262 154.178) (xy 452.882 154.178)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ae4f5c6d-01cb-4157-9f9d-b25949c052f8")
-	)
-	(wire
-		(pts
 			(xy 220.218 129.286) (xy 227.076 129.286)
 		)
 		(stroke
@@ -2770,16 +2780,6 @@
 	)
 	(wire
 		(pts
-			(xy 445.516 122.174) (xy 450.088 122.174)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c94470a7-7cc9-4a05-ad5a-aed62d569a16")
-	)
-	(wire
-		(pts
 			(xy 222.758 60.96) (xy 222.758 47.244)
 		)
 		(stroke
@@ -2850,6 +2850,16 @@
 	)
 	(wire
 		(pts
+			(xy 451.866 58.674) (xy 451.866 138.684)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d1ab2163-6407-4c4f-8d2f-646673a77be0")
+	)
+	(wire
+		(pts
 			(xy 159.512 90.932) (xy 159.512 59.182)
 		)
 		(stroke
@@ -2907,16 +2917,6 @@
 			(type default)
 		)
 		(uuid "dafe2e0e-f398-4394-beb1-bab9819d5db5")
-	)
-	(wire
-		(pts
-			(xy 451.866 138.176) (xy 451.866 58.674)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "dba9f480-989a-44a7-a213-c1badefe7b44")
 	)
 	(wire
 		(pts
@@ -7962,7 +7962,7 @@
 		)
 	)
 	(sheet
-		(at 420.878 101.854)
+		(at 420.878 85.598)
 		(size 24.638 9.652)
 		(fields_autoplaced yes)
 		(stroke
@@ -7974,7 +7974,7 @@
 		)
 		(uuid "1f976c40-0ff1-4b93-b397-7b75cbba4c26")
 		(property "Sheetname" "pwm_in_buf7"
-			(at 420.878 101.1424 0)
+			(at 420.878 84.8864 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7983,7 +7983,7 @@
 			)
 		)
 		(property "Sheetfile" "pwm_in_buf.kicad_sch"
-			(at 420.878 112.0906 0)
+			(at 420.878 95.8346 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7992,7 +7992,7 @@
 			)
 		)
 		(pin "VOUT" input
-			(at 420.878 106.426 180)
+			(at 420.878 90.17 180)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8002,7 +8002,7 @@
 			(uuid "8e99c2f0-c043-4ed5-b5c1-78c48b234b4c")
 		)
 		(pin "VIN" input
-			(at 445.516 106.68 0)
+			(at 445.516 90.424 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8093,64 +8093,6 @@
 			(project "analog_frontend_panel"
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
 					(page "4")
-				)
-			)
-		)
-	)
-	(sheet
-		(at 420.878 69.85)
-		(size 24.638 9.652)
-		(fields_autoplaced yes)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(fill
-			(color 0 0 0 0.0000)
-		)
-		(uuid "28c1caaa-dc1b-4c46-9dad-d511f01e5f85")
-		(property "Sheetname" "pwm_in_buf5"
-			(at 420.878 69.1384 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Sheetfile" "pwm_in_buf.kicad_sch"
-			(at 420.878 80.0866 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-			)
-		)
-		(pin "VOUT" input
-			(at 420.878 74.422 180)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "c27dbbe6-006f-44e5-abd5-9ac750e7a5c0")
-		)
-		(pin "VIN" input
-			(at 445.516 74.676 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-			(uuid "0a3f674a-fb08-4cc2-980e-1eac3b378957")
-		)
-		(instances
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
-					(page "28")
 				)
 			)
 		)
@@ -8493,7 +8435,7 @@
 		)
 	)
 	(sheet
-		(at 420.624 149.098)
+		(at 420.624 133.604)
 		(size 24.638 9.652)
 		(fields_autoplaced yes)
 		(stroke
@@ -8505,7 +8447,7 @@
 		)
 		(uuid "489c5c16-982c-4958-8e55-03934daf9e33")
 		(property "Sheetname" "pwm_out_buf6"
-			(at 420.624 148.3864 0)
+			(at 420.624 132.8924 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8514,7 +8456,7 @@
 			)
 		)
 		(property "Sheetfile" "pwm_out_buf.kicad_sch"
-			(at 420.624 159.3346 0)
+			(at 420.624 143.8406 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8523,7 +8465,7 @@
 			)
 		)
 		(pin "VOUT" input
-			(at 445.262 154.178 0)
+			(at 445.262 138.684 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8533,7 +8475,7 @@
 			(uuid "ded1d179-e817-498d-903a-6d5507bb6414")
 		)
 		(pin "VIN" input
-			(at 420.624 153.924 180)
+			(at 420.624 138.43 180)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8551,7 +8493,7 @@
 		)
 	)
 	(sheet
-		(at 420.878 86.106)
+		(at 420.878 69.85)
 		(size 24.638 9.652)
 		(fields_autoplaced yes)
 		(stroke
@@ -8563,7 +8505,7 @@
 		)
 		(uuid "4b2b62d1-e721-4ae3-8080-ff18c7eebdec")
 		(property "Sheetname" "pwm_in_buf6"
-			(at 420.878 85.3944 0)
+			(at 420.878 69.1384 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8572,7 +8514,7 @@
 			)
 		)
 		(property "Sheetfile" "pwm_in_buf.kicad_sch"
-			(at 420.878 96.3426 0)
+			(at 420.878 80.0866 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8581,7 +8523,7 @@
 			)
 		)
 		(pin "VOUT" input
-			(at 420.878 90.678 180)
+			(at 420.878 74.422 180)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8591,7 +8533,7 @@
 			(uuid "9c64b5a0-d358-4a9e-8389-df8c4731406a")
 		)
 		(pin "VIN" input
-			(at 445.516 90.932 0)
+			(at 445.516 74.676 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8928,7 +8870,7 @@
 		)
 	)
 	(sheet
-		(at 420.624 133.096)
+		(at 420.624 117.602)
 		(size 24.638 9.652)
 		(fields_autoplaced yes)
 		(stroke
@@ -8940,7 +8882,7 @@
 		)
 		(uuid "ae776014-17b3-402b-a4e6-eaff991cef75")
 		(property "Sheetname" "pwm_out_buf5"
-			(at 420.624 132.3844 0)
+			(at 420.624 116.8904 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8949,7 +8891,7 @@
 			)
 		)
 		(property "Sheetfile" "pwm_out_buf.kicad_sch"
-			(at 420.624 143.3326 0)
+			(at 420.624 127.8386 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8958,7 +8900,7 @@
 			)
 		)
 		(pin "VOUT" input
-			(at 445.262 138.176 0)
+			(at 445.262 122.682 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8968,7 +8910,7 @@
 			(uuid "40d5cd30-761c-4f06-b350-73c0cabadb5b")
 		)
 		(pin "VIN" input
-			(at 420.624 137.922 180)
+			(at 420.624 122.428 180)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9352,6 +9294,64 @@
 		)
 	)
 	(sheet
+		(at 420.624 148.844)
+		(size 24.638 9.652)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "d157c6a6-e46c-46fa-8790-e34cb70ef5c4")
+		(property "Sheetname" "pwm_out_buf7"
+			(at 420.624 148.1324 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "pwm_out_buf.kicad_sch"
+			(at 420.624 159.0806 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "VOUT" input
+			(at 445.262 153.924 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "ded5f62f-53c4-4023-b952-bb1691706518")
+		)
+		(pin "VIN" input
+			(at 420.624 153.67 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "1918e4ae-4a30-4d49-8010-bf241d456f0a")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
+					(page "50")
+				)
+			)
+		)
+	)
+	(sheet
 		(at 356.108 146.558)
 		(size 24.638 9.652)
 		(fields_autoplaced yes)
@@ -9410,7 +9410,7 @@
 		)
 	)
 	(sheet
-		(at 420.878 117.094)
+		(at 420.878 101.6)
 		(size 24.638 9.652)
 		(fields_autoplaced yes)
 		(stroke
@@ -9422,7 +9422,7 @@
 		)
 		(uuid "e5d59c3a-5602-4acb-ba66-19187ee13f4f")
 		(property "Sheetname" "pwm_out_buf4"
-			(at 420.878 116.3824 0)
+			(at 420.878 100.8884 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9431,7 +9431,7 @@
 			)
 		)
 		(property "Sheetfile" "pwm_out_buf.kicad_sch"
-			(at 420.878 127.3306 0)
+			(at 420.878 111.8366 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9440,7 +9440,7 @@
 			)
 		)
 		(pin "VOUT" input
-			(at 445.516 122.174 0)
+			(at 445.516 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9450,7 +9450,7 @@
 			(uuid "f8638725-cee7-4729-bd18-b4137362a1a1")
 		)
 		(pin "VIN" input
-			(at 420.878 121.92 180)
+			(at 420.878 106.426 180)
 			(effects
 				(font
 					(size 1.27 1.27)
