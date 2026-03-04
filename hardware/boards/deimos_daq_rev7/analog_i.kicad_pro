@@ -911,6 +911,30 @@
     [
       "d8ba479a-a7d9-47f0-902a-0be012b7ebf9",
       "pwm_out_buf3"
+    ],
+    [
+      "ae776014-17b3-402b-a4e6-eaff991cef75",
+      "pwm_out_buf5"
+    ],
+    [
+      "489c5c16-982c-4958-8e55-03934daf9e33",
+      "pwm_out_buf6"
+    ],
+    [
+      "28c1caaa-dc1b-4c46-9dad-d511f01e5f85",
+      "pwm_in_buf5"
+    ],
+    [
+      "4b2b62d1-e721-4ae3-8080-ff18c7eebdec",
+      "pwm_in_buf6"
+    ],
+    [
+      "1f976c40-0ff1-4b93-b397-7b75cbba4c26",
+      "pwm_in_buf7"
+    ],
+    [
+      "e5d59c3a-5602-4acb-ba66-19187ee13f4f",
+      "pwm_out_buf4"
     ]
   ],
   "text_variables": {}
