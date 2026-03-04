@@ -484,10 +484,6 @@
 					(reference "R63002")
 					(unit 1)
 				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/28c1caaa-dc1b-4c46-9dad-d511f01e5f85"
-					(reference "R61002")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/29721755-8d58-43bd-a39c-bd4a1e9dfd38"
 					(reference "R52002")
 					(unit 1)
@@ -620,10 +616,6 @@
 					(reference "R63001")
 					(unit 1)
 				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/28c1caaa-dc1b-4c46-9dad-d511f01e5f85"
-					(reference "R61001")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/29721755-8d58-43bd-a39c-bd4a1e9dfd38"
 					(reference "R52001")
 					(unit 1)
@@ -742,10 +734,6 @@
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/1f976c40-0ff1-4b93-b397-7b75cbba4c26"
 					(reference "#PWR365")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/28c1caaa-dc1b-4c46-9dad-d511f01e5f85"
-					(reference "#PWR317")
 					(unit 1)
 				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/29721755-8d58-43bd-a39c-bd4a1e9dfd38"
@@ -878,10 +866,6 @@
 					(reference "D63001")
 					(unit 1)
 				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/28c1caaa-dc1b-4c46-9dad-d511f01e5f85"
-					(reference "D61001")
-					(unit 1)
-				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/29721755-8d58-43bd-a39c-bd4a1e9dfd38"
 					(reference "D52001")
 					(unit 1)
@@ -999,10 +983,6 @@
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/1f976c40-0ff1-4b93-b397-7b75cbba4c26"
 					(reference "#PWR364")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/28c1caaa-dc1b-4c46-9dad-d511f01e5f85"
-					(reference "#PWR313")
 					(unit 1)
 				)
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/29721755-8d58-43bd-a39c-bd4a1e9dfd38"
