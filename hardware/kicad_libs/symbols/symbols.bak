@@ -14979,7 +14979,7 @@
 				(justify left top)
 			)
 		)
-		(property "Footprint" "WJ15EDGRM38116P"
+		(property "Footprint" "aaa:WJ15EDGRM-3.81-12P"
 			(at 16.51 -94.92 0)
 			(effects
 				(font
@@ -15028,7 +15028,7 @@
 				(hide yes)
 			)
 		)
-		(property "Manufacturer_Part_Number" "WJ15EDGRM-3.81-16P"
+		(property "Manufacturer_Part_Number" "WJ15EDGRM-3.81-12P"
 			(at 16.51 -594.92 0)
 			(effects
 				(font

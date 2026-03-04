@@ -15000,7 +15000,7 @@
 			)
 		)
 		(property "Description" "3.81mm Green Board Edge/Receptacle- P=3.81mm Pluggable System Terminal Block"
-			(at 0 0 0)
+			(at -2.032 3.302 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15091,7 +15091,7 @@
 				)
 			)
 			(pin passive line
-				(at 0 0 0)
+				(at 0 -27.94 0)
 				(length 5.08)
 				(name "1"
 					(effects
@@ -15109,7 +15109,7 @@
 				)
 			)
 			(pin passive line
-				(at 0 -22.86 0)
+				(at 0 -5.08 0)
 				(length 5.08)
 				(name "10"
 					(effects
@@ -15127,7 +15127,7 @@
 				)
 			)
 			(pin passive line
-				(at 0 -25.4 0)
+				(at 0 -2.54 0)
 				(length 5.08)
 				(name "11"
 					(effects
@@ -15145,7 +15145,7 @@
 				)
 			)
 			(pin passive line
-				(at 0 -27.94 0)
+				(at 0 0 0)
 				(length 5.08)
 				(name "12"
 					(effects
@@ -15163,7 +15163,7 @@
 				)
 			)
 			(pin passive line
-				(at 0 -2.54 0)
+				(at 0 -25.4 0)
 				(length 5.08)
 				(name "2"
 					(effects
@@ -15181,7 +15181,7 @@
 				)
 			)
 			(pin passive line
-				(at 0 -5.08 0)
+				(at 0 -22.86 0)
 				(length 5.08)
 				(name "3"
 					(effects
@@ -15199,7 +15199,7 @@
 				)
 			)
 			(pin passive line
-				(at 0 -7.62 0)
+				(at 0 -20.32 0)
 				(length 5.08)
 				(name "4"
 					(effects
@@ -15217,7 +15217,7 @@
 				)
 			)
 			(pin passive line
-				(at 0 -10.16 0)
+				(at 0 -17.78 0)
 				(length 5.08)
 				(name "5"
 					(effects
@@ -15235,7 +15235,7 @@
 				)
 			)
 			(pin passive line
-				(at 0 -12.7 0)
+				(at 0 -15.24 0)
 				(length 5.08)
 				(name "6"
 					(effects
@@ -15253,7 +15253,7 @@
 				)
 			)
 			(pin passive line
-				(at 0 -15.24 0)
+				(at 0 -12.7 0)
 				(length 5.08)
 				(name "7"
 					(effects
@@ -15271,7 +15271,7 @@
 				)
 			)
 			(pin passive line
-				(at 0 -17.78 0)
+				(at 0 -10.16 0)
 				(length 5.08)
 				(name "8"
 					(effects
@@ -15289,7 +15289,7 @@
 				)
 			)
 			(pin passive line
-				(at 0 -20.32 0)
+				(at 0 -7.62 0)
 				(length 5.08)
 				(name "9"
 					(effects
