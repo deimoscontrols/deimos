@@ -4697,7 +4697,7 @@
 	)
 	(hierarchical_label "DO3"
 		(shape input)
-		(at 446.278 153.924 270)
+		(at 420.624 153.67 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4727,6 +4727,17 @@
 			(justify right)
 		)
 		(uuid "140b0be0-fa50-45fb-ac15-eadb9c217a6a")
+	)
+	(hierarchical_label "DI1_CONN"
+		(shape input)
+		(at 446.786 90.424 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "15a0bdbe-7ba7-4779-a7d3-a9ea237db5e4")
 	)
 	(hierarchical_label "AIN17"
 		(shape input)
@@ -4762,6 +4773,17 @@
 		)
 		(uuid "2a362759-3d00-431b-9ee5-d4248e2870b7")
 	)
+	(hierarchical_label "DO1_CONN"
+		(shape input)
+		(at 446.532 122.682 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "2bbf9379-0506-4c41-9e60-6a8b9e6c0ac4")
+	)
 	(hierarchical_label "AIN15"
 		(shape input)
 		(at 244.602 132.842 180)
@@ -4775,7 +4797,7 @@
 	)
 	(hierarchical_label "DO1"
 		(shape input)
-		(at 446.278 122.682 270)
+		(at 420.624 122.428 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4794,6 +4816,17 @@
 			(justify right)
 		)
 		(uuid "4710bc73-6f6b-4035-a8f6-cb006fdb968f")
+	)
+	(hierarchical_label "DI0_CONN"
+		(shape input)
+		(at 446.786 74.676 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "49f8eea6-72ab-459f-acb0-23933edaf06e")
 	)
 	(hierarchical_label "AIN18"
 		(shape input)
@@ -4820,7 +4853,7 @@
 	)
 	(hierarchical_label "DO0"
 		(shape input)
-		(at 446.532 106.68 270)
+		(at 420.878 106.426 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4828,6 +4861,17 @@
 			(justify right)
 		)
 		(uuid "52e0de1a-0a2b-474a-9b9b-549f12dfd67c")
+	)
+	(hierarchical_label "DO3_CONN"
+		(shape input)
+		(at 446.786 153.924 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "5bf3d438-57a5-421a-bee9-b283106ad3b8")
 	)
 	(hierarchical_label "AIN6"
 		(shape input)
@@ -4874,7 +4918,7 @@
 		)
 		(uuid "6505837f-efd8-4f9a-a252-148f0423a551")
 	)
-	(hierarchical_label "DO3"
+	(hierarchical_label "DO3_CONN"
 		(shape input)
 		(at 501.142 46.482 180)
 		(effects
@@ -4919,7 +4963,7 @@
 		)
 		(uuid "6e8ad0ba-198b-4eae-9336-febb4419a2fd")
 	)
-	(hierarchical_label "DO2"
+	(hierarchical_label "DO2_CONN"
 		(shape input)
 		(at 501.142 49.022 180)
 		(effects
@@ -4942,7 +4986,7 @@
 		)
 		(uuid "7a5cac82-1838-4ca5-84cb-b388556e945e")
 	)
-	(hierarchical_label "DO0"
+	(hierarchical_label "DO0_CONN"
 		(shape input)
 		(at 501.142 54.102 180)
 		(effects
@@ -5010,7 +5054,7 @@
 		)
 		(uuid "8750856f-718d-4736-a150-3ac05f1630fc")
 	)
-	(hierarchical_label "DI0"
+	(hierarchical_label "DI0_CONN"
 		(shape input)
 		(at 501.142 59.182 180)
 		(effects
@@ -5045,7 +5089,7 @@
 	)
 	(hierarchical_label "DI1"
 		(shape input)
-		(at 446.786 90.424 270)
+		(at 420.878 90.17 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -5088,7 +5132,7 @@
 		)
 		(uuid "ad82676b-192a-475c-86df-e12c72adcf9d")
 	)
-	(hierarchical_label "DI1"
+	(hierarchical_label "DI1_CONN"
 		(shape input)
 		(at 501.142 56.642 180)
 		(effects
@@ -5101,7 +5145,7 @@
 	)
 	(hierarchical_label "DI0"
 		(shape input)
-		(at 446.786 74.676 270)
+		(at 420.878 74.422 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -5132,6 +5176,17 @@
 		)
 		(uuid "b5976464-4d07-4ff0-8549-2bda1d1342aa")
 	)
+	(hierarchical_label "DO0_CONN"
+		(shape input)
+		(at 446.786 106.68 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "bc6d6cbb-64cb-4791-9f44-2dce3bce8fa6")
+	)
 	(hierarchical_label "2p5V_1"
 		(shape input)
 		(at 269.748 132.842 270)
@@ -5157,7 +5212,7 @@
 	)
 	(hierarchical_label "DO2"
 		(shape input)
-		(at 446.278 138.684 270)
+		(at 420.624 138.43 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -5177,7 +5232,7 @@
 		)
 		(uuid "cf36c23f-07bf-433f-a23b-911ad1cd749d")
 	)
-	(hierarchical_label "DO1"
+	(hierarchical_label "DO1_CONN"
 		(shape input)
 		(at 501.142 51.562 180)
 		(effects
@@ -5210,6 +5265,17 @@
 			(justify right)
 		)
 		(uuid "e125ebc8-43fe-4e8c-b707-e506c29daab6")
+	)
+	(hierarchical_label "DO2_CONN"
+		(shape input)
+		(at 446.786 138.684 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "e4e78c33-2b6c-48c3-9956-4258632a64c1")
 	)
 	(hierarchical_label "AIN9"
 		(shape input)
