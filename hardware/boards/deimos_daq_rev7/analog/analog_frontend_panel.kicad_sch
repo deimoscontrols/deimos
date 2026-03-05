@@ -1041,6 +1041,15 @@
 					(hide yes)
 				)
 			)
+			(property "LCSC" "C508940"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
 			(symbol "WJ15EDGRM-3.81-12P_1_1"
 				(rectangle
 					(start 5.08 2.54)
@@ -1390,6 +1399,14 @@
 					)
 					(justify left top)
 					(hide yes)
+				)
+			)
+			(property "LCSC" "C397108"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
 				)
 			)
 			(symbol "XG4C-2631_1_1"
@@ -5480,6 +5497,15 @@
 				(hide yes)
 			)
 		)
+		(property "LCSC" "C508940"
+			(at 133.35 48.768 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "8"
 			(uuid "f1729b08-3840-4733-997d-49829eb901bb")
 		)
@@ -5866,6 +5892,15 @@
 					(size 1.27 1.27)
 				)
 				(justify left top)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C508940"
+			(at 419.354 45.974 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
 				(hide yes)
 			)
 		)
@@ -6643,6 +6678,15 @@
 				(hide yes)
 			)
 		)
+		(property "LCSC" "C508940"
+			(at 244.094 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "8"
 			(uuid "9f8a9063-c1a2-4241-b8bc-af0056440706")
 		)
@@ -6888,6 +6932,15 @@
 					(size 1.27 1.27)
 				)
 				(justify left top)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C508940"
+			(at 197.358 47.244 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
 				(hide yes)
 			)
 		)
@@ -7862,6 +7915,15 @@
 				(hide yes)
 			)
 		)
+		(property "LCSC" "C508940"
+			(at 307.848 45.212 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "8"
 			(uuid "3b5f5885-0de3-4d61-9d39-4fc9c5cdd7c2")
 		)
@@ -8195,6 +8257,15 @@
 					(size 1.27 1.27)
 				)
 				(justify left top)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C508940"
+			(at 356.362 46.228 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
 				(hide yes)
 			)
 		)
@@ -8815,6 +8886,15 @@
 					(size 1.27 1.27)
 				)
 				(justify left top)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C397108"
+			(at 524.002 64.262 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
 				(hide yes)
 			)
 		)

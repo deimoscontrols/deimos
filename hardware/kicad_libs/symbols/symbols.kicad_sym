@@ -15078,6 +15078,15 @@
 				(hide yes)
 			)
 		)
+		(property "LCSC" "C508940"
+			(at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(symbol "WJ15EDGRM-3.81-12P_1_1"
 			(rectangle
 				(start 5.08 2.54)
@@ -16430,6 +16439,15 @@
 					(size 1.27 1.27)
 				)
 				(justify left top)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C397108"
+			(at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
 				(hide yes)
 			)
 		)

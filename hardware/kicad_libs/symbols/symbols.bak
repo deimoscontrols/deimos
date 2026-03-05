@@ -15078,6 +15078,15 @@
 				(hide yes)
 			)
 		)
+		(property "LCSC" "C508940"
+			(at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(symbol "WJ15EDGRM-3.81-12P_1_1"
 			(rectangle
 				(start 5.08 2.54)
@@ -16334,7 +16343,7 @@
 				(justify left top)
 			)
 		)
-		(property "Footprint" "SHDR26W70P254_2X13_4030X820X900P"
+		(property "Footprint" "aaa:SHDR26W70P254_2X13_4030X820X900P"
 			(at 19.05 -94.92 0)
 			(effects
 				(font
@@ -16431,6 +16440,14 @@
 				)
 				(justify left top)
 				(hide yes)
+			)
+		)
+		(property "LCSC" "C397108"
+			(at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
 			)
 		)
 		(symbol "XG4C-2631_1_1"
