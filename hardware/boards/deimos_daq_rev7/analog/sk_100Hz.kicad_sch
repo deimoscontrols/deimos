@@ -772,126 +772,6 @@
 				)
 			)
 		)
-		(symbol "power:+3V3"
-			(power)
-			(pin_numbers hide)
-			(pin_names
-				(offset 0) hide)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "#PWR"
-				(at 0 -3.81 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Value" "+3V3"
-				(at 0 3.556 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Power symbol creates a global label with name \"+3V3\""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "global power"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "+3V3_0_1"
-				(polyline
-					(pts
-						(xy -0.762 1.27) (xy 0 2.54)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0 0) (xy 0 2.54)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0 2.54) (xy 0.762 1.27)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "+3V3_1_1"
-				(pin power_in line
-					(at 0 0 90)
-					(length 0)
-					(name "~"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-		)
 		(symbol "power:-12V"
 			(power)
 			(pin_numbers hide)
@@ -1092,6 +972,12 @@
 		(uuid "31d29492-ba04-49de-a7ac-688b3146313f")
 	)
 	(junction
+		(at 81.026 104.394)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "3f716666-93d2-4ed8-b616-1d7fe7000aaa")
+	)
+	(junction
 		(at 93.726 89.916)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -1102,12 +988,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "91f30686-6f01-423a-8d9e-7a061b0857c2")
-	)
-	(junction
-		(at 81.28 104.394)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "a538f80d-555b-441e-83fb-734fc36b65e2")
 	)
 	(junction
 		(at 86.614 82.55)
@@ -1181,7 +1061,7 @@
 	)
 	(wire
 		(pts
-			(xy 75.946 104.394) (xy 81.28 104.394)
+			(xy 75.946 104.394) (xy 81.026 104.394)
 		)
 		(stroke
 			(width 0)
@@ -1241,16 +1121,6 @@
 	)
 	(wire
 		(pts
-			(xy 81.28 104.394) (xy 86.106 104.394)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "49a52e85-af4e-4dab-b5d7-793a42718dee")
-	)
-	(wire
-		(pts
 			(xy 88.392 89.916) (xy 93.726 89.916)
 		)
 		(stroke
@@ -1258,6 +1128,16 @@
 			(type default)
 		)
 		(uuid "4ae802ea-5ba7-4b02-beb3-84794f174a81")
+	)
+	(wire
+		(pts
+			(xy 81.026 106.68) (xy 81.026 104.394)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4b1afc45-f8bb-49be-afd3-4e1cdd8a285f")
 	)
 	(wire
 		(pts
@@ -1308,6 +1188,26 @@
 			(type default)
 		)
 		(uuid "8c8d1e85-9ded-49b8-8346-07b6c9185abc")
+	)
+	(wire
+		(pts
+			(xy 77.978 106.68) (xy 81.026 106.68)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "93bdefbc-6fc0-493d-83cd-4626d492ad4c")
+	)
+	(wire
+		(pts
+			(xy 81.026 104.394) (xy 86.106 104.394)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "956f0c21-e5ae-4fb3-b884-541a012ea381")
 	)
 	(wire
 		(pts
@@ -1419,6 +1319,28 @@
 			(justify left)
 		)
 		(uuid "e4f88337-4d59-4487-84b2-6749a2fb9e17")
+	)
+	(global_label "2V5_OVP"
+		(shape input)
+		(at 77.978 106.68 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "4e02771e-627f-4c33-be36-23c3ee50ba14")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 66.8285 106.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+				(hide yes)
+			)
+		)
 	)
 	(hierarchical_label "VOUT"
 		(shape input)
@@ -2296,86 +2218,6 @@
 				)
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed60502d-2e6d-4293-85f2-5e967a3c42d8/63cb4c21-96ec-4930-8398-5e4d00a3dfaf"
 					(reference "#PWR14006")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3V3")
-		(at 81.28 104.394 180)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "9eb3a755-5171-458f-b167-069be8df7367")
-		(property "Reference" "#PWR180"
-			(at 81.28 100.584 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 81.28 109.22 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 81.28 104.394 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 81.28 104.394 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 81.28 104.394 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "1bc95ed8-5dfe-4008-8232-f6ec31b9b93f")
-		)
-		(instances
-			(project "analog_i"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/f31a785a-aa18-4b99-9461-7c34b37be0d7"
-					(reference "#PWR180")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/ed60502d-2e6d-4293-85f2-5e967a3c42d8/63cb4c21-96ec-4930-8398-5e4d00a3dfaf"
-					(reference "#PWR318")
-					(unit 1)
-				)
-			)
-			(project ""
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/f31a785a-aa18-4b99-9461-7c34b37be0d7"
-					(reference "#PWR20005")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/ed60502d-2e6d-4293-85f2-5e967a3c42d8/63cb4c21-96ec-4930-8398-5e4d00a3dfaf"
-					(reference "#PWR14005")
 					(unit 1)
 				)
 			)

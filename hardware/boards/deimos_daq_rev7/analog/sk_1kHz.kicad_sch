@@ -772,126 +772,6 @@
 				)
 			)
 		)
-		(symbol "power:+3V3"
-			(power)
-			(pin_numbers hide)
-			(pin_names
-				(offset 0) hide)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "#PWR"
-				(at 0 -3.81 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Value" "+3V3"
-				(at 0 3.556 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Power symbol creates a global label with name \"+3V3\""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "global power"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "+3V3_0_1"
-				(polyline
-					(pts
-						(xy -0.762 1.27) (xy 0 2.54)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0 0) (xy 0 2.54)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0 2.54) (xy 0.762 1.27)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "+3V3_1_1"
-				(pin power_in line
-					(at 0 0 90)
-					(length 0)
-					(name "~"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-		)
 		(symbol "power:-12V"
 			(power)
 			(pin_numbers hide)
@@ -1104,10 +984,10 @@
 		(uuid "0b9c5e26-85e0-4312-9989-f8bbe5cd0a67")
 	)
 	(junction
-		(at 81.28 104.394)
+		(at 81.026 104.394)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "94b5e544-0792-4d52-a9e2-ee6ec1efa2d9")
+		(uuid "2d82574c-a7c1-49d7-824b-2b25b7aff0d1")
 	)
 	(junction
 		(at 86.614 86.868)
@@ -1161,6 +1041,16 @@
 	)
 	(wire
 		(pts
+			(xy 77.978 106.68) (xy 81.026 106.68)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "11497dad-c011-43a0-89c1-c5b6c5f54f5d")
+	)
+	(wire
+		(pts
 			(xy 123.19 85.09) (xy 133.35 85.09)
 		)
 		(stroke
@@ -1171,7 +1061,7 @@
 	)
 	(wire
 		(pts
-			(xy 75.946 104.394) (xy 81.28 104.394)
+			(xy 75.946 104.394) (xy 81.026 104.394)
 		)
 		(stroke
 			(width 0)
@@ -1291,16 +1181,6 @@
 	)
 	(wire
 		(pts
-			(xy 81.28 104.394) (xy 86.106 104.394)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a4c01c47-dd38-4134-8226-93552db196dd")
-	)
-	(wire
-		(pts
 			(xy 101.6 82.55) (xy 101.6 87.63)
 		)
 		(stroke
@@ -1328,6 +1208,16 @@
 			(type default)
 		)
 		(uuid "bc3db3dc-4edd-405a-88f1-81c2df84ba8a")
+	)
+	(wire
+		(pts
+			(xy 81.026 106.68) (xy 81.026 104.394)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bd7975c1-279c-4d14-b8fa-f7ea01e31944")
 	)
 	(wire
 		(pts
@@ -1409,6 +1299,16 @@
 		)
 		(uuid "e79cfe55-1100-438f-a7e3-cf0a1c18dbd7")
 	)
+	(wire
+		(pts
+			(xy 81.026 104.394) (xy 86.106 104.394)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ed7e66f4-d864-4afc-bfa3-bae5527930d0")
+	)
 	(text "JFETs in diode arrangement\nare used for their extremely\nlow leakage current, because\nleakage current here causes\nerror in measured voltage.\n\nExpect about 0.6V forward voltage\nwhich gives a clamping range of\n[-0.6, 3.9] V in this case.\n\nTI application note AB-064\ndescribes the approach in more\ndetail.\n\nhttps://www.ti.com/lit/an/sboa058/sboa058.pdf"
 		(exclude_from_sim no)
 		(at 73.66 125.984 0)
@@ -1419,6 +1319,28 @@
 			(justify left)
 		)
 		(uuid "52e94e75-a14e-4d9b-a596-2626ad221de5")
+	)
+	(global_label "2V5_OVP"
+		(shape input)
+		(at 77.978 106.68 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "ade5c726-c066-46f1-a922-74e17f11ee9d")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 66.8285 106.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+				(hide yes)
+			)
+		)
 	)
 	(hierarchical_label "VOUT"
 		(shape input)
@@ -2457,94 +2379,6 @@
 				)
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc/e20d7205-bbae-4480-b1ec-aee4d6ee1bcf"
 					(reference "C9003")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3V3")
-		(at 81.28 104.394 180)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "b7982419-6517-49ac-a46d-9578fdaddae6")
-		(property "Reference" "#PWR196"
-			(at 81.28 100.584 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 81.28 109.22 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 81.28 104.394 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 81.28 104.394 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 81.28 104.394 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "dd228ddf-c3f9-4606-810a-7d7313dc3327")
-		)
-		(instances
-			(project "analog_i"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/15b6c474-02be-417e-bc87-8489b7b45186/59f61450-605e-4295-9b9f-53d8d5df51eb"
-					(reference "#PWR196")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/3688ccee-a1b0-41d3-bce5-95bc73998b83/59f61450-605e-4295-9b9f-53d8d5df51eb"
-					(reference "#PWR207")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc/e20d7205-bbae-4480-b1ec-aee4d6ee1bcf"
-					(reference "#PWR333")
-					(unit 1)
-				)
-			)
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/15b6c474-02be-417e-bc87-8489b7b45186/59f61450-605e-4295-9b9f-53d8d5df51eb"
-					(reference "#PWR5002")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83/59f61450-605e-4295-9b9f-53d8d5df51eb"
-					(reference "#PWR8002")
-					(unit 1)
-				)
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc/e20d7205-bbae-4480-b1ec-aee4d6ee1bcf"
-					(reference "#PWR9002")
 					(unit 1)
 				)
 			)
