@@ -16334,7 +16334,7 @@
 				(justify left top)
 			)
 		)
-		(property "Footprint" "SHDR26W70P254_2X13_4030X820X900P"
+		(property "Footprint" "aaa:SHDR26W70P254_2X13_4030X820X900P"
 			(at 19.05 -94.92 0)
 			(effects
 				(font
