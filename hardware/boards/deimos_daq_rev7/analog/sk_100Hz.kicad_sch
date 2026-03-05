@@ -1309,7 +1309,7 @@
 		)
 		(uuid "fdb37e2b-9ca2-40d4-acc6-87ed937d9aa2")
 	)
-	(text "JFETs in diode arrangement\nare used for their extremely\nlow leakage current, because\nleakage current here causes\nerror in measured voltage.\n\nExpect about 0.6V forward voltage\nwhich gives a clamping range of\n[-0.6, 3.9] V in this case.\n\nTI application note AB-064\ndescribes the approach in more\ndetail.\n\nhttps://www.ti.com/lit/an/sboa058/sboa058.pdf"
+	(text "JFETs in diode arrangement\nare used for their extremely\nlow leakage current, because\nleakage current here causes\nerror in measured voltage.\n\nExpect about 0.6V forward voltage\nwhich gives a clamping range of\n[-0.6, 3.1] V in this case.\n\nTI application note AB-064\ndescribes the approach in more\ndetail.\n\nhttps://www.ti.com/lit/an/sboa058/sboa058.pdf"
 		(exclude_from_sim no)
 		(at 73.66 125.984 0)
 		(effects
