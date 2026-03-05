@@ -1346,6 +1346,66 @@
 			)
 			(uuid "0d357569-c6c3-4e8e-8dd5-9803c2d62fb3")
 		)
+		(pin "DI0" input
+			(at 109.601 28.956 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "5168936b-dd50-4ff5-9c6d-6099416c11fd")
+		)
+		(pin "DI1" input
+			(at 109.601 30.734 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "ead042ee-6243-477a-8d09-8c92ca0cee86")
+		)
+		(pin "DO1" input
+			(at 109.601 34.29 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "d650fa02-ba2a-4a36-98e4-4df1e70f17b7")
+		)
+		(pin "DO2" input
+			(at 109.601 36.068 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "6f5b7af0-17f8-40bf-875a-f0ae42e309ff")
+		)
+		(pin "DO3" input
+			(at 109.601 37.846 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "0098c2a8-3696-49d6-aacf-c84b70331384")
+		)
+		(pin "DO0" input
+			(at 109.601 32.512 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "ad36b140-0cc5-48ce-be90-ba18e6dcd19c")
+		)
 		(instances
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87"

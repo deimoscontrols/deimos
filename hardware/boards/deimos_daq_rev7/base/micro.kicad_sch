@@ -6957,6 +6957,17 @@
 		)
 		(uuid "41058979-55d0-42d7-b382-960d72670d5c")
 	)
+	(hierarchical_label "DO1"
+		(shape input)
+		(at 229.616 111.506 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "422a22e3-4f7b-441b-8787-1cfc5f7b76b8")
+	)
 	(hierarchical_label "DEBUG_RESET"
 		(shape input)
 		(at 120.904 190.246 180)
@@ -7121,6 +7132,17 @@
 			(justify right)
 		)
 		(uuid "6984fc55-41bf-4f3f-82d5-0d29a91ef025")
+	)
+	(hierarchical_label "DI1"
+		(shape input)
+		(at 234.696 111.506 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "69bd7f43-595a-4ee4-9289-85cbfd8c0847")
 	)
 	(hierarchical_label "AIN15_Filt"
 		(shape input)
@@ -7298,6 +7320,17 @@
 		)
 		(uuid "90296c22-c2c3-4674-88b0-071f2e180981")
 	)
+	(hierarchical_label "DO2"
+		(shape input)
+		(at 227.076 111.506 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "91f3d29b-914a-4cd5-8b88-07179488b5cc")
+	)
 	(hierarchical_label "AIN4_Filt"
 		(shape input)
 		(at 41.402 116.078 0)
@@ -7385,6 +7418,17 @@
 			(justify right)
 		)
 		(uuid "9e7c25fc-ebaa-41a7-9ca1-8616e390a516")
+	)
+	(hierarchical_label "DO3"
+		(shape input)
+		(at 224.536 111.506 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "9eef9c78-5e65-404d-bfe4-86ab9393d01f")
 	)
 	(hierarchical_label "DEBUG_TDO{slash}SWO"
 		(shape input)
@@ -7716,6 +7760,17 @@
 		)
 		(uuid "d8e8d5f9-86bd-4bb7-839a-71c336ba6b49")
 	)
+	(hierarchical_label "DI0"
+		(shape input)
+		(at 237.236 111.506 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "d9badefa-cad7-4ba5-baff-fee5fcae8cbc")
+	)
 	(hierarchical_label "AIN10_Filt"
 		(shape input)
 		(at 153.416 200.406 180)
@@ -7836,6 +7891,17 @@
 			(justify left)
 		)
 		(uuid "fbc20090-27c9-405c-9576-60c166e18f51")
+	)
+	(hierarchical_label "DO0"
+		(shape input)
+		(at 232.156 111.506 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "fd228971-d2c6-49f2-acd3-d3bbba0ae056")
 	)
 	(hierarchical_label "AIN9_Filt"
 		(shape input)

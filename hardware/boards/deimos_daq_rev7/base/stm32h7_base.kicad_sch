@@ -161,7 +161,7 @@
 	)
 	(text "24V Supply"
 		(exclude_from_sim no)
-		(at 50.8 25.146 0)
+		(at 55.372 26.924 0)
 		(effects
 			(font
 				(size 4 4)
@@ -291,6 +291,17 @@
 		)
 		(uuid "2a1f4807-39df-46e9-b807-38af9ff66bbf")
 	)
+	(hierarchical_label "DI0"
+		(shape input)
+		(at 45.974 20.32 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "2bf6339e-f808-454a-8ae8-34b2bf0f5aa3")
+	)
 	(hierarchical_label "PWM3"
 		(shape input)
 		(at 26.416 67.31 180)
@@ -368,6 +379,17 @@
 		)
 		(uuid "74439f91-5918-4b8d-ba58-84f24559a901")
 	)
+	(hierarchical_label "DI1"
+		(shape input)
+		(at 45.974 22.098 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "75f249f6-6874-4dc8-acea-ea20d0285dfe")
+	)
 	(hierarchical_label "PWM1"
 		(shape input)
 		(at 26.416 63.754 180)
@@ -389,6 +411,17 @@
 			(justify right)
 		)
 		(uuid "87c1c30e-023d-43f7-aeda-fb2c73dc87b1")
+	)
+	(hierarchical_label "DO1"
+		(shape input)
+		(at 45.974 25.654 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "8893cce0-6a27-4d04-92fc-4f011b627dc2")
 	)
 	(hierarchical_label "PWM0"
 		(shape input)
@@ -434,6 +467,17 @@
 		)
 		(uuid "a746c142-530d-4a69-baa8-af28527fd431")
 	)
+	(hierarchical_label "DO2"
+		(shape input)
+		(at 45.974 27.432 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "afcf313d-cbec-46f1-87c2-3311f33427be")
+	)
 	(hierarchical_label "PWM2"
 		(shape input)
 		(at 26.416 65.532 180)
@@ -466,6 +510,17 @@
 			(justify right)
 		)
 		(uuid "d181e144-d9e2-4882-ba85-76f23e304326")
+	)
+	(hierarchical_label "DO3"
+		(shape input)
+		(at 45.974 29.21 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "d1ba638f-3e56-4adf-b2ac-4682d5bcc201")
 	)
 	(hierarchical_label "AIN12"
 		(shape input)
@@ -565,6 +620,17 @@
 			(justify right)
 		)
 		(uuid "f5932d71-1f15-451c-95bb-6d144a3d74f0")
+	)
+	(hierarchical_label "DO0"
+		(shape input)
+		(at 45.974 23.876 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "f6d0c2a3-a9ab-4888-9fc6-6aa3f77f9915")
 	)
 	(hierarchical_label "AIN11"
 		(shape input)
@@ -1093,6 +1159,66 @@
 				(justify left)
 			)
 			(uuid "2b3df3b4-01e1-4966-b3ce-6d272f1df561")
+		)
+		(pin "DI1" input
+			(at 45.974 22.098 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "9ef66fc0-f9cd-4de2-a1e0-42d91451c9d6")
+		)
+		(pin "DI0" input
+			(at 45.974 20.32 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "02d15085-6ae8-47e9-80cb-4ce27bdab01b")
+		)
+		(pin "DO0" input
+			(at 45.974 23.876 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "31600263-a75c-4791-b176-36f78c1ce417")
+		)
+		(pin "DO2" input
+			(at 45.974 27.432 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "d091e4fb-514c-439c-94d9-0dee66ad4e6e")
+		)
+		(pin "DO1" input
+			(at 45.974 25.654 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "dd111e70-bb8b-4e16-b59f-e1d556a7c4f5")
+		)
+		(pin "DO3" input
+			(at 45.974 29.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "3953f4b8-c423-4fe3-a674-f0b88b38f0ea")
 		)
 		(instances
 			(project "stm32h7_base"
