@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-03-14 Rev7 Hardware & Firmware, deimos 0.16.0
+
+### Added - Deimos DAQ Rev7 Hardware & Firmware
+
+* Firmware: first cut with extra GPIO pins broken out
+* Hardware
+    * Tooling: Same as 6.0.1
+    * [ ] Consider removing 660x channel (is the input offset too much for this gain level?)
+    * [x] Use dsub connector for voltage measurement block
+    * [x] Use pluggable terminal blocks to reduce FOD intrusion risk
+    * [x] Add some GPIO pin outputs
+    * [x] Add negative voltage pulldown on DAC pins to allow reaching true rail in buffered mode
+        * [x] Place a 3k pulldown and a diode from ground somewhere that's easy to desolder in case it becomes a problem
+    * [x] Improve overvoltage protection
+    * [x] Move right side connectors inboard to make room for label graphics
+    * Consider light pipes and/or eth connector with LEDs
+        * [x] Add footprint for SMFLP flexible light pipe (available from component search)
+    * [x] Refactor layout of base module to be more compact
+    * Enclosure
+        * [ ] Check clearance for powdercoat
+        * [ ] Update for moved connectors
+        * [ ] Add light pipe indicator hole
+
+### Changed - deimos 0.16.0
+
+* Handle peripheral discovery across multiple eth interfaces or subnets
+    * This allows use on routers operating in bridge mode with their own NAT layer and subnet
+* Support selecting a specific eth interface or subnet
+    * This allows the industrial-style dual-interface where the control network is on its own network interface, separated from the global internet
+
 ## 2026-01-04 Rev6 Firmware 0.5.1
 
 ### Changed
