@@ -35,6 +35,10 @@
         * This resolves disk space errors caused by the database failing to clear any stale data due to the requirement that the entire chunk be stale
     * Use Duration for setting retention duration to allow non-integer hours
     * Update retention duration when reusing a table
+    * Add optional table name suffix
+        * Allows multiple dispatchers to target the same database, for example, to write a second downsampled table with a longer retention time
+* CSV upgrades
+    * Add optional file name suffix
 
 ## 2026-01-04 Rev6 Firmware 0.5.1
 

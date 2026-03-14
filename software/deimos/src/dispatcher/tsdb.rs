@@ -17,7 +17,7 @@ use pyo3::prelude::*;
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
-use super::{Dispatcher, csv_row};
+use super::{Dispatcher, csv_row, resource_name_with_suffix};
 
 /// Either reuse or create a new table in a TimescaleDB postgres
 /// database and write to that table.
@@ -51,6 +51,9 @@ pub struct TimescaleDbDispatcher {
     buffer_time: Duration,
     /// Duration for which data will be retained in the database
     retention_time: Duration,
+    /// Optional suffix appended to the op name for the table name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    op_name_suffix: Option<String>,
     /// Optional hypertable chunk interval. If omitted, this defaults to one
     /// quarter of the retention duration during initialization.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -78,9 +81,21 @@ impl TimescaleDbDispatcher {
             token_name: token_name.to_owned(),
             buffer_time,
             retention_time,
+            op_name_suffix: None,
             chunk_interval: None,
             worker: None,
         })
+    }
+
+    /// Override the table name derived from the controller op name by appending
+    /// `_{suffix}` to the base name.
+    pub fn with_op_name_suffix(mut self: Box<Self>, suffix: &str) -> Box<Self> {
+        self.op_name_suffix = if suffix.is_empty() {
+            None
+        } else {
+            Some(suffix.to_owned())
+        };
+        self
     }
 
     /// Override the default hypertable chunk interval.
@@ -101,6 +116,7 @@ py_json_methods!(
         token_name,
         buffer_time_ns,
         retention_time_ns,
+        op_name_suffix=None,
         chunk_interval_ns=None
     ))]
     fn py_new(
@@ -110,6 +126,7 @@ py_json_methods!(
         token_name: &str,
         buffer_time_ns: u64,
         retention_time_ns: u64,
+        op_name_suffix: Option<String>,
         chunk_interval_ns: Option<u64>,
     ) -> PyResult<Self> {
         let dispatcher = Self::new(
@@ -120,6 +137,11 @@ py_json_methods!(
             Duration::from_nanos(buffer_time_ns),
             Duration::from_nanos(retention_time_ns),
         );
+        let dispatcher = if let Some(suffix) = op_name_suffix {
+            dispatcher.with_op_name_suffix(&suffix)
+        } else {
+            dispatcher
+        };
         let dispatcher = if let Some(chunk_interval_ns) = chunk_interval_ns {
             dispatcher.with_chunk_interval(Duration::from_nanos(chunk_interval_ns))
         } else {
@@ -153,13 +175,14 @@ impl Dispatcher for TimescaleDbDispatcher {
 
         // Connect to database backend
         let mut client = init_timescaledb_client(&self.dbname, &self.host, &self.user, &pw)?;
+        let table_name = resource_name_with_suffix(&ctx.op_name, self.op_name_suffix.as_deref());
 
         // Set up table for this op
         let chunk_interval = effective_chunk_interval(self.retention_time, self.chunk_interval)?;
         init_timescaledb_table(
             &mut client,
             channel_names,
-            &ctx.op_name,
+            &table_name,
             self.retention_time,
             chunk_interval,
         )?;
@@ -177,7 +200,7 @@ impl Dispatcher for TimescaleDbDispatcher {
             user,
             pw,
             channel_names,
-            ctx.op_name.to_owned(),
+            table_name,
             n_buffer,
             core_assignment,
         )?);

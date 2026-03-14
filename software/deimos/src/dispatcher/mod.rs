@@ -104,6 +104,13 @@ pub fn csv_header(channel_names: &[String]) -> String {
     header_string
 }
 
+pub(crate) fn resource_name_with_suffix(op_name: &str, suffix: Option<&str>) -> String {
+    match suffix {
+        Some(suffix) if !suffix.is_empty() => format!("{op_name}_{suffix}"),
+        _ => op_name.to_owned(),
+    }
+}
+
 /// Fixed-width ISO-8601 UTC timestamp with zero-padded sub-second nanoseconds and Z-suffix
 pub fn fmt_time(time: SystemTime) -> String {
     DateTime::<Utc>::from(time).to_rfc3339_opts(chrono::SecondsFormat::Nanos, true)
@@ -181,7 +188,7 @@ pub fn fmt_i64(num: i64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{fmt_f64, fmt_i64};
+    use super::{fmt_f64, fmt_i64, resource_name_with_suffix};
 
     #[test]
     fn fmt_f64_has_consistent_width() {
@@ -252,5 +259,12 @@ mod tests {
                 "{value} was serialized as {formatted} and parsed as {parsed}"
             );
         }
+    }
+
+    #[test]
+    fn resource_name_suffix_is_appended_with_separator() {
+        assert_eq!(resource_name_with_suffix("demo", Some("fast")), "demo_fast");
+        assert_eq!(resource_name_with_suffix("demo", None), "demo");
+        assert_eq!(resource_name_with_suffix("demo", Some("")), "demo");
     }
 }
