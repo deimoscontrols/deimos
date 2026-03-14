@@ -50,7 +50,7 @@ pub struct TimescaleDbDispatcher {
     /// the COPY INTO bulk write syntax is used.
     buffer_time: Duration,
     /// Duration for which data will be retained in the database
-    retention_time_hours: u64,
+    retention_time: Duration,
     /// Optional hypertable chunk interval. If omitted, this defaults to one
     /// quarter of the retention duration during initialization.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -69,7 +69,7 @@ impl TimescaleDbDispatcher {
         user: &str,
         token_name: &str,
         buffer_time: Duration,
-        retention_time_hours: u64,
+        retention_time: Duration,
     ) -> Box<Self> {
         Box::new(Self {
             dbname: dbname.to_owned(),
@@ -77,7 +77,7 @@ impl TimescaleDbDispatcher {
             user: user.to_owned(),
             token_name: token_name.to_owned(),
             buffer_time,
-            retention_time_hours,
+            retention_time,
             chunk_interval: None,
             worker: None,
         })
@@ -100,7 +100,7 @@ py_json_methods!(
         user,
         token_name,
         buffer_time_ns,
-        retention_time_hours,
+        retention_time_ns,
         chunk_interval_ns=None
     ))]
     fn py_new(
@@ -109,7 +109,7 @@ py_json_methods!(
         user: &str,
         token_name: &str,
         buffer_time_ns: u64,
-        retention_time_hours: u64,
+        retention_time_ns: u64,
         chunk_interval_ns: Option<u64>,
     ) -> PyResult<Self> {
         let dispatcher = Self::new(
@@ -118,7 +118,7 @@ py_json_methods!(
             user,
             token_name,
             Duration::from_nanos(buffer_time_ns),
-            retention_time_hours,
+            Duration::from_nanos(retention_time_ns),
         );
         let dispatcher = if let Some(chunk_interval_ns) = chunk_interval_ns {
             dispatcher.with_chunk_interval(Duration::from_nanos(chunk_interval_ns))
@@ -155,13 +155,12 @@ impl Dispatcher for TimescaleDbDispatcher {
         let mut client = init_timescaledb_client(&self.dbname, &self.host, &self.user, &pw)?;
 
         // Set up table for this op
-        let chunk_interval =
-            effective_chunk_interval(self.retention_time_hours, self.chunk_interval)?;
+        let chunk_interval = effective_chunk_interval(self.retention_time, self.chunk_interval)?;
         init_timescaledb_table(
             &mut client,
             channel_names,
             &ctx.op_name,
-            self.retention_time_hours,
+            self.retention_time,
             chunk_interval,
         )?;
 
@@ -359,10 +358,10 @@ fn init_timescaledb_table(
     client: &mut Client,
     channel_names: &[String],
     op_name: &str,
-    retention_time_hours: u64,
+    retention_time: Duration,
     chunk_interval: Duration,
 ) -> Result<(), String> {
-    let chunk_interval = sql_interval_literal(chunk_interval);
+    let policy_query = timescaledb_policy_query(op_name, retention_time, chunk_interval);
 
     // Check if the table exists
     let table_exists = !client
@@ -370,13 +369,11 @@ fn init_timescaledb_table(
         .unwrap_or_default()
         .is_empty();
 
-    // If it already exists, keep the schema and update the chunk interval in-place.
+    // If it already exists, keep the schema and reconcile Timescale policies in-place.
     // If the schema is incompatible, this will still produce an error on the first write.
     if table_exists {
         return client
-            .batch_execute(&format!(
-                "SELECT set_chunk_time_interval(\'\"{op_name}\"\', INTERVAL '{chunk_interval}');"
-            ))
+            .batch_execute(&policy_query)
             .map_err(|e| format!("{e}"));
     }
 
@@ -397,13 +394,9 @@ fn init_timescaledb_table(
 
             CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
 
-            SELECT create_hypertable(
-                \'\"{op_name}\"\',
-                by_range('time', INTERVAL '{chunk_interval}'),
-                if_not_exists => TRUE
-            );
+            SELECT create_hypertable(\'\"{op_name}\"\', by_range('time'), if_not_exists => TRUE);
 
-            SELECT add_retention_policy(\'\"{op_name}\"\', INTERVAL '{retention_time_hours} hours');
+            {policy_query}
     "
     );
 
@@ -455,7 +448,7 @@ fn split_host(host: &str) -> (String, Option<String>) {
 }
 
 fn effective_chunk_interval(
-    retention_time_hours: u64,
+    retention_time: Duration,
     chunk_interval: Option<Duration>,
 ) -> Result<Duration, String> {
     if let Some(chunk_interval) = chunk_interval {
@@ -465,17 +458,14 @@ fn effective_chunk_interval(
         return Ok(chunk_interval);
     }
 
-    let retention_seconds = retention_time_hours
-        .checked_mul(60 * 60)
-        .ok_or_else(|| format!("Retention time is too large: {retention_time_hours} hours"))?;
-    let default_chunk_seconds = retention_seconds / 4;
-    if default_chunk_seconds == 0 {
+    let default_chunk_nanos = retention_time.as_nanos() / 4;
+    if default_chunk_nanos == 0 {
         return Err(
-            "TimescaleDB chunk interval must be greater than zero; provide an explicit chunk interval when retention is less than four seconds".to_string(),
+            "TimescaleDB chunk interval must be greater than zero; provide an explicit chunk interval when retention is less than four nanoseconds".to_string(),
         );
     }
 
-    Ok(Duration::from_secs(default_chunk_seconds))
+    duration_from_nanos(default_chunk_nanos)
 }
 
 fn sql_interval_literal(duration: Duration) -> String {
@@ -488,16 +478,45 @@ fn sql_interval_literal(duration: Duration) -> String {
     }
 }
 
+fn duration_from_nanos(total_nanos: u128) -> Result<Duration, String> {
+    let secs = total_nanos / 1_000_000_000;
+    let nanos = (total_nanos % 1_000_000_000) as u32;
+    let secs =
+        u64::try_from(secs).map_err(|_| format!("Duration is too large: {total_nanos} ns"))?;
+    Ok(Duration::new(secs, nanos))
+}
+
+fn timescaledb_policy_query(
+    op_name: &str,
+    retention_time: Duration,
+    chunk_interval: Duration,
+) -> String {
+    let chunk_interval = sql_interval_literal(chunk_interval);
+    let retention_time = sql_interval_literal(retention_time);
+    format!(
+        "
+            SELECT set_chunk_time_interval(\'\"{op_name}\"\', INTERVAL '{chunk_interval}');
+
+            SELECT remove_retention_policy(\'\"{op_name}\"\', if_exists => true);
+
+            SELECT add_retention_policy(\'\"{op_name}\"\', drop_after => INTERVAL '{retention_time}');
+        "
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{effective_chunk_interval, sql_interval_literal};
+    use super::{
+        duration_from_nanos, effective_chunk_interval, sql_interval_literal,
+        timescaledb_policy_query,
+    };
     use std::time::Duration;
 
     #[test]
     fn default_chunk_interval_is_quarter_retention() {
         assert_eq!(
-            effective_chunk_interval(8, None).unwrap(),
-            Duration::from_secs(2 * 60 * 60)
+            effective_chunk_interval(Duration::from_secs(10), None).unwrap(),
+            Duration::from_millis(2500)
         );
     }
 
@@ -505,7 +524,7 @@ mod tests {
     fn explicit_chunk_interval_overrides_default() {
         let interval = Duration::from_secs(90);
         assert_eq!(
-            effective_chunk_interval(8, Some(interval)).unwrap(),
+            effective_chunk_interval(Duration::from_secs(10), Some(interval)).unwrap(),
             interval
         );
     }
@@ -516,5 +535,24 @@ mod tests {
             sql_interval_literal(Duration::from_millis(1500)),
             "1.500000000 seconds"
         );
+    }
+
+    #[test]
+    fn duration_from_nanos_preserves_subsecond_values() {
+        assert_eq!(
+            duration_from_nanos(2_500_000_000).unwrap(),
+            Duration::from_millis(2500)
+        );
+    }
+
+    #[test]
+    fn policy_query_reconciles_retention_on_existing_tables() {
+        let sql =
+            timescaledb_policy_query("demo", Duration::from_secs(600), Duration::from_secs(150));
+        assert!(sql.contains("set_chunk_time_interval"));
+        assert!(sql.contains("remove_retention_policy"));
+        assert!(sql.contains("if_exists => true"));
+        assert!(sql.contains("add_retention_policy"));
+        assert!(sql.contains("drop_after => INTERVAL '600 seconds'"));
     }
 }

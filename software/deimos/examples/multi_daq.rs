@@ -86,7 +86,7 @@ fn main() {
         "jlogan",
         "POSTGRES_PW",
         Duration::from_nanos(1),
-        1,
+        Duration::from_secs(60 * 60),
     );
     let csv_dispatcher: Box<dyn Dispatcher> = CsvDispatcher::new(50, dispatcher::Overflow::Wrap);
     controller.add_dispatcher("tsdb", timescale_dispatcher);
