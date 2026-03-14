@@ -2,7 +2,7 @@
 
 ## 2026-03-14 Rev7 Hardware & Firmware, deimos 0.16.0
 
-### Added - Deimos DAQ Rev7 Hardware & Firmware
+### Changed - Deimos DAQ Rev7 Hardware & Firmware
 
 * Firmware: first cut with extra GPIO pins broken out
 * Hardware
@@ -29,6 +29,7 @@
     * This allows use on routers operating in bridge mode with their own NAT layer and subnet
 * Support selecting a specific eth interface or subnet
     * This allows the industrial-style dual-interface where the control network is on its own network interface, separated from the global internet
+* Add dot/graphviz export for calc orchestrator and sequence machine
 
 ## 2026-01-04 Rev6 Firmware 0.5.1
 
