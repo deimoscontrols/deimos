@@ -30,6 +30,8 @@
 * Support selecting a specific eth interface or subnet
     * This allows the industrial-style dual-interface where the control network is on its own network interface, separated from the global internet
 * Add dot/graphviz export for calc orchestrator and sequence machine
+* Set chunk size for TSDB dispatcher to 25% of retention duration by default
+    * This resolves disk space errors caused by the database failing to clear any stale data due to the requirement that the entire chunk be stale
 
 ## 2026-01-04 Rev6 Firmware 0.5.1
 

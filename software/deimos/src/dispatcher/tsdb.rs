@@ -51,6 +51,10 @@ pub struct TimescaleDbDispatcher {
     buffer_time: Duration,
     /// Duration for which data will be retained in the database
     retention_time_hours: u64,
+    /// Optional hypertable chunk interval. If omitted, this defaults to one
+    /// quarter of the retention duration during initialization.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    chunk_interval: Option<Duration>,
 
     #[serde(skip)]
     worker: Option<WorkerHandle>,
@@ -74,8 +78,15 @@ impl TimescaleDbDispatcher {
             token_name: token_name.to_owned(),
             buffer_time,
             retention_time_hours,
+            chunk_interval: None,
             worker: None,
         })
+    }
+
+    /// Override the default hypertable chunk interval.
+    pub fn with_chunk_interval(mut self: Box<Self>, chunk_interval: Duration) -> Box<Self> {
+        self.chunk_interval = Some(chunk_interval);
+        self
     }
 }
 
@@ -83,6 +94,15 @@ py_json_methods!(
     TimescaleDbDispatcher,
     Dispatcher,
     #[new]
+    #[pyo3(signature=(
+        dbname,
+        host,
+        user,
+        token_name,
+        buffer_time_ns,
+        retention_time_hours,
+        chunk_interval_ns=None
+    ))]
     fn py_new(
         dbname: &str,
         host: &str,
@@ -90,15 +110,22 @@ py_json_methods!(
         token_name: &str,
         buffer_time_ns: u64,
         retention_time_hours: u64,
+        chunk_interval_ns: Option<u64>,
     ) -> PyResult<Self> {
-        Ok(*Self::new(
+        let dispatcher = Self::new(
             dbname,
             host,
             user,
             token_name,
             Duration::from_nanos(buffer_time_ns),
             retention_time_hours,
-        ))
+        );
+        let dispatcher = if let Some(chunk_interval_ns) = chunk_interval_ns {
+            dispatcher.with_chunk_interval(Duration::from_nanos(chunk_interval_ns))
+        } else {
+            dispatcher
+        };
+        Ok(*dispatcher)
     }
 );
 
@@ -128,11 +155,14 @@ impl Dispatcher for TimescaleDbDispatcher {
         let mut client = init_timescaledb_client(&self.dbname, &self.host, &self.user, &pw)?;
 
         // Set up table for this op
+        let chunk_interval =
+            effective_chunk_interval(self.retention_time_hours, self.chunk_interval)?;
         init_timescaledb_table(
             &mut client,
             channel_names,
             &ctx.op_name,
             self.retention_time_hours,
+            chunk_interval,
         )?;
 
         // Figure out how many samples to write per batch
@@ -330,16 +360,24 @@ fn init_timescaledb_table(
     channel_names: &[String],
     op_name: &str,
     retention_time_hours: u64,
+    chunk_interval: Duration,
 ) -> Result<(), String> {
+    let chunk_interval = sql_interval_literal(chunk_interval);
+
     // Check if the table exists
     let table_exists = !client
         .simple_query(&format!("SELECT 1 FROM public.{op_name};"))
         .unwrap_or_default()
         .is_empty();
 
-    // If it exists but has the wrong schema, this will produce an error on the first write
+    // If it already exists, keep the schema and update the chunk interval in-place.
+    // If the schema is incompatible, this will still produce an error on the first write.
     if table_exists {
-        return Ok(());
+        return client
+            .batch_execute(&format!(
+                "SELECT set_chunk_time_interval(\'\"{op_name}\"\', INTERVAL '{chunk_interval}');"
+            ))
+            .map_err(|e| format!("{e}"));
     }
 
     // Make a new table if there isn't one
@@ -359,7 +397,11 @@ fn init_timescaledb_table(
 
             CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
 
-            SELECT create_hypertable(\'\"{op_name}\"\', by_range('time'), if_not_exists => TRUE);
+            SELECT create_hypertable(
+                \'\"{op_name}\"\',
+                by_range('time', INTERVAL '{chunk_interval}'),
+                if_not_exists => TRUE
+            );
 
             SELECT add_retention_policy(\'\"{op_name}\"\', INTERVAL '{retention_time_hours} hours');
     "
@@ -409,5 +451,70 @@ fn split_host(host: &str) -> (String, Option<String>) {
         (host.to_string(), None)
     } else {
         (parts[..n - 1].join(""), parts.last().cloned())
+    }
+}
+
+fn effective_chunk_interval(
+    retention_time_hours: u64,
+    chunk_interval: Option<Duration>,
+) -> Result<Duration, String> {
+    if let Some(chunk_interval) = chunk_interval {
+        if chunk_interval.is_zero() {
+            return Err("TimescaleDB chunk interval must be greater than zero".to_string());
+        }
+        return Ok(chunk_interval);
+    }
+
+    let retention_seconds = retention_time_hours
+        .checked_mul(60 * 60)
+        .ok_or_else(|| format!("Retention time is too large: {retention_time_hours} hours"))?;
+    let default_chunk_seconds = retention_seconds / 4;
+    if default_chunk_seconds == 0 {
+        return Err(
+            "TimescaleDB chunk interval must be greater than zero; provide an explicit chunk interval when retention is less than four seconds".to_string(),
+        );
+    }
+
+    Ok(Duration::from_secs(default_chunk_seconds))
+}
+
+fn sql_interval_literal(duration: Duration) -> String {
+    let seconds = duration.as_secs();
+    let nanos = duration.subsec_nanos();
+    if nanos == 0 {
+        format!("{seconds} seconds")
+    } else {
+        format!("{seconds}.{nanos:09} seconds")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{effective_chunk_interval, sql_interval_literal};
+    use std::time::Duration;
+
+    #[test]
+    fn default_chunk_interval_is_quarter_retention() {
+        assert_eq!(
+            effective_chunk_interval(8, None).unwrap(),
+            Duration::from_secs(2 * 60 * 60)
+        );
+    }
+
+    #[test]
+    fn explicit_chunk_interval_overrides_default() {
+        let interval = Duration::from_secs(90);
+        assert_eq!(
+            effective_chunk_interval(8, Some(interval)).unwrap(),
+            interval
+        );
+    }
+
+    #[test]
+    fn sql_interval_literal_keeps_subsecond_precision() {
+        assert_eq!(
+            sql_interval_literal(Duration::from_millis(1500)),
+            "1.500000000 seconds"
+        );
     }
 }
