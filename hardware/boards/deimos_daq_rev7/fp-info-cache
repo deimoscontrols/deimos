@@ -1,4 +1,4 @@
-24600268512692092
+24613631166230270
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -98812,6 +98812,34 @@ Integrated Circuit
 144
 144
 aaa
+RCHRC01133
+RCH RC01133-4
+Connector
+0
+10
+10
+aaa
+SHDR12W85P0X381_1X12_4660X700X935P
+WJ15EDGVC-3.81-12P
+Connector
+0
+12
+12
+aaa
+SHDR26W70P254_2X13_4030X820X900P
+XG4C-2631
+Connector
+0
+26
+26
+aaa
+SHDRRA26W70P254_2X13_4030X850X900P
+XG4C2634
+Connector
+0
+26
+26
+aaa
 SIT1602AI2233E48000000G
 SIT1602AI-22-33E-48.000000G-1
 Crystal or Oscillator
@@ -98825,6 +98853,13 @@ Crystal or Oscillator
 0
 4
 4
+aaa
+SMFLP100
+SMFLP10.0-2
+LED
+0
+0
+0
 aaa
 SOIC127P600X175-8N
 SOIC 8
@@ -98898,6 +98933,20 @@ TestPoint
 aaa
 U262161N4BS1735
 U262-161N-4BS1735-3
+Connector
+0
+16
+16
+aaa
+WJ15EDGRM-3.81-12P
+WJ15EDGRM-3.81-16P-2
+Connector
+0
+12
+12
+aaa
+WJ15EDGRM38116P
+WJ15EDGRM-3.81-16P-2
 Connector
 0
 16

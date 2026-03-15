@@ -1128,6 +1128,10 @@
 					(reference "#PWR14005")
 					(unit 1)
 				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc"
+					(reference "#PWR?")
+					(unit 1)
+				)
 			)
 		)
 	)
@@ -1373,6 +1377,10 @@
 			(project "analog_frontend_panel"
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/67dea2b9-89bb-48a8-8856-d9fc41469052"
 					(reference "#PWR14004")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc"
+					(reference "#PWR?")
 					(unit 1)
 				)
 			)
