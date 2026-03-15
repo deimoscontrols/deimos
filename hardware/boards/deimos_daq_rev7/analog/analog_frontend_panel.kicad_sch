@@ -4542,6 +4542,17 @@
 		)
 		(uuid "2b69a999-d57c-4032-b964-98990b58b47d")
 	)
+	(text "G=25.7"
+		(exclude_from_sim no)
+		(at 262.128 71.12 0)
+		(effects
+			(font
+				(size 2 2)
+			)
+			(justify right bottom)
+		)
+		(uuid "3515d560-1677-4239-9903-de151107f32c")
+	)
 	(text "General-Purpose\nVoltage Input"
 		(exclude_from_sim no)
 		(at 241.046 23.368 0)
@@ -4606,17 +4617,6 @@
 			(justify left bottom)
 		)
 		(uuid "76e5a1a9-47ef-484b-bc47-dc5c0d8c8a08")
-	)
-	(text "G=659+2/3"
-		(exclude_from_sim no)
-		(at 265.684 70.866 0)
-		(effects
-			(font
-				(size 2 2)
-			)
-			(justify right bottom)
-		)
-		(uuid "a137a3ca-ea48-490e-adb9-1892e76d78a0")
 	)
 	(text "5V LDO\nfor resistance amps"
 		(exclude_from_sim no)
@@ -4839,7 +4839,7 @@
 		)
 		(uuid "4c20a83f-48f8-413d-877a-aeff1a0eb8a4")
 	)
-	(hierarchical_label "660x"
+	(hierarchical_label "25p7x_1"
 		(shape input)
 		(at 270.002 72.136 270)
 		(effects
@@ -4895,7 +4895,7 @@
 		)
 		(uuid "60d9722d-4179-4730-9ca3-ab7eeb618534")
 	)
-	(hierarchical_label "25p7x"
+	(hierarchical_label "25p7x_0"
 		(shape input)
 		(at 270.256 86.106 270)
 		(effects
@@ -4997,7 +4997,7 @@
 		)
 		(uuid "7bcfb2e3-e393-484b-9a9c-5a01c648e44d")
 	)
-	(hierarchical_label "25p7x"
+	(hierarchical_label "25p7x_0"
 		(shape input)
 		(at 501.142 33.782 180)
 		(effects
@@ -11044,6 +11044,64 @@
 		)
 	)
 	(sheet
+		(at 244.602 67.818)
+		(size 24.384 10.16)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "67dea2b9-89bb-48a8-8856-d9fc41469052")
+		(property "Sheetname" "ain_g25p7_1"
+			(at 244.602 67.1064 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "ain_g25p7_.kicad_sch"
+			(at 244.602 78.5626 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "VIN" input
+			(at 268.986 72.136 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "22f30a05-e3cf-4fbe-b9d1-c04c94f1840d")
+		)
+		(pin "VOUT" input
+			(at 244.602 72.136 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "e14fd77d-5cfa-4d47-998b-32bf8ee01f37")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
+					(page "14")
+				)
+			)
+		)
+	)
+	(sheet
 		(at 196.85 87.376)
 		(size 23.368 12.065)
 		(stroke
@@ -12014,64 +12072,6 @@
 			(project "analog_frontend_panel"
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
 					(page "48")
-				)
-			)
-		)
-	)
-	(sheet
-		(at 244.602 67.056)
-		(size 24.384 10.16)
-		(fields_autoplaced yes)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(fill
-			(color 0 0 0 0.0000)
-		)
-		(uuid "ed60502d-2e6d-4293-85f2-5e967a3c42d8")
-		(property "Sheetname" "ain_g666p333_"
-			(at 244.602 66.3444 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Sheetfile" "ain_g666p333_.kicad_sch"
-			(at 244.602 77.8006 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-			)
-		)
-		(pin "VIN" input
-			(at 268.986 72.136 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-			(uuid "0509f3ab-a0f1-441d-91d2-1a239cf7b65c")
-		)
-		(pin "VOUT" input
-			(at 244.602 72.136 180)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "970f8c58-aa6c-41e3-a720-0ad8dda8f461")
-		)
-		(instances
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
-					(page "36")
 				)
 			)
 		)

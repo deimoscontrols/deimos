@@ -664,8 +664,8 @@
       "4-20mA Frontend3"
     ],
     [
-      "63cb4c21-96ec-4930-8398-5e4d00a3dfaf",
-      "sallen_key_100Hz1"
+      "67dea2b9-89bb-48a8-8856-d9fc41469052",
+      "ain_g25p7_1"
     ],
     [
       "413450a6-23f7-43dd-83b0-93f1b2a57e6d",
@@ -720,6 +720,10 @@
       "pwm_out_buf3"
     ],
     [
+      "e20d7205-bbae-4480-b1ec-aee4d6ee1bcf",
+      "sallen_key_1kHz2"
+    ],
+    [
       "4b2b62d1-e721-4ae3-8080-ff18c7eebdec",
       "pwm_in_buf6"
     ],
@@ -746,10 +750,6 @@
     [
       "a1ee2b3a-0c82-480a-bd10-9f01e8ac3dcc",
       "ain_g25p7_"
-    ],
-    [
-      "ed60502d-2e6d-4293-85f2-5e967a3c42d8",
-      "ain_g666p333_"
     ],
     [
       "3d57a2e8-76a3-4b72-b88d-c02ba9a3137f",
