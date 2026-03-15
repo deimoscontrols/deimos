@@ -25,10 +25,13 @@ While the controller can accommodate multiple communication media, a peripheral 
 
 | I/O Medium | Notes |
 |------------|-------|
-| UDP/IPV4 | Nominal peripheral I/O; compared to TCP, eliminates packet storm network instability.<br><br>The controller reasserts the full peripheral state on each cycle, so while UDP allows from some packet loss (typically 1e-4 or less), a change in peripheral state is never missed permanently. |
+| UDP/IPV4 | Nominal peripheral I/O |
 | Unix socket | Inter-process communication option for software peripheral mockups |
+| Thread channel | Inter-thread communication option for software peripheral mockups |
 
-Several more socket implementations are planned, including TCP, UDP/IPV6, and thread channel message passing.
+More socket implementations are planned, including TCP, UDP/IPV6.
+
+The native hardware in the Deimos ecosystem uses UDP; compared to TCP, this eliminates packet storm network instability. The controller reasserts the full peripheral state on each cycle, so while UDP allows some packet loss (typically 1e-4 or less), a change in peripheral state is never missed permanently. This ultimately results in a more reliable system than would be achieved with protocol-level retrying.
 
 # Data Integrations
 
