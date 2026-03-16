@@ -382,15 +382,15 @@
 		(remove_unused_layers no)
 		(uuid "f6ea728e-97a7-46fe-8c99-9f1eaca28a93")
 	)
-	(model "${KIPRJMOD}/../../kicad_libs/footprints.pretty/WJ15EDGRM-3.81-12P.step"
+	(model "${KIPRJMOD}/../../kicad_libs/footprints.pretty/15EDGxM-2.81-12P_assembled-Assembly.step"
 		(offset
-			(xyz 21 -1.25 3)
+			(xyz 40 1.25 -3.5)
 		)
 		(scale
 			(xyz 1 1 1)
 		)
 		(rotate
-			(xyz -90 0 180)
+			(xyz 180 0 0)
 		)
 	)
 )
