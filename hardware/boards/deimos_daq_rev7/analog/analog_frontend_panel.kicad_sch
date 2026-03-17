@@ -2593,6 +2593,10 @@
 		(uuid "a321a662-c909-4ef8-b0f3-3d419d24b601")
 	)
 	(no_connect
+		(at 501.142 33.782)
+		(uuid "b23d3fe9-9717-4121-8383-a0b210bc0768")
+	)
+	(no_connect
 		(at 333.248 45.212)
 		(uuid "f88596e3-dbb5-4bac-b840-e089ef8342e8")
 	)
@@ -4996,18 +5000,6 @@
 			(justify right)
 		)
 		(uuid "7bcfb2e3-e393-484b-9a9c-5a01c648e44d")
-	)
-	(hierarchical_label "25p7x_0"
-		(shape input)
-		(at 501.142 33.782 180)
-		(effects
-			(font
-				(face "AnjaliOldLipi")
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "7c9b6b23-3400-4955-ae94-f63ddabb5dc8")
 	)
 	(hierarchical_label "15V_1"
 		(shape input)
