@@ -6,4 +6,5 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "cadquery>=2.7.0",
+    "pint>=0.25.2",
 ]
