@@ -1,6 +1,7 @@
 # Protocase Designer Configuration 
 Assembly:
-  designer: {'Mar. 17, 2026, 7:31:38 a.m. EDT': '7.1.2 July, 02', 'Mar. 17, 2026, 7:53:33 a.m. EDT': '7.1.2
+  designer: {'Mar. 17, 2026, 10:05:37 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 17, 2026, 10:05:39 p.m. EDT': '7.2.1
+      Aug, 28', 'Mar. 17, 2026, 7:31:38 a.m. EDT': '7.1.2 July, 02', 'Mar. 17, 2026, 7:53:33 a.m. EDT': '7.1.2
       July, 02', 'Mar. 17, 2026, 9:38:29 p.m. EDT': '7.2.1 Aug, 28'}
   versionIds: {4512a369-20d8-11f1-9463-0242ac110002: 'Mar 16, 2026, 1:35:02 a.m. UTC',
     d737052a-21f4-11f1-9515-02425d092ea2: 'Mar. 17, 2026, 7:31:38 a.m. EDT', 3ab0307e-21f7-11f1-9515-02425d092ea2: 'Mar.
@@ -8,7 +9,7 @@ Assembly:
       2026, 7:53:33 a.m. EDT', 6db19c33-226a-11f1-a254-2c98113d472b: 'Mar. 17, 2026,
       9:33:12 p.m. EDT', 8643bdd1-226a-11f1-a254-2c98113d472b: 'Mar. 17, 2026, 9:33:54
       p.m. EDT', 278c30f8-226b-11f1-a254-2c98113d472b: 'Mar. 17, 2026, 9:38:29 p.m.
-      EDT'}
+      EDT', f2c83591-226e-11f1-a254-2c98113d472b: 'Mar. 17, 2026, 10:05:39 p.m. EDT'}
   commits: {'Aug, 28': 530ee2e14789923a8cc21622b4e8118cf7d1a7de, 'July, 02': 43470fcc00861e951874daf2748872566c87a815}
   QuotedUnits: INCHES
   DesignID: 1U Extruded Aluminum Type A Template
@@ -16,9 +17,9 @@ Assembly:
   displayName: 1U Extruded Aluminum Type A
   version: 13.0
   awiVersion: 0.0
-  VersionID: 278c30f8-226b-11f1-a254-2c98113d472b
+  VersionID: f2c83591-226e-11f1-a254-2c98113d472b
   componentID: -1
-  InParentID: 67c494f6-226a-11f1-a254-2c98113d472b
+  InParentID: e091e2ea-226e-11f1-a254-2c98113d472b
   description: A 1U enclosure with extruded aluminum sides. Type A front and rear
     panels have folded top and bottom and profiled sides. Top and bottom panels are
     0.006" (0.152mm) shorter than extrusion length, for clearance.
@@ -494,7 +495,7 @@ Assembly:
       awiVersion: 0.0
       VersionID: 8643bdd0-226a-11f1-a254-2c98113d472b
       componentID: -1
-      InParentID: b2e8dcfe-21f7-11f1-9515-02425d092ea2
+      InParentID: b2aa2ce4-226e-11f1-a254-2c98113d472b
       description: The Front Cover (profiled with bends)
       partnumber: Extruded A Front Part4
       ID: Extruded A Front Part4
@@ -588,7 +589,7 @@ Assembly:
           awiVersion: 0.0
           VersionID: 8643bdcf-226a-11f1-a254-2c98113d472b
           componentID: -1
-          InParentID: b2e8dcfd-21f7-11f1-9515-02425d092ea2
+          InParentID: b2aa2ce3-226e-11f1-a254-2c98113d472b
           ID: 45169b03-20d8-11f1-9463-0242ac110002
           exist: '1.0'
           template: true
@@ -615,7 +616,7 @@ Assembly:
             VersionID: 45169b06-20d8-11f1-9463-0242ac110002
             componentID: -1
             InParentID: 45169b07-20d8-11f1-9463-0242ac110002
-            ID: 875b6f51-226a-11f1-a254-2c98113d472b
+            ID: b4057762-226e-11f1-a254-2c98113d472b
             template: false
             verified: true
             cncApproved: false
@@ -4645,9 +4646,9 @@ Assembly:
       displayName: Rear Plate
       version: 13.0
       awiVersion: 0.0
-      VersionID: 278c30f7-226b-11f1-a254-2c98113d472b
+      VersionID: f2c83590-226e-11f1-a254-2c98113d472b
       componentID: -1
-      InParentID: 67c494f5-226a-11f1-a254-2c98113d472b
+      InParentID: e091e2e9-226e-11f1-a254-2c98113d472b
       description: The rear panel
       partnumber: Extruded A Rear Part4
       ID: Extruded A Rear Part4
@@ -4740,9 +4741,9 @@ Assembly:
           displayName: Rear Panel
           version: 13.0
           awiVersion: 0.0
-          VersionID: 278c30f6-226b-11f1-a254-2c98113d472b
+          VersionID: f2c8358f-226e-11f1-a254-2c98113d472b
           componentID: -1
-          InParentID: 67c494f4-226a-11f1-a254-2c98113d472b
+          InParentID: e091e2e8-226e-11f1-a254-2c98113d472b
           ID: 45190c35-20d8-11f1-9463-0242ac110002
           template: true
           verified: true
@@ -4768,7 +4769,7 @@ Assembly:
             VersionID: 45190c38-20d8-11f1-9463-0242ac110002
             componentID: -1
             InParentID: 45190c39-20d8-11f1-9463-0242ac110002
-            ID: 284547fd-226b-11f1-a254-2c98113d472b
+            ID: f43559da-226e-11f1-a254-2c98113d472b
             template: false
             verified: true
             cncApproved: false
@@ -5571,6 +5572,309 @@ Assembly:
               Attachment2Ds: []
           Attachment2Ds:
           - Thing2D:
+              name: terminal_block_12pos_cutout_clearance - Cutout
+              displayName: terminal_block_12pos_cutout_clearance - Cutout
+              version: 13.0
+              awiVersion: 0.0
+              VersionID: a89a9f39-21ec-11f1-9515-02425d092ea2
+              componentID: -1
+              InParentID: e091e2e6-226e-11f1-a254-2c98113d472b
+              ID: e091e2e4-226e-11f1-a254-2c98113d472b
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              OriginX: '7.67384885319587'
+              OriginY: '0.5396689046714175'
+              onSameSide: true
+              flatpatternAttachment: false
+              scaleFactorY: '-1.0'
+              Bounds: {width: '2.2165354308099996', height: '0.25590551155', x: '-1.1082677154049998',
+                y: '-0.12795275577499998'}
+              Attachment2Ds:
+              - CompositePath:
+                  type: CUTOUT
+                  name: path
+                  displayName: Thing2D
+                  version: 13.0
+                  awiVersion: 0.0
+                  VersionID: a89ac64b-21ec-11f1-9515-02425d092ea2
+                  componentID: -1
+                  InParentID: a89ac64c-21ec-11f1-9515-02425d092ea2
+                  ID: e091e2e5-226e-11f1-a254-2c98113d472b
+                  template: false
+                  verified: false
+                  cncApproved: false
+                  encrypted: false
+                  exportable: true
+                  userLibraryCreated: false
+                  customTemplate: false
+                  locked: false
+                  templateModification: UNMODIFIED
+                  reconstructedFile: false
+                  convertedFile: false
+                  autogeneratedtype: NOT_AUTOGENERATED
+                  properties:
+                  - BooleanProperty: [profileCutout, false]
+                  layer: Default
+                  OriginX: '-1.0590551170299998'
+                  OriginY: '-0.12795275577499998'
+                  onSameSide: true
+                  flatpatternAttachment: false
+                  zOrigin: '0.'
+                  pathSegments:
+                  - Line: ['2.1181102340599995', '0.0']
+                    segID: {PathIDReference: a016991a-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['0.04921259837500003', '0.04921259837500011']
+                      mid: ['0.034798562030772695', '0.014414036344227499']
+                      segID: {PathIDReference: a016991b-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['0.0', '0.1082677164249998']
+                    segID: {PathIDReference: a016991c-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['-0.04921259837500003', '0.049212598375000145']
+                      mid: ['-0.014414036344227332', '0.03479856203077256']
+                      segID: {PathIDReference: a016991d-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['-0.14763779512499986', '-1.3877787807814457E-17']
+                    segID: {PathIDReference: a016991e-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['0.0', '0.03937007869999999']
+                    segID: {PathIDReference: a016991f-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['-0.00984251967500005', '0.00984251967499998']
+                      mid: ['-0.0028828072688454887', '0.006959712406154547']
+                      segID: {PathIDReference: a0169920-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['-1.8031496044599997', '0.0']
+                    segID: {PathIDReference: a0169921-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['-0.00984251967500005', '-0.009842519674999994']
+                      mid: ['-0.00695971240615445', '-0.002882807268845461']
+                      segID: {PathIDReference: a0169922-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['0.0', '-0.03937007869999999']
+                    segID: {PathIDReference: a0169923-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['-0.14763779512499986', '0.0']
+                    segID: {PathIDReference: a0169924-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['-0.04921259837500003', '-0.04921259837500009']
+                      mid: ['-0.034798562030772695', '-0.014414036344227485']
+                      segID: {PathIDReference: a0169925-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['0.0', '-0.10826771642499981']
+                    segID: {PathIDReference: a0169926-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['0.04921259837500003', '-0.04921259837500008']
+                      mid: ['0.014414036344227332', '-0.03479856203077253']
+                      segID: {PathIDReference: a0169927-21ec-11f1-9515-02425d092ea2}
+          - Thing2D:
+              name: terminal_block_12pos_cutout_clearance - Cutout
+              displayName: terminal_block_12pos_cutout_clearance - Cutout
+              version: 13.0
+              awiVersion: 0.0
+              VersionID: a89a9f39-21ec-11f1-9515-02425d092ea2
+              componentID: -1
+              InParentID: de04cfb3-226e-11f1-a254-2c98113d472b
+              ID: de04cfb1-226e-11f1-a254-2c98113d472b
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              OriginX: '5.383501654724156'
+              OriginY: '0.5396689046714173'
+              onSameSide: true
+              flatpatternAttachment: false
+              scaleFactorY: '-1.0'
+              Bounds: {width: '2.2165354308099996', height: '0.25590551155', x: '-1.1082677154049998',
+                y: '-0.12795275577499998'}
+              Attachment2Ds:
+              - CompositePath:
+                  type: CUTOUT
+                  name: path
+                  displayName: Thing2D
+                  version: 13.0
+                  awiVersion: 0.0
+                  VersionID: a89ac64b-21ec-11f1-9515-02425d092ea2
+                  componentID: -1
+                  InParentID: a89ac64c-21ec-11f1-9515-02425d092ea2
+                  ID: de04cfb2-226e-11f1-a254-2c98113d472b
+                  template: false
+                  verified: false
+                  cncApproved: false
+                  encrypted: false
+                  exportable: true
+                  userLibraryCreated: false
+                  customTemplate: false
+                  locked: false
+                  templateModification: UNMODIFIED
+                  reconstructedFile: false
+                  convertedFile: false
+                  autogeneratedtype: NOT_AUTOGENERATED
+                  properties:
+                  - BooleanProperty: [profileCutout, false]
+                  layer: Default
+                  OriginX: '-1.0590551170299998'
+                  OriginY: '-0.12795275577499998'
+                  onSameSide: true
+                  flatpatternAttachment: false
+                  zOrigin: '0.'
+                  pathSegments:
+                  - Line: ['2.1181102340599995', '0.0']
+                    segID: {PathIDReference: a016991a-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['0.04921259837500003', '0.04921259837500011']
+                      mid: ['0.034798562030772695', '0.014414036344227499']
+                      segID: {PathIDReference: a016991b-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['0.0', '0.1082677164249998']
+                    segID: {PathIDReference: a016991c-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['-0.04921259837500003', '0.049212598375000145']
+                      mid: ['-0.014414036344227332', '0.03479856203077256']
+                      segID: {PathIDReference: a016991d-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['-0.14763779512499986', '-1.3877787807814457E-17']
+                    segID: {PathIDReference: a016991e-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['0.0', '0.03937007869999999']
+                    segID: {PathIDReference: a016991f-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['-0.00984251967500005', '0.00984251967499998']
+                      mid: ['-0.0028828072688454887', '0.006959712406154547']
+                      segID: {PathIDReference: a0169920-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['-1.8031496044599997', '0.0']
+                    segID: {PathIDReference: a0169921-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['-0.00984251967500005', '-0.009842519674999994']
+                      mid: ['-0.00695971240615445', '-0.002882807268845461']
+                      segID: {PathIDReference: a0169922-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['0.0', '-0.03937007869999999']
+                    segID: {PathIDReference: a0169923-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['-0.14763779512499986', '0.0']
+                    segID: {PathIDReference: a0169924-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['-0.04921259837500003', '-0.04921259837500009']
+                      mid: ['-0.034798562030772695', '-0.014414036344227485']
+                      segID: {PathIDReference: a0169925-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['0.0', '-0.10826771642499981']
+                    segID: {PathIDReference: a0169926-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['0.04921259837500003', '-0.04921259837500008']
+                      mid: ['0.014414036344227332', '-0.03479856203077253']
+                      segID: {PathIDReference: a0169927-21ec-11f1-9515-02425d092ea2}
+          - Thing2D:
+              name: terminal_block_12pos_cutout_clearance - Cutout
+              displayName: terminal_block_12pos_cutout_clearance - Cutout
+              version: 13.0
+              awiVersion: 0.0
+              VersionID: a89a9f39-21ec-11f1-9515-02425d092ea2
+              componentID: -1
+              InParentID: dae6ed60-226e-11f1-a254-2c98113d472b
+              ID: dae6c64e-226e-11f1-a254-2c98113d472b
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              OriginX: '3.074432272068749'
+              OriginY: '0.5271874485489557'
+              onSameSide: true
+              flatpatternAttachment: false
+              scaleFactorY: '-1.0'
+              Bounds: {width: '2.2165354308099996', height: '0.25590551155', x: '-1.1082677154049998',
+                y: '-0.12795275577499998'}
+              Attachment2Ds:
+              - CompositePath:
+                  type: CUTOUT
+                  name: path
+                  displayName: Thing2D
+                  version: 13.0
+                  awiVersion: 0.0
+                  VersionID: a89ac64b-21ec-11f1-9515-02425d092ea2
+                  componentID: -1
+                  InParentID: a89ac64c-21ec-11f1-9515-02425d092ea2
+                  ID: dae6c64f-226e-11f1-a254-2c98113d472b
+                  template: false
+                  verified: false
+                  cncApproved: false
+                  encrypted: false
+                  exportable: true
+                  userLibraryCreated: false
+                  customTemplate: false
+                  locked: false
+                  templateModification: UNMODIFIED
+                  reconstructedFile: false
+                  convertedFile: false
+                  autogeneratedtype: NOT_AUTOGENERATED
+                  properties:
+                  - BooleanProperty: [profileCutout, false]
+                  layer: Default
+                  OriginX: '-1.0590551170299998'
+                  OriginY: '-0.12795275577499998'
+                  onSameSide: true
+                  flatpatternAttachment: false
+                  zOrigin: '0.'
+                  pathSegments:
+                  - Line: ['2.1181102340599995', '0.0']
+                    segID: {PathIDReference: a016991a-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['0.04921259837500003', '0.04921259837500011']
+                      mid: ['0.034798562030772695', '0.014414036344227499']
+                      segID: {PathIDReference: a016991b-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['0.0', '0.1082677164249998']
+                    segID: {PathIDReference: a016991c-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['-0.04921259837500003', '0.049212598375000145']
+                      mid: ['-0.014414036344227332', '0.03479856203077256']
+                      segID: {PathIDReference: a016991d-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['-0.14763779512499986', '-1.3877787807814457E-17']
+                    segID: {PathIDReference: a016991e-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['0.0', '0.03937007869999999']
+                    segID: {PathIDReference: a016991f-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['-0.00984251967500005', '0.00984251967499998']
+                      mid: ['-0.0028828072688454887', '0.006959712406154547']
+                      segID: {PathIDReference: a0169920-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['-1.8031496044599997', '0.0']
+                    segID: {PathIDReference: a0169921-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['-0.00984251967500005', '-0.009842519674999994']
+                      mid: ['-0.00695971240615445', '-0.002882807268845461']
+                      segID: {PathIDReference: a0169922-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['0.0', '-0.03937007869999999']
+                    segID: {PathIDReference: a0169923-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['-0.14763779512499986', '0.0']
+                    segID: {PathIDReference: a0169924-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['-0.04921259837500003', '-0.04921259837500009']
+                      mid: ['-0.034798562030772695', '-0.014414036344227485']
+                      segID: {PathIDReference: a0169925-21ec-11f1-9515-02425d092ea2}
+                  - Line: ['0.0', '-0.10826771642499981']
+                    segID: {PathIDReference: a0169926-21ec-11f1-9515-02425d092ea2}
+                  - CircleArc3:
+                      end: ['0.04921259837500003', '-0.04921259837500008']
+                      mid: ['0.014414036344227332', '-0.03479856203077253']
+                      segID: {PathIDReference: a0169927-21ec-11f1-9515-02425d092ea2}
+          - Thing2D:
               name: AM-K-PCB
               displayName: AM-K-PCB
               version: 13.0
@@ -5593,7 +5897,7 @@ Assembly:
               convertedFile: false
               autogeneratedtype: NOT_AUTOGENERATED
               layer: Default
-              OriginX: '0.4470857582905713'
+              OriginX: '0.39715993380072456'
               OriginY: '0.6457612817123415'
               onSameSide: true
               flatpatternAttachment: false
@@ -5656,8 +5960,8 @@ Assembly:
               convertedFile: false
               autogeneratedtype: NOT_AUTOGENERATED
               layer: Default
-              OriginX: '1.3145469588016556'
-              OriginY: '0.6457612817123408'
+              OriginX: '1.189732397577039'
+              OriginY: '0.6520020097735717'
               onSameSide: true
               flatpatternAttachment: false
               scaleFactorY: '-1.0'
