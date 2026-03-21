@@ -654,6 +654,13 @@ enum TransportAddr {
     Udp(UdpSocketAddr),
 }
 
+fn canonicalize_local_udp_controller_addr(addr: UdpSocketAddr) -> UdpSocketAddr {
+    // HOOTL UDP drivers always run in-process with the controller, so route
+    // controller traffic back over loopback instead of whichever local
+    // interface delivered the discovery broadcast.
+    UdpSocketAddr::from((Ipv4Addr::LOCALHOST, addr.port()))
+}
+
 /// State machine info for HOOTL transport layer.
 #[derive(Debug)]
 enum TransportState {
@@ -785,7 +792,12 @@ impl TransportState {
             TransportState::UdpSocket { socket } => {
                 let sock = socket.as_mut()?;
                 match sock.recv_from(buf).ok() {
-                    Some((size, addr)) => Some((size, Some(TransportAddr::Udp(addr)))),
+                    Some((size, addr)) => Some((
+                        size,
+                        Some(TransportAddr::Udp(canonicalize_local_udp_controller_addr(
+                            addr,
+                        ))),
+                    )),
                     None => None,
                 }
             }
@@ -851,4 +863,18 @@ impl TransportState {
 #[cfg(unix)]
 fn socket_path(op_dir: &PathBuf, name: &str) -> PathBuf {
     op_dir.join("sock").join("per").join(name)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn canonicalize_udp_controller_addr_uses_loopback() {
+        let addr = UdpSocketAddr::from((Ipv4Addr::new(172, 24, 80, 1), 12345));
+        assert_eq!(
+            canonicalize_local_udp_controller_addr(addr),
+            UdpSocketAddr::from((Ipv4Addr::LOCALHOST, 12345))
+        );
+    }
 }
