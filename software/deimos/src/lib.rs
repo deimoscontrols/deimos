@@ -19,7 +19,9 @@ pub use dispatcher::{
 #[cfg(unix)]
 pub use socket::unix::UnixSocket;
 pub use socket::{
-    Socket, SocketAddr, SocketId, thread_channel::ThreadChannelSocket, udp::UdpSocket,
+    Socket, SocketAddr, SocketId,
+    thread_channel::ThreadChannelSocket,
+    udp::{UdpSocket, possible_broadcast_targets},
 };
 
 pub use dispatcher::DataFrameDispatcher;

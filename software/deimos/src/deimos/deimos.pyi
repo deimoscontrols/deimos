@@ -617,6 +617,12 @@ class _SocketModule(ModuleType):
         """Implementation of Socket trait for stdlib UDP socket on IPV4."""
         def __init__(self) -> None: ...
 
+        @staticmethod
+        def with_broadcast_targets(targets: list[str]) -> Self: ...
+
+        @staticmethod
+        def possible_broadcast_targets() -> list[str]: ...
+
     class ThreadChannelSocket(_SocketBase):
         """Socket implementation that consumes a user channel of the same name.
         Only one peripheral can be connected per thread socket."""

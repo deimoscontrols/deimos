@@ -26,7 +26,13 @@ fn dedup_broadcast_targets(targets: impl IntoIterator<Item = Ipv4Addr>) -> Vec<I
     BTreeSet::from_iter(targets).into_iter().collect()
 }
 
-fn auto_broadcast_targets() -> Vec<Ipv4Addr> {
+/// Enumerate the IPv4 broadcast addresses that this host can plausibly use for
+/// UDP peripheral discovery.
+///
+/// This always includes `255.255.255.255` as a fallback, then adds any
+/// directed broadcast addresses that can be derived from visible non-loopback
+/// IPv4 interfaces.
+pub fn possible_broadcast_targets() -> Vec<Ipv4Addr> {
     // Always include the limited broadcast address as a lowest-common-denominator fallback.
     let mut targets = BTreeSet::from([Ipv4Addr::BROADCAST]);
 
@@ -129,7 +135,7 @@ impl UdpSocket {
         if self.broadcast_targets.is_empty() {
             // Default behavior is to fan out discovery onto every local IPv4
             // broadcast domain we can identify.
-            auto_broadcast_targets()
+            possible_broadcast_targets()
         } else {
             // Callers can pin discovery to a specific set of broadcast addresses.
             self.broadcast_targets.clone()
@@ -143,6 +149,29 @@ py_json_methods!(
     #[new]
     fn py_new() -> PyResult<Self> {
         Ok(Self::new())
+    },
+    #[staticmethod]
+    #[pyo3(name = "with_broadcast_targets")]
+    fn py_with_broadcast_targets(targets: Vec<String>) -> PyResult<Self> {
+        let targets = targets
+            .into_iter()
+            .map(|target| {
+                target.parse::<Ipv4Addr>().map_err(|e| {
+                    pyo3::exceptions::PyValueError::new_err(format!(
+                        "Invalid IPv4 broadcast target `{target}`: {e}"
+                    ))
+                })
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        Ok(Self::with_broadcast_targets(targets))
+    },
+    #[staticmethod]
+    #[pyo3(name = "possible_broadcast_targets")]
+    fn py_possible_broadcast_targets() -> Vec<String> {
+        possible_broadcast_targets()
+            .into_iter()
+            .map(|addr| addr.to_string())
+            .collect()
     }
 );
 
@@ -349,5 +378,10 @@ mod test {
                 Ipv4Addr::new(192, 168, 1, 255),
             ]
         );
+    }
+
+    #[test]
+    fn possible_broadcast_targets_include_limited_broadcast() {
+        assert!(possible_broadcast_targets().contains(&Ipv4Addr::BROADCAST));
     }
 }

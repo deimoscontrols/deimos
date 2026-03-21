@@ -29,6 +29,13 @@ HAS_UNIX_SOCKET = hasattr(socket, "UnixSocket") and hasattr(
 )
 
 
+def _loopback_udp_socket() -> socket.UdpSocket:
+    targets = socket.UdpSocket.possible_broadcast_targets()
+    if not targets:
+        raise RuntimeError("No UDP broadcast targets available for loopback test")
+    return socket.UdpSocket.with_broadcast_targets([targets[0]])
+
+
 def _metric_channels(peripheral_name: str) -> list[str]:
     """Limited channel list to reduce disk I/O during testing"""
     return [
@@ -67,7 +74,7 @@ def _build_controller(
     ctrl.add_socket("thread2", socket.ThreadChannelSocket(THREAD_CHANNEL2))
     if HAS_UNIX_SOCKET:
         ctrl.add_socket("unix", socket.UnixSocket(UNIX_SOCKET))
-    ctrl.add_socket("udp", socket.UdpSocket())
+    ctrl.add_socket("udp", _loopback_udp_socket())
 
     ctrl.add_dispatcher("csv", dispatcher.CsvDispatcher(1, Overflow.wrap()))
     ctrl.add_dispatcher("latest_value", dispatcher.LatestValueDispatcher())
