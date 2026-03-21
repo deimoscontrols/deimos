@@ -3,13 +3,40 @@
   "entry": "low",
   "link_folder": "machine",
   "timeouts": {
+    "abort": "Loop",
     "high": {
       "Transition": "low"
     },
     "low": "Loop"
   },
   "transitions": {
-    "high": {},
+    "abort": {},
+    "high": {
+      "abort": [
+        {
+          "ConstantThresh": [
+            "p8_tc_0.temperature_K",
+            {
+              "Gt": {
+                "by": 0.0
+              }
+            },
+            350.0
+          ]
+        },
+        {
+          "ConstantThresh": [
+            "p8_tc_1.temperature_K",
+            {
+              "Gt": {
+                "by": 0.0
+              }
+            },
+            350.0
+          ]
+        }
+      ]
+    },
     "low": {
       "high": [
         {
@@ -20,7 +47,7 @@
                 "by": 0.0
               }
             },
-            100000.0
+            3000.0
           ]
         }
       ]

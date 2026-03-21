@@ -27,8 +27,8 @@ changelog = "https://github.com/deimoscontrols/deimos/blob/main/CHANGELOG.md"
 test = [
     "pytest >= 9",
     "pytest-cov >= 7.0.0",
-    "ruff >= 0.14.10",
-    "ty == 0.0.8",
+    "ruff >= 0.15.7",
+    "ty == 0.0.24",
     "mktestdocs == 0.2.5",
     #"plotly>=6,<7",
 ]

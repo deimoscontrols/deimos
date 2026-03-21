@@ -13,6 +13,13 @@ HAS_UNIX_SOCKET = hasattr(socket, "UnixSocket") and hasattr(
 )
 
 
+def _loopback_udp_socket() -> socket.UdpSocket:
+    targets = socket.UdpSocket.possible_broadcast_targets()
+    if not targets:
+        raise RuntimeError("No UDP broadcast targets available for loopback test")
+    return socket.UdpSocket.with_broadcast_targets([targets[0]])
+
+
 def main() -> None:
     here = Path(__file__).parent.resolve()
 
@@ -28,7 +35,7 @@ def main() -> None:
         ctrl.add_socket("mockup_chan", socket.ThreadChannelSocket("mockup_chan"))
         if HAS_UNIX_SOCKET:
             ctrl.add_socket("ctrl", socket.UnixSocket("ctrl"))
-        ctrl.add_socket("udp", socket.UdpSocket())  # Included by default, but cleared
+        ctrl.add_socket("udp", _loopback_udp_socket())  # Included by default, but cleared
 
         ctrl.add_peripheral("mock_thread", peripheral.DeimosDaqRev6(1))
         if HAS_UNIX_SOCKET:

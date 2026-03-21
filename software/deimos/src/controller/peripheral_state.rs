@@ -74,6 +74,9 @@ pub(crate) struct PeripheralState {
     /// Timing and comm metrics
     pub metrics: PeripheralMetrics,
 
+    /// Has this peripheral produced at least one in-order operating packet?
+    pub has_received_packet: bool,
+
     //
     // Baked values not intended to change after init
     //
@@ -121,6 +124,7 @@ impl PeripheralState {
             acknowledged_configuration,
             conn_state,
             metrics,
+            has_received_packet: false,
             metric_full_names: mnames,
         }
     }

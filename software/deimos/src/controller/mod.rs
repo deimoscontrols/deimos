@@ -132,6 +132,11 @@ impl Controller {
         self.orchestrator.peripheral_input_sources()
     }
 
+    /// Render the current calc expression graph as Graphviz DOT text.
+    pub fn graphviz_dot(&self) -> String {
+        self.orchestrator.graphviz_dot(&self.peripherals)
+    }
+
     /// Peripheral inputs that can be written manually.
     pub fn manual_input_names(&self) -> Vec<FieldName> {
         self.orchestrator.manual_input_names(&self.peripherals)
@@ -518,6 +523,7 @@ impl Controller {
             let cycle_lag_count =
                 (metrics.last_input_id as i64) - (cycle_index.saturating_sub(1) as i64);
             ps.metrics.cycle_lag_count = cycle_lag_count as f64;
+            ps.has_received_packet = true;
         }
     }
 
@@ -1079,6 +1085,7 @@ impl Controller {
         let mut i: u64 = 0;
         controller_state.controller_metrics.cycle_time_margin_ns = self.ctx.dt_ns as f64;
         let mut ready_signaled = false;
+        let mut started_calcs = false;
         loop {
             let time = SystemTime::now();
             let mut t = start_of_operating.elapsed();
@@ -1503,46 +1510,58 @@ impl Controller {
                 ps.metrics.requested_period_delta_ns = period_delta_ns;
             }
 
-            // Run calcs
-            if let Err(err) = self.orchestrator.eval() {
-                self.sockets = socket_orchestrator.close().into_iter().collect();
-                return Err(err);
+            if !started_calcs
+                && controller_state
+                    .peripheral_state
+                    .values()
+                    .all(|ps| ps.has_received_packet)
+            {
+                started_calcs = true;
+                info!("Received initial packet from all peripherals; starting calcs.");
             }
 
-            // Send outputs to db
-            //    Write metrics
-            controller_state.write_vals(&mut channel_values[..n_metrics]);
-            //    Write io and calcs
-            self.orchestrator.provide_dispatcher_outputs(|vals| {
-                channel_values[n_metrics..]
-                    .iter_mut()
-                    .zip(vals)
-                    .for_each(|(old, new)| {
-                        *old = new;
-                    })
-            });
-            //    Send to dispatcher
-            let mut dispatch_errors = Vec::new();
-            for (name, dispatcher) in self.dispatchers.iter_mut() {
-                if let Err(err) = dispatcher.consume(time, timestamp, channel_values.clone()) {
-                    error!("{err}");
-                    dispatch_errors.push(format!("{name}: {err}"));
+            if started_calcs {
+                // Run calcs
+                if let Err(err) = self.orchestrator.eval() {
+                    self.sockets = socket_orchestrator.close().into_iter().collect();
+                    return Err(err);
                 }
-            }
 
-            if !dispatch_errors.is_empty() {
-                let msg = dispatch_errors
-                    .into_iter()
-                    .map(|e| format!("\n  {e}"))
-                    .collect::<Vec<_>>()
-                    .join("");
-                self.sockets = socket_orchestrator.close().into_iter().collect();
-                return Err(format!("Dispatcher error(s): {msg}"));
-            }
+                // Send outputs to db
+                //    Write metrics
+                controller_state.write_vals(&mut channel_values[..n_metrics]);
+                //    Write io and calcs
+                self.orchestrator.provide_dispatcher_outputs(|vals| {
+                    channel_values[n_metrics..]
+                        .iter_mut()
+                        .zip(vals)
+                        .for_each(|(old, new)| {
+                            *old = new;
+                        })
+                });
+                //    Send to dispatcher
+                let mut dispatch_errors = Vec::new();
+                for (name, dispatcher) in self.dispatchers.iter_mut() {
+                    if let Err(err) = dispatcher.consume(time, timestamp, channel_values.clone()) {
+                        error!("{err}");
+                        dispatch_errors.push(format!("{name}: {err}"));
+                    }
+                }
 
-            if !ready_signaled {
-                self.ready.mark_ready();
-                ready_signaled = true;
+                if !dispatch_errors.is_empty() {
+                    let msg = dispatch_errors
+                        .into_iter()
+                        .map(|e| format!("\n  {e}"))
+                        .collect::<Vec<_>>()
+                        .join("");
+                    self.sockets = socket_orchestrator.close().into_iter().collect();
+                    return Err(format!("Dispatcher error(s): {msg}"));
+                }
+
+                if !ready_signaled {
+                    self.ready.mark_ready();
+                    ready_signaled = true;
+                }
             }
 
             // Update next target time

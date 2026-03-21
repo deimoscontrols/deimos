@@ -17,7 +17,7 @@ use pyo3::prelude::*;
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
-use super::{Dispatcher, Overflow, csv_header, csv_row_fixed_width};
+use super::{Dispatcher, Overflow, csv_header, csv_row_fixed_width, resource_name_with_suffix};
 
 /// A plain-text CSV data target, which uses a pre-sized file
 /// to prevent sudden increases in write latency during file resizing.
@@ -45,6 +45,10 @@ pub struct CsvDispatcher {
     /// Choice of behavior when the current file is full
     overflow_behavior: Overflow,
 
+    /// Optional suffix appended to the op name for the output file stem.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    op_name_suffix: Option<String>,
+
     #[serde(skip)]
     worker: Option<WorkerHandle>,
 }
@@ -54,9 +58,21 @@ impl CsvDispatcher {
         Box::new(Self {
             chunk_size_megabytes,
             overflow_behavior,
+            op_name_suffix: None,
 
             worker: None,
         })
+    }
+
+    /// Override the file stem derived from the controller op name by appending
+    /// `_{suffix}` to the base name.
+    pub fn with_op_name_suffix(mut self: Box<Self>, suffix: &str) -> Box<Self> {
+        self.op_name_suffix = if suffix.is_empty() {
+            None
+        } else {
+            Some(suffix.to_owned())
+        };
+        self
     }
 }
 
@@ -64,8 +80,19 @@ py_json_methods!(
     CsvDispatcher,
     Dispatcher,
     #[new]
-    fn py_new(chunk_size_megabytes: usize, overflow_behavior: Overflow) -> PyResult<Self> {
-        Ok(*Self::new(chunk_size_megabytes, overflow_behavior))
+    #[pyo3(signature=(chunk_size_megabytes, overflow_behavior, op_name_suffix=None))]
+    fn py_new(
+        chunk_size_megabytes: usize,
+        overflow_behavior: Overflow,
+        op_name_suffix: Option<String>,
+    ) -> PyResult<Self> {
+        let dispatcher = Self::new(chunk_size_megabytes, overflow_behavior);
+        let dispatcher = if let Some(suffix) = op_name_suffix {
+            dispatcher.with_op_name_suffix(&suffix)
+        } else {
+            dispatcher
+        };
+        Ok(*dispatcher)
     }
 );
 
@@ -85,7 +112,8 @@ impl Dispatcher for CsvDispatcher {
 
         // Preallocate output file
         let total_len = 1024 * 1_024 * self.chunk_size_megabytes;
-        let filepath = ctx.op_dir.join(format!("{}.csv", ctx.op_name));
+        let resource_name = resource_name_with_suffix(&ctx.op_name, self.op_name_suffix.as_deref());
+        let filepath = ctx.op_dir.join(format!("{resource_name}.csv"));
 
         info!(
             "Initializing CSV dispatcher with file path: {:?}",
