@@ -38,7 +38,7 @@ fn main() {
     let peripheral_plugins = None;
 
     // Set control rate
-    let rate_hz = 20.0;
+    let rate_hz = 50.0;
     let dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
 
     // Define idle controller
@@ -94,7 +94,7 @@ fn main() {
 
     // Set up calc graph
     let duty = Constant::new(0.5, true);
-    let freq = Sin::new(5.0, 0.25, 500.0, 5000.0, true);
+    let freq = Sin::new(5.0, 0.25, 2500.0, 4000.0, true);
     let freq1 = Sin::new(20.0, 0.25, 10.0, 200.0, true);
     let dac1 = Sin::new(20.0, 0.0, 0.0, 2.5, true);
     let dac2 = Sin::new(20.0, 5.0, 0.0, 2.5 / 25.7, true);
@@ -134,7 +134,7 @@ fn main() {
                 vec![Transition::ConstantThresh(
                     "freq0.y".to_owned(),
                     ThreshOp::Gt { by: 0.0 },
-                    1000.0,
+                    3000.0,
                 )],
             )]),
         ),
