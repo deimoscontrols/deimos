@@ -168,6 +168,11 @@ impl Controller {
         Ok(self.ctrl()?.manual_input_names())
     }
 
+    /// Render the current calc expression graph as Graphviz DOT text.
+    fn graphviz_dot(&mut self) -> PyResult<String> {
+        Ok(self.ctrl()?.graphviz_dot())
+    }
+
     #[getter(op_name)]
     fn op_name(&mut self) -> PyResult<String> {
         Ok(self.ctx()?.op_name.clone())

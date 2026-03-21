@@ -1,9 +1,10 @@
 //! Implementation of Socket trait for stdlib UDP socket on IPV4
 
-use std::collections::BTreeMap;
-use std::net::Ipv4Addr;
+use std::collections::{BTreeMap, BTreeSet};
+use std::net::{IpAddr, Ipv4Addr};
 use std::time::{Duration, Instant};
 
+use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "python")]
@@ -17,10 +18,74 @@ use super::*;
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::{CONTROLLER_RX_PORT, PERIPHERAL_RX_PORT};
 
-/// Implementation of Socket trait for stdlib UDP socket on IPV4
+fn broadcast_from_addr_and_mask(addr: Ipv4Addr, netmask: Ipv4Addr) -> Ipv4Addr {
+    Ipv4Addr::from(u32::from(addr) | !u32::from(netmask))
+}
+
+fn dedup_broadcast_targets(targets: impl IntoIterator<Item = Ipv4Addr>) -> Vec<Ipv4Addr> {
+    BTreeSet::from_iter(targets).into_iter().collect()
+}
+
+fn auto_broadcast_targets() -> Vec<Ipv4Addr> {
+    // Always include the limited broadcast address as a lowest-common-denominator fallback.
+    let mut targets = BTreeSet::from([Ipv4Addr::BROADCAST]);
+
+    // Query the OS for all visible interfaces using a cross-platform safe wrapper.
+    let interfaces = match NetworkInterface::show() {
+        Ok(interfaces) => interfaces,
+        Err(_) => return targets.into_iter().collect(),
+    };
+
+    for interface in interfaces {
+        for addr in interface.addr {
+            // Only IPv4 addresses participate in the current UDP peripheral transport.
+            let ip = match addr.ip() {
+                IpAddr::V4(ip) if !ip.is_loopback() && !ip.is_unspecified() => ip,
+                _ => continue,
+            };
+
+            // Prefer an OS-reported directed broadcast address, but compute one from
+            // the IPv4 netmask when the platform only reports address + mask.
+            let target = match addr.broadcast() {
+                Some(IpAddr::V4(broadcast)) if broadcast != ip && !broadcast.is_unspecified() => {
+                    Some(broadcast)
+                }
+                _ => match addr.netmask() {
+                    Some(IpAddr::V4(netmask)) => {
+                        let broadcast = broadcast_from_addr_and_mask(ip, netmask);
+                        (broadcast != ip && !broadcast.is_unspecified()).then_some(broadcast)
+                    }
+                    _ => None,
+                },
+            };
+
+            if let Some(target) = target {
+                targets.insert(target);
+            }
+        }
+    }
+
+    targets.into_iter().collect()
+}
+
+/// Implementation of [`Socket`] trait for stdlib UDP sockets on IPv4.
+///
+/// By default, discovery broadcasts are sent to every local IPv4 broadcast
+/// domain that can be enumerated from the host network interfaces, plus the
+/// limited broadcast address `255.255.255.255` as a fallback. This allows the
+/// controller to scan across multiple attached subnets without assuming that a
+/// single limited broadcast will egress on every interface.
+///
+/// To force discovery traffic onto a specific interface, construct the socket
+/// with [`UdpSocket::with_broadcast_targets`] and provide that interface's
+/// directed broadcast address, such as `192.168.10.255` for a `/24` network on
+/// `192.168.10.0/24`. In that mode, discovery packets are sent only to the
+/// provided broadcast address or addresses rather than the auto-enumerated set.
 #[derive(Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "python", pyclass)]
 pub struct UdpSocket {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    broadcast_targets: Vec<Ipv4Addr>,
     #[serde(skip)]
     socket: Option<std::net::UdpSocket>,
     #[serde(skip)]
@@ -40,6 +105,8 @@ pub struct UdpSocket {
 impl UdpSocket {
     pub fn new() -> Self {
         Self {
+            // An empty list means "auto-detect from local interfaces" at send time.
+            broadcast_targets: Vec::new(),
             socket: None,
             nonblocking: false,
             addrs: BTreeMap::new(),
@@ -47,6 +114,25 @@ impl UdpSocket {
             addr_tokens: BTreeMap::new(),
             token_addrs: BTreeMap::new(),
             next_addr_token: 0,
+        }
+    }
+
+    /// Create a UDP socket that broadcasts only to the provided IPv4 targets.
+    pub fn with_broadcast_targets(targets: Vec<Ipv4Addr>) -> Self {
+        Self {
+            broadcast_targets: dedup_broadcast_targets(targets),
+            ..Self::new()
+        }
+    }
+
+    fn broadcast_targets(&self) -> Vec<Ipv4Addr> {
+        if self.broadcast_targets.is_empty() {
+            // Default behavior is to fan out discovery onto every local IPv4
+            // broadcast domain we can identify.
+            auto_broadcast_targets()
+        } else {
+            // Callers can pin discovery to a specific set of broadcast addresses.
+            self.broadcast_targets.clone()
         }
     }
 }
@@ -176,6 +262,9 @@ impl Socket for UdpSocket {
     }
 
     fn broadcast(&mut self, msg: &[u8]) -> Result<(), String> {
+        // Resolve the target list up front so the mutable socket borrow stays simple.
+        let targets = self.broadcast_targets();
+
         // Get socket
         let sock = self
             .socket
@@ -185,14 +274,29 @@ impl Socket for UdpSocket {
         // Send broadcast
         sock.set_broadcast(true)
             .map_err(|e| format!("Unable to set UDP socket to broadcast mode: {e}"))?;
-        sock.send_to(msg, (Ipv4Addr::BROADCAST, PERIPHERAL_RX_PORT))
-            .map_err(|e| format!("Failed to send UDP packet: {e}"))?;
+        let mut sent_any = false;
+        let mut errors = Vec::new();
+        // Send one packet per broadcast domain instead of relying on a single
+        // limited broadcast to reach every attached interface.
+        for target in targets {
+            match sock.send_to(msg, (target, PERIPHERAL_RX_PORT)) {
+                Ok(_) => sent_any = true,
+                Err(e) => errors.push(format!("{target}: {e}")),
+            }
+        }
 
         // Set back to unicast mode
         sock.set_broadcast(false)
             .map_err(|e| format!("Unable to set UDP socket to unicast mode: {e}"))?;
 
-        Ok(())
+        if sent_any {
+            Ok(())
+        } else {
+            Err(format!(
+                "Failed to send UDP packet on any broadcast target: {}",
+                errors.join("; ")
+            ))
+        }
     }
 
     fn update_map(&mut self, id: PeripheralId, token: SocketAddrToken) -> Result<(), String> {
@@ -214,5 +318,36 @@ impl Socket for UdpSocket {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn broadcast_address_uses_interface_mask() {
+        let addr = Ipv4Addr::new(10, 42, 7, 9);
+        let netmask = Ipv4Addr::new(255, 255, 255, 0);
+        assert_eq!(
+            broadcast_from_addr_and_mask(addr, netmask),
+            Ipv4Addr::new(10, 42, 7, 255)
+        );
+    }
+
+    #[test]
+    fn explicit_broadcast_targets_are_deduplicated() {
+        let socket = UdpSocket::with_broadcast_targets(vec![
+            Ipv4Addr::new(192, 168, 1, 255),
+            Ipv4Addr::new(192, 168, 1, 255),
+            Ipv4Addr::new(10, 0, 0, 255),
+        ]);
+        assert_eq!(
+            socket.broadcast_targets(),
+            vec![
+                Ipv4Addr::new(10, 0, 0, 255),
+                Ipv4Addr::new(192, 168, 1, 255),
+            ]
+        );
     }
 }

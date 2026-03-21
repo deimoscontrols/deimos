@@ -121,14 +121,14 @@ let mut controller = Controller::new(ctx);
 // all of which will receive the same data at each cycle of the control loop
 //    TSDB-flavored postgres database
 let buffer_window = Duration::from_nanos(1); // Non-buffering mode
-let retention_time_hours = 1;
+let retention_time = Duration::from_secs(60 * 60);
 let timescale_dispatcher: Box<dyn Dispatcher> = TimescaleDbDispatcher::new(
     "<database name>",  // Database name
     "<database address>", // URL or unix socket interface
     "<username>",  // Login name; for unix socket, must match OS username
     "<token env var>",  // Environment variable containing password or token
     buffer_window,
-    retention_time_hours,
+    retention_time,
 );
 controller.add_dispatcher("tsdb", timescale_dispatcher);
 

@@ -13,8 +13,8 @@ use std::time::Duration;
 use crate::calc::{Constant, Sin};
 use crate::peripheral::{AnalogIRev3, AnalogIRev4, DeimosDaqRev6};
 use controller::context::ControllerCtx;
-use deimos::calc::SequenceMachine;
 use deimos::calc::sequence_machine::{MachineCfg, ThreshOp, Timeout, Transition};
+use deimos::calc::{Affine, Butter2, SequenceMachine};
 use deimos::*;
 use tracing::info;
 
@@ -38,7 +38,7 @@ fn main() {
     let peripheral_plugins = None;
 
     // Set control rate
-    let rate_hz = 200.0;
+    let rate_hz = 50.0;
     let dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
 
     // Define idle controller
@@ -94,7 +94,7 @@ fn main() {
 
     // Set up calc graph
     let duty = Constant::new(0.5, true);
-    let freq = Sin::new(1.0 / (rate_hz / 100.0), 0.25, 100.0, 250_000.0, true);
+    let freq = Sin::new(5.0, 0.25, 2500.0, 4000.0, true);
     let freq1 = Sin::new(20.0, 0.25, 10.0, 200.0, true);
     let dac1 = Sin::new(20.0, 0.0, 0.0, 2.5, true);
     let dac2 = Sin::new(20.0, 5.0, 0.0, 2.5 / 25.7, true);
@@ -110,13 +110,19 @@ fn main() {
     controller.set_peripheral_input_source("p1.pwm3_duty", "sequence_machine.duty");
     controller.set_peripheral_input_source("p1.pwm3_freq", "freq0.y");
 
-    controller.set_peripheral_input_source("p8.pwm0_duty", "duty.y");
+    controller.set_peripheral_input_source("p8.pwm0_duty", "sequence_machine.duty");
     controller.set_peripheral_input_source("p8.pwm0_freq", "freq0.y");
     controller.set_peripheral_input_source("p8.dac0", "dac0.y");
     controller.set_peripheral_input_source("p8.dac1", "dac1.y");
 
+    let sensed_current = Affine::new("p8_0_15V_1.y".to_string(), 1.0 / 1.5, 0.0, true);
+    controller.add_calc("p8_valve_current_A", sensed_current);
+    let sensed_current_filtered = Butter2::new("p8_valve_current_A.y".to_string(), 10.0, true);
+    controller.add_calc("p8_valve_current_filt_A", sensed_current_filtered);
+
     let timeouts = BTreeMap::from([
         ("low".to_owned(), Timeout::Loop),
+        ("abort".to_owned(), Timeout::Loop),
         ("high".to_owned(), Timeout::Transition("low".to_owned())),
     ]);
 
@@ -128,11 +134,29 @@ fn main() {
                 vec![Transition::ConstantThresh(
                     "freq0.y".to_owned(),
                     ThreshOp::Gt { by: 0.0 },
-                    100_000.0,
+                    3000.0,
                 )],
             )]),
         ),
-        ("high".to_owned(), BTreeMap::from([])),
+        (
+            "high".to_owned(),
+            BTreeMap::from([(
+                "abort".to_owned(),
+                vec![
+                    Transition::ConstantThresh(
+                        "p8_tc_0.temperature_K".to_owned(),
+                        ThreshOp::Gt { by: 0.0 },
+                        350.0,
+                    ),
+                    Transition::ConstantThresh(
+                        "p8_tc_1.temperature_K".to_owned(),
+                        ThreshOp::Gt { by: 0.0 },
+                        350.0,
+                    ),
+                ],
+            )]),
+        ),
+        ("abort".to_owned(), BTreeMap::from([])),
     ]);
 
     let cfg = MachineCfg {

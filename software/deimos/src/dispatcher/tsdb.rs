@@ -17,7 +17,7 @@ use pyo3::prelude::*;
 use crate::controller::context::ControllerCtx;
 use crate::py_json_methods;
 
-use super::{Dispatcher, csv_row};
+use super::{Dispatcher, csv_row, resource_name_with_suffix};
 
 /// Either reuse or create a new table in a TimescaleDB postgres
 /// database and write to that table.
@@ -50,7 +50,14 @@ pub struct TimescaleDbDispatcher {
     /// the COPY INTO bulk write syntax is used.
     buffer_time: Duration,
     /// Duration for which data will be retained in the database
-    retention_time_hours: u64,
+    retention_time: Duration,
+    /// Optional suffix appended to the op name for the table name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    op_name_suffix: Option<String>,
+    /// Optional hypertable chunk interval. If omitted, this defaults to one
+    /// quarter of the retention duration during initialization.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    chunk_interval: Option<Duration>,
 
     #[serde(skip)]
     worker: Option<WorkerHandle>,
@@ -65,7 +72,7 @@ impl TimescaleDbDispatcher {
         user: &str,
         token_name: &str,
         buffer_time: Duration,
-        retention_time_hours: u64,
+        retention_time: Duration,
     ) -> Box<Self> {
         Box::new(Self {
             dbname: dbname.to_owned(),
@@ -73,9 +80,28 @@ impl TimescaleDbDispatcher {
             user: user.to_owned(),
             token_name: token_name.to_owned(),
             buffer_time,
-            retention_time_hours,
+            retention_time,
+            op_name_suffix: None,
+            chunk_interval: None,
             worker: None,
         })
+    }
+
+    /// Override the table name derived from the controller op name by appending
+    /// `_{suffix}` to the base name.
+    pub fn with_op_name_suffix(mut self: Box<Self>, suffix: &str) -> Box<Self> {
+        self.op_name_suffix = if suffix.is_empty() {
+            None
+        } else {
+            Some(suffix.to_owned())
+        };
+        self
+    }
+
+    /// Override the default hypertable chunk interval.
+    pub fn with_chunk_interval(mut self: Box<Self>, chunk_interval: Duration) -> Box<Self> {
+        self.chunk_interval = Some(chunk_interval);
+        self
     }
 }
 
@@ -83,22 +109,45 @@ py_json_methods!(
     TimescaleDbDispatcher,
     Dispatcher,
     #[new]
+    #[pyo3(signature=(
+        dbname,
+        host,
+        user,
+        token_name,
+        buffer_time_ns,
+        retention_time_ns,
+        op_name_suffix=None,
+        chunk_interval_ns=None
+    ))]
     fn py_new(
         dbname: &str,
         host: &str,
         user: &str,
         token_name: &str,
         buffer_time_ns: u64,
-        retention_time_hours: u64,
+        retention_time_ns: u64,
+        op_name_suffix: Option<String>,
+        chunk_interval_ns: Option<u64>,
     ) -> PyResult<Self> {
-        Ok(*Self::new(
+        let dispatcher = Self::new(
             dbname,
             host,
             user,
             token_name,
             Duration::from_nanos(buffer_time_ns),
-            retention_time_hours,
-        ))
+            Duration::from_nanos(retention_time_ns),
+        );
+        let dispatcher = if let Some(suffix) = op_name_suffix {
+            dispatcher.with_op_name_suffix(&suffix)
+        } else {
+            dispatcher
+        };
+        let dispatcher = if let Some(chunk_interval_ns) = chunk_interval_ns {
+            dispatcher.with_chunk_interval(Duration::from_nanos(chunk_interval_ns))
+        } else {
+            dispatcher
+        };
+        Ok(*dispatcher)
     }
 );
 
@@ -126,13 +175,16 @@ impl Dispatcher for TimescaleDbDispatcher {
 
         // Connect to database backend
         let mut client = init_timescaledb_client(&self.dbname, &self.host, &self.user, &pw)?;
+        let table_name = resource_name_with_suffix(&ctx.op_name, self.op_name_suffix.as_deref());
 
         // Set up table for this op
+        let chunk_interval = effective_chunk_interval(self.retention_time, self.chunk_interval)?;
         init_timescaledb_table(
             &mut client,
             channel_names,
-            &ctx.op_name,
-            self.retention_time_hours,
+            &table_name,
+            self.retention_time,
+            chunk_interval,
         )?;
 
         // Figure out how many samples to write per batch
@@ -148,7 +200,7 @@ impl Dispatcher for TimescaleDbDispatcher {
             user,
             pw,
             channel_names,
-            ctx.op_name.to_owned(),
+            table_name,
             n_buffer,
             core_assignment,
         )?);
@@ -329,17 +381,23 @@ fn init_timescaledb_table(
     client: &mut Client,
     channel_names: &[String],
     op_name: &str,
-    retention_time_hours: u64,
+    retention_time: Duration,
+    chunk_interval: Duration,
 ) -> Result<(), String> {
+    let policy_query = timescaledb_policy_query(op_name, retention_time, chunk_interval);
+
     // Check if the table exists
     let table_exists = !client
         .simple_query(&format!("SELECT 1 FROM public.{op_name};"))
         .unwrap_or_default()
         .is_empty();
 
-    // If it exists but has the wrong schema, this will produce an error on the first write
+    // If it already exists, keep the schema and reconcile Timescale policies in-place.
+    // If the schema is incompatible, this will still produce an error on the first write.
     if table_exists {
-        return Ok(());
+        return client
+            .batch_execute(&policy_query)
+            .map_err(|e| format!("{e}"));
     }
 
     // Make a new table if there isn't one
@@ -361,7 +419,7 @@ fn init_timescaledb_table(
 
             SELECT create_hypertable(\'\"{op_name}\"\', by_range('time'), if_not_exists => TRUE);
 
-            SELECT add_retention_policy(\'\"{op_name}\"\', INTERVAL '{retention_time_hours} hours');
+            {policy_query}
     "
     );
 
@@ -409,5 +467,115 @@ fn split_host(host: &str) -> (String, Option<String>) {
         (host.to_string(), None)
     } else {
         (parts[..n - 1].join(""), parts.last().cloned())
+    }
+}
+
+fn effective_chunk_interval(
+    retention_time: Duration,
+    chunk_interval: Option<Duration>,
+) -> Result<Duration, String> {
+    if let Some(chunk_interval) = chunk_interval {
+        if chunk_interval.is_zero() {
+            return Err("TimescaleDB chunk interval must be greater than zero".to_string());
+        }
+        return Ok(chunk_interval);
+    }
+
+    let default_chunk_nanos = retention_time.as_nanos() / 4;
+    if default_chunk_nanos == 0 {
+        return Err(
+            "TimescaleDB chunk interval must be greater than zero; provide an explicit chunk interval when retention is less than four nanoseconds".to_string(),
+        );
+    }
+
+    duration_from_nanos(default_chunk_nanos)
+}
+
+fn sql_interval_literal(duration: Duration) -> String {
+    let seconds = duration.as_secs();
+    let nanos = duration.subsec_nanos();
+    if nanos == 0 {
+        format!("{seconds} seconds")
+    } else {
+        format!("{seconds}.{nanos:09} seconds")
+    }
+}
+
+fn duration_from_nanos(total_nanos: u128) -> Result<Duration, String> {
+    let secs = total_nanos / 1_000_000_000;
+    let nanos = (total_nanos % 1_000_000_000) as u32;
+    let secs =
+        u64::try_from(secs).map_err(|_| format!("Duration is too large: {total_nanos} ns"))?;
+    Ok(Duration::new(secs, nanos))
+}
+
+fn timescaledb_policy_query(
+    op_name: &str,
+    retention_time: Duration,
+    chunk_interval: Duration,
+) -> String {
+    let chunk_interval = sql_interval_literal(chunk_interval);
+    let retention_time = sql_interval_literal(retention_time);
+    format!(
+        "
+            SELECT set_chunk_time_interval(\'\"{op_name}\"\', INTERVAL '{chunk_interval}');
+
+            SELECT remove_retention_policy(\'\"{op_name}\"\', if_exists => true);
+
+            SELECT add_retention_policy(\'\"{op_name}\"\', drop_after => INTERVAL '{retention_time}');
+        "
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        duration_from_nanos, effective_chunk_interval, sql_interval_literal,
+        timescaledb_policy_query,
+    };
+    use std::time::Duration;
+
+    #[test]
+    fn default_chunk_interval_is_quarter_retention() {
+        assert_eq!(
+            effective_chunk_interval(Duration::from_secs(10), None).unwrap(),
+            Duration::from_millis(2500)
+        );
+    }
+
+    #[test]
+    fn explicit_chunk_interval_overrides_default() {
+        let interval = Duration::from_secs(90);
+        assert_eq!(
+            effective_chunk_interval(Duration::from_secs(10), Some(interval)).unwrap(),
+            interval
+        );
+    }
+
+    #[test]
+    fn sql_interval_literal_keeps_subsecond_precision() {
+        assert_eq!(
+            sql_interval_literal(Duration::from_millis(1500)),
+            "1.500000000 seconds"
+        );
+    }
+
+    #[test]
+    fn duration_from_nanos_preserves_subsecond_values() {
+        assert_eq!(
+            duration_from_nanos(2_500_000_000).unwrap(),
+            Duration::from_millis(2500)
+        );
+    }
+
+    #[test]
+    fn policy_query_reconciles_retention_on_existing_tables() {
+        let sql =
+            timescaledb_policy_query("demo", Duration::from_secs(600), Duration::from_secs(150));
+        assert!(sql.contains("set_chunk_time_interval"));
+        assert!(sql.contains("remove_retention_policy"));
+        assert!(sql.contains("if_exists => true"));
+        assert!(sql.contains("add_retention_policy"));
+        assert!(sql.contains("drop_after => INTERVAL '600 seconds'"));
     }
 }
