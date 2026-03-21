@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-03-21 deimos 0.16.0
+
+### Changed
+
+* Handle peripheral discovery across multiple eth interfaces or subnets
+    * This allows use on routers operating in bridge mode with their own NAT layer and subnet
+* Support selecting a specific eth interface or subnet
+    * This allows the industrial-style dual-interface where the control network is on its own network interface, separated from the global internet
+* Add dot/graphviz export for calc orchestrator and sequence machine
+* TSDB dispatcher upgrades
+    * Set chunk size for TSDB dispatcher to 25% of retention duration by default
+        * This resolves disk space errors caused by the database failing to clear any stale data due to the requirement that the entire chunk be stale
+    * Use Duration for setting retention duration to allow non-integer hours
+    * Update retention duration when reusing a table
+    * Add optional table name suffix
+        * Allows multiple dispatchers to target the same database, for example, to write a second downsampled table with a longer retention time
+* CSV upgrades
+    * Add optional file name suffix
+
 ## 2026-01-04 Rev6 Firmware 0.5.1
 
 ### Changed
