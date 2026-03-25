@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-03-25 Rev7 Hardware & Firmware
+
+### Added - Deimos DAQ Rev7 Hardware & Firmware
+
+* Firmware: first cut with extra GPIO pins broken out
+* Hardware
+    * Tooling: Same as 6.0.1
+    * [x] Consider removing 660x channel (is the input offset too much for this gain level?)
+        * Replaced with a second 25.7x channel
+    * [x] Add IDC breakout to panel-mount dsub connector for voltage measurement block
+    * [x] Use pluggable terminal blocks instead of lever-wire to reduce FOD intrusion risk
+    * [x] Add 4x GPIO pin outputs and 2x GPIO inputs
+    * [x] Add negative voltage pulldown on DAC pins to allow reaching true rail in buffered mode
+        * [x] Place a 3k pulldown and a diode from ground somewhere that's easy to desolder in case it becomes a problem
+    * [x] Improve overvoltage protection
+        * Added regulated OVP rail to reduce clamp voltage
+    * [x] Move right side connectors inboard to make room for label graphics
+    * [x] Add footprint for SMFLP flexible light pipe
+    * [x] Refactor layout of base module to be more compact
+    * [x] Move base module ethernet RMII traces to inner layer for EMI
+    * Enclosure
+        * [x] Update for new connectors
+        * [x] Add light pipe indicator hole
+
 ## 2026-03-21 deimos 0.16.0
 
 ### Changed
