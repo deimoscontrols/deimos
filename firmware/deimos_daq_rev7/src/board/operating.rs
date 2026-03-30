@@ -3,7 +3,7 @@ use super::*;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::Duration;
 
-use deimos_shared::peripherals::deimos_daq_rev6::*;
+use deimos_shared::peripherals::deimos_daq_rev7::*;
 use deimos_shared::states::{ByteStruct, ByteStructLen};
 use irq::{handler, scope};
 

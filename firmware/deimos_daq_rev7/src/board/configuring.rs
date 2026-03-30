@@ -2,7 +2,7 @@ use super::*;
 
 use core::sync::atomic::{AtomicBool, Ordering};
 use deimos_shared::{
-    peripherals::deimos_daq_rev6::OperatingRoundtripInput, states::configuring::*,
+    peripherals::deimos_daq_rev7::OperatingRoundtripInput, states::configuring::*,
 };
 use irq::{handler, scope};
 

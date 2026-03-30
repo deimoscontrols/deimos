@@ -30,10 +30,10 @@ use subsystems::net::*;
 use subsystems::output::*;
 use subsystems::sampling::*;
 
-use deimos_shared::peripherals::deimos_daq_rev6::operating_roundtrip::OperatingRoundtripInput;
+use deimos_shared::peripherals::deimos_daq_rev7::operating_roundtrip::OperatingRoundtripInput;
 /// Model number
 pub const MODEL_NUMBER: u64 =
-    deimos_shared::peripherals::model_numbers::DEIMOS_DAQ_REV_6_MODEL_NUMBER;
+    deimos_shared::peripherals::model_numbers::DEIMOS_DAQ_REV_7_MODEL_NUMBER;
 
 /// ADC sample frequency
 pub const ADC_SAMPLE_FREQ_HZ: u32 = 33_000;
