@@ -1,18 +1,14 @@
 use super::*;
 
-use core::sync::atomic::{AtomicBool, Ordering};
-
 use smoltcp::socket::udp;
 use smoltcp::wire::IpListenEndpoint;
-
-use irq::{handler, scope};
 
 use deimos_shared::{
     peripherals::deimos_daq_rev6::operating_roundtrip::OperatingRoundtripInput, PERIPHERAL_RX_PORT,
 };
 
 impl<'a> Board<'a> {
-    /// Acquire an IP address
+    /// Ensure the board has a usable IPv4 address before entering `Binding`.
     pub fn connect(&mut self) -> BoardState {
         // Initialize
         self.set_outputs(&OperatingRoundtripInput::default());
@@ -37,44 +33,16 @@ impl<'a> Board<'a> {
         self.led2.set_low();
         self.led3.set_low();
 
-        // Transition flags
-        let transition_binding = AtomicBool::new(false);
-        let fallback_deadline = self.time_ns + DHCP_FALLBACK_TIMEOUT_NS;
-
-        handler!(
-            systick_handler = || {
-                self.time_ns += self.dt_ns as i64;
-                self.net.poll(self.time_ns);
-                let ip_config = self.poll_ip_config(true);
-                match ip_config {
-                    IpConfigStatus::Ready | IpConfigStatus::DhcpApplied => {
-                        transition_binding.store(true, Ordering::Relaxed);
-                    }
-                    IpConfigStatus::Missing | IpConfigStatus::DhcpDeferred => {
-                        if self.time_ns >= fallback_deadline {
-                            self.apply_static_fallback();
-                            transition_binding.store(true, Ordering::Relaxed);
-                        }
-                    }
-                }
-                self.watchdog.feed();
+        // Poll once so an already-available DHCP lease can win immediately; otherwise
+        // install the static fallback and proceed without waiting.
+        self.net.poll(self.time_ns);
+        match self.poll_ip_config(true) {
+            IpConfigStatus::Ready | IpConfigStatus::DhcpApplied => {}
+            IpConfigStatus::Missing | IpConfigStatus::DhcpDeferred => {
+                self.apply_static_fallback();
             }
-        );
-
-        // Create a scope and register the systick interrupt handler.
-        scope(|s| {
-            // Run
-            s.register(interrupts::SysTick, systick_handler);
-
-            // Transition when indicated by inner loop
-            'wait_for_transition: loop {
-                if transition_binding.load(Ordering::Relaxed) {
-                    break 'wait_for_transition;
-                }
-
-                cortex_m::asm::wfi(); // Wait for interrupt
-            }
-        });
+        }
+        self.watchdog.feed();
 
         return BoardState::Binding;
     }

@@ -19,7 +19,7 @@ fn main() {
     let mut controller = Controller::new(ctx);
 
     // Associate hardware peripherals
-    controller.add_peripheral("p1", Box::new(DeimosDaqRev6 { serial_number: 6 }));
+    controller.add_peripheral("p1", Box::new(DeimosDaqRev6 { serial_number: 4 }));
 
     // Set up data targets
     let csv_dispatcher: Box<dyn Dispatcher> = CsvDispatcher::new(50, dispatcher::Overflow::Wrap);

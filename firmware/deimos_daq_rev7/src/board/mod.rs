@@ -49,9 +49,6 @@ pub const VREF: f32 = 2.5;
 /// Locally administered MAC address
 pub const MAC_ADDRESS: [u8; 6] = *include_bytes!("../../static/macaddr.in");
 
-/// Time to wait for DHCP in `Connecting` before installing the static fallback.
-const DHCP_FALLBACK_TIMEOUT_NS: i64 = 3_000_000_000;
-
 /// Unique serial number
 pub const SERIAL_NUMBER: u64 = u64::from_le_bytes(*include_bytes!("../../static/serialnumber.in"));
 
