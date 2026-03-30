@@ -18,10 +18,14 @@ pub const STATIC_FALLBACK_IPV4_PREFIX_LEN: u8 = 16;
 /// Number of deterministic fallback IPv4 candidates generated for each peripheral.
 pub const STATIC_FALLBACK_CANDIDATE_COUNT: usize = 3;
 
+/// Number of usable third-octet values in the fallback candidate address space.
 const STATIC_FALLBACK_USABLE_THIRD_OCTETS: u32 = 254;
+/// Number of usable fourth-octet values in the fallback candidate address space.
 const STATIC_FALLBACK_USABLE_FOURTH_OCTETS: u32 = 253;
+/// Total number of usable host slots in the fallback candidate address space.
 const STATIC_FALLBACK_USABLE_HOST_COUNT: u32 =
     STATIC_FALLBACK_USABLE_THIRD_OCTETS * STATIC_FALLBACK_USABLE_FOURTH_OCTETS;
+/// Fixed stride used to spread successive fallback candidates across the usable host slots.
 const STATIC_FALLBACK_CANDIDATE_STRIDE: u32 = 21_419;
 
 /// Derive one deterministic direct-connect IPv4 fallback candidate from a peripheral MAC address.
