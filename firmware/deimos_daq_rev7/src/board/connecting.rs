@@ -2,14 +2,9 @@ use super::*;
 
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use smoltcp::socket::udp;
-use smoltcp::wire::IpListenEndpoint;
-
 use irq::{handler, scope};
 
-use deimos_shared::{
-    peripherals::deimos_daq_rev6::operating_roundtrip::OperatingRoundtripInput, PERIPHERAL_RX_PORT,
-};
+use deimos_shared::peripherals::deimos_daq_rev6::operating_roundtrip::OperatingRoundtripInput;
 
 impl<'a> Board<'a> {
     /// Ensure the board has a usable IPv4 address before entering `Binding`.
@@ -22,14 +17,7 @@ impl<'a> Board<'a> {
 
         // Unbind if previously bound
         self.controller = None;
-        let udpsocket = self.net.sockets.get_mut::<udp::Socket>(self.net.udp_handle);
-        udpsocket.close();
-        udpsocket
-            .bind(IpListenEndpoint {
-                addr: None,
-                port: PERIPHERAL_RX_PORT,
-            })
-            .unwrap();
+        self.net.reset_udp_socket();
 
         // Set status LEDs
         self.led0.set_low();

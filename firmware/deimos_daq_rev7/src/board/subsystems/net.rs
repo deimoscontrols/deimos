@@ -324,8 +324,8 @@ static mut TX_PAYLOAD_STORAGE: [u8; 1522] = [0u8; 1522];
 pub(crate) struct Net<'a> {
     iface: Interface,
     ethdev: ObservedDevice<ethernet::EthernetDMA<4, 4>>,
-    pub(crate) sockets: SocketSet<'a>,
-    pub(crate) udp_handle: smoltcp::iface::SocketHandle,
+    sockets: SocketSet<'a>,
+    udp_handle: smoltcp::iface::SocketHandle,
     dhcp_handle: smoltcp::iface::SocketHandle,
     ip_assignment: IpAssignment,
     pending_dhcp: Option<PendingDhcpConfig>,
@@ -386,6 +386,38 @@ impl<'a> Net<'a> {
         let timestamp = Instant::from_micros(time_ns / 1000);
         self.iface
             .poll(timestamp, &mut self.ethdev, &mut self.sockets)
+    }
+
+    /// Receive one UDP packet directly from the socket buffer.
+    pub(crate) fn udp_recv(&mut self) -> Result<(&[u8], udp::UdpMetadata), udp::RecvError> {
+        self.sockets.get_mut::<udp::Socket>(self.udp_handle).recv()
+    }
+
+    /// Enqueue one UDP packet by writing directly into the socket transmit buffer.
+    pub(crate) fn udp_send_with<F>(
+        &mut self,
+        max_size: usize,
+        meta: impl Into<udp::UdpMetadata>,
+        f: F,
+    ) -> Result<usize, udp::SendError>
+    where
+        F: FnOnce(&mut [u8]) -> usize,
+    {
+        self.sockets
+            .get_mut::<udp::Socket>(self.udp_handle)
+            .send_with(max_size, meta, f)
+    }
+
+    /// Close and rebind the board's UDP socket to its standard listen endpoint.
+    pub(crate) fn reset_udp_socket(&mut self) {
+        let socket = self.sockets.get_mut::<udp::Socket>(self.udp_handle);
+        socket.close();
+        socket
+            .bind(IpListenEndpoint {
+                addr: None,
+                port: PERIPHERAL_RX_PORT,
+            })
+            .unwrap();
     }
 
     /// Remove any configured IPv4 address, route, and tentative fallback watch state.

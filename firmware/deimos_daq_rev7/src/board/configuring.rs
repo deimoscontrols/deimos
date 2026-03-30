@@ -1,12 +1,10 @@
 use super::*;
 
 use core::sync::atomic::{AtomicBool, Ordering};
-use irq::{handler, scope};
-use smoltcp::socket::udp;
-
 use deimos_shared::{
     peripherals::deimos_daq_rev6::OperatingRoundtripInput, states::configuring::*,
 };
+use irq::{handler, scope};
 
 impl<'a> Board<'a> {
     pub fn configure(&mut self) -> BoardState {
@@ -27,8 +25,6 @@ impl<'a> Board<'a> {
         let transition_connecting = AtomicBool::new(false);
         let transition_operating = AtomicBool::new(false);
 
-        // UDP tx buffer
-        let response_buf = &mut [0_u8; ConfiguringOutput::BYTE_LEN];
         let mut configured = false; // Whether we have received a good config packet
         let mut configured_time_ns = 0; // Time when we received a config packet
         let mut timeout_to_operating_ns = 0; // Time to wait after receiving config packet
@@ -70,12 +66,7 @@ impl<'a> Board<'a> {
                     }
 
                     // Check for configuration packets on UDP
-                    let (recv_buf, _meta) = match self
-                        .net
-                        .sockets
-                        .get_mut::<udp::Socket>(self.net.udp_handle)
-                        .recv()
-                    {
+                    let (recv_buf, _meta) = match self.net.udp_recv() {
                         Ok((recv_buf, meta)) if Some(meta) == self.controller => (recv_buf, meta),
                         Err(_) => {
                             self.watchdog.feed();
@@ -117,13 +108,12 @@ impl<'a> Board<'a> {
                     if let Some(meta) = self.controller {
                         // Acknowledge configuration
                         let ack = ConfiguringOutput::default();
-                        ack.write_bytes(&mut response_buf[..ConfiguringOutput::BYTE_LEN]);
                         match self
                             .net
-                            .sockets
-                            .get_mut::<udp::Socket>(self.net.udp_handle)
-                            .send_slice(&response_buf[..ConfiguringOutput::BYTE_LEN], meta)
-                        {
+                            .udp_send_with(ConfiguringOutput::BYTE_LEN, meta, |buf| {
+                                ack.write_bytes(buf);
+                                ConfiguringOutput::BYTE_LEN
+                            }) {
                             Ok(_) => {}
                             Err(_) => {
                                 // If we are unable to send a UDP packet for any reason,

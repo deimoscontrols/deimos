@@ -3,11 +3,9 @@ use super::*;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::Duration;
 
-use irq::{handler, scope};
-use smoltcp::socket::udp;
-
 use deimos_shared::peripherals::deimos_daq_rev6::*;
 use deimos_shared::states::{ByteStruct, ByteStructLen};
+use irq::{handler, scope};
 
 /// When an i32 wraps, what is the size of the jump in value?
 /// Counter values will eventually be converted to an f64, so it's useful to think about the implications.
@@ -54,7 +52,6 @@ impl<'a> Board<'a> {
         //    Storage
         let mut udp_output = OperatingRoundtripOutput::default();
         let mut udp_input: OperatingRoundtripInput = OperatingRoundtripInput::default();
-        let payload = &mut [0_u8; OperatingRoundtripOutput::BYTE_LEN];
         let mut loss_of_contact_persistence_counter = 0;
 
         // Set up main cycle
@@ -107,14 +104,12 @@ impl<'a> Board<'a> {
                     udp_output.metrics.id = udp_output.metrics.id.wrapping_add(1);
                     udp_output.metrics.sent_time_ns = self.board_time(subcycle_res_ns);
 
-                    udp_output.write_bytes(payload);
-
                     match self
                         .net
-                        .sockets
-                        .get_mut::<udp::Socket>(self.net.udp_handle)
-                        .send_slice(payload, meta)
-                    {
+                        .udp_send_with(OperatingRoundtripOutput::BYTE_LEN, meta, |buf| {
+                            udp_output.write_bytes(buf);
+                            OperatingRoundtripOutput::BYTE_LEN
+                        }) {
                         Ok(_) => {}
                         // If we are unable to transmit for any reason, return to connecting
                         Err(_) => {
@@ -135,12 +130,7 @@ impl<'a> Board<'a> {
                     // We have to do this at least twice per cycle to clear
                     // buffering inputs if we were behind and are becoming sync'd
                     self.net.poll(self.board_time(subcycle_res_ns));
-                    match self
-                        .net
-                        .sockets
-                        .get_mut::<udp::Socket>(self.net.udp_handle)
-                        .recv()
-                    {
+                    match self.net.udp_recv() {
                         Ok((recv_buf, meta)) if Some(meta) == self.controller => {
                             if recv_buf.len() == OperatingRoundtripInput::BYTE_LEN {
                                 // Parse
