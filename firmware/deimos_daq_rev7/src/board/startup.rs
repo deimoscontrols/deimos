@@ -415,7 +415,7 @@ impl<'a> Board<'a> {
         lan8742a.phy_init();
 
         // Build ethernet interface
-        let net: Net<'a> = Net::new(store, eth_dma, mac_addr.into(), Instant::ZERO);
+        let net: Net<'a> = Net::new(store, eth_dma, mac_addr, Instant::ZERO);
 
         // Restore systick for use as main cycle timer
         let systick = delay.free();

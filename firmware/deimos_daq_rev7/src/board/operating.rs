@@ -168,7 +168,7 @@ impl<'a> Board<'a> {
 
                 // Keep operating on the current address; if DHCP appears while we
                 // are on the static fallback, defer that swap until reconnect.
-                if self.poll_ip_config(false) == IpConfigStatus::Missing {
+                if self.net.poll_ip_config(self.time_ns, false) == IpConfigStatus::Missing {
                     transition_connecting.store(true, Ordering::Relaxed);
                 }
 

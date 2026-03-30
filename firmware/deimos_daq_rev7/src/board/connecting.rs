@@ -1,7 +1,11 @@
 use super::*;
 
+use core::sync::atomic::{AtomicBool, Ordering};
+
 use smoltcp::socket::udp;
 use smoltcp::wire::IpListenEndpoint;
+
+use irq::{handler, scope};
 
 use deimos_shared::{
     peripherals::deimos_daq_rev6::operating_roundtrip::OperatingRoundtripInput, PERIPHERAL_RX_PORT,
@@ -34,15 +38,51 @@ impl<'a> Board<'a> {
         self.led3.set_low();
 
         // Poll once so an already-available DHCP lease can win immediately; otherwise
-        // install the static fallback and proceed without waiting.
+        // optimistically claim the next fallback candidate without waiting.
         self.net.poll(self.time_ns);
-        match self.poll_ip_config(true) {
-            IpConfigStatus::Ready | IpConfigStatus::DhcpApplied => {}
+        match self.net.poll_ip_config(self.time_ns, true) {
+            IpConfigStatus::Ready | IpConfigStatus::DhcpApplied => return BoardState::Binding,
             IpConfigStatus::Missing | IpConfigStatus::DhcpDeferred => {
-                self.apply_static_fallback();
+                if self.net.try_claim_fallback(self.time_ns, MAC_ADDRESS) {
+                    self.watchdog.feed();
+                    return BoardState::Binding;
+                }
             }
         }
-        self.watchdog.feed();
+
+        let transition_binding = AtomicBool::new(false);
+
+        handler!(
+            systick_handler = || {
+                self.time_ns += self.dt_ns as i64;
+                self.net.poll(self.time_ns);
+
+                match self.net.poll_ip_config(self.time_ns, true) {
+                    IpConfigStatus::Ready | IpConfigStatus::DhcpApplied => {
+                        transition_binding.store(true, Ordering::Relaxed);
+                    }
+                    IpConfigStatus::Missing | IpConfigStatus::DhcpDeferred => {
+                        if self.net.try_claim_fallback(self.time_ns, MAC_ADDRESS) {
+                            transition_binding.store(true, Ordering::Relaxed);
+                        }
+                    }
+                }
+
+                self.watchdog.feed();
+            }
+        );
+
+        scope(|s| {
+            s.register(interrupts::SysTick, systick_handler);
+
+            loop {
+                if transition_binding.load(Ordering::Relaxed) {
+                    break;
+                }
+
+                cortex_m::asm::wfi();
+            }
+        });
 
         return BoardState::Binding;
     }

@@ -42,7 +42,7 @@ impl<'a> Board<'a> {
 
                 // Restart if DHCP replaces the static fallback so the controller
                 // reconnects against the new address cleanly.
-                match self.poll_ip_config(true) {
+                match self.net.poll_ip_config(self.time_ns, true) {
                     IpConfigStatus::Ready => {}
                     IpConfigStatus::DhcpApplied => {
                         self.controller = None;
