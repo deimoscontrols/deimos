@@ -43,13 +43,6 @@ pub fn static_fallback_ipv4_candidate_from_mac(mac: [u8; 6], index: usize) -> [u
     [169, 254, third, fourth]
 }
 
-/// Derive the direct-connect static IPv4 fallback address from a peripheral MAC address.
-///
-/// This returns candidate 0 from [`static_fallback_ipv4_candidate_from_mac`].
-pub fn static_fallback_ipv4_from_mac(mac: [u8; 6]) -> [u8; 4] {
-    static_fallback_ipv4_candidate_from_mac(mac, 0)
-}
-
 /// Derive To/From with an added "Unknown" variant catch-all for converting
 /// from numerical values that do not match a valid variant in order to
 /// avoid either panicking or cumbersome error handling.
