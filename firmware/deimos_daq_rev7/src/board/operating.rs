@@ -166,12 +166,15 @@ impl<'a> Board<'a> {
                 // Write GPIO state based on last received inputs
                 self.set_outputs(&udp_input);
 
-                // Maintain IP address configuration or go back to connecting
-                let ip_address_ok = self.poll_dhcp();
-                transition_connecting.fetch_or(!ip_address_ok, Ordering::Relaxed);
+                // Keep operating on the current address; if DHCP appears while we
+                // are on the static fallback, defer that swap until reconnect.
+                if self.poll_ip_config(false) == IpConfigStatus::Missing {
+                    transition_connecting.store(true, Ordering::Relaxed);
+                }
 
                 // Get overall cycle timing margin and put it in the output
-                let adc_sample_time_ns = ACCUMULATED_SAMPLING_TIME_NS.fetch_and(0, Ordering::Relaxed) as i64;
+                let adc_sample_time_ns =
+                    ACCUMULATED_SAMPLING_TIME_NS.fetch_and(0, Ordering::Relaxed) as i64;
                 udp_output.metrics.cycle_time_margin_ns =
                     end_of_cycle - self.board_time(subcycle_res_ns) - adc_sample_time_ns;
 

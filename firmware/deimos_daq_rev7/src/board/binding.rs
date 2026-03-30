@@ -52,10 +52,24 @@ impl<'a> Board<'a> {
                 // Process incoming and outgoing packets
                 self.net.poll(self.time_ns);
 
-                // Make sure we still have an IP address & renew it on time
-                let ip_address_ok = self.poll_dhcp();
-                if !ip_address_ok || transition_connecting.load(Ordering::Relaxed) {
-                    transition_connecting.store(true, Ordering::Relaxed);
+                // Keep the active address stable, but restart if DHCP replaces the
+                // static fallback so the controller can rediscover the new address.
+                match self.poll_ip_config(true) {
+                    IpConfigStatus::Ready => {}
+                    IpConfigStatus::DhcpApplied => {
+                        self.controller = None;
+                        transition_connecting.store(true, Ordering::Relaxed);
+                        self.watchdog.feed();
+                        return;
+                    }
+                    IpConfigStatus::Missing | IpConfigStatus::DhcpDeferred => {
+                        transition_connecting.store(true, Ordering::Relaxed);
+                        self.watchdog.feed();
+                        return;
+                    }
+                }
+
+                if transition_connecting.load(Ordering::Relaxed) {
                     self.watchdog.feed();
                     return;
                 }

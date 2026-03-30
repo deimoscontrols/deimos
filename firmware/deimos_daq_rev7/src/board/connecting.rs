@@ -39,13 +39,24 @@ impl<'a> Board<'a> {
 
         // Transition flags
         let transition_binding = AtomicBool::new(false);
+        let fallback_deadline = self.time_ns + DHCP_FALLBACK_TIMEOUT_NS;
 
         handler!(
             systick_handler = || {
                 self.time_ns += self.dt_ns as i64;
                 self.net.poll(self.time_ns);
-                let ip_address_ok = self.poll_dhcp();
-                transition_binding.store(ip_address_ok, Ordering::Relaxed);
+                let ip_config = self.poll_ip_config(true);
+                match ip_config {
+                    IpConfigStatus::Ready | IpConfigStatus::DhcpApplied => {
+                        transition_binding.store(true, Ordering::Relaxed);
+                    }
+                    IpConfigStatus::Missing | IpConfigStatus::DhcpDeferred => {
+                        if self.time_ns >= fallback_deadline {
+                            self.apply_static_fallback();
+                            transition_binding.store(true, Ordering::Relaxed);
+                        }
+                    }
+                }
                 self.watchdog.feed();
             }
         );

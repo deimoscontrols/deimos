@@ -3,11 +3,42 @@ use smoltcp::{
     socket::{dhcpv4, udp},
     storage::{PacketBuffer, PacketMetadata},
     time::Instant,
-    wire::{HardwareAddress, IpListenEndpoint},
+    wire::{HardwareAddress, IpListenEndpoint, Ipv4Address, Ipv4Cidr},
 };
 use stm32h7xx_hal::ethernet;
 
-use deimos_shared::PERIPHERAL_RX_PORT;
+use deimos_shared::{
+    static_fallback_ipv4_from_mac, PERIPHERAL_RX_PORT, STATIC_FALLBACK_IPV4_PREFIX_LEN,
+};
+
+/// Source of the board's currently active IPv4 configuration.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum IpAssignment {
+    /// No IPv4 address is currently configured on the interface.
+    Unconfigured,
+    /// A deterministic direct-connect fallback address derived from the board MAC.
+    StaticFallback(Ipv4Cidr),
+    /// A lease or configuration that came from DHCP.
+    Dhcp(Ipv4Cidr),
+}
+
+/// DHCP configuration that may need to be applied immediately or deferred until reconnect.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PendingDhcpConfig {
+    /// IPv4 address and prefix length offered by the DHCP server.
+    pub address: Ipv4Cidr,
+    /// Optional default gateway offered by the DHCP server.
+    pub router: Option<Ipv4Address>,
+}
+
+/// Convert the shared fallback IPv4 policy into an `smoltcp` CIDR value.
+pub fn static_fallback_cidr(mac: [u8; 6]) -> Ipv4Cidr {
+    let octets = static_fallback_ipv4_from_mac(mac);
+    Ipv4Cidr::new(
+        Ipv4Address::new(octets[0], octets[1], octets[2], octets[3]),
+        STATIC_FALLBACK_IPV4_PREFIX_LEN,
+    )
+}
 
 // This data will be held by Net through a mutable reference
 pub struct NetStorageStatic<'a> {
@@ -27,6 +58,8 @@ pub struct Net<'a> {
     pub sockets: SocketSet<'a>,
     pub udp_handle: smoltcp::iface::SocketHandle,
     pub dhcp_handle: smoltcp::iface::SocketHandle,
+    pub ip_assignment: IpAssignment,
+    pub pending_dhcp: Option<PendingDhcpConfig>,
 }
 impl<'a> Net<'a> {
     pub fn new(
@@ -65,6 +98,8 @@ impl<'a> Net<'a> {
             sockets,
             udp_handle,
             dhcp_handle,
+            ip_assignment: IpAssignment::Unconfigured,
+            pending_dhcp: None,
         }
     }
 

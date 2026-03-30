@@ -49,6 +49,9 @@ pub const VREF: f32 = 2.5;
 /// Locally administered MAC address
 pub const MAC_ADDRESS: [u8; 6] = *include_bytes!("../../static/macaddr.in");
 
+/// Time to wait for DHCP in `Connecting` before installing the static fallback.
+const DHCP_FALLBACK_TIMEOUT_NS: i64 = 3_000_000_000;
+
 /// Unique serial number
 pub const SERIAL_NUMBER: u64 = u64::from_le_bytes(*include_bytes!("../../static/serialnumber.in"));
 
@@ -82,13 +85,25 @@ pub static NEW_ADC_CUTOFF: AtomicBool = AtomicBool::new(false);
 /// Accumulated time spent sampling and filtering since last comm cycle
 pub static ACCUMULATED_SAMPLING_TIME_NS: AtomicU32 = AtomicU32::new(0);
 
-
 #[derive(PartialEq, Eq)]
 pub enum BoardState {
     Connecting,
     Binding,
     Configuring,
     Operating,
+}
+
+/// Result of evaluating the board's current IPv4 configuration state.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum IpConfigStatus {
+    /// No usable IPv4 address is currently configured.
+    Missing,
+    /// The current IPv4 configuration remains usable and unchanged.
+    Ready,
+    /// A DHCP configuration was just applied and callers should treat the address as changed.
+    DhcpApplied,
+    /// A DHCP configuration was observed but intentionally deferred until reconnect.
+    DhcpDeferred,
 }
 
 pub struct Board<'a> {
@@ -182,54 +197,126 @@ impl<'a> Board<'a> {
         );
     }
 
-    // Check DHCP, assigning our IP address if a new one is acquired
-    // and returning flags indicating whether
-    fn poll_dhcp(&mut self) -> bool {
+    /// Remove any configured IPv4 address and route state from the interface.
+    fn clear_ipv4_config(&mut self) {
+        clear_ipv4_addr(&mut self.net.iface);
+        self.net.iface.routes_mut().remove_default_ipv4_route();
+        self.net.ip_assignment = IpAssignment::Unconfigured;
+    }
+
+    /// Install the deterministic static fallback address derived from the board MAC.
+    fn apply_static_fallback(&mut self) -> Ipv4Cidr {
+        let cidr = static_fallback_cidr(MAC_ADDRESS);
+        set_ipv4_addr(&mut self.net.iface, cidr);
+        self.net.iface.routes_mut().remove_default_ipv4_route();
+        self.net.ip_assignment = IpAssignment::StaticFallback(cidr);
+        self.led0.set_high();
+        cidr
+    }
+
+    /// Apply a DHCP-provided address and optional default route immediately.
+    fn apply_dhcp_config(&mut self, config: PendingDhcpConfig) {
+        set_ipv4_addr(&mut self.net.iface, config.address);
+        if let Some(router) = config.router {
+            self.net
+                .iface
+                .routes_mut()
+                .add_default_ipv4_route(router)
+                .unwrap();
+        } else {
+            self.net.iface.routes_mut().remove_default_ipv4_route();
+        }
+        self.net.ip_assignment = IpAssignment::Dhcp(config.address);
+        self.net.pending_dhcp = None;
+        self.led0.set_high();
+    }
+
+    /// Poll DHCP and reconcile the board's active IPv4 configuration.
+    ///
+    /// When `allow_dhcp_swap` is `false`, any newly acquired DHCP configuration is
+    /// remembered in `pending_dhcp` instead of being applied immediately. This is used
+    /// during `Operating` to avoid changing the board address mid-run.
+    fn poll_ip_config(&mut self, allow_dhcp_swap: bool) -> IpConfigStatus {
+        if allow_dhcp_swap {
+            if let Some(config) = self.net.pending_dhcp.take() {
+                self.apply_dhcp_config(config);
+                return IpConfigStatus::DhcpApplied;
+            }
+        }
+
         let event = self
             .net
             .sockets
             .get_mut::<dhcpv4::Socket>(self.net.dhcp_handle)
             .poll();
+
         match event {
-            None => match self.net.iface.ipv4_addr() {
-                Some(x) if x != Ipv4Address::UNSPECIFIED => {
-                    self.led0.set_high();
-                    return true;
-                }
-                _ => {
-                    self.led0.set_low();
-                    return false;
-                }
-            },
             Some(dhcpv4::Event::Configured(config)) => {
-                self.led0.set_high();
-                set_ipv4_addr(&mut self.net.iface, config.address);
-
-                if let Some(router) = config.router {
-                    // debug!("Default gateway: {}", router);
-                    self.net
-                        .iface
-                        .routes_mut()
-                        .add_default_ipv4_route(router)
-                        .unwrap();
-                } else {
-                    // debug!("Default gateway: None");
-                    self.net.iface.routes_mut().remove_default_ipv4_route();
+                let config = PendingDhcpConfig {
+                    address: config.address,
+                    router: config.router,
+                };
+                match self.net.ip_assignment {
+                    IpAssignment::StaticFallback(_) if !allow_dhcp_swap => {
+                        self.net.pending_dhcp = Some(config);
+                        self.led0.set_high();
+                        IpConfigStatus::DhcpDeferred
+                    }
+                    IpAssignment::Dhcp(_) => {
+                        self.apply_dhcp_config(config);
+                        IpConfigStatus::Ready
+                    }
+                    _ => {
+                        self.apply_dhcp_config(config);
+                        IpConfigStatus::DhcpApplied
+                    }
                 }
-
-                // for (i, s) in config.dns_servers.iter().enumerate() {
-                // debug!("DNS server {}:    {}", i, s);
-                // }
-
-                return true;
             }
             Some(dhcpv4::Event::Deconfigured) => {
-                self.net.iface.update_ip_addrs(|addrs| addrs.clear());
-                self.net.iface.routes_mut().remove_default_ipv4_route();
-                self.led0.set_low();
-
-                return false;
+                self.net.pending_dhcp = None;
+                match self.net.ip_assignment {
+                    IpAssignment::Dhcp(_) => {
+                        self.clear_ipv4_config();
+                        self.led0.set_low();
+                        IpConfigStatus::Missing
+                    }
+                    IpAssignment::StaticFallback(_) => {
+                        self.led0.set_high();
+                        IpConfigStatus::Ready
+                    }
+                    IpAssignment::Unconfigured => {
+                        self.clear_ipv4_config();
+                        self.led0.set_low();
+                        IpConfigStatus::Missing
+                    }
+                }
             }
+            None => match self.net.ip_assignment {
+                IpAssignment::Unconfigured => match self.net.iface.ipv4_addr() {
+                    Some(x) if x != Ipv4Address::UNSPECIFIED => {
+                        self.led0.set_high();
+                        IpConfigStatus::Ready
+                    }
+                    _ => {
+                        self.led0.set_low();
+                        IpConfigStatus::Missing
+                    }
+                },
+                IpAssignment::StaticFallback(cidr) => {
+                    if self.net.iface.ipv4_addr() != Some(cidr.address()) {
+                        set_ipv4_addr(&mut self.net.iface, cidr);
+                    }
+                    self.led0.set_high();
+                    IpConfigStatus::Ready
+                }
+                IpAssignment::Dhcp(cidr) => {
+                    if self.net.iface.ipv4_addr() != Some(cidr.address()) {
+                        set_ipv4_addr(&mut self.net.iface, cidr);
+                    }
+                    self.led0.set_high();
+                    IpConfigStatus::Ready
+                }
+            },
         }
     }
 }
@@ -241,4 +328,9 @@ fn set_ipv4_addr(iface: &mut Interface, cidr: Ipv4Cidr) {
         addrs.clear();
         addrs.push(IpCidr::Ipv4(cidr)).unwrap();
     });
+}
+
+/// Remove all IPv4 addresses from the interface.
+fn clear_ipv4_addr(iface: &mut Interface) {
+    iface.update_ip_addrs(|addrs| addrs.clear());
 }

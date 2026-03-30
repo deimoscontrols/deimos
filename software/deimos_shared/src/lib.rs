@@ -12,6 +12,18 @@ pub const PERIPHERAL_RX_PORT: u16 = 12367;
 /// The UDP port on which the control machine expects to receive packets from hardware peripherals
 pub const CONTROLLER_RX_PORT: u16 = 12368;
 
+/// Prefix length for the direct-connect static IPv4 fallback subnet.
+pub const STATIC_FALLBACK_IPV4_PREFIX_LEN: u8 = 24;
+
+/// Derive the direct-connect static IPv4 fallback address from a peripheral MAC address.
+///
+/// The returned address is always in `192.168.254.0/24` and avoids `.0`, `.1`, and `.255`
+/// so the host can use `.1` consistently while peripherals occupy the remaining host range.
+pub fn static_fallback_ipv4_from_mac(mac: [u8; 6]) -> [u8; 4] {
+    let host = 2 + ((((mac[4] as u16) << 8) | mac[5] as u16) % 252) as u8;
+    [192, 168, 254, host]
+}
+
 /// Derive To/From with an added "Unknown" variant catch-all for converting
 /// from numerical values that do not match a valid variant in order to
 /// avoid either panicking or cumbersome error handling.

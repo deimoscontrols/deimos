@@ -4,7 +4,9 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use irq::{handler, scope};
 use smoltcp::socket::udp;
 
-use deimos_shared::{peripherals::deimos_daq_rev6::OperatingRoundtripInput, states::configuring::*};
+use deimos_shared::{
+    peripherals::deimos_daq_rev6::OperatingRoundtripInput, states::configuring::*,
+};
 
 impl<'a> Board<'a> {
     pub fn configure(&mut self) -> BoardState {
@@ -38,9 +40,22 @@ impl<'a> Board<'a> {
                 // Poll send/recv to process incoming packets
                 self.net.poll(self.time_ns);
 
-                // Maintain IP address configuration or go back to connecting
-                let ip_address_ok = self.poll_dhcp();
-                transition_connecting.fetch_or(!ip_address_ok, Ordering::Relaxed);
+                // Restart if DHCP replaces the static fallback so the controller
+                // reconnects against the new address cleanly.
+                match self.poll_ip_config(true) {
+                    IpConfigStatus::Ready => {}
+                    IpConfigStatus::DhcpApplied => {
+                        self.controller = None;
+                        transition_connecting.store(true, Ordering::Relaxed);
+                        self.watchdog.feed();
+                        return;
+                    }
+                    IpConfigStatus::Missing | IpConfigStatus::DhcpDeferred => {
+                        transition_connecting.store(true, Ordering::Relaxed);
+                        self.watchdog.feed();
+                        return;
+                    }
+                }
 
                 // Make sure we have a controller bound or go back to connecting
                 let controller_ok = self.controller.is_some();

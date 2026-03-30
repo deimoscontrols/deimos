@@ -1,5 +1,12 @@
 use stm32h7xx_hal::{
-    gpio::{Output, Pin}, prelude::*, pwm::{Alignment, ComplementaryDisabled, ComplementaryImpossible, Pwm}, rcc::CoreClocks, stm32::*, time::Hertz, timer::GetClk, traits::DacOut
+    gpio::{Output, Pin},
+    prelude::*,
+    pwm::{Alignment, ComplementaryDisabled, ComplementaryImpossible, Pwm},
+    rcc::CoreClocks,
+    stm32::*,
+    time::Hertz,
+    timer::GetClk,
+    traits::DacOut,
 };
 
 use crate::board::VREF;

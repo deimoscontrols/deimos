@@ -253,8 +253,6 @@ impl<'a> Board<'a> {
         pwm7.set_duty(0);
         pwm7.enable();
 
-        
-
         //
         // DAC
         //
