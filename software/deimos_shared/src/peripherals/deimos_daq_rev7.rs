@@ -43,6 +43,10 @@ pub mod operating_roundtrip {
         /// Digital-to-analog converter analog output voltage.
         /// 0-2.5V range.
         pub dac_v: [f32; 2],
+
+        /// GPIO pin states.
+        /// Only bits 0-3 are used.
+        pub gpio: u8
     }
 
     impl Default for OperatingRoundtripInput {
@@ -56,6 +60,7 @@ pub mod operating_roundtrip {
                 pwm_duty_frac: [0.0_f32; 4],
                 pwm_freq_hz: [1_000_000_u32; 4],
                 dac_v: [0.0_f32; 2],
+                gpio: 0,
             }
         }
     }
@@ -68,5 +73,8 @@ pub mod operating_roundtrip {
         pub encoder: i64,
         pub pulse_counter: i64,
         pub frequency_meas: [f32; 2],
+
+        /// GPIO inputs. Only bits 0-1 are used.
+        pub gpio: u8
     }
 }
