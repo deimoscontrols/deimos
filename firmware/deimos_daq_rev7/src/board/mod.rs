@@ -3,7 +3,7 @@ use cortex_m::peripheral::syst::SystClkSource;
 
 use stm32h7xx_hal::{
     ethernet,
-    gpio::{Output, Pin},
+    gpio::{Input, Output, Pin},
     independent_watchdog::IndependentWatchdog,
     prelude::*,
     rcc::CoreClocks,
@@ -93,6 +93,8 @@ pub struct Board<'a> {
     pub led1: Pin<'E', 4, Output>,
     pub led2: Pin<'E', 3, Output>,
     pub led3: Pin<'E', 2, Output>,
+    pub di0: Pin<'D', 0, Input>,
+    pub di1: Pin<'D', 1, Input>,
 
     // Time
     pub time_ns: i64,
@@ -172,7 +174,12 @@ impl<'a> Board<'a> {
             &input.pwm_duty_frac,
             &input.pwm_freq_hz,
             &input.dac_v,
+            input.gpio,
             &self.clocks,
         );
+    }
+
+    fn read_gpio_inputs(&self) -> u8 {
+        (self.di0.is_high() as u8) | ((self.di1.is_high() as u8) << 1)
     }
 }

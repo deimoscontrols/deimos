@@ -97,6 +97,7 @@ impl<'a> Board<'a> {
 
                 udp_output.frequency_meas[0] = FREQ_SAMPLES[0].load(Ordering::Relaxed);
                 udp_output.frequency_meas[1] = FREQ_SAMPLES[1].load(Ordering::Relaxed);
+                udp_output.gpio = self.read_gpio_inputs();
 
                 // UDP send
                 if let Some(meta) = self.controller {

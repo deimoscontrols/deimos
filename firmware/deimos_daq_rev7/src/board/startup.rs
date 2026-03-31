@@ -443,6 +443,8 @@ impl<'a> Board<'a> {
                 led1,
                 led2,
                 led3,
+                di0,
+                di1,
                 time_ns,
                 dt_ns,
                 systick,
