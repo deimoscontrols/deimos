@@ -12,7 +12,8 @@ impl<'a> Board<'a> {
         // Initialize
         self.set_outputs(&OperatingRoundtripInput::default());
         self.dt_ns = 1_000_000;
-        self.systick_init();
+        self.reset_comm_pending();
+        self.configure_comm_schedule(self.dt_ns);
         self.watchdog.feed();
 
         // Unbind if previously bound
@@ -41,8 +42,8 @@ impl<'a> Board<'a> {
         let transition_binding = AtomicBool::new(false);
 
         handler!(
-            systick_handler = || {
-                self.time_ns += self.dt_ns as i64;
+            pendsv_handler = || {
+                let _comm_cycle = self.begin_comm_cycle();
                 self.net.poll(self.time_ns);
 
                 match self.net.poll_ip_config(self.time_ns, true) {
@@ -61,7 +62,7 @@ impl<'a> Board<'a> {
         );
 
         scope(|s| {
-            s.register(interrupts::SysTick, systick_handler);
+            s.register(interrupts::PendSV, pendsv_handler);
 
             loop {
                 if transition_binding.load(Ordering::Relaxed) {

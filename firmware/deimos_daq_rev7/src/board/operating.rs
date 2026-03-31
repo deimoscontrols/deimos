@@ -24,9 +24,6 @@ const WRAP_SPAN: i64 = (i32::MAX as i64) * 2;
 
 impl<'a> Board<'a> {
     pub fn operate(&mut self) -> BoardState {
-        // Pause systick until we are ready
-        self.systick.disable_interrupt();
-        self.systick.disable_counter();
         self.watchdog.feed();
 
         // Init
@@ -55,18 +52,14 @@ impl<'a> Board<'a> {
         let mut loss_of_contact_persistence_counter = 0;
 
         // Set up main cycle
-        self.systick_init();
+        self.reset_comm_pending();
+        self.configure_comm_schedule(self.dt_ns);
 
         //    Interrupt handler
         handler!(
-            systick_handler = || {
-                // Restart subcycle counter
-                self.subcycle_timer.apply_freq();
-                self.subcycle_timer.resume();
-
-                // Increment cycle time
-                self.time_ns += self.dt_ns as i64;
-                let end_of_cycle = self.time_ns + self.dt_ns as i64 + udp_input.phase_delta_ns;
+            pendsv_handler = || {
+                let _comm_cycle = self.begin_comm_cycle();
+                let end_of_cycle = self.time_ns + self.comm_interval_ns as i64;
 
                 // If we have lost contact with the controller, go back to connecting
                 let contact_lost =
@@ -152,7 +145,7 @@ impl<'a> Board<'a> {
                 }
 
                 // Set target phase adjustment
-                self.systick_adjust(udp_input.phase_delta_ns + udp_input.period_delta_ns);
+                self.set_next_comm_interval(udp_input.phase_delta_ns + udp_input.period_delta_ns);
 
                 // Write GPIO state based on last received inputs
                 self.set_outputs(&udp_input);
@@ -173,9 +166,9 @@ impl<'a> Board<'a> {
             }
         );
 
-        // Create a scope and register the systick interrupt handler.
+        // Create a scope and register the deferred comm interrupt handler.
         scope(|s| {
-            s.register(interrupts::SysTick, systick_handler);
+            s.register(interrupts::PendSV, pendsv_handler);
 
             let mut transition: bool;
             'wait_for_transition: loop {

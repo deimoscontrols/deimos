@@ -1,5 +1,5 @@
-/// The systick interrupt is handled separately from the peripheral interrupts,
-/// so we have to use two different scoped interrupt systems to control both
+pub use systick::Interrupt::PendSV;
+/// Core exceptions and peripheral interrupts are scoped through separate IRQ enums.
 pub use systick::Interrupt::SysTick;
 pub use timer::Interrupt::TIM2;
 
@@ -9,11 +9,10 @@ mod systick {
     scoped_interrupts! {
         /// Exception interrupts that can be overridden by the user at runtime
         ///
-        /// A SysTick exception is an exception the system timer generates when it
-        /// reaches zero. Software can also generate a SysTick exception. In an OS
-        /// environment, the processor can use this exception as system tick.
+        /// Core exception handlers that can be overridden by the firmware at runtime.
         #[allow(missing_docs)]
         pub enum Interrupt {
+            PendSV,
             SysTick,
         }
 
@@ -28,9 +27,7 @@ mod timer {
     scoped_interrupts! {
         /// Exception interrupts that can be overridden by the user at runtime
         ///
-        /// A SysTick exception is an exception the system timer generates when it
-        /// reaches zero. Software can also generate a SysTick exception. In an OS
-        /// environment, the processor can use this exception as system tick.
+        /// Peripheral interrupt handlers that can be overridden by the firmware at runtime.
         #[allow(missing_docs)]
         pub enum Interrupt {
             TIM2,

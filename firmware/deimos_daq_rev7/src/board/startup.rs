@@ -2,6 +2,7 @@ use super::*;
 
 use core::time::Duration;
 
+use cortex_m::peripheral::scb::SystemHandler;
 use smoltcp::time::Instant;
 use stm32h7xx_hal::{
     adc,
@@ -14,6 +15,8 @@ use stm32h7xx_hal::{
     timer::GetClk,
     traits::DacOut,
 };
+
+use deimos_shared::peripherals::deimos_daq_rev7::MAX_ADC_SAMPLE_RATE_HZ;
 
 impl<'a> Board<'a> {
     /// Configure power, clocks, and peripherals
@@ -44,6 +47,9 @@ impl<'a> Board<'a> {
 
         // Instruction caching
         cp.SCB.enable_icache();
+        unsafe {
+            cp.SCB.set_priority(SystemHandler::PendSV, u8::MAX);
+        }
 
         // Watchdog reboots the board if the board freezes for any reason
         let mut watchdog = IndependentWatchdog::new(dp.IWDG);
@@ -352,9 +358,11 @@ impl<'a> Board<'a> {
         };
 
         // Set up sampling interrupt
-        let sample_timer =
-            dp.TIM2
-                .timer(ADC_SAMPLE_FREQ_HZ.Hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
+        let sample_timer = dp.TIM2.timer(
+            MAX_ADC_SAMPLE_RATE_HZ.Hz(),
+            ccdr.peripheral.TIM2,
+            &ccdr.clocks,
+        );
 
         let adc = Sampler::new(
             &ccdr.clocks,
@@ -417,8 +425,8 @@ impl<'a> Board<'a> {
         // Build ethernet interface
         let net: Net<'a> = Net::new(store, eth_dma, mac_addr, Instant::ZERO);
 
-        // Restore systick for use as main cycle timer
-        let systick = delay.free();
+        // Release SysTick after startup; runtime timing uses TIM2 + PendSV.
+        let _systick = delay.free();
 
         // Set up sub-cycle timer
         // TIM2 and TIM5 have 32-bit counters and 16-bit prescalers
@@ -447,7 +455,8 @@ impl<'a> Board<'a> {
                 di1,
                 time_ns,
                 dt_ns,
-                systick,
+                comm_interval_ns: dt_ns,
+                last_comm_release_count: 0,
                 clocks,
                 subcycle_timer,
                 subcycle_rate_hz,

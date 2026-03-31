@@ -1,5 +1,30 @@
 pub use operating_roundtrip::*;
 
+/// Maximum supported ADC sample rate for the rev7 DAQ.
+pub const MAX_ADC_SAMPLE_RATE_HZ: u32 = 30_000;
+
+/// Maximum supported reporting rate for the rev7 DAQ.
+pub const MAX_REPORTING_RATE_HZ: u32 = MAX_ADC_SAMPLE_RATE_HZ;
+
+/// Return the number of ADC samples to take during one reporting cycle.
+///
+/// The rev7 firmware chooses the largest integer sample count that keeps the
+/// nominal sample rate at or below [`MAX_ADC_SAMPLE_RATE_HZ`].
+pub fn adc_samples_per_report(dt_ns: u32) -> u32 {
+    let samples = (u64::from(MAX_ADC_SAMPLE_RATE_HZ) * u64::from(dt_ns)) / 1_000_000_000;
+    samples.max(1) as u32
+}
+
+/// Return the nominal ADC sample rate implied by one reporting-cycle duration.
+///
+/// This uses the same quantization policy as [`adc_samples_per_report`], so host
+/// software can predict the rev7 firmware's nominal samplerate from `dt_ns`.
+pub fn expected_adc_sample_rate_hz(dt_ns: u32) -> u32 {
+    let sample_rate =
+        (u64::from(adc_samples_per_report(dt_ns)) * 1_000_000_000) / u64::from(dt_ns.max(1));
+    sample_rate.min(u64::from(MAX_ADC_SAMPLE_RATE_HZ)) as u32
+}
+
 pub mod operating_roundtrip {
     use core::default::Default;
 

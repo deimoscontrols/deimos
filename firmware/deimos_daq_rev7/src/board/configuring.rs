@@ -2,7 +2,8 @@ use super::*;
 
 use core::sync::atomic::{AtomicBool, Ordering};
 use deimos_shared::{
-    peripherals::deimos_daq_rev7::OperatingRoundtripInput, states::configuring::*,
+    peripherals::deimos_daq_rev7::{expected_adc_sample_rate_hz, OperatingRoundtripInput},
+    states::configuring::*,
 };
 use irq::{handler, scope};
 
@@ -11,7 +12,8 @@ impl<'a> Board<'a> {
         // Initialize
         self.set_outputs(&OperatingRoundtripInput::default());
         self.dt_ns = 1_000_000;
-        self.systick_init();
+        self.reset_comm_pending();
+        self.configure_comm_schedule(self.dt_ns);
         self.watchdog.feed();
         let end_of_configuring = self.time_ns + (self.configuring_timeout_ms as i64) * 1_000_000;
 
@@ -30,8 +32,8 @@ impl<'a> Board<'a> {
         let mut timeout_to_operating_ns = 0; // Time to wait after receiving config packet
 
         handler!(
-            systick_handler = || {
-                self.time_ns += self.dt_ns as i64;
+            pendsv_handler = || {
+                let _comm_cycle = self.begin_comm_cycle();
 
                 // Poll send/recv to process incoming packets
                 self.net.poll(self.time_ns);
@@ -93,14 +95,15 @@ impl<'a> Board<'a> {
 
                         // Set ADC filter cutoff
                         let reporting_rate = 1.0 / (self.dt_ns as f64 / 1e9); // Hz
-                        let cutoff_ratio = reporting_rate / (ADC_SAMPLE_FREQ_HZ as f64); // Dimensionless
+                        let cutoff_ratio =
+                            reporting_rate / (expected_adc_sample_rate_hz(self.dt_ns) as f64);
                         ADC_CUTOFF_RATIO.store(cutoff_ratio as f32, Ordering::Relaxed);
                         NEW_ADC_CUTOFF.store(true, Ordering::Relaxed); // Flag for ADC sample loop to update cutoff
 
                         // If we've made it this far, we're done configuring
                         self.led2.set_high();
                         configured = true;
-                        self.systick_init(); // Set new systick freq _after_ fully configured
+                        self.configure_comm_schedule(self.dt_ns);
                     }
                 }
 
@@ -143,10 +146,10 @@ impl<'a> Board<'a> {
             }
         );
 
-        // Create a scope and register the systick interrupt handler.
+        // Create a scope and register the deferred comm interrupt handler.
         scope(|s| {
             // Run
-            s.register(interrupts::SysTick, systick_handler);
+            s.register(interrupts::PendSV, pendsv_handler);
 
             // Transition when indicated by inner loop
             let mut transition;

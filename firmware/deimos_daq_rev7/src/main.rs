@@ -33,6 +33,7 @@ unsafe fn main() -> ! {
     // Initialize runtime-defined exception handlers before running any
     // application code or doing anything that might trigger them
     handler!(systick_default_handler = || {});
+    handler!(pendsv_default_handler = || {});
 
     // Initialize static storage
     // unsafe: mutable reference to static storage, we only do this once
@@ -57,22 +58,25 @@ unsafe fn main() -> ! {
     // sampling interrupt.
     sampler.timer.reset_counter(); // Make sure we don't immediately trigger the interrupt during handoff
     sampler.timer.listen(Event::TimeOut);
-    handler!(sampling_handler = || sampler.sample());
+    handler!(sampling_handler = || sampler.sample_and_schedule());
 
     scope(|sampling| {
-        scope(|systick_default| {
-            // Set default interrupt handlers
-            systick_default.register(board::interrupts::SysTick, systick_default_handler);
-            sampling.register(board::interrupts::TIM2, sampling_handler);
+        scope(|pendsv_default| {
+            scope(|systick_default| {
+                // Set default interrupt handlers
+                systick_default.register(board::interrupts::SysTick, systick_default_handler);
+                pendsv_default.register(board::interrupts::PendSV, pendsv_default_handler);
+                sampling.register(board::interrupts::TIM2, sampling_handler);
 
-            // Unmask sample interrupt
-            unsafe {
-                pac::NVIC::unmask(interrupt::TIM2);
-            }
+                // Unmask sample interrupt
+                unsafe {
+                    pac::NVIC::unmask(interrupt::TIM2);
+                }
 
-            // Enter the state machine main loop,
-            // which will control the systick interrupt handler
-            board.run();
+                // Enter the state machine main loop,
+                // which will control the deferred comm handler
+                board.run();
+            })
         })
     });
 

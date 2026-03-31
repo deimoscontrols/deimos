@@ -15,9 +15,13 @@ use flaw::{
 };
 
 use crate::board::{
-    ACCUMULATED_SAMPLING_TIME_NS, ADC_CUTOFF_RATIO, ADC_SAMPLES, ADC_SAMPLE_FREQ_HZ,
-    COUNTER_SAMPLES, COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF, VREF,
+    ACCUMULATED_SAMPLING_TIME_NS, ADC_CUTOFF_RATIO, ADC_SAMPLES, COMM_INTERVAL_SAMPLES,
+    COMM_OVERRUN_COUNT, COMM_RELEASE_COUNT, COMM_RUNNING, COMM_SAMPLES_REMAINING, COUNTER_SAMPLES,
+    COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF, NEW_ADC_SAMPLE_RATE, NEXT_COMM_INTERVAL_NS,
+    TARGET_ADC_SAMPLE_RATE_HZ, VREF,
 };
+use cortex_m::peripheral::SCB;
+use deimos_shared::peripherals::deimos_daq_rev7::MAX_ADC_SAMPLE_RATE_HZ;
 
 /// Above this size of change, 16-bit counters are assumed to have wrapped.
 /// If the real count rate is between a half and full u16::MAX per update,
@@ -147,7 +151,9 @@ pub struct Sampler {
 
     // Timing
     pub timer: Timer<TIM2>,
+    pub timer_clk_hz: u32,
     pub tick_period_ns: u32,
+    pub nominal_sample_rate_hz: u32,
 
     // Counter and frequency
     pub encoder: (TIM1, Unroller),
@@ -155,6 +161,50 @@ pub struct Sampler {
     pub pwmi0: (TIM4, MedianFilter<u16, 3>, MedianFilter<u16, 3>),
     pub pwmi1: (TIM15, MedianFilter<u16, 3>),
     pub frequency_scaling: f32,
+}
+
+fn update_fractional_delay_filters(filters: &mut [SisoFirFilter<3, f32>; 18], sample_rate_hz: u32) {
+    let internal_sample_period = 1.0 / sample_rate_hz as f64; // [s]
+    let adc_clock_speed = 50e6; // [Hz]
+    let adc_clock_period = 1.0 / adc_clock_speed; // [s]
+    let adc_sample_hold_cycles = 16.5; // [dimensionless]
+    let adc_sample_hold = adc_sample_hold_cycles * adc_clock_period; // [s]
+    let adc_conversion_time = 7.5 * adc_clock_period; // [s] RM0433 25.4.13
+
+    let delay_per_group = adc_sample_hold + adc_conversion_time; // [s]
+
+    let groups = (
+        [8, 9, 0],
+        [10, 12, 1],
+        [11, 2],
+        [15 - 2, 3],
+        [16 - 2, 17 - 2, 4],
+        [18 - 2, 5],
+        [19 - 2, 6],
+        [7],
+    );
+    let mut delays = [0_f64; 20];
+
+    let apply_delay = |delays: &mut [f64], group: &[usize], i: usize| {
+        let delay = i as f64 * delay_per_group;
+        for j in group {
+            delays[*j] = delay;
+        }
+    };
+
+    apply_delay(&mut delays, &groups.0, 0);
+    apply_delay(&mut delays, &groups.1, 1);
+    apply_delay(&mut delays, &groups.2, 2);
+    apply_delay(&mut delays, &groups.3, 3);
+    apply_delay(&mut delays, &groups.4, 4);
+    apply_delay(&mut delays, &groups.5, 5);
+    apply_delay(&mut delays, &groups.6, 6);
+    apply_delay(&mut delays, &groups.7, 7);
+
+    for (i, filter) in filters.iter_mut().enumerate() {
+        let delay_frac = (delays[i] / internal_sample_period) as f32;
+        *filter = polynomial_fractional_delay(delay_frac);
+    }
 }
 
 impl Sampler {
@@ -210,56 +260,9 @@ impl Sampler {
         let adc_filters_low_rate = [butter1(cutoff_ratio).unwrap(); 18];
         let adc_values = [0.0_f32; 18];
 
-        // Fractional delay filters for synthetic simultaneous sampling
-
-        // Timing components
-        let internal_sample_period = 1.0 / ADC_SAMPLE_FREQ_HZ as f64; // [s]
-        let adc_clock_speed = 50e6; // [Hz]
-        let adc_clock_period = 1.0 / adc_clock_speed; // [s]
-        let adc_sample_hold_cycles = 16.5; // [dimensionless]
-        let adc_sample_hold = adc_sample_hold_cycles * adc_clock_period; // [s]
-        let adc_conversion_time = 7.5 * adc_clock_period; // [s] RM0433 25.4.13
-
-        // Calculate fractional delay needed for each channel to align with the first sample group
-        //   Each group starts as soon as the previous one is done
-        let delay_per_group = adc_sample_hold + adc_conversion_time; // [s]
-
-        let groups = (
-            [8, 9, 0],
-            [10, 12, 1],
-            // [11, 13, 2],  // ain13,14 consumed for DAC
-            // [14, 15, 3],
-            [11, 2],
-            [15 - 2, 3],
-            [16 - 2, 17 - 2, 4],
-            [18 - 2, 5],
-            [19 - 2, 6],
-            [7],
-        );
-        let mut delays = [0_f64; 20];
-
-        let apply_delay = |delays: &mut [f64], group: &[usize], i: usize| {
-            let delay = i as f64 * delay_per_group;
-            for j in group {
-                delays[*j] = delay;
-            }
-        };
-
-        apply_delay(&mut delays, &groups.0, 0);
-        apply_delay(&mut delays, &groups.1, 1);
-        apply_delay(&mut delays, &groups.2, 2);
-        apply_delay(&mut delays, &groups.3, 3);
-        apply_delay(&mut delays, &groups.4, 4);
-        apply_delay(&mut delays, &groups.5, 5);
-        apply_delay(&mut delays, &groups.6, 6);
-        apply_delay(&mut delays, &groups.7, 7);
-
         let mut adc_filters_fractional_delay: [SisoFirFilter<3, f32>; 18] =
             [SisoFirFilter::<3, f32>::new(&[0.0, 0.0, 0.0]); 18];
-        for (i, filter) in adc_filters_fractional_delay.iter_mut().enumerate() {
-            let delay_frac = (delays[i] / internal_sample_period) as f32;
-            *filter = polynomial_fractional_delay(delay_frac);
-        }
+        update_fractional_delay_filters(&mut adc_filters_fractional_delay, MAX_ADC_SAMPLE_RATE_HZ);
 
         //
         // Set up frequency input adc_scalings
@@ -287,7 +290,9 @@ impl Sampler {
             adc_filter_cutoff_ratio: cutoff_ratio,
             adc_values,
             timer,
+            timer_clk_hz: t2clk_hz,
             tick_period_ns,
+            nominal_sample_rate_hz: MAX_ADC_SAMPLE_RATE_HZ,
             encoder: (encoder, Unroller::new(0)),
             pulse_counter: (pulse_counter, Unroller::new(0)),
             pwmi0: (
@@ -297,6 +302,54 @@ impl Sampler {
             ),
             pwmi1: (pwmi1, MedianFilter::<u16, 3>::new(0)),
             frequency_scaling,
+        }
+    }
+
+    /// Refresh the cached TIM2 tick period after reprogramming the timer.
+    fn update_tick_period(&mut self) {
+        let t2psc = self.timer.inner().psc.read().psc().bits() + 1;
+        self.tick_period_ns = ((t2psc as f64) / (self.timer_clk_hz as f64) * 1e9) as u32;
+    }
+
+    /// Update sample-rate-dependent fractional-delay filters after a nominal retune.
+    fn update_nominal_sample_rate(&mut self, sample_rate_hz: u32) {
+        self.nominal_sample_rate_hz = sample_rate_hz.max(1);
+        update_fractional_delay_filters(
+            &mut self.adc_filters_fractional_delay,
+            self.nominal_sample_rate_hz,
+        );
+    }
+
+    /// Retune TIM2 so `samples_per_cycle` sample periods fit inside one comm interval.
+    fn set_cycle_timing(&mut self, cycle_interval_ns: u32, samples_per_cycle: u32) {
+        let samples_per_cycle = samples_per_cycle.max(1);
+        let sample_period_ns = (u64::from(cycle_interval_ns) + u64::from(samples_per_cycle) / 2)
+            / u64::from(samples_per_cycle);
+        self.timer
+            .set_timeout(core::time::Duration::from_nanos(sample_period_ns.max(1)));
+        self.timer.apply_freq();
+        self.update_tick_period();
+    }
+
+    /// Advance the comm divider and pend `PendSV` whenever a comm cycle is due.
+    fn schedule_comm_cycle(&mut self) {
+        let samples_remaining = COMM_SAMPLES_REMAINING.load(Ordering::Relaxed);
+        if samples_remaining > 1 {
+            COMM_SAMPLES_REMAINING.store(samples_remaining - 1, Ordering::Relaxed);
+            return;
+        }
+
+        let samples_per_cycle = COMM_INTERVAL_SAMPLES.load(Ordering::Relaxed).max(1);
+        let next_cycle_ns = NEXT_COMM_INTERVAL_NS.load(Ordering::Relaxed).max(1);
+
+        COMM_SAMPLES_REMAINING.store(samples_per_cycle, Ordering::Relaxed);
+        COMM_RELEASE_COUNT.fetch_add(1, Ordering::Relaxed);
+        self.set_cycle_timing(next_cycle_ns, samples_per_cycle);
+
+        if COMM_RUNNING.load(Ordering::Relaxed) || SCB::is_pendsv_pending() {
+            COMM_OVERRUN_COUNT.fetch_add(1, Ordering::Relaxed);
+        } else {
+            SCB::set_pendsv();
         }
     }
 
@@ -379,28 +432,37 @@ impl Sampler {
         self.pulse_counter.1.reset(0);
     }
 
-    pub fn sample(&mut self) {
+    pub fn sample_and_schedule(&mut self) {
         self.timer.clear_irq();
         let start_time = self.timer.counter();
 
-        if NEW_ADC_CUTOFF.load(Ordering::Relaxed) {
+        if NEW_ADC_SAMPLE_RATE.load(Ordering::Relaxed) || NEW_ADC_CUTOFF.load(Ordering::Relaxed) {
             // Make sure we don't run out of time and trigger another cycle
             self.timer.pause();
 
+            if NEW_ADC_SAMPLE_RATE.load(Ordering::Relaxed) {
+                let sample_rate_hz = TARGET_ADC_SAMPLE_RATE_HZ.load(Ordering::Relaxed);
+                self.update_nominal_sample_rate(sample_rate_hz);
+                NEW_ADC_SAMPLE_RATE.store(false, Ordering::Relaxed);
+            }
+
             // Load new cutoff
-            let new_cutoff = ADC_CUTOFF_RATIO.load(Ordering::Relaxed) as f64;
+            if NEW_ADC_CUTOFF.load(Ordering::Relaxed) {
+                let new_cutoff = ADC_CUTOFF_RATIO.load(Ordering::Relaxed) as f64;
 
-            // Build new interpolated filter
-            self.update_cutoff(new_cutoff);
+                // Build new interpolated filter
+                self.update_cutoff(new_cutoff);
 
-            // Mark the cutoff update as complete only after the new adc_values are fully propagated
-            // in case this interrupt handler gets preempted in the middle of a transaction
-            NEW_ADC_CUTOFF.store(false, Ordering::Relaxed);
+                // Mark the cutoff update as complete only after the new adc_values are fully propagated
+                // in case this interrupt handler gets preempted in the middle of a transaction
+                NEW_ADC_CUTOFF.store(false, Ordering::Relaxed);
+            }
 
             // Start the ADC sample clock again
             self.timer.resume();
 
             // Skip this sample to avoid breaking timing guarantee
+            self.schedule_comm_cycle();
             return;
         }
 
@@ -527,5 +589,6 @@ impl Sampler {
         let end_time = self.timer.counter();
         let scope_time = (end_time - start_time) * self.tick_period_ns;
         ACCUMULATED_SAMPLING_TIME_NS.fetch_add(scope_time, Ordering::Relaxed);
+        self.schedule_comm_cycle();
     }
 }

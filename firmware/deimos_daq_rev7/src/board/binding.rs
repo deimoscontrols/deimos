@@ -14,7 +14,8 @@ impl<'a> Board<'a> {
         // Initialize
         self.set_outputs(&OperatingRoundtripInput::default());
         self.dt_ns = 1_000_000;
-        self.systick_init();
+        self.reset_comm_pending();
+        self.configure_comm_schedule(self.dt_ns);
         self.watchdog.feed();
 
         // Unbind if previously bound
@@ -31,8 +32,8 @@ impl<'a> Board<'a> {
         let transition_configuring = AtomicBool::new(false);
 
         handler!(
-            systick_handler = || {
-                self.time_ns += self.dt_ns as i64;
+            pendsv_handler = || {
+                let _comm_cycle = self.begin_comm_cycle();
 
                 unsafe {
                     (&*IWDG::ptr()).kr.write(|w| w.bits(1));
@@ -116,10 +117,10 @@ impl<'a> Board<'a> {
             }
         );
 
-        // Create a scope and register the systick interrupt handler.
+        // Create a scope and register the deferred comm interrupt handler.
         scope(|s| {
             // Run
-            s.register(interrupts::SysTick, systick_handler);
+            s.register(interrupts::PendSV, pendsv_handler);
 
             // Transition when indicated by inner loop
             let mut transition;
