@@ -6,7 +6,7 @@
 //!   * Performing calculations in the loop
 //!   * Serialization and deserialization of the control program
 
-use crate::peripheral::DeimosDaqRev6;
+use crate::peripheral::DeimosDaqRev7;
 use controller::context::ControllerCtx;
 use deimos::*;
 
@@ -19,7 +19,7 @@ fn main() {
     let mut controller = Controller::new(ctx);
 
     // Associate hardware peripherals
-    controller.add_peripheral("p1", Box::new(DeimosDaqRev6 { serial_number: 4 }));
+    controller.add_peripheral("p1", Box::new(DeimosDaqRev7 { serial_number: 1 }));
 
     // Set up data targets
     let csv_dispatcher: Box<dyn Dispatcher> = CsvDispatcher::new(50, dispatcher::Overflow::Wrap);
