@@ -455,7 +455,6 @@ impl<'a> Board<'a> {
                 di1,
                 time_ns,
                 dt_ns,
-                comm_interval_ns: dt_ns,
                 last_comm_release_count: 0,
                 clocks,
                 subcycle_timer,

@@ -15,10 +15,10 @@ use flaw::{
 };
 
 use crate::board::{
-    ACCUMULATED_SAMPLING_TIME_NS, ADC_CUTOFF_RATIO, ADC_SAMPLES, COMM_INTERVAL_SAMPLES,
-    COMM_OVERRUN_COUNT, COMM_RELEASE_COUNT, COMM_RUNNING, COMM_SAMPLES_REMAINING, COUNTER_SAMPLES,
-    COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF, NEW_ADC_SAMPLE_RATE, NEXT_COMM_INTERVAL_NS,
-    TARGET_ADC_SAMPLE_RATE_HZ, VREF,
+    ACCUMULATED_SAMPLING_TIME_NS, ADC_CUTOFF_RATIO, ADC_SAMPLES, COMM_INTERVAL_NS,
+    COMM_INTERVAL_SAMPLES, COMM_OVERRUN_COUNT, COMM_RELEASE_COUNT, COMM_RUNNING, COUNTER_SAMPLES,
+    COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF, NEW_ADC_SAMPLE_RATE, REQUESTED_PERIOD_DELTA_NS,
+    REQUESTED_PHASE_DELTA_NS, TARGET_ADC_SAMPLE_RATE_HZ, TIMING_REQUEST_UPDATED, VREF,
 };
 use cortex_m::peripheral::SCB;
 use deimos_shared::peripherals::deimos_daq_rev7::MAX_ADC_SAMPLE_RATE_HZ;
@@ -154,6 +154,12 @@ pub struct Sampler {
     pub timer_clk_hz: u32,
     pub tick_period_ns: u32,
     pub nominal_sample_rate_hz: u32,
+    pub nominal_cycle_ns: u32,
+    pub nominal_samples_per_cycle: u32,
+    pub samples_left_in_comm_cycle: u32,
+    pub active_period_delta_ns: i64,
+    pub active_phase_delta_ns: i64,
+    pub remaining_cycle_adjustment_ns: i64,
 
     // Counter and frequency
     pub encoder: (TIM1, Unroller),
@@ -161,6 +167,19 @@ pub struct Sampler {
     pub pwmi0: (TIM4, MedianFilter<u16, 3>, MedianFilter<u16, 3>),
     pub pwmi1: (TIM15, MedianFilter<u16, 3>),
     pub frequency_scaling: f32,
+}
+
+fn div_round_nearest(numer: i64, denom: i64) -> i64 {
+    if denom <= 0 {
+        return 0;
+    }
+
+    let half = denom / 2;
+    if numer >= 0 {
+        (numer + half) / denom
+    } else {
+        (numer - half) / denom
+    }
 }
 
 fn update_fractional_delay_filters(filters: &mut [SisoFirFilter<3, f32>; 18], sample_rate_hz: u32) {
@@ -293,6 +312,12 @@ impl Sampler {
             timer_clk_hz: t2clk_hz,
             tick_period_ns,
             nominal_sample_rate_hz: MAX_ADC_SAMPLE_RATE_HZ,
+            nominal_cycle_ns: 1_000_000,
+            nominal_samples_per_cycle: 30,
+            samples_left_in_comm_cycle: 30,
+            active_period_delta_ns: 0,
+            active_phase_delta_ns: 0,
+            remaining_cycle_adjustment_ns: 0,
             encoder: (encoder, Unroller::new(0)),
             pulse_counter: (pulse_counter, Unroller::new(0)),
             pwmi0: (
@@ -320,37 +345,88 @@ impl Sampler {
         );
     }
 
-    /// Retune TIM2 so `samples_per_cycle` sample periods fit inside one comm interval.
-    fn set_cycle_timing(&mut self, cycle_interval_ns: u32, samples_per_cycle: u32) {
-        let samples_per_cycle = samples_per_cycle.max(1);
-        let sample_period_ns = (u64::from(cycle_interval_ns) + u64::from(samples_per_cycle) / 2)
-            / u64::from(samples_per_cycle);
+    fn clamp_cycle_delta_ns(&self, delta_ns: i64) -> i64 {
+        let delta_ns_max = (self.nominal_cycle_ns / 10) as i64;
+        delta_ns.max(-delta_ns_max).min(delta_ns_max)
+    }
+
+    fn reset_cycle_adjustment(&mut self) {
+        self.remaining_cycle_adjustment_ns =
+            self.clamp_cycle_delta_ns(self.active_period_delta_ns + self.active_phase_delta_ns);
+    }
+
+    fn apply_nominal_timing_update(&mut self) {
+        let sample_rate_hz = TARGET_ADC_SAMPLE_RATE_HZ.load(Ordering::Relaxed);
+        let cycle_ns = COMM_INTERVAL_NS.load(Ordering::Relaxed).max(1);
+        let samples_per_cycle = COMM_INTERVAL_SAMPLES.load(Ordering::Relaxed).max(1);
+
+        self.update_nominal_sample_rate(sample_rate_hz);
+        self.nominal_cycle_ns = cycle_ns;
+        self.nominal_samples_per_cycle = samples_per_cycle;
+        self.samples_left_in_comm_cycle = samples_per_cycle;
+        self.active_period_delta_ns = 0;
+        self.active_phase_delta_ns = 0;
+        self.remaining_cycle_adjustment_ns = 0;
+
+        self.apply_next_sample_period();
+    }
+
+    fn consume_timing_request(&mut self) {
+        if !TIMING_REQUEST_UPDATED.swap(false, Ordering::Relaxed) {
+            return;
+        }
+
+        self.active_period_delta_ns = REQUESTED_PERIOD_DELTA_NS.load(Ordering::Relaxed) as i64;
+        self.active_phase_delta_ns = REQUESTED_PHASE_DELTA_NS.load(Ordering::Relaxed) as i64;
+        self.reset_cycle_adjustment();
+    }
+
+    fn apply_sample_period_ns(&mut self, sample_period_ns: u32) {
         self.timer
-            .set_timeout(core::time::Duration::from_nanos(sample_period_ns.max(1)));
+            .set_timeout(core::time::Duration::from_nanos(u64::from(
+                sample_period_ns.max(1),
+            )));
         self.timer.apply_freq();
         self.update_tick_period();
     }
 
-    /// Advance the comm divider and pend `PendSV` whenever a comm cycle is due.
-    fn schedule_comm_cycle(&mut self) {
-        let samples_remaining = COMM_SAMPLES_REMAINING.load(Ordering::Relaxed);
-        if samples_remaining > 1 {
-            COMM_SAMPLES_REMAINING.store(samples_remaining - 1, Ordering::Relaxed);
-            return;
+    fn nominal_sample_period_ns(&self) -> i64 {
+        div_round_nearest(
+            self.nominal_cycle_ns as i64,
+            self.nominal_samples_per_cycle.max(1) as i64,
+        )
+        .max(1)
+    }
+
+    fn apply_next_sample_period(&mut self) {
+        let intervals_until_release = self.samples_left_in_comm_cycle.max(1) as i64;
+        let base_period_ns = self.nominal_sample_period_ns();
+        let adjustment_ns =
+            div_round_nearest(self.remaining_cycle_adjustment_ns, intervals_until_release);
+        self.remaining_cycle_adjustment_ns -= adjustment_ns;
+        let next_period_ns = (base_period_ns + adjustment_ns).max(1) as u32;
+        self.apply_sample_period_ns(next_period_ns);
+    }
+
+    fn finish_sample_cycle(&mut self) {
+        self.samples_left_in_comm_cycle = self.samples_left_in_comm_cycle.saturating_sub(1);
+
+        if self.samples_left_in_comm_cycle == 0 {
+            COMM_RELEASE_COUNT.fetch_add(1, Ordering::Relaxed);
+
+            if COMM_RUNNING.load(Ordering::Relaxed) || SCB::is_pendsv_pending() {
+                COMM_OVERRUN_COUNT.fetch_add(1, Ordering::Relaxed);
+            } else {
+                SCB::set_pendsv();
+            }
+
+            self.samples_left_in_comm_cycle = self.nominal_samples_per_cycle;
+            self.active_phase_delta_ns = 0;
+            self.reset_cycle_adjustment();
         }
 
-        let samples_per_cycle = COMM_INTERVAL_SAMPLES.load(Ordering::Relaxed).max(1);
-        let next_cycle_ns = NEXT_COMM_INTERVAL_NS.load(Ordering::Relaxed).max(1);
-
-        COMM_SAMPLES_REMAINING.store(samples_per_cycle, Ordering::Relaxed);
-        COMM_RELEASE_COUNT.fetch_add(1, Ordering::Relaxed);
-        self.set_cycle_timing(next_cycle_ns, samples_per_cycle);
-
-        if COMM_RUNNING.load(Ordering::Relaxed) || SCB::is_pendsv_pending() {
-            COMM_OVERRUN_COUNT.fetch_add(1, Ordering::Relaxed);
-        } else {
-            SCB::set_pendsv();
-        }
+        self.consume_timing_request();
+        self.apply_next_sample_period();
     }
 
     /// Replace the adc_filters with ones at a new cutoff ratio.
@@ -441,8 +517,7 @@ impl Sampler {
             self.timer.pause();
 
             if NEW_ADC_SAMPLE_RATE.load(Ordering::Relaxed) {
-                let sample_rate_hz = TARGET_ADC_SAMPLE_RATE_HZ.load(Ordering::Relaxed);
-                self.update_nominal_sample_rate(sample_rate_hz);
+                self.apply_nominal_timing_update();
                 NEW_ADC_SAMPLE_RATE.store(false, Ordering::Relaxed);
             }
 
@@ -462,7 +537,6 @@ impl Sampler {
             self.timer.resume();
 
             // Skip this sample to avoid breaking timing guarantee
-            self.schedule_comm_cycle();
             return;
         }
 
@@ -589,6 +663,6 @@ impl Sampler {
         let end_time = self.timer.counter();
         let scope_time = (end_time - start_time) * self.tick_period_ns;
         ACCUMULATED_SAMPLING_TIME_NS.fetch_add(scope_time, Ordering::Relaxed);
-        self.schedule_comm_cycle();
+        self.finish_sample_cycle();
     }
 }

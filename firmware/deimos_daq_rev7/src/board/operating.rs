@@ -59,7 +59,7 @@ impl<'a> Board<'a> {
         handler!(
             pendsv_handler = || {
                 let _comm_cycle = self.begin_comm_cycle();
-                let end_of_cycle = self.time_ns + self.comm_interval_ns as i64;
+                let end_of_cycle = self.time_ns + self.dt_ns as i64 + udp_input.phase_delta_ns;
 
                 // If we have lost contact with the controller, go back to connecting
                 let contact_lost =
@@ -136,6 +136,12 @@ impl<'a> Board<'a> {
 
                                     // Reset loss-of-contact counter
                                     loss_of_contact_persistence_counter = 0;
+
+                                    REQUESTED_PERIOD_DELTA_NS
+                                        .store(udp_input.period_delta_ns as i32, Ordering::Relaxed);
+                                    REQUESTED_PHASE_DELTA_NS
+                                        .store(udp_input.phase_delta_ns as i32, Ordering::Relaxed);
+                                    TIMING_REQUEST_UPDATED.store(true, Ordering::Relaxed);
                                 }
                             }
                         }
@@ -143,9 +149,6 @@ impl<'a> Board<'a> {
                         _ => {}
                     };
                 }
-
-                // Set target phase adjustment
-                self.set_next_comm_interval(udp_input.phase_delta_ns + udp_input.period_delta_ns);
 
                 // Write GPIO state based on last received inputs
                 self.set_outputs(&udp_input);

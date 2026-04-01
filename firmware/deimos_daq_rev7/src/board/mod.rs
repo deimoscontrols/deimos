@@ -80,11 +80,8 @@ pub static ACCUMULATED_SAMPLING_TIME_NS: AtomicU32 = AtomicU32::new(0);
 /// Number of ADC sample ticks to wait between comm releases.
 pub static COMM_INTERVAL_SAMPLES: AtomicU32 = AtomicU32::new(30);
 
-/// Countdown of ADC sample ticks until the next comm release.
-pub static COMM_SAMPLES_REMAINING: AtomicU32 = AtomicU32::new(30);
-
-/// Communication cycle interval that the next release should use.
-pub static NEXT_COMM_INTERVAL_NS: AtomicU32 = AtomicU32::new(1_000_000);
+/// Nominal communication cycle interval configured by the controller.
+pub static COMM_INTERVAL_NS: AtomicU32 = AtomicU32::new(1_000_000);
 
 /// Number of comm releases emitted by the sample scheduler.
 pub static COMM_RELEASE_COUNT: AtomicU32 = AtomicU32::new(0);
@@ -100,6 +97,15 @@ pub static TARGET_ADC_SAMPLE_RATE_HZ: AtomicU32 = AtomicU32::new(MAX_ADC_SAMPLE_
 
 /// Flag for the sample loop to rebuild any sample-rate-dependent state.
 pub static NEW_ADC_SAMPLE_RATE: AtomicBool = AtomicBool::new(false);
+
+/// Latest requested persistent timing adjustment from the controller.
+pub static REQUESTED_PERIOD_DELTA_NS: AtomicI32 = AtomicI32::new(0);
+
+/// Latest requested one-shot timing adjustment from the controller.
+pub static REQUESTED_PHASE_DELTA_NS: AtomicI32 = AtomicI32::new(0);
+
+/// Indicates that a fresh timing request has been published for the sample ISR.
+pub static TIMING_REQUEST_UPDATED: AtomicBool = AtomicBool::new(false);
 
 #[derive(PartialEq, Eq)]
 pub enum BoardState {
@@ -123,7 +129,6 @@ pub struct Board<'a> {
     // Time
     pub time_ns: i64,
     pub dt_ns: u32,
-    pub comm_interval_ns: u32,
     pub last_comm_release_count: u32,
     pub clocks: CoreClocks,
     pub subcycle_timer: Timer<TIM5>,
@@ -172,16 +177,17 @@ impl<'a> Board<'a> {
         let nominal_sample_rate_hz = expected_adc_sample_rate_hz(dt_ns);
         let mut last_release_count = 0;
 
-        self.comm_interval_ns = dt_ns;
         self.subcycle_timer
             .set_timeout(Duration::from_nanos(2 * u64::from(dt_ns)));
 
         cortex_m::interrupt::free(|_| {
             last_release_count = COMM_RELEASE_COUNT.load(Ordering::Relaxed);
             COMM_INTERVAL_SAMPLES.store(samples_per_cycle, Ordering::Relaxed);
-            COMM_SAMPLES_REMAINING.store(samples_per_cycle, Ordering::Relaxed);
-            NEXT_COMM_INTERVAL_NS.store(dt_ns, Ordering::Relaxed);
+            COMM_INTERVAL_NS.store(dt_ns, Ordering::Relaxed);
             TARGET_ADC_SAMPLE_RATE_HZ.store(nominal_sample_rate_hz, Ordering::Relaxed);
+            REQUESTED_PERIOD_DELTA_NS.store(0, Ordering::Relaxed);
+            REQUESTED_PHASE_DELTA_NS.store(0, Ordering::Relaxed);
+            TIMING_REQUEST_UPDATED.store(false, Ordering::Relaxed);
             NEW_ADC_SAMPLE_RATE.store(true, Ordering::Relaxed);
         });
         self.last_comm_release_count = last_release_count;
@@ -192,21 +198,9 @@ impl<'a> Board<'a> {
         cortex_m::interrupt::free(|_| {
             COMM_OVERRUN_COUNT.store(0, Ordering::Relaxed);
             COMM_RUNNING.store(false, Ordering::Relaxed);
+            TIMING_REQUEST_UPDATED.store(false, Ordering::Relaxed);
             cortex_m::peripheral::SCB::clear_pendsv();
         });
-    }
-
-    /// Clamp a cycle-time correction to the same +/-10% window used by the old SysTick path.
-    fn clamp_cycle_delta_ns(&self, delta_ns: i64) -> i64 {
-        let delta_ns_max = (self.dt_ns / 10) as i64;
-        delta_ns.max(-delta_ns_max).min(delta_ns_max)
-    }
-
-    /// Apply the next communication interval that the sample scheduler should use.
-    fn set_next_comm_interval(&mut self, delta_ns: i64) {
-        let next_interval_ns = (self.dt_ns as i64 + self.clamp_cycle_delta_ns(delta_ns)) as u32;
-        self.comm_interval_ns = next_interval_ns;
-        NEXT_COMM_INTERVAL_NS.store(next_interval_ns, Ordering::Relaxed);
     }
 
     /// Mark the start of one deferred comm cycle and update the board timebase.
@@ -221,7 +215,7 @@ impl<'a> Board<'a> {
             .wrapping_sub(self.last_comm_release_count)
             .max(1);
         self.last_comm_release_count = release_count;
-        self.time_ns += i64::from(releases) * i64::from(self.comm_interval_ns);
+        self.time_ns += i64::from(releases) * i64::from(self.dt_ns);
 
         CommCycleGuard
     }
