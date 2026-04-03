@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-04-02 deimos 0.16.1, rev7 firmware 0.6.0
+
+This update continues the buildup of the firmware for the rev7,
+including support for statically-addressed networks without DHCP
+and direct ethernet connection to the control computer.
+
+While statically-addressed networks assembled using ARP are usually known
+for ARP storm instability, this implementation eliminates that failure mode
+by checking a bounded number of candidate addresses instead of broadcast scanning.
+
+### Added
+
+* deimos
+    * `peripheral::deimos_daq_rev7` module
+* deimos_shared
+    * Add function for deriving static fallback address candidates from MAC address
+* rev7 firmware
+    * Plumb in the read, write, and packet formation for the new gpio pins
+    * Make `Net` fields private and access via functions
+    * Support use on static networks in the 169.254.x.y block without a DHCP server
+        * This also supports direct-to-computer ethernet connection, which is treated as a static network
+    * Add `IpAssignment` address assignment state machine
+        * Start with 3 static address candidates in the 169.254.x.y block derived from MAC
+            * This is the block used automatically by Windows and MacOS, and can be manually configured for linux
+        * Do a 1 ARP probe of the static address and watch for 250ms to check if it is taken
+        * If a candidate is taken, move to the next and attempt ARP probes
+    * In Connecting, immediately assign a static address unless a DHCP address has already been established
+        * This allows immediate reconnection after a power or eth interruption on static networks
+    * Connecting now immediate transitions to Binding with either a static or dynamic address assigned
+    * In Binding, Configuring, and Operating, when polling IP address config, advance
+      the address state machine and check for ARP probe and DHCP responses
+        * This is a slight change in behavior: DHCP maybe configured at any time during Connecting, Binding, or Configuring
+        * If a DHCP address is configured during Operating, it is not applied until the next return to Connecting in order to avoid disrupting an active operation that started with a static address
+        * If a DHCP address is configured on one network and then the peripheral is moved to a different static network, it will maintain its DHCP address until the end of its lease (which could be a full day), or, more likely, until a reset or power cycle
+    
+    
+
+
+
 ## 2026-03-25 Rev7 Hardware & Firmware
 
 ### Added - Deimos DAQ Rev7 Hardware & Firmware

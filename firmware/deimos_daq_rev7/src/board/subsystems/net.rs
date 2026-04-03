@@ -380,8 +380,12 @@ impl<'a> Net<'a> {
         }
     }
 
-    /// Polls on the ethernet interface. You should refer to the smoltcp
-    /// documentation for poll() to understand how to call poll efficiently
+    /// Polls on the ethernet interface.
+    /// 
+    /// If polled at the same `time_ns` multiple times, this will process
+    /// incoming UDP packets for the UDP socket, but will not advance the
+    /// DHCP state machine. This can reduce timing uncertainty under
+    /// repeated polls.
     pub(crate) fn poll(&mut self, time_ns: i64) -> bool {
         let timestamp = Instant::from_micros(time_ns / 1000);
         self.iface

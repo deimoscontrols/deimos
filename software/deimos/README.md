@@ -169,21 +169,18 @@ let _deserialized_controller: Controller = serde_json::from_str(&serialized_cont
 // controller.run(&peripheral_plugins, None);
 ```
 
-## Direct-to-PC Ethernet Connection
+## Direct-to-PC Ethernet Connection and Statically-Addressed Networks
 
 Deimos DAQs can be connected directly to your computer by ethernet, bypassing the need
-for a router or network switch.
+for a router or network switch. They can also be used on networks with a switch but no router.
 
 When a Deimos DAQ connects to a network without a DHCP server to provide dynamic IP address assignments,
-it will automatically self-assign an IP address in the `169.254.254.[2-254]/16` range.
-
-**This capability is not intended for operating a full network without a router!**
-Its purpose is solely to support direct connections; multiple DAQs may choose the same static IP address,
-and in order to prevent ARP storm network instability, no attempt is made to resolve such conflicts.
+it will automatically self-assign an IP address in the `169.254.x.[2-254]/16` range.
+It will attempt up to 3 candidate addresses, which limits the maximum amount of address resolution spam on the network, while also yielding a trivially small probability that no candidate address is available.
 
 To connect directly without a router,
-1. Connect the DAQ's ethernet cable to your computer's ethernet port.
-  * If your computer does not have an ethernet port, use an ethernet-to-USB adapter.
+1. Connect the DAQ's ethernet cable to your computer's ethernet port (or to a shared network switch with no router).
+  * If your computer does not have an ethernet port, an ethernet-to-USB adapter can be used at the expense of added latency.
 2. In your computer's network settings, check if a static IP address was assigned in the 169.254.X.X range.
   * This should occur automatically on MacOS and Windows.
   * On linux, you may need to manually set a static IPV4 address: `169.254.254.1/16`
@@ -191,4 +188,3 @@ To connect directly without a router,
 Make sure the netmask for your computer's static address is set to exactly `/16 (255.255.0.0)`.
 
 Otherwise, the DAQ will not recognize your computer as being on the same link-local network, and will not respond to your attempts to scan or bind it.
-
