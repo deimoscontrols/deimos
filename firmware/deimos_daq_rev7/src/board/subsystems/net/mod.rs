@@ -16,297 +16,13 @@ use deimos_shared::{
     STATIC_FALLBACK_IPV4_PREFIX_LEN,
 };
 
+mod arp_scraper;
+use arp_scraper::{ObservedDevice, IpAssignment, PendingDhcpConfig, static_fallback_cidr, fallback_backoff_ns};
+pub(crate) use arp_scraper::IpConfigStatus;
+
 /// Length of the post-claim conflict observation window for a tentative fallback address.
 const FALLBACK_VALIDATION_NS: i64 = 250_000_000;
 
-/// Source of the board's currently active IPv4 configuration.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum IpAssignment {
-    /// No IPv4 address is currently configured on the interface.
-    Unconfigured,
-    /// A recently claimed fallback address that is still inside its conflict validation window.
-    TentativeLinkLocal {
-        /// The tentative fallback CIDR currently configured on the interface.
-        cidr: Ipv4Cidr,
-        /// Which deterministic fallback candidate this address came from.
-        candidate_index: u8,
-        /// Time when the tentative address should be promoted to stable if no conflict is seen.
-        validation_deadline_ns: i64,
-    },
-    /// A stable deterministic link-local fallback address.
-    LinkLocalFallback(Ipv4Cidr),
-    /// A lease or configuration that came from DHCP.
-    Dhcp(Ipv4Cidr),
-}
-
-/// Result of evaluating the board's current IPv4 configuration state.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum IpConfigStatus {
-    /// No usable IPv4 address is currently configured.
-    Missing,
-    /// The current IPv4 configuration remains usable and unchanged.
-    Ready,
-    /// A DHCP configuration was just applied and callers should treat the address as changed.
-    DhcpApplied,
-    /// A DHCP configuration was observed but intentionally deferred until reconnect.
-    DhcpDeferred,
-}
-
-/// DHCP configuration that may need to be applied immediately or deferred until reconnect.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct PendingDhcpConfig {
-    /// IPv4 address and prefix length offered by the DHCP server.
-    pub address: Ipv4Cidr,
-    /// Optional default gateway offered by the DHCP server.
-    pub router: Option<Ipv4Address>,
-}
-
-/// Convert one shared fallback candidate into an `smoltcp` CIDR value.
-fn static_fallback_cidr(mac: [u8; 6], index: usize) -> Ipv4Cidr {
-    let octets = static_fallback_ipv4_candidate_from_mac(mac, index);
-    Ipv4Cidr::new(
-        Ipv4Address::new(octets[0], octets[1], octets[2], octets[3]),
-        STATIC_FALLBACK_IPV4_PREFIX_LEN,
-    )
-}
-
-/// Compute the reconnect backoff after a full failed fallback candidate round.
-fn fallback_backoff_ns(failure_rounds: u8) -> i64 {
-    match failure_rounds {
-        0 => 0,
-        1 => 5_000_000_000,
-        2 => 30_000_000_000,
-        3 => 60_000_000_000,
-        _ => 300_000_000_000,
-    }
-}
-
-/// Tracks whether the currently tentative fallback IPv4 address has been challenged by ARP traffic.
-#[derive(Clone, Copy, Debug)]
-struct ArpWatch {
-    local_mac: EthernetAddress,
-    monitored_ip: Option<Ipv4Address>,
-    conflict_seen: bool,
-}
-
-impl ArpWatch {
-    /// Create a watcher for ARP conflicts against addresses claimed by the local MAC.
-    fn new(local_mac: EthernetAddress) -> Self {
-        Self {
-            local_mac,
-            monitored_ip: None,
-            conflict_seen: false,
-        }
-    }
-
-    /// Update which IPv4 address should currently be monitored for ARP conflicts.
-    fn set_monitored_ip(&mut self, monitored_ip: Option<Ipv4Address>) {
-        self.monitored_ip = monitored_ip;
-        self.conflict_seen = false;
-    }
-
-    /// Return whether a conflict was seen since the last check and clear the latched flag.
-    fn take_conflict(&mut self) -> bool {
-        let conflict = self.conflict_seen;
-        self.conflict_seen = false;
-        conflict
-    }
-
-    /// Inspect one received Ethernet frame and flag ARP probes or announcements for the monitored IP.
-    fn observe_frame(&mut self, frame_bytes: &[u8]) {
-        let monitored_ip = match self.monitored_ip {
-            Some(ip) => ip,
-            None => return,
-        };
-
-        let frame = match EthernetFrame::new_checked(frame_bytes) {
-            Ok(frame) => frame,
-            Err(_) => return,
-        };
-        if frame.ethertype() != EthernetProtocol::Arp {
-            return;
-        }
-
-        let packet = match ArpPacket::new_checked(frame.payload()) {
-            Ok(packet) => packet,
-            Err(_) => return,
-        };
-        let repr = match ArpRepr::parse(&packet) {
-            Ok(repr) => repr,
-            Err(_) => return,
-        };
-
-        let ArpRepr::EthernetIpv4 {
-            source_hardware_addr,
-            source_protocol_addr,
-            target_protocol_addr,
-            ..
-        } = repr
-        else {
-            return;
-        };
-
-        if source_hardware_addr == self.local_mac {
-            return;
-        }
-
-        let announced_our_ip = source_protocol_addr == monitored_ip;
-        let probed_our_ip = source_protocol_addr == Ipv4Address::UNSPECIFIED
-            && target_protocol_addr == monitored_ip;
-
-        if announced_our_ip || probed_our_ip {
-            self.conflict_seen = true;
-        }
-    }
-}
-
-/// Wraps the Ethernet DMA device so fallback ARP traffic can be observed and emitted.
-struct ObservedDevice<D> {
-    inner: D,
-    arp_watch: ArpWatch,
-}
-
-impl<D> ObservedDevice<D> {
-    /// Wrap the underlying device with ARP conflict tracking for the provided local MAC.
-    fn new(inner: D, local_mac: EthernetAddress) -> Self {
-        Self {
-            inner,
-            arp_watch: ArpWatch::new(local_mac),
-        }
-    }
-}
-
-impl<D: phy::Device> ObservedDevice<D> {
-    /// Update which IPv4 address should currently be watched for ARP conflicts.
-    fn set_monitored_ip(&mut self, monitored_ip: Option<Ipv4Address>) {
-        self.arp_watch.set_monitored_ip(monitored_ip);
-    }
-
-    /// Return whether a conflicting ARP frame has been observed since the last check.
-    fn take_conflict(&mut self) -> bool {
-        self.arp_watch.take_conflict()
-    }
-
-    /// Emit one ARP frame described by the supplied representation.
-    fn send_arp_repr(
-        &mut self,
-        timestamp: Instant,
-        dst_mac: EthernetAddress,
-        repr: ArpRepr,
-    ) -> bool {
-        let local_mac = self.arp_watch.local_mac;
-        let arp_len = repr.buffer_len();
-        let frame_len = EthernetFrame::<&[u8]>::buffer_len(arp_len);
-        let Some(tx) = phy::Device::transmit(self, timestamp) else {
-            return false;
-        };
-
-        tx.consume(frame_len, |buf| {
-            let mut frame = EthernetFrame::new_unchecked(buf);
-            frame.set_dst_addr(dst_mac);
-            frame.set_src_addr(local_mac);
-            frame.set_ethertype(EthernetProtocol::Arp);
-
-            let mut packet = ArpPacket::new_unchecked(frame.payload_mut());
-            repr.emit(&mut packet);
-        });
-        true
-    }
-
-    fn send_arp_probe(&mut self, timestamp: Instant, target_ip: Ipv4Address) -> bool {
-        self.send_arp_repr(
-            timestamp,
-            EthernetAddress::BROADCAST,
-            ArpRepr::EthernetIpv4 {
-                operation: ArpOperation::Request,
-                source_hardware_addr: self.arp_watch.local_mac,
-                source_protocol_addr: Ipv4Address::UNSPECIFIED,
-                target_hardware_addr: EthernetAddress([0; 6]),
-                target_protocol_addr: target_ip,
-            },
-        )
-    }
-
-    fn send_gratuitous_arp(&mut self, timestamp: Instant, claimed_ip: Ipv4Address) -> bool {
-        self.send_arp_repr(
-            timestamp,
-            EthernetAddress::BROADCAST,
-            ArpRepr::EthernetIpv4 {
-                operation: ArpOperation::Request,
-                source_hardware_addr: self.arp_watch.local_mac,
-                source_protocol_addr: claimed_ip,
-                target_hardware_addr: EthernetAddress([0; 6]),
-                target_protocol_addr: claimed_ip,
-            },
-        )
-    }
-}
-
-/// Receive token wrapper that inspects incoming ARP frames before handing them to `smoltcp`.
-struct ObservedRxToken<'a, T: phy::RxToken> {
-    inner: T,
-    arp_watch: &'a mut ArpWatch,
-}
-
-impl<'a, T: phy::RxToken> phy::RxToken for ObservedRxToken<'a, T> {
-    fn consume<R, F>(self, f: F) -> R
-    where
-        F: FnOnce(&mut [u8]) -> R,
-    {
-        let arp_watch = self.arp_watch;
-        self.inner.consume(|buf| {
-            arp_watch.observe_frame(buf);
-            f(buf)
-        })
-    }
-}
-
-/// Transmit token wrapper used by [`ObservedDevice`].
-struct ObservedTxToken<T: phy::TxToken> {
-    inner: T,
-}
-
-impl<T: phy::TxToken> phy::TxToken for ObservedTxToken<T> {
-    fn consume<R, F>(self, len: usize, f: F) -> R
-    where
-        F: FnOnce(&mut [u8]) -> R,
-    {
-        self.inner.consume(len, f)
-    }
-}
-
-impl<D: phy::Device> phy::Device for ObservedDevice<D> {
-    type RxToken<'a>
-        = ObservedRxToken<'a, D::RxToken<'a>>
-    where
-        Self: 'a;
-    type TxToken<'a>
-        = ObservedTxToken<D::TxToken<'a>>
-    where
-        Self: 'a;
-
-    fn receive(&mut self, timestamp: Instant) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
-        self.inner.receive(timestamp).map(|(rx, tx)| {
-            (
-                ObservedRxToken {
-                    inner: rx,
-                    arp_watch: &mut self.arp_watch,
-                },
-                ObservedTxToken { inner: tx },
-            )
-        })
-    }
-
-    fn transmit(&mut self, timestamp: Instant) -> Option<Self::TxToken<'_>> {
-        self.inner
-            .transmit(timestamp)
-            .map(|tx| ObservedTxToken { inner: tx })
-    }
-
-    fn capabilities(&self) -> DeviceCapabilities {
-        self.inner.capabilities()
-    }
-}
 
 /// Socket storage borrowed by [`Net`] for the lifetime of the firmware.
 pub(crate) struct NetStorageStatic<'a> {
@@ -341,13 +57,15 @@ impl<'a> Net<'a> {
         ethernet_addr: EthernetAddress,
         now: Instant,
     ) -> Self {
+        // Wrap the DMA device so fallback ARP traffic can be inspected and injected.
         let mut ethdev = ObservedDevice::new(ethdev, ethernet_addr);
         let config = Config::new(ethernet_addr.into());
         let iface = Interface::new(config, &mut ethdev, now);
 
+        // Reserve socket slots up front because the firmware keeps them for its full lifetime.
         let mut sockets = SocketSet::new(&mut store.socket_storage[..]);
 
-        // Add UDP socket
+        // Add the UDP command/data socket used by the controller.
         let rx_packet_buffer =
             unsafe { PacketBuffer::new(&mut RX_METADATA_STORAGE[..], &mut RX_PAYLOAD_STORAGE[..]) };
         let tx_packet_buffer =
@@ -362,10 +80,11 @@ impl<'a> Net<'a> {
             .unwrap();
         let udp_handle = sockets.add(udp_socket);
 
-        // Add DHCP socket
+        // Add a DHCP client socket for dynamic IPv4 configuration when available.
         let dhcp_socket = dhcpv4::Socket::new();
         let dhcp_handle: smoltcp::iface::SocketHandle = sockets.add(dhcp_socket);
 
+        // Start unconfigured and let the fallback/DHCP state machine claim an address later.
         Net::<'a> {
             iface,
             ethdev,
@@ -381,7 +100,7 @@ impl<'a> Net<'a> {
     }
 
     /// Polls on the ethernet interface.
-    /// 
+    ///
     /// If polled at the same `time_ns` multiple times, this will process
     /// incoming UDP packets for the UDP socket, but will not advance the
     /// DHCP state machine. This can reduce timing uncertainty under
@@ -448,11 +167,14 @@ impl<'a> Net<'a> {
 
     /// Record a fallback conflict and advance to the next candidate or backoff interval.
     fn note_fallback_conflict(&mut self, time_ns: i64, candidate_index: u8) {
+        // Drop the tentative claim immediately before choosing what to try next.
         self.clear_ipv4_config();
         if (candidate_index as usize + 1) < STATIC_FALLBACK_CANDIDATE_COUNT {
+            // Stay in the current round and move to the next deterministic candidate.
             self.next_fallback_candidate = candidate_index + 1;
             self.fallback_backoff_until_ns = None;
         } else {
+            // After exhausting the round, wait before retrying from the first candidate again.
             self.next_fallback_candidate = 0;
             self.fallback_failure_rounds = self.fallback_failure_rounds.saturating_add(1);
             self.fallback_backoff_until_ns =
@@ -462,6 +184,7 @@ impl<'a> Net<'a> {
 
     /// Apply a DHCP-provided IPv4 address and optional default route immediately.
     fn apply_dhcp_config(&mut self, config: PendingDhcpConfig) {
+        // Replace any fallback state with the DHCP-provided address.
         set_ipv4_addr(&mut self.iface, config.address);
         if let Some(router) = config.router {
             self.iface
@@ -471,6 +194,7 @@ impl<'a> Net<'a> {
         } else {
             self.iface.routes_mut().remove_default_ipv4_route();
         }
+        // Clear fallback bookkeeping now that DHCP is authoritative.
         self.end_tentative_watch();
         self.ip_assignment = IpAssignment::Dhcp(config.address);
         self.pending_dhcp = None;
@@ -523,6 +247,7 @@ impl<'a> Net<'a> {
             return false;
         }
 
+        // Pick the next MAC-derived fallback candidate and install it as tentative.
         let candidate_index = self.next_fallback_candidate as usize;
         let cidr = static_fallback_cidr(mac, candidate_index);
         set_ipv4_addr(&mut self.iface, cidr);
@@ -533,6 +258,7 @@ impl<'a> Net<'a> {
             candidate_index: candidate_index as u8,
             validation_deadline_ns: time_ns + FALLBACK_VALIDATION_NS,
         };
+        // Probe and announce once, then watch for conflicting ARP traffic during validation.
         let _ = self.send_arp_probe(time_ns, cidr.address());
         let _ = self.send_gratuitous_arp(time_ns, cidr.address());
         true
@@ -540,6 +266,7 @@ impl<'a> Net<'a> {
 
     /// Poll DHCP and reconcile the active IPv4 configuration.
     pub(crate) fn poll_ip_config(&mut self, time_ns: i64, allow_dhcp_swap: bool) -> IpConfigStatus {
+        // First, decide whether the current tentative fallback claim survived its validation window.
         if let IpAssignment::TentativeLinkLocal {
             cidr,
             candidate_index,
@@ -556,6 +283,7 @@ impl<'a> Net<'a> {
             }
         }
 
+        // Apply a deferred DHCP lease only when the caller allows mid-connection address swaps.
         if allow_dhcp_swap {
             if let Some(config) = self.pending_dhcp.take() {
                 self.apply_dhcp_config(config);
@@ -563,6 +291,7 @@ impl<'a> Net<'a> {
             }
         }
 
+        // Poll the DHCP socket for lease changes and merge them into the state machine.
         let event = self
             .sockets
             .get_mut::<dhcpv4::Socket>(self.dhcp_handle)
@@ -607,25 +336,28 @@ impl<'a> Net<'a> {
                     }
                 }
             }
-            None => match self.ip_assignment {
-                IpAssignment::Unconfigured => match self.iface.ipv4_addr() {
-                    Some(x) if x != Ipv4Address::UNSPECIFIED => IpConfigStatus::Ready,
-                    _ => IpConfigStatus::Missing,
-                },
-                IpAssignment::TentativeLinkLocal { cidr, .. }
-                | IpAssignment::LinkLocalFallback(cidr) => {
-                    if self.iface.ipv4_addr() != Some(cidr.address()) {
-                        set_ipv4_addr(&mut self.iface, cidr);
+            None => {
+                // No DHCP event arrived, so just keep the interface aligned with the tracked state.
+                match self.ip_assignment {
+                    IpAssignment::Unconfigured => match self.iface.ipv4_addr() {
+                        Some(x) if x != Ipv4Address::UNSPECIFIED => IpConfigStatus::Ready,
+                        _ => IpConfigStatus::Missing,
+                    },
+                    IpAssignment::TentativeLinkLocal { cidr, .. }
+                    | IpAssignment::LinkLocalFallback(cidr) => {
+                        if self.iface.ipv4_addr() != Some(cidr.address()) {
+                            set_ipv4_addr(&mut self.iface, cidr);
+                        }
+                        IpConfigStatus::Ready
                     }
-                    IpConfigStatus::Ready
-                }
-                IpAssignment::Dhcp(cidr) => {
-                    if self.iface.ipv4_addr() != Some(cidr.address()) {
-                        set_ipv4_addr(&mut self.iface, cidr);
+                    IpAssignment::Dhcp(cidr) => {
+                        if self.iface.ipv4_addr() != Some(cidr.address()) {
+                            set_ipv4_addr(&mut self.iface, cidr);
+                        }
+                        IpConfigStatus::Ready
                     }
-                    IpConfigStatus::Ready
                 }
-            },
+            }
         }
     }
 }
