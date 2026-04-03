@@ -17,12 +17,13 @@ use deimos_shared::{
 };
 
 mod arp_scraper;
-use arp_scraper::{ObservedDevice, IpAssignment, PendingDhcpConfig, static_fallback_cidr, fallback_backoff_ns};
 pub(crate) use arp_scraper::IpConfigStatus;
+use arp_scraper::{
+    fallback_backoff_ns, static_fallback_cidr, IpAssignment, ObservedDevice, PendingDhcpConfig,
+};
 
 /// Length of the post-claim conflict observation window for a tentative fallback address.
 const FALLBACK_VALIDATION_NS: i64 = 250_000_000;
-
 
 /// Socket storage borrowed by [`Net`] for the lifetime of the firmware.
 pub(crate) struct NetStorageStatic<'a> {
@@ -299,6 +300,7 @@ impl<'a> Net<'a> {
 
         match event {
             Some(dhcpv4::Event::Configured(config)) => {
+                // Normalize the smoltcp event into the local deferred-or-apply representation.
                 let config = PendingDhcpConfig {
                     address: config.address,
                     router: config.router,
@@ -308,29 +310,36 @@ impl<'a> Net<'a> {
                     | IpAssignment::TentativeLinkLocal { .. }
                         if !allow_dhcp_swap =>
                     {
+                        // Keep the fallback address for now and remember the lease for later.
                         self.pending_dhcp = Some(config);
                         IpConfigStatus::DhcpDeferred
                     }
                     IpAssignment::Dhcp(_) => {
+                        // Refresh the active DHCP configuration in place.
                         self.apply_dhcp_config(config);
                         IpConfigStatus::Ready
                     }
                     _ => {
+                        // No stable address is in use, so switch to DHCP immediately.
                         self.apply_dhcp_config(config);
                         IpConfigStatus::DhcpApplied
                     }
                 }
             }
             Some(dhcpv4::Event::Deconfigured) => {
+                // The lease disappeared, so discard any deferred DHCP state first.
                 self.pending_dhcp = None;
                 match self.ip_assignment {
                     IpAssignment::Dhcp(_) => {
+                        // If DHCP was active, clear the interface and let fallback recovery restart.
                         self.clear_ipv4_config();
                         IpConfigStatus::Missing
                     }
+                    // If fallback is already active or tentative, keep using it.
                     IpAssignment::LinkLocalFallback(_)
                     | IpAssignment::TentativeLinkLocal { .. } => IpConfigStatus::Ready,
                     IpAssignment::Unconfigured => {
+                        // Stay explicitly unconfigured when no other address source is available.
                         self.clear_ipv4_config();
                         IpConfigStatus::Missing
                     }
