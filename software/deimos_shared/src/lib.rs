@@ -35,9 +35,9 @@ const STATIC_FALLBACK_CANDIDATE_STRIDE: u32 = 21_419;
 /// [`STATIC_FALLBACK_CANDIDATE_COUNT`].
 pub fn static_fallback_ipv4_candidate_from_mac(mac: [u8; 6], index: usize) -> [u8; 4] {
     let seed = u32::from_be_bytes([mac[2], mac[3], mac[4], mac[5]]);
-    let slot = seed
-        .wrapping_add((index % STATIC_FALLBACK_CANDIDATE_COUNT) as u32 * STATIC_FALLBACK_CANDIDATE_STRIDE)
-        % STATIC_FALLBACK_USABLE_HOST_COUNT;
+    let slot = seed.wrapping_add(
+        (index % STATIC_FALLBACK_CANDIDATE_COUNT) as u32 * STATIC_FALLBACK_CANDIDATE_STRIDE,
+    ) % STATIC_FALLBACK_USABLE_HOST_COUNT;
     let third = 1 + (slot / STATIC_FALLBACK_USABLE_FOURTH_OCTETS) as u8;
     let fourth = 2 + (slot % STATIC_FALLBACK_USABLE_FOURTH_OCTETS) as u8;
     [169, 254, third, fourth]

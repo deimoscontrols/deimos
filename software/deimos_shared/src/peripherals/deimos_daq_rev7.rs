@@ -46,7 +46,7 @@ pub mod operating_roundtrip {
 
         /// GPIO pin states.
         /// Only bits 0-3 are used.
-        pub gpio: u8
+        pub gpio: u8,
     }
 
     impl Default for OperatingRoundtripInput {
@@ -75,6 +75,6 @@ pub mod operating_roundtrip {
         pub frequency_meas: [f32; 2],
 
         /// GPIO inputs. Only bits 0-1 are used.
-        pub gpio: u8
+        pub gpio: u8,
     }
 }

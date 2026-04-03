@@ -6,7 +6,7 @@
 //!   * Performing calculations in the loop
 //!   * Serialization and deserialization of the control program
 
-use crate::peripheral::DeimosDaqRev6;
+use crate::peripheral::DeimosDaqRev7;
 use controller::context::ControllerCtx;
 use deimos::*;
 
@@ -14,12 +14,14 @@ fn main() {
     // Define idle controller
     let mut ctx = ControllerCtx::default();
     ctx.op_name = "basic_example".into();
-    ctx.dt_ns = (1e9_f64 / 1000.0).ceil() as u32; // 1000 Hz
+    let rate_hz = 1000.0;
+    ctx.dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
     ctx.op_dir = "./software/deimos/examples".into();
+    ctx.loop_method = LoopMethod::Performant;
     let mut controller = Controller::new(ctx);
 
     // Associate hardware peripherals
-    controller.add_peripheral("p1", Box::new(DeimosDaqRev6 { serial_number: 4 }));
+    controller.add_peripheral("p1", Box::new(DeimosDaqRev7 { serial_number: 1 }));
 
     // Set up data targets
     let csv_dispatcher: Box<dyn Dispatcher> = CsvDispatcher::new(50, dispatcher::Overflow::Wrap);
