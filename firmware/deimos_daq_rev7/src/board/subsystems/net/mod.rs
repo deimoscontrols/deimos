@@ -37,17 +37,40 @@ static mut RX_PAYLOAD_STORAGE: [u8; 1522] = [0u8; 1522];
 static mut TX_METADATA_STORAGE: [PacketMetadata<udp::UdpMetadata>; 4] = [PacketMetadata::EMPTY; 4];
 static mut TX_PAYLOAD_STORAGE: [u8; 1522] = [0u8; 1522];
 
+/// Replace the interface's IPv4 address list with the supplied CIDR.
+fn set_ipv4_addr(iface: &mut Interface, cidr: Ipv4Cidr) {
+    iface.update_ip_addrs(|addrs| {
+        addrs.clear();
+        addrs.push(smoltcp::wire::IpCidr::Ipv4(cidr)).unwrap();
+    });
+}
+
+/// Remove all IPv4 addresses from the interface.
+fn clear_ipv4_addr(iface: &mut Interface) {
+    iface.update_ip_addrs(|addrs| addrs.clear());
+}
+
 /// Owns the Ethernet interface, sockets, and IPv4 configuration state for the board.
 pub(crate) struct Net<'a> {
+    /// Smoltcp interface.
     iface: Interface,
+    /// Ethernet device wrapper with ARP scraper.
     ethdev: ObservedDevice<ethernet::EthernetDMA<4, 4>>,
+    /// Socket storage backing the board's UDP and DHCP sockets.
     sockets: SocketSet<'a>,
+    /// UDP socket handle used for controller-to-board traffic.
     udp_handle: smoltcp::iface::SocketHandle,
+    /// DHCP socket handle.
     dhcp_handle: smoltcp::iface::SocketHandle,
+    /// The board's currently intended IPv4 assignment source and state.
     ip_assignment: IpAssignment,
+    /// A DHCP configuration that was learned but deferred until reconnect.
     pending_dhcp: Option<PendingDhcpConfig>,
+    /// Index of the next deterministic fallback candidate to try.
     next_fallback_candidate: u8,
+    /// Number of full fallback-candidate rounds that have failed so far.
     fallback_failure_rounds: u8,
+    /// Earliest time when another fallback claim attempt is allowed.
     fallback_backoff_until_ns: Option<i64>,
 }
 impl<'a> Net<'a> {
@@ -369,17 +392,4 @@ impl<'a> Net<'a> {
             }
         }
     }
-}
-
-/// Replace the interface's IPv4 address list with the supplied CIDR.
-fn set_ipv4_addr(iface: &mut Interface, cidr: Ipv4Cidr) {
-    iface.update_ip_addrs(|addrs| {
-        addrs.clear();
-        addrs.push(smoltcp::wire::IpCidr::Ipv4(cidr)).unwrap();
-    });
-}
-
-/// Remove all IPv4 addresses from the interface.
-fn clear_ipv4_addr(iface: &mut Interface) {
-    iface.update_ip_addrs(|addrs| addrs.clear());
 }
