@@ -12,8 +12,8 @@ use smoltcp::{
 use stm32h7xx_hal::ethernet;
 
 use deimos_shared::{
-    static_fallback_ipv4_candidate_from_mac, PERIPHERAL_RX_PORT, STATIC_FALLBACK_CANDIDATE_COUNT,
-    STATIC_FALLBACK_IPV4_PREFIX_LEN,
+    PERIPHERAL_RX_PORT, STATIC_FALLBACK_CANDIDATE_COUNT, STATIC_FALLBACK_IPV4_PREFIX_LEN,
+    static_fallback_ipv4_candidate_from_mac,
 };
 
 /// Source of the board's currently active IPv4 configuration.

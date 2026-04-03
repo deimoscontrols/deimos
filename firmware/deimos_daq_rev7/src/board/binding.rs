@@ -4,8 +4,8 @@ use core::sync::atomic::{AtomicBool, Ordering};
 
 use irq::{handler, scope};
 
-use deimos_shared::peripherals::deimos_daq_rev7::operating_roundtrip::OperatingRoundtripInput;
 use deimos_shared::peripherals::PeripheralId;
+use deimos_shared::peripherals::deimos_daq_rev7::operating_roundtrip::OperatingRoundtripInput;
 use deimos_shared::states::binding::*;
 
 impl<'a> Board<'a> {

@@ -10,12 +10,12 @@ use stm32h7xx_hal::{
 };
 
 use flaw::{
-    butter1, butter2, generated::butter, polynomial_fractional_delay, MedianFilter, SisoFirFilter,
-    SisoIirFilter,
+    MedianFilter, SisoFirFilter, SisoIirFilter, butter1, butter2, generated::butter,
+    polynomial_fractional_delay,
 };
 
 use crate::board::{
-    ACCUMULATED_SAMPLING_TIME_NS, ADC_CUTOFF_RATIO, ADC_SAMPLES, ADC_SAMPLE_FREQ_HZ,
+    ACCUMULATED_SAMPLING_TIME_NS, ADC_CUTOFF_RATIO, ADC_SAMPLE_FREQ_HZ, ADC_SAMPLES,
     COUNTER_SAMPLES, COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF, VREF,
 };
 

@@ -12,14 +12,14 @@ use smoltcp::{
 use stm32h7xx_hal::ethernet;
 
 use deimos_shared::{
-    static_fallback_ipv4_candidate_from_mac, PERIPHERAL_RX_PORT, STATIC_FALLBACK_CANDIDATE_COUNT,
-    STATIC_FALLBACK_IPV4_PREFIX_LEN,
+    PERIPHERAL_RX_PORT, STATIC_FALLBACK_CANDIDATE_COUNT, STATIC_FALLBACK_IPV4_PREFIX_LEN,
+    static_fallback_ipv4_candidate_from_mac,
 };
 
 mod arp_scraper;
 pub(crate) use arp_scraper::IpConfigStatus;
 use arp_scraper::{
-    fallback_backoff_ns, static_fallback_cidr, IpAssignment, ObservedDevice, PendingDhcpConfig,
+    IpAssignment, ObservedDevice, PendingDhcpConfig, fallback_backoff_ns, static_fallback_cidr,
 };
 
 /// Length of the post-claim conflict observation window for a tentative fallback address.
@@ -27,15 +27,17 @@ const FALLBACK_VALIDATION_NS: i64 = 250_000_000;
 
 /// Socket storage borrowed by [`Net`] for the lifetime of the firmware.
 pub(crate) struct NetStorageStatic<'a> {
+    /// Backing storage for sockets registered with the smoltcp interface.
     pub(crate) socket_storage: [SocketStorage<'a>; 8],
+    /// Receive-packet metadata ring for the board UDP socket.
+    pub(crate) rx_metadata_storage: [PacketMetadata<udp::UdpMetadata>; 4],
+    /// Receive-packet payload buffer for the board UDP socket.
+    pub(crate) rx_payload_storage: [u8; 1522],
+    /// Transmit-packet metadata ring for the board UDP socket.
+    pub(crate) tx_metadata_storage: [PacketMetadata<udp::UdpMetadata>; 4],
+    /// Transmit-packet payload buffer for the board UDP socket.
+    pub(crate) tx_payload_storage: [u8; 1522],
 }
-
-// TODO: move these to startup and initialize with MaybeUninit
-static mut RX_METADATA_STORAGE: [PacketMetadata<udp::UdpMetadata>; 4] = [PacketMetadata::EMPTY; 4];
-static mut RX_PAYLOAD_STORAGE: [u8; 1522] = [0u8; 1522];
-
-static mut TX_METADATA_STORAGE: [PacketMetadata<udp::UdpMetadata>; 4] = [PacketMetadata::EMPTY; 4];
-static mut TX_PAYLOAD_STORAGE: [u8; 1522] = [0u8; 1522];
 
 /// Replace the interface's IPv4 address list with the supplied CIDR.
 fn set_ipv4_addr(iface: &mut Interface, cidr: Ipv4Cidr) {
@@ -81,19 +83,27 @@ impl<'a> Net<'a> {
         ethernet_addr: EthernetAddress,
         now: Instant,
     ) -> Self {
+        let NetStorageStatic {
+            socket_storage,
+            rx_metadata_storage,
+            rx_payload_storage,
+            tx_metadata_storage,
+            tx_payload_storage,
+        } = store;
+
         // Wrap the DMA device so fallback ARP traffic can be inspected and injected.
         let mut ethdev = ObservedDevice::new(ethdev, ethernet_addr);
         let config = Config::new(ethernet_addr.into());
         let iface = Interface::new(config, &mut ethdev, now);
 
         // Reserve socket slots up front because the firmware keeps them for its full lifetime.
-        let mut sockets = SocketSet::new(&mut store.socket_storage[..]);
+        let mut sockets = SocketSet::new(&mut socket_storage[..]);
 
         // Add the UDP command/data socket used by the controller.
         let rx_packet_buffer =
-            unsafe { PacketBuffer::new(&mut RX_METADATA_STORAGE[..], &mut RX_PAYLOAD_STORAGE[..]) };
+            PacketBuffer::new(&mut rx_metadata_storage[..], &mut rx_payload_storage[..]);
         let tx_packet_buffer =
-            unsafe { PacketBuffer::new(&mut TX_METADATA_STORAGE[..], &mut TX_PAYLOAD_STORAGE[..]) };
+            PacketBuffer::new(&mut tx_metadata_storage[..], &mut tx_payload_storage[..]);
 
         let mut udp_socket = udp::Socket::new(rx_packet_buffer, tx_packet_buffer);
         udp_socket

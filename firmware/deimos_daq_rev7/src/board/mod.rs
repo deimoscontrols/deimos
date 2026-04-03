@@ -1,4 +1,7 @@
-use core::sync::atomic::{AtomicBool, AtomicI32, AtomicU32};
+use core::{
+    mem::MaybeUninit,
+    sync::atomic::{AtomicBool, AtomicI32, AtomicU32},
+};
 use cortex_m::peripheral::syst::SystClkSource;
 
 use stm32h7xx_hal::{
@@ -48,8 +51,8 @@ pub const MAC_ADDRESS: [u8; 6] = *include_bytes!("../../static/macaddr.in");
 pub const SERIAL_NUMBER: u64 = u64::from_le_bytes(*include_bytes!("../../static/serialnumber.in"));
 
 /// Ethernet descriptor rings are a global singleton
-#[link_section = ".sram3.eth"]
-static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
+#[unsafe(link_section = ".sram3.eth")]
+static mut DES_RING: MaybeUninit<ethernet::DesRing<4, 4>> = MaybeUninit::uninit();
 
 /// Storage for the latest ADC samples
 pub static ADC_SAMPLES: [AtomicF32; 18] = array_macro::array![_ => AtomicF32::new(0.0); 18];

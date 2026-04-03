@@ -13,11 +13,13 @@ by checking a bounded number of candidate addresses instead of broadcast scannin
 ### Added
 
 * deimos
-    * `peripheral::deimos_daq_rev7` module
+    * `peripheral::deimos_daq_rev7` module with updated default calcs
 * deimos_shared
     * Add function for deriving static fallback address candidates from MAC address
 * rev7 firmware
     * Plumb in the read, write, and packet formation for the new gpio pins
+    * Improve handling of mutable statics for eth driver
+    * Update to 2024 edition
     * Make `Net` fields private and access via functions
     * Support use on static networks in the 169.254.x.y block without a DHCP server
         * This also supports direct-to-computer ethernet connection, which is treated as a static network
