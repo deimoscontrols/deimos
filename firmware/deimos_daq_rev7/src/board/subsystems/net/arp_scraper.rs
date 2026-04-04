@@ -77,7 +77,7 @@ impl ArpWatch {
             return;
         };
 
-        // Ignore our own ARP traffic because tentative fallback always emits a probe and announcement.
+        // Ignore our own ARP traffic because tentative fallback emits a probe for the candidate IP.
         if source_hardware_addr == self.local_mac {
             return;
         }
@@ -163,24 +163,6 @@ impl<D: phy::Device> ObservedDevice<D> {
         )
     }
 
-    /// Broadcast a gratuitous ARP to announce a claimed fallback IPv4 address.
-    pub(super) fn send_gratuitous_arp(
-        &mut self,
-        timestamp: Instant,
-        claimed_ip: Ipv4Address,
-    ) -> bool {
-        self.send_arp_repr(
-            timestamp,
-            EthernetAddress::BROADCAST,
-            ArpRepr::EthernetIpv4 {
-                operation: ArpOperation::Request,
-                source_hardware_addr: self.arp_watch.local_mac,
-                source_protocol_addr: claimed_ip,
-                target_hardware_addr: EthernetAddress([0; 6]),
-                target_protocol_addr: claimed_ip,
-            },
-        )
-    }
 }
 
 /// Receive token wrapper that inspects incoming ARP frames before handing them to `smoltcp`.
