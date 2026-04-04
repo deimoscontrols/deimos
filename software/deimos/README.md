@@ -195,10 +195,10 @@ stateDiagram-v2
 
     ActiveFallback --> ActiveDhcp: DHCP configured outside Operating
     ActiveFallback --> ActiveFallback: DHCP deferred during Operating
+    ActiveFallback --> ActiveFallback
     ActiveFallback --> ActiveDhcp: Deferred DHCP applied
 
     ActiveDhcp --> Unconfigured: DHCP deconfigured
-    ActiveFallback --> ActiveFallback: DHCP deconfigured
 ```
 
 To connect directly without a router,
