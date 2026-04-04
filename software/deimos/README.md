@@ -181,6 +181,11 @@ It will attempt up to 3 candidate addresses, which limits the maximum amount of 
 The rev7 firmware's IPv4 address manager follows this state machine:
 
 ```mermaid
+---
+config:
+  state:
+    diagramPadding: 20
+---
 stateDiagram-v2
     direction LR
 
