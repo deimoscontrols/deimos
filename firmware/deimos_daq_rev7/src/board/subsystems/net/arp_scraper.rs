@@ -1,3 +1,7 @@
+//! Ethernet device wrapper to watch for and emit ARP packets without
+//! interfering with other smoltcp activity. This is required in order
+//! to support unicast ARP probes while resolving a static address.
+
 use smoltcp::{
     phy::{self, DeviceCapabilities, TxToken as _},
     time::Instant,
