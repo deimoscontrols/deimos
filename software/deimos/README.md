@@ -184,12 +184,6 @@ The rev7 firmware's IPv4 address manager follows this state machine:
 stateDiagram-v2
     direction LR
 
-    classDef spacer fill:transparent,stroke:transparent,color:transparent;
-
-    StartSpacer
-    EndSpacer
-
-    StartSpacer --> [*]
     [*] --> Unconfigured
 
     Unconfigured --> TentativeFallback: Claim next fallback candidate
@@ -203,10 +197,6 @@ stateDiagram-v2
     ActiveFallback --> ActiveDhcp: Applied DHCP that was deferred during Operating
 
     ActiveDhcp --> Unconfigured: DHCP deconfigured
-    ActiveDhcp --> EndSpacer
-
-    class StartSpacer spacer
-    class EndSpacer spacer
 ```
 
 To connect directly without a router,
