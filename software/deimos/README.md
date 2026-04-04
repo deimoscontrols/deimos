@@ -182,21 +182,23 @@ The rev7 firmware's IPv4 address manager follows this state machine:
 
 ```mermaid
 stateDiagram-v2
+    direction LR
+
     [*] --> Unconfigured
 
-    Unconfigured --> TentativeFallback: Connect mode\nclaim next fallback candidate
+    Unconfigured --> TentativeFallback: Connect mode<br>claim next fallback candidate
     Unconfigured --> ActiveDhcp: DHCP configured
 
-    TentativeFallback --> ActiveFallback: Validation timeout\nno ARP conflict
+    TentativeFallback --> ActiveFallback: Validation timeout<br>no ARP conflict
     TentativeFallback --> Unconfigured: ARP conflict
     TentativeFallback --> ActiveDhcp: DHCP configured
 
     ActiveFallback --> ActiveDhcp: DHCP configured in Connect or SessionSetup
-    ActiveFallback --> ActiveFallback: DHCP configured in Operating\ndefer lease until reconnect
-    ActiveFallback --> ActiveDhcp: Deferred lease applied\noutside Operating
+    ActiveFallback --> ActiveFallback: DHCP configured in Operating<br>defer lease until reconnect
+    ActiveFallback --> ActiveDhcp: Deferred lease applied<br>outside Operating
 
     ActiveDhcp --> Unconfigured: DHCP deconfigured
-    ActiveFallback --> ActiveFallback: DHCP deconfigured\nclear deferred lease only
+    ActiveFallback --> ActiveFallback: DHCP deconfigured<br>clear deferred lease only
 ```
 
 To connect directly without a router,
