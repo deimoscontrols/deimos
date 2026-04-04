@@ -9,6 +9,7 @@ and direct ethernet connection to the control computer.
 While statically-addressed networks assembled using ARP are usually limited
 by ARP storm instability, this implementation mitigates that failure mode
 by checking a bounded number of candidate addresses instead of broadcast scanning.
+For the same reason, no broadcast gratuitous ARP is sent when an address is claimed.
 
 ### Added
 
