@@ -184,7 +184,7 @@ The rev7 firmware's IPv4 address manager follows this state machine:
 ---
 config:
   state:
-    diagramPadding: 20
+    diagramPadding: 100
 ---
 stateDiagram-v2
     direction LR
