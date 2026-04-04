@@ -186,19 +186,19 @@ stateDiagram-v2
 
     [*] --> Unconfigured
 
-    Unconfigured --> TentativeFallback: Connect mode<br>claim next fallback candidate
+    Unconfigured --> TentativeFallback: Claim next fallback candidate
     Unconfigured --> ActiveDhcp: DHCP configured
 
-    TentativeFallback --> ActiveFallback: Validation timeout<br>no ARP conflict
+    TentativeFallback --> ActiveFallback: No ARP conflict
     TentativeFallback --> Unconfigured: ARP conflict
     TentativeFallback --> ActiveDhcp: DHCP configured
 
-    ActiveFallback --> ActiveDhcp: DHCP configured in Connect or SessionSetup
-    ActiveFallback --> ActiveFallback: DHCP configured in Operating<br>defer lease until reconnect
-    ActiveFallback --> ActiveDhcp: Deferred lease applied<br>outside Operating
+    ActiveFallback --> ActiveDhcp: DHCP configured outside Operating
+    ActiveFallback --> ActiveFallback: DHCP deferred during Operating
+    ActiveFallback --> ActiveDhcp: Deferred DHCP applied
 
     ActiveDhcp --> Unconfigured: DHCP deconfigured
-    ActiveFallback --> ActiveFallback: DHCP deconfigured<br>clear deferred lease only
+    ActiveFallback --> ActiveFallback: DHCP deconfigured
 ```
 
 To connect directly without a router,
