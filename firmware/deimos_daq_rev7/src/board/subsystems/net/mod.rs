@@ -418,12 +418,6 @@ impl<'a> Net<'a> {
             .send_arp_probe(Instant::from_micros(time_ns / 1000), target_ip)
     }
 
-    /// Send one gratuitous ARP after claiming the fallback address.
-    fn send_gratuitous_arp(&mut self, time_ns: i64, claimed_ip: Ipv4Address) -> bool {
-        self.ethdev
-            .send_gratuitous_arp(Instant::from_micros(time_ns / 1000), claimed_ip)
-    }
-
     /// Return true if a new fallback candidate can be claimed immediately.
     fn fallback_attempt_ready(&self, time_ns: i64) -> bool {
         match self.fallback.retry_at_ns {
@@ -456,9 +450,8 @@ impl<'a> Net<'a> {
             validation_deadline_ns: time_ns + FALLBACK_VALIDATION_NS,
         };
 
-        // Probe once and announce once, then rely on ARP scraping during validation.
+        // Probe once, then rely on ARP scraping during validation.
         let _ = self.send_arp_probe(time_ns, cidr.address());
-        let _ = self.send_gratuitous_arp(time_ns, cidr.address());
         true
     }
 

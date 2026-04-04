@@ -132,7 +132,7 @@ impl Peripheral for DeimosDaqRev7 {
         outputs[21] = out.frequency_meas[1] as f64;
 
         outputs[22] = (out.gpio & 0b01) as f64;
-        outputs[23] = (out.gpio & 0b10) as f64;
+        outputs[23] = ((out.gpio >> 1) & 0b01) as f64;
 
         out.metrics
     }
