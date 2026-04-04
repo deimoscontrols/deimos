@@ -181,14 +181,15 @@ It will attempt up to 3 candidate addresses, which limits the maximum amount of 
 The rev7 firmware's IPv4 address manager follows this state machine:
 
 ```mermaid
----
-config:
-  state:
-    diagramPadding: 100
----
 stateDiagram-v2
     direction LR
 
+    classDef spacer fill:transparent,stroke:transparent,color:transparent;
+
+    StartSpacer
+    EndSpacer
+
+    StartSpacer --> [*]
     [*] --> Unconfigured
 
     Unconfigured --> TentativeFallback: Claim next fallback candidate
@@ -202,6 +203,10 @@ stateDiagram-v2
     ActiveFallback --> ActiveDhcp: Applied DHCP that was deferred during Operating
 
     ActiveDhcp --> Unconfigured: DHCP deconfigured
+    ActiveDhcp --> EndSpacer
+
+    class StartSpacer spacer
+    class EndSpacer spacer
 ```
 
 To connect directly without a router,
