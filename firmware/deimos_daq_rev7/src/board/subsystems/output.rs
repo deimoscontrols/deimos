@@ -1,5 +1,12 @@
 use stm32h7xx_hal::{
-    gpio::{Output, Pin}, prelude::*, pwm::{Alignment, ComplementaryDisabled, ComplementaryImpossible, Pwm}, rcc::CoreClocks, stm32::*, time::Hertz, timer::GetClk, traits::DacOut
+    gpio::{Output, Pin},
+    prelude::*,
+    pwm::{Alignment, ComplementaryDisabled, ComplementaryImpossible, Pwm},
+    rcc::CoreClocks,
+    stm32::*,
+    time::Hertz,
+    timer::GetClk,
+    traits::DacOut,
 };
 
 use crate::board::VREF;
@@ -25,6 +32,7 @@ pub fn set_outputs(
     pwm_duty_frac: &[f32; 4],
     pwm_freq_hz: &[u32; 4],
     dac_v: &[f32; 2],
+    gpio: u8,
     clocks: &CoreClocks,
 ) {
     {
@@ -113,6 +121,30 @@ pub fn set_outputs(
 
     outputs.dac1.set_value((dac_v[0] * DAC_SCALING) as u16);
     outputs.dac2.set_value((dac_v[1] * DAC_SCALING) as u16);
+
+    if gpio & (1 << 0) != 0 {
+        outputs.do0.set_high();
+    } else {
+        outputs.do0.set_low();
+    }
+
+    if gpio & (1 << 1) != 0 {
+        outputs.do1.set_high();
+    } else {
+        outputs.do1.set_low();
+    }
+
+    if gpio & (1 << 2) != 0 {
+        outputs.do2.set_high();
+    } else {
+        outputs.do2.set_low();
+    }
+
+    if gpio & (1 << 3) != 0 {
+        outputs.do3.set_high();
+    } else {
+        outputs.do3.set_low();
+    }
 }
 
 // Period and prescaler calculator for 32-bit timers

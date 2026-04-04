@@ -16,9 +16,9 @@ use core::ptr::addr_of_mut;
 use core::sync::atomic::compiler_fence;
 
 use irq::{handler, scope};
-use smoltcp::iface::SocketStorage;
+use smoltcp::{iface::SocketStorage, storage::PacketMetadata};
 
-use crate::board::{subsystems::net::NetStorageStatic, Board};
+use crate::board::{Board, subsystems::net::NetStorageStatic};
 
 // MaybeUninit allows us write code that is correct even if STORE is not
 // initialised by the runtime
@@ -37,16 +37,21 @@ unsafe fn main() -> ! {
     // Initialize static storage
     // unsafe: mutable reference to static storage, we only do this once
     let store: &mut NetStorageStatic<'_> = unsafe {
-        let store_ptr = STORE.as_mut_ptr();
+        let store_ptr = addr_of_mut!(STORE);
 
-        // Initialise the socket_storage field. Using `write` instead of
-        // assignment via `=` to not call `drop` on the old, uninitialised
-        // value
-        addr_of_mut!((*store_ptr).socket_storage).write([SocketStorage::EMPTY; 8]);
+        // Write the full storage block through a raw pointer so the static
+        // itself is never borrowed mutably.
+        (*store_ptr).write(NetStorageStatic {
+            socket_storage: [SocketStorage::EMPTY; 8],
+            rx_metadata_storage: [PacketMetadata::EMPTY; 4],
+            rx_payload_storage: [0u8; 1522],
+            tx_metadata_storage: [PacketMetadata::EMPTY; 4],
+            tx_payload_storage: [0u8; 1522],
+        });
 
-        // Now that all fields are initialised we can safely use
-        // assume_init_mut to return a mutable reference to STORE
-        STORE.assume_init_mut()
+        // Now that the value is fully initialised we can obtain the unique
+        // mutable reference that startup passes into Board::new.
+        (*store_ptr).assume_init_mut()
     };
 
     // Board startup

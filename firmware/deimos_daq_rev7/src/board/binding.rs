@@ -4,10 +4,8 @@ use core::sync::atomic::{AtomicBool, Ordering};
 
 use irq::{handler, scope};
 
-use smoltcp::socket::udp;
-
-use deimos_shared::peripherals::deimos_daq_rev6::operating_roundtrip::OperatingRoundtripInput;
 use deimos_shared::peripherals::PeripheralId;
+use deimos_shared::peripherals::deimos_daq_rev7::operating_roundtrip::OperatingRoundtripInput;
 use deimos_shared::states::binding::*;
 
 impl<'a> Board<'a> {
@@ -32,9 +30,6 @@ impl<'a> Board<'a> {
         let transition_connecting = AtomicBool::new(false);
         let transition_configuring = AtomicBool::new(false);
 
-        // UDP tx buffer
-        let response_buf = &mut [0_u8; BindingOutput::BYTE_LEN];
-
         handler!(
             systick_handler = || {
                 self.time_ns += self.dt_ns as i64;
@@ -52,21 +47,24 @@ impl<'a> Board<'a> {
                 // Process incoming and outgoing packets
                 self.net.poll(self.time_ns);
 
-                // Make sure we still have an IP address & renew it on time
-                let ip_address_ok = self.poll_dhcp();
-                if !ip_address_ok || transition_connecting.load(Ordering::Relaxed) {
+                // Keep setup traffic on one stable address; otherwise restart discovery.
+                if self
+                    .net
+                    .step_address(self.time_ns, AddressMode::SessionSetup)
+                    == AddressStatus::Missing
+                {
                     transition_connecting.store(true, Ordering::Relaxed);
                     self.watchdog.feed();
                     return;
                 }
 
+                if transition_connecting.load(Ordering::Relaxed) {
+                    self.watchdog.feed();
+                    return;
+                }
+
                 // Check for a controller trying to bind
-                let (recv_buf, meta) = match self
-                    .net
-                    .sockets
-                    .get_mut::<udp::Socket>(self.net.udp_handle)
-                    .recv()
-                {
+                let (recv_buf, meta) = match self.net.udp_recv() {
                     Ok((recv_buf, meta)) => (recv_buf, meta),
                     Err(_) => {
                         self.watchdog.feed();
@@ -87,13 +85,12 @@ impl<'a> Board<'a> {
                             serial_number: SERIAL_NUMBER,
                         },
                     };
-                    binding_response.write_bytes(response_buf);
                     match self
                         .net
-                        .sockets
-                        .get_mut::<udp::Socket>(self.net.udp_handle)
-                        .send_slice(response_buf, meta)
-                    {
+                        .udp_send_with(BindingOutput::BYTE_LEN, meta, |buf| {
+                            binding_response.write_bytes(buf);
+                            BindingOutput::BYTE_LEN
+                        }) {
                         Ok(_) => {}
                         Err(_) => {
                             // If we are unable to send a UDP packet for any reason,

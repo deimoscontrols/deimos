@@ -3,6 +3,8 @@ A showcase of drivers for imitating hardware from software
 to test the software's interface with hardware.
 """
 
+import os
+import platform
 import time
 from contextlib import ExitStack
 from pathlib import Path
@@ -20,7 +22,16 @@ def _loopback_udp_socket() -> socket.UdpSocket:
     return socket.UdpSocket.with_broadcast_targets([targets[0]])
 
 
-def main() -> None:
+def _should_retry_under_test() -> bool:
+    """When running on MacOS in CI, we may need to retry several times
+    due to issues with non-modifiable configuration of the CI runners."""
+    return (
+        os.environ.get("DEIMOS_TESTING", "").lower() == "true"
+        and platform.system() == "Darwin"
+    )
+
+
+def _run_once() -> None:
     here = Path(__file__).parent.resolve()
 
     for loop_method in [LoopMethod.performant(), LoopMethod.efficient()]:
@@ -98,6 +109,31 @@ def main() -> None:
                 raise
             finally:
                 handle.join()
+
+
+def main() -> None:
+    """Run once under normal conditions, or retry up to 10 times on MacOS under test."""
+    attempts = 10 if _should_retry_under_test() else 1
+    last_exc: Exception | None = None
+
+    for attempt in range(1, attempts + 1):
+        try:
+            if attempts > 1:
+                print(f"macOS test run attempt {attempt}/{attempts}")
+            _run_once()
+            return
+        except Exception as exc:
+            last_exc = exc
+            if attempt == attempts:
+                raise
+            print(
+                f"macOS test run attempt {attempt}/{attempts} failed;"
+                " retrying after cleanup."
+            )
+            time.sleep(0.2)
+
+    if last_exc is not None:
+        raise last_exc
 
 
 if __name__ == "__main__":

@@ -10,12 +10,12 @@ use stm32h7xx_hal::{
 };
 
 use flaw::{
-    butter1, butter2, generated::butter, polynomial_fractional_delay, MedianFilter, SisoFirFilter,
-    SisoIirFilter,
+    MedianFilter, SisoFirFilter, SisoIirFilter, butter1, butter2, generated::butter,
+    polynomial_fractional_delay,
 };
 
 use crate::board::{
-    ACCUMULATED_SAMPLING_TIME_NS, ADC_CUTOFF_RATIO, ADC_SAMPLES, ADC_SAMPLE_FREQ_HZ,
+    ACCUMULATED_SAMPLING_TIME_NS, ADC_CUTOFF_RATIO, ADC_SAMPLE_FREQ_HZ, ADC_SAMPLES,
     COUNTER_SAMPLES, COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF, VREF,
 };
 
@@ -230,10 +230,10 @@ impl Sampler {
             // [11, 13, 2],  // ain13,14 consumed for DAC
             // [14, 15, 3],
             [11, 2],
-            [15-2, 3],
-            [16-2, 17-2, 4],
-            [18-2, 5],
-            [19-2, 6],
+            [15 - 2, 3],
+            [16 - 2, 17 - 2, 4],
+            [18 - 2, 5],
+            [19 - 2, 6],
             [7],
         );
         let mut delays = [0_f64; 20];
@@ -432,24 +432,24 @@ impl Sampler {
         self.adc2.start_conversion(&mut self.adc_pins.ain15);
         self.adc3.start_conversion(&mut self.adc_pins.ain3);
         // b[14] = block!(self.adc1.read_sample()).unwrap();
-        b[15-2] = block!(self.adc2.read_sample()).unwrap();
+        b[15 - 2] = block!(self.adc2.read_sample()).unwrap();
         b[3] = block!(self.adc3.read_sample()).unwrap();
 
         self.adc1.start_conversion(&mut self.adc_pins.ain16);
         self.adc2.start_conversion(&mut self.adc_pins.ain17);
         self.adc3.start_conversion(&mut self.adc_pins.ain4);
-        b[16-2] = block!(self.adc1.read_sample()).unwrap();
-        b[17-2] = block!(self.adc2.read_sample()).unwrap();
+        b[16 - 2] = block!(self.adc1.read_sample()).unwrap();
+        b[17 - 2] = block!(self.adc2.read_sample()).unwrap();
         b[4] = block!(self.adc3.read_sample()).unwrap();
 
         self.adc1.start_conversion(&mut self.adc_pins.ain18);
         self.adc3.start_conversion(&mut self.adc_pins.ain5);
-        b[18-2] = block!(self.adc1.read_sample()).unwrap();
+        b[18 - 2] = block!(self.adc1.read_sample()).unwrap();
         b[5] = block!(self.adc3.read_sample()).unwrap();
 
         self.adc1.start_conversion(&mut self.adc_pins.ain19);
         self.adc3.start_conversion(&mut self.adc_pins.ain6);
-        b[19-2] = block!(self.adc1.read_sample()).unwrap();
+        b[19 - 2] = block!(self.adc1.read_sample()).unwrap();
         b[6] = block!(self.adc3.read_sample()).unwrap();
 
         self.adc3.start_conversion(&mut self.adc_pins.ain7);

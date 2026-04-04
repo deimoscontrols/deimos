@@ -32,9 +32,12 @@ if __name__ == "__main__":
     with open(fp) as f:
         d = json.load(f)
 
+    probe_to_usb_device_map = d["probe_to_usb_device_map"]
+    probe_to_daq_map = d["probe_to_daq_map"]
+
     # Write the serial number and mac address for each board,
     # then flash it
-    for probe, cfg in d.items():
+    for probe, cfg in probe_to_daq_map.items():
         sn = cfg["sn"]
         mac = cfg["mac"]
         model = cfg["model"]
@@ -49,6 +52,8 @@ if __name__ == "__main__":
         writesn(snfp, cfg["sn"])
 
         # Compile and flash to each probe
-        cmd = ["sh", scriptfp, model, probe]
+        probe_usb_device = probe_to_usb_device_map[probe]
+        cmd = ["sh", scriptfp, model, probe_usb_device]
         print("Running", cmd)
         check_call(cmd)
+

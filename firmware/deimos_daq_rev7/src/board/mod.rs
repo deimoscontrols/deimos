@@ -1,9 +1,12 @@
-use core::sync::atomic::{AtomicBool, AtomicI32, AtomicU32};
+use core::{
+    mem::MaybeUninit,
+    sync::atomic::{AtomicBool, AtomicI32, AtomicU32},
+};
 use cortex_m::peripheral::syst::SystClkSource;
 
 use stm32h7xx_hal::{
     ethernet,
-    gpio::{Output, Pin},
+    gpio::{Input, Output, Pin},
     independent_watchdog::IndependentWatchdog,
     prelude::*,
     rcc::CoreClocks,
@@ -12,11 +15,7 @@ use stm32h7xx_hal::{
     timer::Timer,
 };
 
-use smoltcp::{
-    iface::Interface,
-    socket::{dhcpv4, udp::UdpMetadata},
-    wire::{IpCidr, Ipv4Address, Ipv4Cidr},
-};
+use smoltcp::socket::udp::UdpMetadata;
 
 use atomic_float::AtomicF32;
 
@@ -34,11 +33,10 @@ use subsystems::net::*;
 use subsystems::output::*;
 use subsystems::sampling::*;
 
-use deimos_shared::peripherals::deimos_daq_rev6::operating_roundtrip::OperatingRoundtripInput;
-
+use deimos_shared::peripherals::deimos_daq_rev7::operating_roundtrip::OperatingRoundtripInput;
 /// Model number
 pub const MODEL_NUMBER: u64 =
-    deimos_shared::peripherals::model_numbers::DEIMOS_DAQ_REV_6_MODEL_NUMBER;
+    deimos_shared::peripherals::model_numbers::DEIMOS_DAQ_REV_7_MODEL_NUMBER;
 
 /// ADC sample frequency
 pub const ADC_SAMPLE_FREQ_HZ: u32 = 33_000;
@@ -53,8 +51,8 @@ pub const MAC_ADDRESS: [u8; 6] = *include_bytes!("../../static/macaddr.in");
 pub const SERIAL_NUMBER: u64 = u64::from_le_bytes(*include_bytes!("../../static/serialnumber.in"));
 
 /// Ethernet descriptor rings are a global singleton
-#[link_section = ".sram3.eth"]
-static mut DES_RING: ethernet::DesRing<4, 4> = ethernet::DesRing::new();
+#[unsafe(link_section = ".sram3.eth")]
+static mut DES_RING: MaybeUninit<ethernet::DesRing<4, 4>> = MaybeUninit::uninit();
 
 /// Storage for the latest ADC samples
 pub static ADC_SAMPLES: [AtomicF32; 18] = array_macro::array![_ => AtomicF32::new(0.0); 18];
@@ -82,7 +80,6 @@ pub static NEW_ADC_CUTOFF: AtomicBool = AtomicBool::new(false);
 /// Accumulated time spent sampling and filtering since last comm cycle
 pub static ACCUMULATED_SAMPLING_TIME_NS: AtomicU32 = AtomicU32::new(0);
 
-
 #[derive(PartialEq, Eq)]
 pub enum BoardState {
     Connecting,
@@ -99,6 +96,8 @@ pub struct Board<'a> {
     pub led1: Pin<'E', 4, Output>,
     pub led2: Pin<'E', 3, Output>,
     pub led3: Pin<'E', 2, Output>,
+    pub di0: Pin<'D', 0, Input>,
+    pub di1: Pin<'D', 1, Input>,
 
     // Time
     pub time_ns: i64,
@@ -178,67 +177,12 @@ impl<'a> Board<'a> {
             &input.pwm_duty_frac,
             &input.pwm_freq_hz,
             &input.dac_v,
+            input.gpio,
             &self.clocks,
         );
     }
 
-    // Check DHCP, assigning our IP address if a new one is acquired
-    // and returning flags indicating whether
-    fn poll_dhcp(&mut self) -> bool {
-        let event = self
-            .net
-            .sockets
-            .get_mut::<dhcpv4::Socket>(self.net.dhcp_handle)
-            .poll();
-        match event {
-            None => match self.net.iface.ipv4_addr() {
-                Some(x) if x != Ipv4Address::UNSPECIFIED => {
-                    self.led0.set_high();
-                    return true;
-                }
-                _ => {
-                    self.led0.set_low();
-                    return false;
-                }
-            },
-            Some(dhcpv4::Event::Configured(config)) => {
-                self.led0.set_high();
-                set_ipv4_addr(&mut self.net.iface, config.address);
-
-                if let Some(router) = config.router {
-                    // debug!("Default gateway: {}", router);
-                    self.net
-                        .iface
-                        .routes_mut()
-                        .add_default_ipv4_route(router)
-                        .unwrap();
-                } else {
-                    // debug!("Default gateway: None");
-                    self.net.iface.routes_mut().remove_default_ipv4_route();
-                }
-
-                // for (i, s) in config.dns_servers.iter().enumerate() {
-                // debug!("DNS server {}:    {}", i, s);
-                // }
-
-                return true;
-            }
-            Some(dhcpv4::Event::Deconfigured) => {
-                self.net.iface.update_ip_addrs(|addrs| addrs.clear());
-                self.net.iface.routes_mut().remove_default_ipv4_route();
-                self.led0.set_low();
-
-                return false;
-            }
-        }
+    fn read_gpio_inputs(&self) -> u8 {
+        (self.di0.is_high() as u8) | ((self.di1.is_high() as u8) << 1)
     }
-}
-
-/// Mutate the first IP address to match the one supplied
-/// TODO: eliminate unwrap
-fn set_ipv4_addr(iface: &mut Interface, cidr: Ipv4Cidr) {
-    iface.update_ip_addrs(|addrs| {
-        addrs.clear();
-        addrs.push(IpCidr::Ipv4(cidr)).unwrap();
-    });
 }

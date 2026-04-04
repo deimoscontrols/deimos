@@ -1,6 +1,6 @@
 use super::*;
 
-use core::time::Duration;
+use core::{ptr::addr_of_mut, time::Duration};
 
 use smoltcp::time::Instant;
 use stm32h7xx_hal::{
@@ -9,8 +9,8 @@ use stm32h7xx_hal::{
     ethernet,
     ethernet::PHY,
     gpio::{Output, Pin},
-    rcc::rec::AdcClkSel,
     rcc::ResetEnable,
+    rcc::rec::AdcClkSel,
     timer::GetClk,
     traits::DacOut,
 };
@@ -253,8 +253,6 @@ impl<'a> Board<'a> {
         pwm7.set_duty(0);
         pwm7.enable();
 
-        
-
         //
         // DAC
         //
@@ -389,6 +387,9 @@ impl<'a> Board<'a> {
         // Initialise ethernet...
         let mac_addr = smoltcp::wire::EthernetAddress::from_bytes(&MAC_ADDRESS);
         let (eth_dma, eth_mac) = unsafe {
+            let des_ring_ptr = addr_of_mut!(DES_RING);
+            (*des_ring_ptr).write(ethernet::DesRing::new());
+
             ethernet::new(
                 dp.ETHERNET_MAC,
                 dp.ETHERNET_MTL,
@@ -404,7 +405,7 @@ impl<'a> Board<'a> {
                     rmii_txd0,
                     rmii_txd1,
                 ),
-                &mut DES_RING,
+                (*des_ring_ptr).assume_init_mut(),
                 mac_addr,
                 ccdr.peripheral.ETH1MAC,
                 &ccdr.clocks,
@@ -417,7 +418,7 @@ impl<'a> Board<'a> {
         lan8742a.phy_init();
 
         // Build ethernet interface
-        let net: Net<'a> = Net::new(store, eth_dma, mac_addr.into(), Instant::ZERO);
+        let net: Net<'a> = Net::new(store, eth_dma, mac_addr, Instant::ZERO);
 
         // Restore systick for use as main cycle timer
         let systick = delay.free();
@@ -445,6 +446,8 @@ impl<'a> Board<'a> {
                 led1,
                 led2,
                 led3,
+                di0,
+                di1,
                 time_ns,
                 dt_ns,
                 systick,

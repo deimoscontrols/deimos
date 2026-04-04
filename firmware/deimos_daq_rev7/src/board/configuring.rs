@@ -1,10 +1,10 @@
 use super::*;
 
 use core::sync::atomic::{AtomicBool, Ordering};
+use deimos_shared::{
+    peripherals::deimos_daq_rev7::OperatingRoundtripInput, states::configuring::*,
+};
 use irq::{handler, scope};
-use smoltcp::socket::udp;
-
-use deimos_shared::{peripherals::deimos_daq_rev6::OperatingRoundtripInput, states::configuring::*};
 
 impl<'a> Board<'a> {
     pub fn configure(&mut self) -> BoardState {
@@ -25,8 +25,6 @@ impl<'a> Board<'a> {
         let transition_connecting = AtomicBool::new(false);
         let transition_operating = AtomicBool::new(false);
 
-        // UDP tx buffer
-        let response_buf = &mut [0_u8; ConfiguringOutput::BYTE_LEN];
         let mut configured = false; // Whether we have received a good config packet
         let mut configured_time_ns = 0; // Time when we received a config packet
         let mut timeout_to_operating_ns = 0; // Time to wait after receiving config packet
@@ -38,9 +36,16 @@ impl<'a> Board<'a> {
                 // Poll send/recv to process incoming packets
                 self.net.poll(self.time_ns);
 
-                // Maintain IP address configuration or go back to connecting
-                let ip_address_ok = self.poll_dhcp();
-                transition_connecting.fetch_or(!ip_address_ok, Ordering::Relaxed);
+                // Keep setup traffic on one stable address; otherwise restart discovery.
+                if self
+                    .net
+                    .step_address(self.time_ns, AddressMode::SessionSetup)
+                    == AddressStatus::Missing
+                {
+                    transition_connecting.store(true, Ordering::Relaxed);
+                    self.watchdog.feed();
+                    return;
+                }
 
                 // Make sure we have a controller bound or go back to connecting
                 let controller_ok = self.controller.is_some();
@@ -55,12 +60,7 @@ impl<'a> Board<'a> {
                     }
 
                     // Check for configuration packets on UDP
-                    let (recv_buf, _meta) = match self
-                        .net
-                        .sockets
-                        .get_mut::<udp::Socket>(self.net.udp_handle)
-                        .recv()
-                    {
+                    let (recv_buf, _meta) = match self.net.udp_recv() {
                         Ok((recv_buf, meta)) if Some(meta) == self.controller => (recv_buf, meta),
                         Err(_) => {
                             self.watchdog.feed();
@@ -102,13 +102,12 @@ impl<'a> Board<'a> {
                     if let Some(meta) = self.controller {
                         // Acknowledge configuration
                         let ack = ConfiguringOutput::default();
-                        ack.write_bytes(&mut response_buf[..ConfiguringOutput::BYTE_LEN]);
                         match self
                             .net
-                            .sockets
-                            .get_mut::<udp::Socket>(self.net.udp_handle)
-                            .send_slice(&response_buf[..ConfiguringOutput::BYTE_LEN], meta)
-                        {
+                            .udp_send_with(ConfiguringOutput::BYTE_LEN, meta, |buf| {
+                                ack.write_bytes(buf);
+                                ConfiguringOutput::BYTE_LEN
+                            }) {
                             Ok(_) => {}
                             Err(_) => {
                                 // If we are unable to send a UDP packet for any reason,
