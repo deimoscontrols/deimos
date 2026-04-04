@@ -26,16 +26,10 @@ impl<'a> Board<'a> {
         self.led3.set_low();
 
         // Poll once so an already-available DHCP lease can win immediately; otherwise
-        // optimistically claim the next fallback candidate without waiting.
+        // let the address manager claim fallback immediately if DHCP is not ready yet.
         self.net.poll(self.time_ns);
-        match self.net.poll_ip_config(self.time_ns, true) {
-            IpConfigStatus::Ready | IpConfigStatus::DhcpApplied => return BoardState::Binding,
-            IpConfigStatus::Missing | IpConfigStatus::DhcpDeferred => {
-                if self.net.try_claim_fallback(self.time_ns, MAC_ADDRESS) {
-                    self.watchdog.feed();
-                    return BoardState::Binding;
-                }
-            }
+        if self.net.step_address(self.time_ns, AddressMode::Connect) == AddressStatus::Ready {
+            return BoardState::Binding;
         }
 
         let transition_binding = AtomicBool::new(false);
@@ -45,15 +39,9 @@ impl<'a> Board<'a> {
                 self.time_ns += self.dt_ns as i64;
                 self.net.poll(self.time_ns);
 
-                match self.net.poll_ip_config(self.time_ns, true) {
-                    IpConfigStatus::Ready | IpConfigStatus::DhcpApplied => {
-                        transition_binding.store(true, Ordering::Relaxed);
-                    }
-                    IpConfigStatus::Missing | IpConfigStatus::DhcpDeferred => {
-                        if self.net.try_claim_fallback(self.time_ns, MAC_ADDRESS) {
-                            transition_binding.store(true, Ordering::Relaxed);
-                        }
-                    }
+                if self.net.step_address(self.time_ns, AddressMode::Connect) == AddressStatus::Ready
+                {
+                    transition_binding.store(true, Ordering::Relaxed);
                 }
 
                 self.watchdog.feed();

@@ -1,88 +1,20 @@
 use smoltcp::{
-    iface::{Config, Interface, SocketSet, SocketStorage},
     phy::{self, DeviceCapabilities, TxToken as _},
-    socket::{dhcpv4, udp},
-    storage::{PacketBuffer, PacketMetadata},
     time::Instant,
     wire::{
         ArpOperation, ArpPacket, ArpRepr, EthernetAddress, EthernetFrame, EthernetProtocol,
-        IpListenEndpoint, Ipv4Address, Ipv4Cidr,
+        Ipv4Address,
     },
 };
-use stm32h7xx_hal::ethernet;
-
-use deimos_shared::{
-    PERIPHERAL_RX_PORT, STATIC_FALLBACK_CANDIDATE_COUNT, STATIC_FALLBACK_IPV4_PREFIX_LEN,
-    static_fallback_ipv4_candidate_from_mac,
-};
-
-/// Source of the board's currently active IPv4 configuration.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum IpAssignment {
-    /// No IPv4 address is currently configured on the interface.
-    Unconfigured,
-    /// A recently claimed fallback address that is still inside its conflict validation window.
-    TentativeLinkLocal {
-        /// The tentative fallback CIDR currently configured on the interface.
-        cidr: Ipv4Cidr,
-        /// Which deterministic fallback candidate this address came from.
-        candidate_index: u8,
-        /// Time when the tentative address should be promoted to stable if no conflict is seen.
-        validation_deadline_ns: i64,
-    },
-    /// A stable deterministic link-local fallback address.
-    LinkLocalFallback(Ipv4Cidr),
-    /// A lease or configuration that came from DHCP.
-    Dhcp(Ipv4Cidr),
-}
-
-/// Result of evaluating the board's current IPv4 configuration state.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum IpConfigStatus {
-    /// No usable IPv4 address is currently configured.
-    Missing,
-    /// The current IPv4 configuration remains usable and unchanged.
-    Ready,
-    /// A DHCP configuration was just applied and callers should treat the address as changed.
-    DhcpApplied,
-    /// A DHCP configuration was observed but intentionally deferred until reconnect.
-    DhcpDeferred,
-}
-
-/// DHCP configuration that may need to be applied immediately or deferred until reconnect.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) struct PendingDhcpConfig {
-    /// IPv4 address and prefix length offered by the DHCP server.
-    pub address: Ipv4Cidr,
-    /// Optional default gateway offered by the DHCP server.
-    pub router: Option<Ipv4Address>,
-}
-
-/// Convert one shared fallback candidate into a `smoltcp` CIDR value.
-pub(super) fn static_fallback_cidr(mac: [u8; 6], index: usize) -> Ipv4Cidr {
-    let octets = static_fallback_ipv4_candidate_from_mac(mac, index);
-    Ipv4Cidr::new(
-        Ipv4Address::new(octets[0], octets[1], octets[2], octets[3]),
-        STATIC_FALLBACK_IPV4_PREFIX_LEN,
-    )
-}
-
-/// Compute the reconnect backoff after a full failed fallback candidate round.
-pub(super) fn fallback_backoff_ns(failure_rounds: u8) -> i64 {
-    match failure_rounds {
-        0 => 0,
-        1 => 5_000_000_000,
-        2 => 30_000_000_000,
-        3 => 60_000_000_000,
-        _ => 300_000_000_000,
-    }
-}
 
 /// Tracks whether the currently tentative fallback IPv4 address has been challenged by ARP traffic.
 #[derive(Clone, Copy, Debug)]
 struct ArpWatch {
+    /// Local Ethernet MAC so self-generated ARP traffic can be ignored.
     local_mac: EthernetAddress,
+    /// Tentative IPv4 address currently being watched for conflicts.
     monitored_ip: Option<Ipv4Address>,
+    /// Latched indicator that another host challenged the tentative address.
     conflict_seen: bool,
 }
 
@@ -111,11 +43,13 @@ impl ArpWatch {
 
     /// Inspect one received Ethernet frame and flag ARP probes or announcements for the monitored IP.
     fn observe_frame(&mut self, frame_bytes: &[u8]) {
+        // Ignore all traffic when no tentative fallback address is being validated.
         let monitored_ip = match self.monitored_ip {
             Some(ip) => ip,
             None => return,
         };
 
+        // Parse just enough Ethernet and ARP structure to inspect the sender and target IPs.
         let frame = match EthernetFrame::new_checked(frame_bytes) {
             Ok(frame) => frame,
             Err(_) => return,
@@ -143,10 +77,12 @@ impl ArpWatch {
             return;
         };
 
+        // Ignore our own ARP traffic because tentative fallback always emits a probe and announcement.
         if source_hardware_addr == self.local_mac {
             return;
         }
 
+        // Treat either an ARP announcement or an ARP probe for our tentative IP as a conflict.
         let announced_our_ip = source_protocol_addr == monitored_ip;
         let probed_our_ip = source_protocol_addr == Ipv4Address::UNSPECIFIED
             && target_protocol_addr == monitored_ip;
@@ -159,7 +95,9 @@ impl ArpWatch {
 
 /// Wraps the Ethernet DMA device so fallback ARP traffic can be observed and emitted.
 pub(super) struct ObservedDevice<D> {
+    /// Underlying Ethernet DMA device that actually owns the descriptors and frame IO.
     inner: D,
+    /// ARP watcher state layered on top of the underlying device.
     arp_watch: ArpWatch,
 }
 
@@ -189,6 +127,7 @@ impl<D: phy::Device> ObservedDevice<D> {
         dst_mac: EthernetAddress,
         repr: ArpRepr,
     ) -> bool {
+        // Allocate a transmit token from the underlying device for this synthetic ARP frame.
         let local_mac = self.arp_watch.local_mac;
         let arp_len = repr.buffer_len();
         let frame_len = EthernetFrame::<&[u8]>::buffer_len(arp_len);
@@ -196,6 +135,7 @@ impl<D: phy::Device> ObservedDevice<D> {
             return false;
         };
 
+        // Build the Ethernet header and ARP payload directly into the DMA-owned buffer.
         tx.consume(frame_len, |buf| {
             let mut frame = EthernetFrame::new_unchecked(buf);
             frame.set_dst_addr(dst_mac);
@@ -254,6 +194,7 @@ impl<'a, T: phy::RxToken> phy::RxToken for ObservedRxToken<'a, T> {
     where
         F: FnOnce(&mut [u8]) -> R,
     {
+        // Observe the raw frame before handing it to smoltcp so fallback conflicts are latched early.
         let arp_watch = self.arp_watch;
         self.inner.consume(|buf| {
             arp_watch.observe_frame(buf);
@@ -287,6 +228,7 @@ impl<D: phy::Device> phy::Device for ObservedDevice<D> {
         Self: 'a;
 
     fn receive(&mut self, timestamp: Instant) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
+        // Wrap received frames so ARP conflict tracking runs transparently alongside smoltcp.
         self.inner.receive(timestamp).map(|(rx, tx)| {
             (
                 ObservedRxToken {
@@ -299,6 +241,7 @@ impl<D: phy::Device> phy::Device for ObservedDevice<D> {
     }
 
     fn transmit(&mut self, timestamp: Instant) -> Option<Self::TxToken<'_>> {
+        // Forward transmit capability unchanged because only receive-side inspection is needed here.
         self.inner
             .transmit(timestamp)
             .map(|tx| ObservedTxToken { inner: tx })

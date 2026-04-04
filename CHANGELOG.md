@@ -6,8 +6,8 @@ This update continues the buildup of the firmware for the rev7,
 including support for statically-addressed networks without DHCP
 and direct ethernet connection to the control computer.
 
-While statically-addressed networks assembled using ARP are usually known
-for ARP storm instability, this implementation eliminates that failure mode
+While statically-addressed networks assembled using ARP are usually limited
+by ARP storm instability, this implementation mitigates that failure mode
 by checking a bounded number of candidate addresses instead of broadcast scanning.
 
 ### Added

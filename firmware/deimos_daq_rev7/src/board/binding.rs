@@ -47,21 +47,15 @@ impl<'a> Board<'a> {
                 // Process incoming and outgoing packets
                 self.net.poll(self.time_ns);
 
-                // Keep the active address stable, but restart if DHCP replaces the
-                // static fallback so the controller can rediscover the new address.
-                match self.net.poll_ip_config(self.time_ns, true) {
-                    IpConfigStatus::Ready => {}
-                    IpConfigStatus::DhcpApplied => {
-                        self.controller = None;
-                        transition_connecting.store(true, Ordering::Relaxed);
-                        self.watchdog.feed();
-                        return;
-                    }
-                    IpConfigStatus::Missing | IpConfigStatus::DhcpDeferred => {
-                        transition_connecting.store(true, Ordering::Relaxed);
-                        self.watchdog.feed();
-                        return;
-                    }
+                // Keep setup traffic on one stable address; otherwise restart discovery.
+                if self
+                    .net
+                    .step_address(self.time_ns, AddressMode::SessionSetup)
+                    == AddressStatus::Missing
+                {
+                    transition_connecting.store(true, Ordering::Relaxed);
+                    self.watchdog.feed();
+                    return;
                 }
 
                 if transition_connecting.load(Ordering::Relaxed) {

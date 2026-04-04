@@ -36,21 +36,15 @@ impl<'a> Board<'a> {
                 // Poll send/recv to process incoming packets
                 self.net.poll(self.time_ns);
 
-                // Restart if DHCP replaces the static fallback so the controller
-                // reconnects against the new address cleanly.
-                match self.net.poll_ip_config(self.time_ns, true) {
-                    IpConfigStatus::Ready => {}
-                    IpConfigStatus::DhcpApplied => {
-                        self.controller = None;
-                        transition_connecting.store(true, Ordering::Relaxed);
-                        self.watchdog.feed();
-                        return;
-                    }
-                    IpConfigStatus::Missing | IpConfigStatus::DhcpDeferred => {
-                        transition_connecting.store(true, Ordering::Relaxed);
-                        self.watchdog.feed();
-                        return;
-                    }
+                // Keep setup traffic on one stable address; otherwise restart discovery.
+                if self
+                    .net
+                    .step_address(self.time_ns, AddressMode::SessionSetup)
+                    == AddressStatus::Missing
+                {
+                    transition_connecting.store(true, Ordering::Relaxed);
+                    self.watchdog.feed();
+                    return;
                 }
 
                 // Make sure we have a controller bound or go back to connecting

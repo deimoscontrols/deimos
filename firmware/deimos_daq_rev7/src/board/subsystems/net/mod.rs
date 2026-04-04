@@ -1,13 +1,9 @@
 use smoltcp::{
     iface::{Config, Interface, SocketSet, SocketStorage},
-    phy::{self, DeviceCapabilities, TxToken as _},
     socket::{dhcpv4, udp},
     storage::{PacketBuffer, PacketMetadata},
     time::Instant,
-    wire::{
-        ArpOperation, ArpPacket, ArpRepr, EthernetAddress, EthernetFrame, EthernetProtocol,
-        IpListenEndpoint, Ipv4Address, Ipv4Cidr,
-    },
+    wire::{EthernetAddress, IpListenEndpoint, Ipv4Address, Ipv4Cidr},
 };
 use stm32h7xx_hal::ethernet;
 
@@ -17,10 +13,7 @@ use deimos_shared::{
 };
 
 mod arp_scraper;
-pub(crate) use arp_scraper::IpConfigStatus;
-use arp_scraper::{
-    IpAssignment, ObservedDevice, PendingDhcpConfig, fallback_backoff_ns, static_fallback_cidr,
-};
+use arp_scraper::ObservedDevice;
 
 /// Length of the post-claim conflict observation window for a tentative fallback address.
 const FALLBACK_VALIDATION_NS: i64 = 250_000_000;
@@ -37,6 +30,115 @@ pub(crate) struct NetStorageStatic<'a> {
     pub(crate) tx_metadata_storage: [PacketMetadata<udp::UdpMetadata>; 4],
     /// Transmit-packet payload buffer for the board UDP socket.
     pub(crate) tx_payload_storage: [u8; 1522],
+}
+
+/// How aggressively the address manager may change the board's network identity.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum AddressMode {
+    /// Acquire any usable address, including claiming a fallback candidate immediately.
+    Connect,
+    /// Keep setup traffic stable; if the address changes, the caller should reconnect.
+    SessionSetup,
+    /// Keep the current session stable and defer DHCP replacement while fallback is active.
+    Operating,
+}
+
+/// Whether the caller can keep using the current network identity.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum AddressStatus {
+    /// No usable address is currently available, or the caller must reconnect.
+    Missing,
+    /// The current address remains usable for the caller's mode.
+    Ready,
+}
+
+/// Source of the board's currently active IPv4 configuration.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AddressState {
+    /// No IPv4 address is currently configured.
+    Unconfigured,
+    /// A fallback address is being validated against conflicting ARP traffic.
+    TentativeFallback {
+        /// Tentative fallback CIDR currently installed on the interface.
+        cidr: Ipv4Cidr,
+        /// Which deterministic fallback candidate this tentative address came from.
+        candidate_index: u8,
+        /// Time when the tentative address becomes stable if no conflict is observed.
+        validation_deadline_ns: i64,
+    },
+    /// A fallback address is active and may be holding a deferred DHCP lease.
+    ActiveFallback {
+        /// Stable fallback CIDR currently installed on the interface.
+        cidr: Ipv4Cidr,
+        /// DHCP lease to apply later once the caller allows endpoint changes again.
+        deferred_dhcp: Option<PendingDhcpConfig>,
+    },
+    /// A DHCP lease is active.
+    ActiveDhcp {
+        /// DHCP CIDR currently installed on the interface.
+        cidr: Ipv4Cidr,
+    },
+}
+
+/// DHCP configuration that may need to be applied immediately or deferred until reconnect.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct PendingDhcpConfig {
+    /// IPv4 address and prefix length offered by the DHCP server.
+    address: Ipv4Cidr,
+    /// Optional default gateway offered by the DHCP server.
+    router: Option<Ipv4Address>,
+}
+
+/// DHCP events reduced to the fields the address manager actually consumes.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum OwnedDhcpEvent {
+    Configured(PendingDhcpConfig),
+    Deconfigured,
+}
+
+/// Progress through the deterministic fallback candidate list and its retry backoff.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct FallbackProgress {
+    /// Candidate index to claim next within the current fallback round.
+    next_candidate: u8,
+    /// Number of complete fallback rounds that have already failed.
+    failure_rounds: u8,
+    /// Earliest time when fallback claiming may resume after backoff.
+    retry_at_ns: Option<i64>,
+}
+
+impl Default for FallbackProgress {
+    /// Start fallback selection from the first candidate with no accumulated backoff.
+    fn default() -> Self {
+        Self {
+            next_candidate: 0,
+            failure_rounds: 0,
+            retry_at_ns: None,
+        }
+    }
+}
+
+/// Convert one shared fallback candidate into an `smoltcp` CIDR value.
+fn static_fallback_cidr(mac: [u8; 6], index: usize) -> Ipv4Cidr {
+    // Derive the deterministic fallback octets from the local MAC and candidate index.
+    let octets = static_fallback_ipv4_candidate_from_mac(mac, index);
+    // Wrap those octets in the subnet prefix the firmware uses for direct-connect fallback.
+    Ipv4Cidr::new(
+        Ipv4Address::new(octets[0], octets[1], octets[2], octets[3]),
+        STATIC_FALLBACK_IPV4_PREFIX_LEN,
+    )
+}
+
+/// Compute the reconnect backoff after a full failed fallback candidate round.
+fn fallback_backoff_ns(failure_rounds: u8) -> i64 {
+    // Use a short initial retry and then quickly stretch out to avoid ARP spam on a busy link.
+    match failure_rounds {
+        0 => 0,
+        1 => 5_000_000_000,
+        2 => 30_000_000_000,
+        3 => 60_000_000_000,
+        _ => 300_000_000_000,
+    }
 }
 
 /// Replace the interface's IPv4 address list with the supplied CIDR.
@@ -56,7 +158,7 @@ fn clear_ipv4_addr(iface: &mut Interface) {
 pub(crate) struct Net<'a> {
     /// Smoltcp interface.
     iface: Interface,
-    /// Ethernet device wrapper with ARP scraper.
+    /// Ethernet device wrapper with ARP scraping.
     ethdev: ObservedDevice<ethernet::EthernetDMA<4, 4>>,
     /// Socket storage backing the board's UDP and DHCP sockets.
     sockets: SocketSet<'a>,
@@ -64,19 +166,16 @@ pub(crate) struct Net<'a> {
     udp_handle: smoltcp::iface::SocketHandle,
     /// DHCP socket handle.
     dhcp_handle: smoltcp::iface::SocketHandle,
-    /// The board's currently intended IPv4 assignment source and state.
-    ip_assignment: IpAssignment,
-    /// A DHCP configuration that was learned but deferred until reconnect.
-    pending_dhcp: Option<PendingDhcpConfig>,
-    /// Index of the next deterministic fallback candidate to try.
-    next_fallback_candidate: u8,
-    /// Number of full fallback-candidate rounds that have failed so far.
-    fallback_failure_rounds: u8,
-    /// Earliest time when another fallback claim attempt is allowed.
-    fallback_backoff_until_ns: Option<i64>,
+    /// Local MAC address used for deterministic fallback candidate generation.
+    local_mac: [u8; 6],
+    /// Current address assignment state.
+    address_state: AddressState,
+    /// Progress through fallback candidate selection and backoff.
+    fallback: FallbackProgress,
 }
+
 impl<'a> Net<'a> {
-    /// Build the Ethernet interface, UDP socket, DHCP socket, and fallback IP state machine.
+    /// Build the Ethernet interface, UDP socket, DHCP socket, and address state machine.
     pub(crate) fn new(
         store: &'a mut NetStorageStatic<'a>,
         ethdev: ethernet::EthernetDMA<4, 4>,
@@ -118,22 +217,23 @@ impl<'a> Net<'a> {
         let dhcp_socket = dhcpv4::Socket::new();
         let dhcp_handle: smoltcp::iface::SocketHandle = sockets.add(dhcp_socket);
 
-        // Start unconfigured and let the fallback/DHCP state machine claim an address later.
+        // Cache the local MAC in plain bytes so fallback candidate generation stays local to Net.
+        let mut local_mac = [0u8; 6];
+        local_mac.copy_from_slice(ethernet_addr.as_bytes());
+
         Net::<'a> {
             iface,
             ethdev,
             sockets,
             udp_handle,
             dhcp_handle,
-            ip_assignment: IpAssignment::Unconfigured,
-            pending_dhcp: None,
-            next_fallback_candidate: 0,
-            fallback_failure_rounds: 0,
-            fallback_backoff_until_ns: None,
+            local_mac,
+            address_state: AddressState::Unconfigured,
+            fallback: FallbackProgress::default(),
         }
     }
 
-    /// Polls on the ethernet interface.
+    /// Polls the Ethernet interface and socket set.
     ///
     /// If polled at the same `time_ns` multiple times, this will process
     /// incoming UDP packets for the UDP socket, but will not advance the
@@ -177,48 +277,108 @@ impl<'a> Net<'a> {
             .unwrap();
     }
 
+    /// Advance the full address manager and report whether the caller may continue.
+    pub(crate) fn step_address(&mut self, time_ns: i64, mode: AddressMode) -> AddressStatus {
+        let mut reconnect_required = false;
+
+        // First, resolve any in-flight tentative fallback claim before touching DHCP state.
+        self.advance_tentative_fallback(time_ns);
+
+        // If a DHCP lease was deferred while operating on fallback, apply it as
+        // soon as the caller allows address changes again.
+        if !matches!(mode, AddressMode::Operating) {
+            if let Some(config) = self.take_deferred_dhcp() {
+                self.apply_dhcp_config(config);
+                reconnect_required = matches!(mode, AddressMode::SessionSetup);
+            }
+        }
+
+        // Poll DHCP and collapse the borrowed smoltcp event into an owned form.
+        let event = {
+            let dhcp_socket = self.sockets.get_mut::<dhcpv4::Socket>(self.dhcp_handle);
+            match dhcp_socket.poll() {
+                Some(dhcpv4::Event::Configured(config)) => {
+                    Some(OwnedDhcpEvent::Configured(PendingDhcpConfig {
+                        address: config.address,
+                        router: config.router,
+                    }))
+                }
+                Some(dhcpv4::Event::Deconfigured) => Some(OwnedDhcpEvent::Deconfigured),
+                None => None,
+            }
+        };
+
+        // Merge the DHCP event into the address manager's state and policy.
+        reconnect_required |= self.handle_dhcp_event(mode, event);
+
+        // While connecting, claim the next fallback candidate immediately if DHCP
+        // has not already produced a usable address.
+        if matches!(mode, AddressMode::Connect)
+            && matches!(self.address_state, AddressState::Unconfigured)
+        {
+            let _ = self.claim_next_fallback(time_ns);
+        }
+
+        // Keep the smoltcp interface consistent with the state machine's source of truth.
+        self.sync_iface_to_state();
+
+        // Collapse all internal details back down to the simple public Ready/Missing API.
+        if reconnect_required || matches!(self.address_state, AddressState::Unconfigured) {
+            AddressStatus::Missing
+        } else {
+            AddressStatus::Ready
+        }
+    }
+
     /// Remove any configured IPv4 address, route, and tentative fallback watch state.
     fn clear_ipv4_config(&mut self) {
+        // Drop the interface configuration itself.
         clear_ipv4_addr(&mut self.iface);
-        self.end_tentative_watch();
         self.iface.routes_mut().remove_default_ipv4_route();
-        self.ip_assignment = IpAssignment::Unconfigured;
+
+        // Stop ARP monitoring and reset the logical address state.
+        self.end_tentative_watch();
+        self.address_state = AddressState::Unconfigured;
     }
 
     /// Reset fallback candidate selection and backoff after a successful address transition.
     fn reset_fallback_progress(&mut self) {
-        self.next_fallback_candidate = 0;
-        self.fallback_failure_rounds = 0;
-        self.fallback_backoff_until_ns = None;
+        self.fallback = FallbackProgress::default();
     }
 
-    /// Promote a tentative fallback address to a stable link-local fallback assignment.
+    /// Promote a tentative fallback address to a stable fallback assignment.
     fn promote_tentative_fallback(&mut self, cidr: Ipv4Cidr) {
+        // The address survived validation, so stop conflict watching.
         self.end_tentative_watch();
-        self.ip_assignment = IpAssignment::LinkLocalFallback(cidr);
+
+        // Keep the claimed address and clear any stale deferred-DHCP state.
+        self.address_state = AddressState::ActiveFallback {
+            cidr,
+            deferred_dhcp: None,
+        };
         self.reset_fallback_progress();
     }
 
     /// Record a fallback conflict and advance to the next candidate or backoff interval.
     fn note_fallback_conflict(&mut self, time_ns: i64, candidate_index: u8) {
-        // Drop the tentative claim immediately before choosing what to try next.
+        // Drop the conflicting tentative claim before choosing what to try next.
         self.clear_ipv4_config();
+
+        // Either advance within this round or back off before restarting from candidate zero.
         if (candidate_index as usize + 1) < STATIC_FALLBACK_CANDIDATE_COUNT {
-            // Stay in the current round and move to the next deterministic candidate.
-            self.next_fallback_candidate = candidate_index + 1;
-            self.fallback_backoff_until_ns = None;
+            self.fallback.next_candidate = candidate_index + 1;
+            self.fallback.retry_at_ns = None;
         } else {
-            // After exhausting the round, wait before retrying from the first candidate again.
-            self.next_fallback_candidate = 0;
-            self.fallback_failure_rounds = self.fallback_failure_rounds.saturating_add(1);
-            self.fallback_backoff_until_ns =
-                Some(time_ns + fallback_backoff_ns(self.fallback_failure_rounds));
+            self.fallback.next_candidate = 0;
+            self.fallback.failure_rounds = self.fallback.failure_rounds.saturating_add(1);
+            self.fallback.retry_at_ns =
+                Some(time_ns + fallback_backoff_ns(self.fallback.failure_rounds));
         }
     }
 
     /// Apply a DHCP-provided IPv4 address and optional default route immediately.
     fn apply_dhcp_config(&mut self, config: PendingDhcpConfig) {
-        // Replace any fallback state with the DHCP-provided address.
+        // Install the leased address and route information on the interface.
         set_ipv4_addr(&mut self.iface, config.address);
         if let Some(router) = config.router {
             self.iface
@@ -228,24 +388,26 @@ impl<'a> Net<'a> {
         } else {
             self.iface.routes_mut().remove_default_ipv4_route();
         }
-        // Clear fallback bookkeeping now that DHCP is authoritative.
+
+        // DHCP is now authoritative, so stop tentative ARP watching and reset fallback retries.
         self.end_tentative_watch();
-        self.ip_assignment = IpAssignment::Dhcp(config.address);
-        self.pending_dhcp = None;
+        self.address_state = AddressState::ActiveDhcp {
+            cidr: config.address,
+        };
         self.reset_fallback_progress();
     }
 
-    /// Start watching a tentative IPv4 fallback address for ARP conflicts.
+    /// Start watching a tentative fallback address for ARP conflicts.
     fn begin_tentative_watch(&mut self, ip: Ipv4Address) {
         self.ethdev.set_monitored_ip(Some(ip));
     }
 
-    /// Stop ARP conflict monitoring for a tentative IPv4 fallback address.
+    /// Stop ARP conflict monitoring for a tentative fallback address.
     fn end_tentative_watch(&mut self) {
         self.ethdev.set_monitored_ip(None);
     }
 
-    /// Returns true if a conflicting ARP probe or announcement was observed for the active tentative address.
+    /// Returns true if a conflicting ARP probe or announcement was observed for the tentative address.
     fn take_tentative_conflict(&mut self) -> bool {
         self.ethdev.take_conflict()
     }
@@ -264,7 +426,7 @@ impl<'a> Net<'a> {
 
     /// Return true if a new fallback candidate can be claimed immediately.
     fn fallback_attempt_ready(&self, time_ns: i64) -> bool {
-        match self.fallback_backoff_until_ns {
+        match self.fallback.retry_at_ns {
             Some(retry_time_ns) => time_ns >= retry_time_ns,
             None => true,
         }
@@ -272,133 +434,162 @@ impl<'a> Net<'a> {
 
     /// Return true if there are more deterministic fallback candidates left in the current round.
     fn has_more_fallback_candidates(&self) -> bool {
-        (self.next_fallback_candidate as usize) < STATIC_FALLBACK_CANDIDATE_COUNT
+        (self.fallback.next_candidate as usize) < STATIC_FALLBACK_CANDIDATE_COUNT
     }
 
     /// Claim the next deterministic fallback candidate immediately and begin conflict observation.
-    pub(crate) fn try_claim_fallback(&mut self, time_ns: i64, mac: [u8; 6]) -> bool {
+    fn claim_next_fallback(&mut self, time_ns: i64) -> bool {
+        // Do nothing while backoff is active or once this round's candidates are exhausted.
         if !self.fallback_attempt_ready(time_ns) || !self.has_more_fallback_candidates() {
             return false;
         }
 
-        // Pick the next MAC-derived fallback candidate and install it as tentative.
-        let candidate_index = self.next_fallback_candidate as usize;
-        let cidr = static_fallback_cidr(mac, candidate_index);
+        // Derive and install the next fallback candidate as a tentative address.
+        let candidate_index = self.fallback.next_candidate as usize;
+        let cidr = static_fallback_cidr(self.local_mac, candidate_index);
         set_ipv4_addr(&mut self.iface, cidr);
         self.iface.routes_mut().remove_default_ipv4_route();
         self.begin_tentative_watch(cidr.address());
-        self.ip_assignment = IpAssignment::TentativeLinkLocal {
+        self.address_state = AddressState::TentativeFallback {
             cidr,
             candidate_index: candidate_index as u8,
             validation_deadline_ns: time_ns + FALLBACK_VALIDATION_NS,
         };
-        // Probe and announce once, then watch for conflicting ARP traffic during validation.
+
+        // Probe once and announce once, then rely on ARP scraping during validation.
         let _ = self.send_arp_probe(time_ns, cidr.address());
         let _ = self.send_gratuitous_arp(time_ns, cidr.address());
         true
     }
 
-    /// Poll DHCP and reconcile the active IPv4 configuration.
-    pub(crate) fn poll_ip_config(&mut self, time_ns: i64, allow_dhcp_swap: bool) -> IpConfigStatus {
-        // First, decide whether the current tentative fallback claim survived its validation window.
-        if let IpAssignment::TentativeLinkLocal {
+    /// Resolve whether the current tentative fallback address survived its validation window.
+    fn advance_tentative_fallback(&mut self, time_ns: i64) {
+        let AddressState::TentativeFallback {
             cidr,
             candidate_index,
             validation_deadline_ns,
-        } = self.ip_assignment
-        {
-            if self.take_tentative_conflict() {
-                self.note_fallback_conflict(time_ns, candidate_index);
-                return IpConfigStatus::Missing;
-            }
+        } = self.address_state
+        else {
+            return;
+        };
 
-            if time_ns >= validation_deadline_ns {
-                self.promote_tentative_fallback(cidr);
-            }
+        // A conflicting ARP probe or announcement means this candidate is taken.
+        if self.take_tentative_conflict() {
+            self.note_fallback_conflict(time_ns, candidate_index);
+            return;
         }
 
-        // Apply a deferred DHCP lease only when the caller allows mid-connection address swaps.
-        if allow_dhcp_swap {
-            if let Some(config) = self.pending_dhcp.take() {
-                self.apply_dhcp_config(config);
-                return IpConfigStatus::DhcpApplied;
-            }
+        // Otherwise the candidate becomes stable once its validation window expires.
+        if time_ns >= validation_deadline_ns {
+            self.promote_tentative_fallback(cidr);
         }
+    }
 
-        // Poll the DHCP socket for lease changes and merge them into the state machine.
-        let event = self
-            .sockets
-            .get_mut::<dhcpv4::Socket>(self.dhcp_handle)
-            .poll();
+    /// Extract any DHCP lease that was deferred while operating on a fallback address.
+    fn take_deferred_dhcp(&mut self) -> Option<PendingDhcpConfig> {
+        match &mut self.address_state {
+            AddressState::ActiveFallback { deferred_dhcp, .. } => deferred_dhcp.take(),
+            _ => None,
+        }
+    }
+
+    /// Merge one DHCP event into the address manager and report whether setup callers must reconnect.
+    fn handle_dhcp_event(&mut self, mode: AddressMode, event: Option<OwnedDhcpEvent>) -> bool {
+        let mut reconnect_required = false;
 
         match event {
-            Some(dhcpv4::Event::Configured(config)) => {
-                // Normalize the smoltcp event into the local deferred-or-apply representation.
-                let config = PendingDhcpConfig {
-                    address: config.address,
-                    router: config.router,
-                };
-                match self.ip_assignment {
-                    IpAssignment::LinkLocalFallback(_)
-                    | IpAssignment::TentativeLinkLocal { .. }
-                        if !allow_dhcp_swap =>
-                    {
-                        // Keep the fallback address for now and remember the lease for later.
-                        self.pending_dhcp = Some(config);
-                        IpConfigStatus::DhcpDeferred
-                    }
-                    IpAssignment::Dhcp(_) => {
-                        // Refresh the active DHCP configuration in place.
+            Some(OwnedDhcpEvent::Configured(config)) => match mode {
+                AddressMode::Connect => {
+                    // During discovery, DHCP can immediately win over any fallback attempt.
+                    self.apply_dhcp_config(config);
+                }
+                AddressMode::SessionSetup => match self.address_state {
+                    AddressState::ActiveFallback { .. }
+                    | AddressState::TentativeFallback { .. } => {
+                        // Setup traffic must stay on one endpoint, so force a reconnect after swapping.
                         self.apply_dhcp_config(config);
-                        IpConfigStatus::Ready
+                        reconnect_required = true;
                     }
                     _ => {
-                        // No stable address is in use, so switch to DHCP immediately.
+                        // If DHCP was already authoritative, just refresh it in place.
                         self.apply_dhcp_config(config);
-                        IpConfigStatus::DhcpApplied
                     }
+                },
+                AddressMode::Operating => match self.address_state {
+                    AddressState::ActiveFallback { cidr, .. } => {
+                        // While operating on fallback, remember the lease but do not change endpoints yet.
+                        self.address_state = AddressState::ActiveFallback {
+                            cidr,
+                            deferred_dhcp: Some(config),
+                        };
+                    }
+                    AddressState::ActiveDhcp { .. } => {
+                        // If DHCP is already active, refreshing the lease is non-disruptive.
+                        self.apply_dhcp_config(config);
+                    }
+                    AddressState::TentativeFallback { .. } | AddressState::Unconfigured => {
+                        // If the endpoint changes while operating, let the caller reconnect cleanly.
+                        self.apply_dhcp_config(config);
+                        reconnect_required = true;
+                    }
+                },
+            },
+            Some(OwnedDhcpEvent::Deconfigured) => match self.address_state {
+                AddressState::ActiveDhcp { .. } => {
+                    // Losing an active lease leaves the interface without a usable address.
+                    self.clear_ipv4_config();
                 }
+                AddressState::ActiveFallback { cidr, .. } => {
+                    // Dropping a deferred lease does not affect the active fallback address.
+                    self.address_state = AddressState::ActiveFallback {
+                        cidr,
+                        deferred_dhcp: None,
+                    };
+                }
+                // A fallback claim in progress stays in charge until validation resolves it.
+                AddressState::TentativeFallback { .. } => {}
+                AddressState::Unconfigured => {
+                    // Stay explicitly empty if no other address source is active.
+                    self.clear_ipv4_config();
+                }
+            },
+            None => {}
+        }
+
+        reconnect_required
+    }
+
+    /// Keep the smoltcp interface aligned with the address state machine's source of truth.
+    fn sync_iface_to_state(&mut self) {
+        match self.address_state {
+            AddressState::Unconfigured => {
+                // Explicitly clear the interface so nothing survives from an old address source.
+                clear_ipv4_addr(&mut self.iface);
+                self.iface.routes_mut().remove_default_ipv4_route();
+                self.end_tentative_watch();
             }
-            Some(dhcpv4::Event::Deconfigured) => {
-                // The lease disappeared, so discard any deferred DHCP state first.
-                self.pending_dhcp = None;
-                match self.ip_assignment {
-                    IpAssignment::Dhcp(_) => {
-                        // If DHCP was active, clear the interface and let fallback recovery restart.
-                        self.clear_ipv4_config();
-                        IpConfigStatus::Missing
-                    }
-                    // If fallback is already active or tentative, keep using it.
-                    IpAssignment::LinkLocalFallback(_)
-                    | IpAssignment::TentativeLinkLocal { .. } => IpConfigStatus::Ready,
-                    IpAssignment::Unconfigured => {
-                        // Stay explicitly unconfigured when no other address source is available.
-                        self.clear_ipv4_config();
-                        IpConfigStatus::Missing
-                    }
+            AddressState::TentativeFallback { cidr, .. } => {
+                // Tentative fallback keeps the candidate address installed and ARP watch armed.
+                if self.iface.ipv4_addr() != Some(cidr.address()) {
+                    set_ipv4_addr(&mut self.iface, cidr);
                 }
+                self.iface.routes_mut().remove_default_ipv4_route();
+                self.begin_tentative_watch(cidr.address());
             }
-            None => {
-                // No DHCP event arrived, so just keep the interface aligned with the tracked state.
-                match self.ip_assignment {
-                    IpAssignment::Unconfigured => match self.iface.ipv4_addr() {
-                        Some(x) if x != Ipv4Address::UNSPECIFIED => IpConfigStatus::Ready,
-                        _ => IpConfigStatus::Missing,
-                    },
-                    IpAssignment::TentativeLinkLocal { cidr, .. }
-                    | IpAssignment::LinkLocalFallback(cidr) => {
-                        if self.iface.ipv4_addr() != Some(cidr.address()) {
-                            set_ipv4_addr(&mut self.iface, cidr);
-                        }
-                        IpConfigStatus::Ready
-                    }
-                    IpAssignment::Dhcp(cidr) => {
-                        if self.iface.ipv4_addr() != Some(cidr.address()) {
-                            set_ipv4_addr(&mut self.iface, cidr);
-                        }
-                        IpConfigStatus::Ready
-                    }
+            AddressState::ActiveFallback { cidr, .. } => {
+                // Stable fallback keeps the address but removes tentative ARP monitoring.
+                if self.iface.ipv4_addr() != Some(cidr.address()) {
+                    set_ipv4_addr(&mut self.iface, cidr);
                 }
+                self.iface.routes_mut().remove_default_ipv4_route();
+                self.end_tentative_watch();
+            }
+            AddressState::ActiveDhcp { cidr } => {
+                // DHCP owns both the address and route state, so just keep the address installed here.
+                if self.iface.ipv4_addr() != Some(cidr.address()) {
+                    set_ipv4_addr(&mut self.iface, cidr);
+                }
+                self.end_tentative_watch();
             }
         }
     }

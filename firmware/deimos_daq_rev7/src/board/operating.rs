@@ -157,9 +157,10 @@ impl<'a> Board<'a> {
                 // Write GPIO state based on last received inputs
                 self.set_outputs(&udp_input);
 
-                // Keep operating on the current address; if DHCP appears while we
-                // are on the static fallback, defer that swap until reconnect.
-                if self.net.poll_ip_config(self.time_ns, false) == IpConfigStatus::Missing {
+                // Keep operating on the current address and defer fallback-to-DHCP swaps.
+                if self.net.step_address(self.time_ns, AddressMode::Operating)
+                    == AddressStatus::Missing
+                {
                     transition_connecting.store(true, Ordering::Relaxed);
                 }
 
