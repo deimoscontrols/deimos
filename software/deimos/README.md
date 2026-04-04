@@ -193,8 +193,7 @@ stateDiagram-v2
     TentativeFallback --> Unconfigured: ARP conflict
     TentativeFallback --> ActiveDhcp: DHCP configured
 
-    ActiveFallback --> ActiveDhcp: DHCP configured outside Operating
-    ActiveFallback --> ActiveDhcp: Applied DHCP that was deferred during Operating
+    ActiveFallback --> ActiveDhcp: DHCP configured
 
     ActiveDhcp --> Unconfigured: DHCP deconfigured
 ```
