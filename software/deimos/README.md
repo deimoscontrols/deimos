@@ -199,9 +199,11 @@ stateDiagram-v2
 ```
 
 To connect directly without a router,
-1. Connect the DAQ's ethernet cable to your computer's ethernet port (or to a shared network switch with no router).
+1. Connect the DAQ's ethernet cable to your computer's ethernet port.
+  * (or to a shared network switch with no router).
   * If your computer does not have an ethernet port, an ethernet-to-USB adapter can be used at the expense of added latency.
-2. In your computer's network settings, check if a static IP address was assigned in the 169.254.X.X range.
+2. Check your computer's network settings.
+  * Make sure that a static IP address was assigned in the 169.254.X.Y range.
   * This should occur automatically on MacOS and Windows.
   * On linux, you may need to manually set a static IPV4 address: `169.254.254.1/16`
 
