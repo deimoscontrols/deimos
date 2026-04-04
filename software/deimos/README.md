@@ -186,7 +186,7 @@ stateDiagram-v2
 
     [*] --> Unconfigured
 
-    Unconfigured --> TentativeFallback: Claim next fallback candidate
+    Unconfigured --> TentativeFallback: Claim next MAC-derived<br>static address candidate
     Unconfigured --> ActiveDhcp: DHCP configured
 
     TentativeFallback --> ActiveFallback: No ARP conflict
