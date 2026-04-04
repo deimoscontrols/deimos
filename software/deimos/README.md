@@ -194,7 +194,7 @@ stateDiagram-v2
     TentativeFallback --> ActiveDhcp: DHCP configured
 
     ActiveFallback --> ActiveDhcp: DHCP configured outside Operating
-    ActiveFallback --> ActiveFallback: Applied DHCP that was deferred during Operating
+    ActiveFallback --> ActiveFallback: DHCP deferred until<br>after Operating
     ActiveFallback --> ActiveDhcp: Deferred DHCP applied
 
     ActiveDhcp --> Unconfigured: DHCP deconfigured
