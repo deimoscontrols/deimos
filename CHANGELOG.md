@@ -38,10 +38,6 @@ For the same reason, no broadcast gratuitous ARP is sent when an address is clai
         * If a DHCP address is configured during Operating, it is not applied until the next return to Connecting in order to avoid disrupting an active operation that started with a static address
         * If a DHCP address is configured on one network and then the peripheral is moved to a different static network, it will maintain its DHCP address until the end of its lease (which could be a full day), or, more likely, until a reset or power cycle
     
-    
-
-
-
 ## 2026-03-25 Rev7 Hardware & Firmware
 
 ### Added - Deimos DAQ Rev7 Hardware & Firmware
