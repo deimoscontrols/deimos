@@ -1,0 +1,12 @@
+schema: spec-driven
+context: |
+  Deimos: a real-time data acquisition and control system.
+  Rust core with Python bindings (via PyO3/maturin).
+  Hardware peripherals communicate over UDP; HOOTL mode for testing without hardware.
+rules:
+  proposal:
+    - Keep proposals concise
+  design:
+    - Reference existing code and architecture
+  tasks:
+    - Break into independently testable chunks
