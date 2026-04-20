@@ -852,3 +852,155 @@ impl TransportState {
 fn socket_path(op_dir: &PathBuf, name: &str) -> PathBuf {
     op_dir.join("sock").join("per").join(name)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::peripheral::DeimosDaqRev7;
+    use deimos_shared::peripherals::deimos_daq_rev7::OperatingRoundtripInput;
+    use deimos_shared::states::{ByteStruct, ByteStructLen};
+
+    /// Task 2.6: Empirically verify byte-level compat between HootlPeripheral
+    /// and the real DeimosDaqRev7 for a single operating-cycle packet.
+    ///
+    /// Outbound (host→peripheral) packets MUST be byte-for-byte identical
+    /// because HootlPeripheral::emit_operating_roundtrip is a pure pass-through
+    /// to the inner DeimosDaqRev7.
+    ///
+    /// Inbound (peripheral→host) parsed outputs are NOT identical:
+    /// HootlPeripheral::parse_operating_roundtrip overwrites all outputs with
+    /// synthetic counter-based placeholders (`counter as f64 + idx * 0.01`).
+    #[test]
+    fn test_deimos_daq_rev7_hootl_emit_byte_compat() {
+        // Shared inputs for one operating cycle.
+        let id: u64 = 42;
+        let period_delta_ns: i64 = -500;
+        let phase_delta_ns: i64 = 300;
+        // 14 inputs: 4 pwm_duty, 4 pwm_freq, 2 dac, 4 gpio
+        let inputs: Vec<f64> = vec![
+            0.5, 0.25, 0.75, 1.0, // pwm_duty_frac[0..4]
+            1000.0, 2000.0, 5000.0, 10000.0, // pwm_freq_hz[0..4]
+            1.0, 2.0, // dac_v[0..2]
+            1.0, 0.0, 1.0, 0.0, // gpio bits 0-3
+        ];
+
+        let real = DeimosDaqRev7 { serial_number: 1 };
+        let n_in = real.operating_roundtrip_input_size();
+
+        // --- Outbound bytes from real DeimosDaqRev7 ---
+        let mut real_bytes = vec![0u8; n_in];
+        real.emit_operating_roundtrip(
+            id,
+            period_delta_ns,
+            phase_delta_ns,
+            &inputs,
+            &mut real_bytes,
+        );
+
+        // --- Outbound bytes from HootlPeripheral wrapping DeimosDaqRev7 ---
+        let inner: Box<dyn Peripheral> = Box::new(DeimosDaqRev7 { serial_number: 1 });
+        let state = Arc::new(Mutex::new(HootlState::default())); // Binding mode; mode doesn't affect emit
+        let hootl = HootlPeripheral::new_driver_owned(inner, state);
+
+        let mut hootl_bytes = vec![0u8; n_in];
+        hootl.emit_operating_roundtrip(
+            id,
+            period_delta_ns,
+            phase_delta_ns,
+            &inputs,
+            &mut hootl_bytes,
+        );
+
+        // EMPIRICALLY CONFIRMED (task 2.6): outbound bytes are identical.
+        // HootlPeripheral::emit_operating_roundtrip delegates unconditionally to
+        // DeimosDaqRev7::emit_operating_roundtrip, which calls
+        // OperatingRoundtripInput::write_bytes using the same #[byte_struct_le] layout.
+        assert_eq!(
+            real_bytes, hootl_bytes,
+            "outbound packet bytes must be byte-for-byte identical: \
+             HootlPeripheral delegates emit to the inner DeimosDaqRev7"
+        );
+
+        // Confirm the emitted struct round-trips correctly (sanity check).
+        let parsed = OperatingRoundtripInput::read_bytes(&real_bytes);
+        assert_eq!(parsed.id, id);
+        assert_eq!(parsed.period_delta_ns, period_delta_ns);
+        assert_eq!(parsed.phase_delta_ns, phase_delta_ns);
+        assert!((parsed.pwm_duty_frac[0] - 0.5f32).abs() < 1e-6);
+        assert_eq!(parsed.gpio, 0b0101); // bits 0 and 2 set
+    }
+
+    /// Task 2.6: Empirically verify that the inbound (peripheral→host) response
+    /// parsed outputs diverge between HootlPeripheral (Operating mode) and
+    /// a real DeimosDaqRev7 parsing the same byte buffer.
+    ///
+    /// The HOOTL runner only fills OperatingMetrics (counter + last_input_id);
+    /// all remaining bytes are zeroed. DeimosDaqRev7::parse_operating_roundtrip
+    /// reads those zeroed bytes as all-zero ADC/encoder/GPIO values (0.0 for each
+    /// output). HootlPeripheral::parse_operating_roundtrip then overwrites every
+    /// output with `counter as f64 + idx * 0.01` — diverging from the real parse.
+    #[test]
+    fn test_deimos_daq_rev7_hootl_parse_diverges() {
+        // Simulate a HOOTL runner response: OperatingMetrics filled, rest zeroed.
+        // This is what hootl.rs:583-594 produces.
+        let counter: u64 = 7;
+        let last_input_id: u64 = 42;
+
+        let real = DeimosDaqRev7 { serial_number: 1 };
+        let n_out = real.operating_roundtrip_output_size();
+
+        let mut response_bytes = vec![0u8; n_out];
+        let metrics = OperatingMetrics {
+            id: counter,
+            last_input_id,
+            ..Default::default()
+        };
+        metrics.write_bytes(&mut response_bytes[..OperatingMetrics::BYTE_LEN]);
+        // Remaining bytes stay zeroed (simulates HOOTL runner behaviour).
+
+        // --- Real DeimosDaqRev7 parse ---
+        let mut real_outputs = vec![0.0f64; real.output_names().len()];
+        let real_metrics = real.parse_operating_roundtrip(&response_bytes, &mut real_outputs);
+        // All ADC/encoder/counter/freq/gpio fields come from zeroed bytes → 0.0
+        for (i, &v) in real_outputs.iter().enumerate() {
+            assert_eq!(
+                v, 0.0,
+                "real parse of zeroed ADC bytes: output[{i}] should be 0.0, got {v}"
+            );
+        }
+        assert_eq!(real_metrics.id, counter);
+        assert_eq!(real_metrics.last_input_id, last_input_id);
+
+        // --- HootlPeripheral parse (Operating mode) ---
+        let inner: Box<dyn Peripheral> = Box::new(DeimosDaqRev7 { serial_number: 1 });
+        let state = Arc::new(Mutex::new(HootlState {
+            mode: HootlMode::Operating,
+        }));
+        let hootl = HootlPeripheral::new_driver_owned(inner, state);
+
+        let mut hootl_outputs = vec![0.0f64; real.output_names().len()];
+        let hootl_metrics = hootl.parse_operating_roundtrip(&response_bytes, &mut hootl_outputs);
+
+        // EMPIRICALLY CONFIRMED (task 2.6): outputs diverge.
+        // HootlPeripheral overwrites each output slot with `counter as f64 + idx * 0.01`.
+        // Divergence fields: all 24 output channels.
+        for (idx, (&hootl_v, &real_v)) in hootl_outputs.iter().zip(real_outputs.iter()).enumerate()
+        {
+            let expected_synthetic = counter as f64 + idx as f64 * 0.01;
+            assert_eq!(
+                hootl_v, expected_synthetic,
+                "output[{idx}]: HootlPeripheral synthetic value should be {expected_synthetic}"
+            );
+            // All are non-zero (counter=7) while real parse produces 0.0 — confirmed divergence.
+            assert_ne!(
+                hootl_v, real_v,
+                "output[{idx}]: HOOTL and real outputs must differ \
+                 (HOOTL synthetic={hootl_v}, real={real_v})"
+            );
+        }
+
+        // Metrics id comes from the inner parse; HootlPeripheral does NOT override metrics.id.
+        assert_eq!(hootl_metrics.id, counter);
+        assert_eq!(hootl_metrics.last_input_id, last_input_id);
+    }
+}
