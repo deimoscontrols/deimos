@@ -1,0 +1,9 @@
+{
+  "name": "deimos",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.2",
+  "devDependencies": {
+    "@fission-ai/openspec": "^1.2.0"
+  }
+}

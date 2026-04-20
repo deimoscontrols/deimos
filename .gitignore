@@ -96,6 +96,9 @@ docs/_build/
 *-backups
 *backups
 
+# Node/pnpm
+node_modules/
+
 # deimos
 *op_name.tmp
 *.csv
