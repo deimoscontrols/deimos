@@ -141,6 +141,8 @@ impl Dispatcher for CsvDispatcher {
         match &mut self.worker {
             Some(worker) => worker
                 .tx
+                .as_ref()
+                .expect("CSV worker sender present while dispatcher is initialized")
                 .send((time, timestamp, channel_values))
                 .map_err(|e| format!("Failed to queue data to write to CSV: {e}")),
             None => Err("Dispatcher must be initialized before consuming data".to_string()),
@@ -148,17 +150,39 @@ impl Dispatcher for CsvDispatcher {
     }
 
     fn terminate(&mut self) -> Result<(), String> {
-        // Drop worker handle, closing thread channel,
-        // which will indicate to the detached worker that it should
-        // finish storing its buffered data and shut down.
-        self.worker = None;
-        Ok(())
+        // Drop the worker synchronously: close the channel so the worker can
+        // exit its recv loop, then join the thread so the file is flushed and
+        // truncated before terminate returns. Without this join, readers that
+        // open the CSV immediately after terminate can observe the still-
+        // preallocated file tail.
+        let Some(mut worker) = self.worker.take() else {
+            return Ok(());
+        };
+        worker.tx.take();
+        let Some(thread) = worker.thread.take() else {
+            return Ok(());
+        };
+        thread
+            .join()
+            .map_err(|e| format!("CSV worker thread panicked: {e:?}"))
     }
 }
 
 struct WorkerHandle {
-    pub tx: Sender<(SystemTime, i64, Vec<f64>)>,
-    _thread: JoinHandle<()>,
+    tx: Option<Sender<(SystemTime, i64, Vec<f64>)>>,
+    thread: Option<JoinHandle<()>>,
+}
+
+impl Drop for WorkerHandle {
+    fn drop(&mut self) {
+        // Mirror `terminate`: close the channel then join so the file is
+        // fully flushed before the handle is gone, even on paths that drop
+        // the worker without calling terminate (e.g. re-init).
+        self.tx.take();
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
 }
 
 impl WorkerHandle {
@@ -180,7 +204,7 @@ impl WorkerHandle {
         let mut file_size = header_len;
         let mut shard_number: u64 = 0;
 
-        let _thread = Builder::new()
+        let thread = Builder::new()
             .name("csv-dispatcher".to_string())
             .spawn(move || {
                 // Bind to assigned core, and set priority only if the core is not shared with the control loop
@@ -261,7 +285,10 @@ impl WorkerHandle {
             })
             .expect("Failed to spawn CSV dispatcher thread");
 
-        Ok(Self { tx, _thread })
+        Ok(Self {
+            tx: Some(tx),
+            thread: Some(thread),
+        })
     }
 }
 
