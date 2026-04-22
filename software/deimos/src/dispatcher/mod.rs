@@ -19,6 +19,9 @@ pub use low_pass::LowPassDispatcher;
 mod csv;
 pub use csv::CsvDispatcher;
 
+mod reporting;
+pub use reporting::{ReportingDispatcher, ReportingMessage};
+
 use crate::controller::context::ControllerCtx;
 
 #[cfg(feature = "python")]

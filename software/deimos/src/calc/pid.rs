@@ -168,4 +168,11 @@ impl Calc for Pid {
     calc_config!(kp, ki, kd, max_integral);
     calc_input_names!(measurement, setpoint);
     calc_output_names!(y);
+
+    // TODO: A PID output carries whatever unit the downstream actuator expects from the error
+    // signal — typically the same unit as the measurement. Returning `None` is a placeholder
+    // until `CalcOrchestrator` supplies each calc's input unit at `init` time.
+    fn get_output_units(&self) -> Vec<Option<String>> {
+        vec![None]
+    }
 }

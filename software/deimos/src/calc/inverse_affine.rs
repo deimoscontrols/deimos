@@ -17,6 +17,8 @@ pub struct InverseAffine {
     slope: f64,
     offset: f64,
     save_outputs: bool,
+    #[serde(default)]
+    output_unit: Option<String>,
 
     // Values provided by calc orchestrator during init
     #[serde(skip)]
@@ -38,10 +40,17 @@ impl InverseAffine {
             slope,
             offset,
             save_outputs,
+            output_unit: None,
 
             input_index,
             output_index,
         })
+    }
+
+    /// Attach an output unit label (builder method).
+    pub fn with_output_unit(mut self: Box<Self>, unit: impl Into<String>) -> Box<Self> {
+        self.output_unit = Some(unit.into());
+        self
     }
 }
 
@@ -49,8 +58,17 @@ py_json_methods!(
     InverseAffine,
     Calc,
     #[new]
-    fn py_new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> Self {
-        *Self::new(input_name, slope, offset, save_outputs)
+    #[pyo3(signature = (input_name, slope, offset, save_outputs, output_unit = None))]
+    fn py_new(
+        input_name: String,
+        slope: f64,
+        offset: f64,
+        save_outputs: bool,
+        output_unit: Option<String>,
+    ) -> Self {
+        let mut calc = Self::new(input_name, slope, offset, save_outputs);
+        calc.output_unit = output_unit;
+        *calc
     }
 );
 
@@ -100,6 +118,10 @@ impl Calc for InverseAffine {
         }
 
         Ok(())
+    }
+
+    fn get_output_units(&self) -> Vec<Option<String>> {
+        vec![self.output_unit.clone()]
     }
 
     calc_config!(slope, offset);

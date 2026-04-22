@@ -1,0 +1,19 @@
+# Sample configuration for the Deimos operator console.
+# Run with: cargo run -p deimos-console -- --config software/deimos-console/examples/console.toml
+
+# Multicast group the reporting dispatcher publishes to.
+multicast_group = "239.255.0.1"
+
+# UDP port (must match the reporting dispatcher's configured port).
+port = 29573
+
+# Outbound interface for multicast reception. Comment out to use the OS default.
+# interface = "192.168.1.10"
+
+[[panels]]
+title = "Voltage (unit-labeled)"
+channels = ["voltage.y"]
+
+[[panels]]
+title = "Raw ADC Inputs"
+channels = ["p1.ain0", "p1.ain1", "p1.ain2", "p1.ain3"]

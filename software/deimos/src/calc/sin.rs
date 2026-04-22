@@ -18,6 +18,8 @@ pub struct Sin {
     low: f64,
     high: f64,
     save_outputs: bool,
+    #[serde(default)]
+    output_unit: Option<String>,
 
     // Values provided by calc orchestrator during init
     #[serde(skip)]
@@ -49,6 +51,7 @@ impl Sin {
             low,
             high,
             save_outputs,
+            output_unit: None,
 
             output_index,
             rad_per_cycle,
@@ -56,14 +59,30 @@ impl Sin {
             scale,
         })
     }
+
+    /// Attach an output unit label (builder method).
+    pub fn with_output_unit(mut self: Box<Self>, unit: impl Into<String>) -> Box<Self> {
+        self.output_unit = Some(unit.into());
+        self
+    }
 }
 
 py_json_methods!(
     Sin,
     Calc,
     #[new]
-    fn py_new(period_s: f64, offset_s: f64, low: f64, high: f64, save_outputs: bool) -> Self {
-        *Self::new(period_s, offset_s, low, high, save_outputs)
+    #[pyo3(signature = (period_s, offset_s, low, high, save_outputs, output_unit = None))]
+    fn py_new(
+        period_s: f64,
+        offset_s: f64,
+        low: f64,
+        high: f64,
+        save_outputs: bool,
+        output_unit: Option<String>,
+    ) -> Self {
+        let mut calc = Self::new(period_s, offset_s, low, high, save_outputs);
+        calc.output_unit = output_unit;
+        *calc
     }
 );
 
@@ -107,6 +126,10 @@ impl Calc for Sin {
     /// Change a value in the input map
     fn update_input_map(&mut self, _field: &str, _source: &str) -> Result<(), String> {
         Ok(())
+    }
+
+    fn get_output_units(&self) -> Vec<Option<String>> {
+        vec![self.output_unit.clone()]
     }
 
     calc_config!(period_s, offset_s, low, high);
