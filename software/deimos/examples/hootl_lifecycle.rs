@@ -16,7 +16,7 @@
 //!   "All peripherals acknowledged configuration."
 //!   "Entering control loop."
 //!
-//! These correspond to the four lifecycle stages from the specs:
+//! These correspond to the four lifecycle stages:
 //!   Connecting (implicit initial state) → Binding → Configuring → OperatingRoundtrip.
 
 use std::time::{Duration, SystemTime};

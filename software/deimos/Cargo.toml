@@ -72,6 +72,3 @@ name = "sideloading"
 
 [[example]]
 name = "hootl_lifecycle"
-
-[[example]]
-name = "hootl_two_controllers"
