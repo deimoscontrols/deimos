@@ -10,6 +10,15 @@ port = 29573
 # Outbound interface for multicast reception. Comment out to use the OS default.
 # interface = "192.168.1.10"
 
+# Per-session forensic log. When set, every received Row is appended as CSV with the
+# viewer's wall-clock timestamp alongside the controller's sequence number and timestamps,
+# so you can reconstruct exactly what was on the screen at any moment after the run.
+# Each viewer session produces a unique file: the epoch-ns of the first Schema is appended
+# to the stem, so prior runs are never overwritten. Files rotate at 64 MiB.
+# Example: "/tmp/deimos-console.csv" → "/tmp/deimos-console_1713831234567890000.csv".
+# Comment out to disable the log entirely.
+forensic_log_path = "/tmp/deimos-console.csv"
+
 [[panels]]
 title = "Voltage (unit-labeled)"
 channels = ["voltage.y"]

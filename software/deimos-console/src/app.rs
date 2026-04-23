@@ -11,7 +11,19 @@ use crate::config::DeimosConsoleConfig;
 use crate::forensic::ForensicLog;
 use crate::receiver::receiver_dropped_frames;
 
-/// Four-state connection health indicator for the operator console.
+// Muted status-indicator palette.
+//
+// Egui's built-in `Color32::{YELLOW, GREEN, RED}` are saturated screen primaries that are hard
+// to read on both the default dark theme and any lighter theme. These shades sit in a mid-
+// saturation range that reads cleanly against either background, and they are reserved for
+// *dot glyphs* — the text next to them is always rendered with the theme's default foreground.
+const MINT_GREEN: egui::Color32 = egui::Color32::from_rgb(110, 200, 140);
+const AMBER: egui::Color32 = egui::Color32::from_rgb(230, 180, 60);
+const CORAL_RED: egui::Color32 = egui::Color32::from_rgb(220, 100, 100);
+const SKY_BLUE: egui::Color32 = egui::Color32::from_rgb(120, 180, 240);
+const ORCHID: egui::Color32 = egui::Color32::from_rgb(190, 120, 220);
+
+/// Five-state connection health indicator for the operator console.
 ///
 /// Computed each UI frame from the current schema state, the wall-clock time of
 /// the last received `Row`, and whether the receiver thread is still alive.
@@ -24,6 +36,10 @@ pub enum ConnectionHealth {
     /// A `Schema` exists but no `Row` has arrived, or the last `Row` arrived more
     /// than `staleness_threshold` ago.
     Stale,
+    /// The controller emitted a session-end `Schema`, signalling a clean shutdown.
+    /// Operationally distinct from `Stale` (which means the stream went silent for
+    /// an unknown reason): here the controller said goodbye.
+    SessionEnded,
     /// The receiver thread has exited due to a non-transient socket error. No further
     /// packets will arrive in this session without restarting the console.
     ReceiverDead,
@@ -114,6 +130,21 @@ pub struct DeimosConsoleApp {
     /// Set to `true` when the receiver channel disconnects (receiver thread has exited).
     /// Once set, this flag is sticky for the lifetime of the app.
     receiver_dead: bool,
+    /// Wall-clock instant of the last per-second telemetry tick emitted to stderr.
+    last_tick_at: Option<Instant>,
+    /// Count of `Row` messages processed since the last telemetry tick.
+    rows_since_last_tick: u64,
+    /// Previous reported connection-health state; used to log transitions.
+    last_health_logged: Option<ConnectionHealth>,
+    /// Consecutive ticks with zero rows; drives idle-tick suppression so long quiet
+    /// periods don't fill the log with identical zero-rate lines.
+    consecutive_idle_ticks: u64,
+    /// Sum of per-row rx-lag samples (ms) accumulated since the last tick.
+    lag_sum_ms: f64,
+    /// Minimum rx-lag sample (ms) since the last tick; `f64::INFINITY` when no samples yet.
+    lag_min_ms: f64,
+    /// Maximum rx-lag sample (ms) since the last tick; `f64::NEG_INFINITY` when no samples yet.
+    lag_max_ms: f64,
 }
 
 impl DeimosConsoleApp {
@@ -139,6 +170,100 @@ impl DeimosConsoleApp {
             pending_overflow_drops: 0,
             warned_panels: HashSet::new(),
             receiver_dead: false,
+            last_tick_at: None,
+            rows_since_last_tick: 0,
+            last_health_logged: None,
+            consecutive_idle_ticks: 0,
+            lag_sum_ms: 0.0,
+            lag_min_ms: f64::INFINITY,
+            lag_max_ms: f64::NEG_INFINITY,
+        }
+    }
+
+    /// Emit a per-second telemetry line to stderr with row rate, rx-lag stats, and
+    /// drop counters. Suppresses repeat emissions during long idle periods — after
+    /// three consecutive zero-row ticks, only one heartbeat per minute is printed.
+    ///
+    /// Runs at most once per second; the first call after startup only arms the timer.
+    /// Safe to call every UI frame.
+    fn maybe_emit_tick(&mut self) {
+        const IDLE_GRACE: u64 = 3;
+        const IDLE_HEARTBEAT_EVERY: u64 = 60;
+
+        let now = Instant::now();
+        let elapsed = match self.last_tick_at {
+            Some(t) => now.duration_since(t),
+            None => {
+                self.last_tick_at = Some(now);
+                return;
+            }
+        };
+        if elapsed < Duration::from_secs(1) {
+            return;
+        }
+
+        let rows = self.rows_since_last_tick;
+        let is_idle = rows == 0;
+        self.consecutive_idle_ticks = if is_idle {
+            self.consecutive_idle_ticks + 1
+        } else {
+            0
+        };
+
+        // Decide whether to actually emit this tick.
+        //   Active / just-went-idle:  always emit.
+        //   Deep idle (>= IDLE_GRACE consecutive): emit only every IDLE_HEARTBEAT_EVERY ticks.
+        let emit = !is_idle
+            || self.consecutive_idle_ticks <= IDLE_GRACE
+            || self
+                .consecutive_idle_ticks
+                .is_multiple_of(IDLE_HEARTBEAT_EVERY);
+
+        if emit {
+            let rate = rows as f64 / elapsed.as_secs_f64();
+            let last_seq = self
+                .last_seen_seq
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "-".to_string());
+            let lag_segment = if rows > 0 && self.lag_min_ms.is_finite() {
+                let mean = self.lag_sum_ms / rows as f64;
+                format!(
+                    " lag_ms={:.2}/{:.2}/{:.2}(min/mean/max)",
+                    self.lag_min_ms, mean, self.lag_max_ms
+                )
+            } else {
+                String::new()
+            };
+            let idle_suffix = if is_idle && self.consecutive_idle_ticks > IDLE_GRACE {
+                format!(" (idle {}s)", self.consecutive_idle_ticks)
+            } else {
+                String::new()
+            };
+            eprintln!(
+                "{} deimos-console: tick rows={rows} rate={rate:.1}Hz last_seq={last_seq} wire_drops={} recv_drops={} pending={}{lag_segment}{idle_suffix}",
+                wall_clock_prefix(),
+                self.dropped_frames_on_wire,
+                receiver_dropped_frames(),
+                self.pending_rows.len(),
+            );
+        }
+
+        self.rows_since_last_tick = 0;
+        self.lag_sum_ms = 0.0;
+        self.lag_min_ms = f64::INFINITY;
+        self.lag_max_ms = f64::NEG_INFINITY;
+        self.last_tick_at = Some(now);
+    }
+
+    /// Emit a stderr line when `connection_health()` changes.
+    fn maybe_log_health_transition(&mut self) {
+        let current = self.connection_health();
+        if self.last_health_logged != Some(current) {
+            eprintln!(
+                "{} deimos-console: health -> {current:?}",
+                wall_clock_prefix()
+            );
+            self.last_health_logged = Some(current);
         }
     }
 
@@ -254,9 +379,54 @@ impl DeimosConsoleApp {
             if let Err(e) = log.write_row(viewer_received_at, seq, timestamp, system_time, &values)
             {
                 let reason = format!("write failed: {e}");
-                eprintln!("deimos-console: forensic log {reason}; disabling log");
+                eprintln!(
+                    "{} deimos-console: forensic log {reason}; disabling log",
+                    wall_clock_prefix()
+                );
                 self.forensic_disabled_reason = Some(reason);
                 self.forensic_log = None;
+            }
+        }
+
+        self.rows_since_last_tick += 1;
+
+        // Compute rx-lag as viewer wall-clock receipt time minus the controller's cycle-start
+        // wall clock. `system_time` is `SystemTime::now()` sampled at the top of the
+        // controller's cycle (controller/mod.rs:1097) and handed through to `consume()`
+        // verbatim, serialized as RFC3339-nanos UTC, so "lag" is the total staleness of the
+        // data from the cycle's own clock reference to when the operator sees it.
+        //
+        // Contributors (approximate, 20 Hz loopback):
+        //   - ~cycle_duration of controller-internal work between the cycle-start stamp and
+        //     the dispatcher.consume() call (peripheral I/O + calcs)
+        //   - UDP transmit + loopback/LAN hop
+        //   - receiver-thread decode + bounded-channel traversal
+        //   - UI-thread drain on its ~33 ms repaint tick
+        //   - any clock skew between controller and viewer hosts
+        //
+        // At 20 Hz on loopback expect ~50-70 ms, dominated by the first bullet. A growing
+        // trend over a run usually means the viewer is falling behind (correlates with
+        // recv_drops); a constant offset across hosts is clock skew. This is intentionally
+        // NOT a pure transport measurement — it answers "how old is what the operator sees"
+        // rather than "how fast is the network."
+        //
+        // Alternative tried: schema.monotonic_epoch_ns + row.timestamp. That anchor is taken
+        // at dispatcher init() (during Configuring) but row.timestamp counts from start-of-
+        // Operating ~100-200 ms later, so it has a constant false offset.
+        if let (Ok(rx_ns), Ok(produced)) = (
+            viewer_received_at
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_nanos() as i128),
+            chrono::DateTime::parse_from_rfc3339(system_time),
+        ) {
+            let produced_ns = produced.timestamp_nanos_opt().unwrap_or(0) as i128;
+            let lag_ms = (rx_ns - produced_ns) as f64 / 1.0e6;
+            self.lag_sum_ms += lag_ms;
+            if lag_ms < self.lag_min_ms {
+                self.lag_min_ms = lag_ms;
+            }
+            if lag_ms > self.lag_max_ms {
+                self.lag_max_ms = lag_ms;
             }
         }
     }
@@ -272,8 +442,11 @@ impl DeimosConsoleApp {
         if self.receiver_dead {
             return ConnectionHealth::ReceiverDead;
         }
-        if self.schema.is_none() {
+        let Some(schema) = self.schema.as_ref() else {
             return ConnectionHealth::NoSchemaYet;
+        };
+        if schema.session_end_received {
+            return ConnectionHealth::SessionEnded;
         }
         let threshold = Duration::from_secs_f64(self.config.staleness_threshold_secs);
         match self.last_row_received_at {
@@ -309,6 +482,21 @@ impl eframe::App for DeimosConsoleApp {
                             .schema
                             .as_ref()
                             .is_none_or(|s| s.monotonic_epoch_ns != monotonic_epoch_ns);
+
+                        let schema_kind = if is_session_end {
+                            "session-end"
+                        } else if new_session {
+                            "new-session"
+                        } else {
+                            "re-emission"
+                        };
+                        let units_declared = channel_units.iter().filter(|u| u.is_some()).count();
+                        eprintln!(
+                            "{} deimos-console: schema [{schema_kind}] channels={} units_declared={} epoch_ns={monotonic_epoch_ns}",
+                            wall_clock_prefix(),
+                            channel_names.len(),
+                            units_declared,
+                        );
 
                         if new_session {
                             self.last_seen_seq = None;
@@ -402,6 +590,9 @@ impl eframe::App for DeimosConsoleApp {
             }
         }
 
+        self.maybe_log_health_transition();
+        self.maybe_emit_tick();
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Deimos Console");
@@ -457,64 +648,59 @@ impl eframe::App for DeimosConsoleApp {
 
                 let (dot_color, label): (egui::Color32, String) = match health {
                     ConnectionHealth::NoSchemaYet => (
-                        egui::Color32::YELLOW,
+                        AMBER,
                         format!(
                             "No schema yet ({} row(s) buffered)",
                             self.pending_rows.len()
                         ),
                     ),
                     ConnectionHealth::Fresh => {
-                        let ch_count = self.schema.as_ref().map_or(0, |s| s.channel_names.len());
+                        let ch_count = self
+                            .schema
+                            .as_ref()
+                            .map_or(0, |s| s.channel_names.len());
                         (
-                            egui::Color32::GREEN,
+                            MINT_GREEN,
                             format!("Fresh \u{2014} {ch_count} channel(s)"),
                         )
                     }
                     ConnectionHealth::Stale => (
-                        egui::Color32::RED,
+                        CORAL_RED,
                         format!(
                             "Stale \u{2014} no data for >{:.1} s",
                             self.config.staleness_threshold_secs
                         ),
                     ),
+                    ConnectionHealth::SessionEnded => (
+                        SKY_BLUE,
+                        "Session ended \u{2014} controller signalled clean shutdown".to_string(),
+                    ),
                     ConnectionHealth::ReceiverDead => (
-                        egui::Color32::from_rgb(180, 0, 255),
+                        ORCHID,
                         "Receiver dead \u{2014} socket error, restart the console".to_string(),
                     ),
                 };
 
                 ui.horizontal(|ui| {
                     ui.colored_label(dot_color, "\u{25cf}");
-                    ui.colored_label(dot_color, label);
+                    ui.label(label);
                 });
-
-                // Session-end overlay rendered below the health indicator when applicable.
-                if self
-                    .schema
-                    .as_ref()
-                    .map_or(false, |s| s.session_end_received)
-                {
-                    ui.colored_label(egui::Color32::LIGHT_BLUE, "Session ended.");
-                }
             }
 
             // Missing-channel warnings
             if !self.missing_channels.is_empty() {
                 ui.separator();
-                ui.colored_label(
-                    egui::Color32::from_rgb(255, 160, 0),
-                    format!(
-                        "Warning: {} configured channel(s) not found in schema:",
+                ui.horizontal(|ui| {
+                    ui.colored_label(AMBER, "\u{26a0}");
+                    ui.label(format!(
+                        "{} configured channel(s) not found in schema:",
                         self.missing_channels.len()
-                    ),
-                );
+                    ));
+                });
                 for (panel_title, channel_name) in &self.missing_channels {
-                    ui.colored_label(
-                        egui::Color32::from_rgb(255, 160, 0),
-                        format!(
-                            "  panel \"{panel_title}\": channel \"{channel_name}\" not in schema"
-                        ),
-                    );
+                    ui.label(format!(
+                        "    panel \"{panel_title}\": channel \"{channel_name}\" not in schema"
+                    ));
                 }
             }
 
@@ -530,14 +716,9 @@ impl eframe::App for DeimosConsoleApp {
                 let recv_drops = receiver_dropped_frames();
                 let drift_drops = self.schema_drift_drops;
                 let pending_drops = self.pending_overflow_drops;
-                let color =
-                    if wire_drops > 0 || recv_drops > 0 || drift_drops > 0 || pending_drops > 0 {
-                        egui::Color32::from_rgb(255, 80, 80)
-                    } else {
-                        egui::Color32::GRAY
-                    };
+                let any_drops = wire_drops > 0 || recv_drops > 0 || drift_drops > 0 || pending_drops > 0;
                 let mut status = format!(
-                    "Dropped frames — wire gaps: {wire_drops}  receiver backpressure: {recv_drops}"
+                    "Dropped frames \u{2014} wire gaps: {wire_drops}  receiver backpressure: {recv_drops}"
                 );
                 if drift_drops > 0 {
                     status.push_str(&format!("  drift:{drift_drops}"));
@@ -545,15 +726,26 @@ impl eframe::App for DeimosConsoleApp {
                 if pending_drops > 0 {
                     status.push_str(&format!("  preoverflow:{pending_drops}"));
                 }
-                ui.colored_label(color, status);
+                // When drops are zero, keep the line readable in the theme's default text
+                // colour — a grayed-out "everything fine" row is visually the same as a
+                // disabled widget. When drops accumulate, color only the leading glyph so
+                // the eye is drawn to it without sacrificing legibility of the number.
+                if any_drops {
+                    ui.horizontal(|ui| {
+                        ui.colored_label(CORAL_RED, "\u{26a0}");
+                        ui.label(status);
+                    });
+                } else {
+                    ui.label(status);
+                }
             }
 
             // Forensic log disabled indicator.
             if let Some(ref reason) = self.forensic_disabled_reason {
-                ui.colored_label(
-                    egui::Color32::from_rgb(255, 140, 0),
-                    format!("Forensic log disabled: {reason}"),
-                );
+                ui.horizontal(|ui| {
+                    ui.colored_label(AMBER, "\u{26a0}");
+                    ui.label(format!("Forensic log disabled: {reason}"));
+                });
             }
 
             ui.separator();
@@ -575,7 +767,9 @@ impl eframe::App for DeimosConsoleApp {
                     })
                 });
 
-                let mut plot = Plot::new(&panel.title).height(200.0).allow_scroll(false);
+                let mut plot = Plot::new(&panel.title)
+                    .height(200.0)
+                    .allow_scroll(false);
 
                 if let Some(ref unit) = y_label {
                     plot = plot.y_axis_label(unit.clone());
@@ -598,7 +792,8 @@ impl eframe::App for DeimosConsoleApp {
                 plot.show(ui, |plot_ui| {
                     for ch in &panel.channels {
                         if let Some(buf) = self.channel_data.get(ch.as_str()) {
-                            let points: Vec<[f64; 2]> = buf.iter().map(|&(t, v)| [t, v]).collect();
+                            let points: Vec<[f64; 2]> =
+                                buf.iter().map(|&(t, v)| [t, v]).collect();
                             let line = Line::new(PlotPoints::new(points)).name(ch.as_str());
                             plot_ui.line(line);
                         }
@@ -616,6 +811,12 @@ impl eframe::App for DeimosConsoleApp {
         // Fixed 30 Hz repaint cadence: schedule the next repaint ~33 ms from now.
         ctx.request_repaint_after(Duration::from_millis(33));
     }
+}
+
+/// Return an `HH:MM:SS.mmm` local-time prefix for stderr telemetry lines so they
+/// can be correlated against the controller's ISO-timestamped tracing output.
+fn wall_clock_prefix() -> String {
+    chrono::Local::now().format("[%H:%M:%S%.3f]").to_string()
 }
 
 /// Derive a per-session forensic log filename from the user-configured base path.
@@ -688,6 +889,22 @@ mod tests {
             0,
         ));
         assert_eq!(app.connection_health(), ConnectionHealth::Stale);
+    }
+
+    /// A session-end `Schema` must surface as `SessionEnded` regardless of how recent
+    /// the last `Row` was, so an operator can immediately distinguish a clean shutdown
+    /// from a silent stall.
+    #[test]
+    fn health_session_ended_overrides_fresh() {
+        let mut app = test_app(2.0);
+        app.schema = Some(SchemaState::new(
+            vec!["ch0".to_string()],
+            vec![None],
+            true,
+            0,
+        ));
+        app.last_row_received_at = Some(Instant::now());
+        assert_eq!(app.connection_health(), ConnectionHealth::SessionEnded);
     }
 
     /// After a Schema and an immediate Row, `connection_health` must return `Fresh`, then

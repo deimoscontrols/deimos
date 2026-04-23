@@ -9,7 +9,7 @@ use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::{Sender, channel};
 use std::thread::{self, Builder, JoinHandle};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info};
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
@@ -183,13 +183,21 @@ impl WorkerHandle {
         let _thread = Builder::new()
             .name("csv-dispatcher".to_string())
             .spawn(move || {
-                // Bind to assigned core, and set priority only if the core is not shared with the control loop
+                // Bind to assigned core, and set priority only if the core is not shared with
+                // the control loop. Affinity is a best-effort hint for this dispatcher — some
+                // platforms (notably macOS, which only supports advisory thread placement hints)
+                // return `false` here on every call, and the dispatcher still works correctly
+                // without pinning. Log at debug level so operators see it when they want to, but
+                // don't spam the default run log on every macOS session.
                 {
                     let success = core_affinity::set_for_current(core_affinity::CoreId {
                         id: core_assignment,
                     });
                     if !success {
-                        warn!("Failed to set core affinity for CSV dispatcher");
+                        debug!(
+                            "CSV dispatcher: core_affinity::set_for_current returned false \
+                             (expected on macOS and other platforms without hard affinity)"
+                        );
                     }
                 }
 

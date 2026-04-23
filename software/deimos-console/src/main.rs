@@ -50,6 +50,18 @@ fn main() -> Result<()> {
     let config: DeimosConsoleConfig = toml::from_str(&config_bytes)
         .with_context(|| format!("failed to parse config file: {}", cli.config.display()))?;
 
+    eprintln!(
+        "[{}] deimos-console: starting, listening on {}:{} (forensic_log={})",
+        chrono::Local::now().format("%H:%M:%S%.3f"),
+        config.multicast_group,
+        config.port,
+        config
+            .forensic_log_path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "<disabled>".to_string()),
+    );
+
     // Spawn the UDP multicast receiver thread. The join handle is intentionally dropped here;
     // the thread exits when the process terminates or on a non-transient socket error.
     let (_tx, rx, _recv_handle) =
