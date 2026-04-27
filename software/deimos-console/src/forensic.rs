@@ -4,6 +4,22 @@
 //! the viewer-side receive timestamp prepended. When a file grows past
 //! [`MAX_FILE_BYTES`], the log rotates to a new shard before the next write.
 //!
+//! # Receipt, not display
+//!
+//! The forensic log captures **what the viewer received**, not what was rendered live on the
+//! plot. Under a UI stall the live window may elide the pre-stall block so the operator's eye
+//! lands on the freshest data (see `app.rs::apply_stall`), but every one of those elided rows
+//! is still written here with its original sequence number, controller timestamp, and the
+//! viewer-side receipt timestamp captured at `process_row` time. Post-hoc rendering of this
+//! CSV is the source of truth for "what data crossed the wire"; the live plot is the source
+//! of truth for "what the operator saw."
+//!
+//! Coverage starts at the first `Schema`: the log file is opened when the schema arrives, and
+//! `Row`s buffered before that are flushed in order at open time. A row that arrives before
+//! any `Schema` and gets evicted from the bounded pre-schema queue (see `app.rs::pending_rows`
+//! and `pending_overflow_drops`) is therefore not in this CSV. The canonical capture path for
+//! a run is the controller-side `CsvDispatcher`, not this viewer-side log.
+//!
 //! Column layout:
 //! ```text
 //! viewer_received_at,seq,controller_timestamp,controller_system_time,<channel…>
@@ -41,6 +57,10 @@ pub struct ForensicLog {
     /// Bytes written to the current shard (including header). Tracked in memory to avoid
     /// the stat(2) lag of `metadata().len()` which would lag by up to one BufWriter buffer.
     bytes_written: u64,
+    /// Threshold above which `write_row` rotates to a new shard. Set to [`MAX_FILE_BYTES`] in
+    /// production; an internal test constructor lowers it so rotation can be exercised in
+    /// unit tests without writing 64 MiB.
+    max_bytes: u64,
 }
 
 impl ForensicLog {
@@ -48,6 +68,18 @@ impl ForensicLog {
     ///
     /// The header is written immediately. If `base_path` already exists it is truncated.
     pub fn new(base_path: &Path, channel_names: &[String]) -> std::io::Result<Self> {
+        Self::with_max_bytes(base_path, channel_names, MAX_FILE_BYTES)
+    }
+
+    /// Open a forensic log with a custom rotation threshold.
+    ///
+    /// Used by [`ForensicLog::new`] (with [`MAX_FILE_BYTES`]) and by unit tests to exercise
+    /// the rotation path with small inputs.
+    fn with_max_bytes(
+        base_path: &Path,
+        channel_names: &[String],
+        max_bytes: u64,
+    ) -> std::io::Result<Self> {
         let header = build_header(channel_names);
         let bytes_written = header.len() as u64;
         let writer = open_file(base_path, &header)?;
@@ -58,6 +90,7 @@ impl ForensicLog {
             header,
             row_buf: String::new(),
             bytes_written,
+            max_bytes,
         })
     }
 
@@ -72,7 +105,7 @@ impl ForensicLog {
     ) -> std::io::Result<()> {
         // Check file size and rotate before writing if needed.
         // Use the in-memory counter rather than metadata().len() to avoid BufWriter lag.
-        if self.bytes_written >= MAX_FILE_BYTES {
+        if self.bytes_written >= self.max_bytes {
             self.rotate()?;
         }
 
@@ -288,5 +321,70 @@ mod tests {
         assert_eq!(pre_stall, [1, 2, 3], "pre-stall seqs mismatch");
         assert_eq!(post_stall, [10, 11, 12], "post-stall seqs mismatch");
         assert!(gap.is_empty(), "gap seqs should be absent: {gap:?}");
+    }
+
+    #[test]
+    fn forensic_log_rotates_when_shard_exceeds_max_bytes() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("forensic.csv");
+
+        let names = channel_names();
+
+        // Pick max_bytes small enough that 20 rows force at least one rotation, but large
+        // enough that the test does not depend on the exact bytes-per-row count.
+        let mut log =
+            ForensicLog::with_max_bytes(&path, &names, 512).expect("ForensicLog::with_max_bytes");
+
+        for seq in 1u64..=20 {
+            write_seq(&mut log, seq).expect("write_row");
+        }
+        drop(log); // flush the BufWriter for shard 0 plus any rotated shards
+
+        // Collect every CSV file the log produced under the tempdir. The base path is shard 0;
+        // additional shards are `forensic_1.csv`, `forensic_2.csv`, etc. Sort by filename so
+        // assertions are stable across filesystem orderings.
+        let mut shard_paths: Vec<PathBuf> = fs::read_dir(dir.path())
+            .expect("read_dir tempdir")
+            .filter_map(|entry| entry.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|e| e == "csv"))
+            .collect();
+        shard_paths.sort();
+
+        assert!(
+            shard_paths.len() >= 2,
+            "rotation should produce at least 2 shards under a 512-byte cap; got {} ({:?})",
+            shard_paths.len(),
+            shard_paths
+        );
+
+        // Shard 0 must exist at the user-supplied base path so existing tooling (the operator
+        // pointing the log path at a known file) keeps working across rotation.
+        assert!(
+            path.exists(),
+            "shard 0 must exist at the user-supplied base path"
+        );
+
+        // Every shard begins with an identical header so each file is independently parseable
+        // by external tooling (Excel, pandas, etc.) without context from the others.
+        let header_prefix =
+            "viewer_received_at,seq,controller_timestamp,controller_system_time,temperature_K,pressure_Pa\n";
+
+        let mut total_rows = 0usize;
+        for shard in &shard_paths {
+            let body = fs::read_to_string(shard)
+                .unwrap_or_else(|e| panic!("read {}: {e}", shard.display()));
+            assert!(
+                body.starts_with(header_prefix),
+                "shard {} missing or malformed header",
+                shard.display()
+            );
+            // Subtract one line for the header.
+            total_rows += body.lines().count().saturating_sub(1);
+        }
+
+        assert_eq!(
+            total_rows, 20,
+            "all 20 data rows must be preserved across all rotated shards"
+        );
     }
 }

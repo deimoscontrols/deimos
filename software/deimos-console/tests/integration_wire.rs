@@ -47,6 +47,8 @@ fn make_config() -> DeimosConsoleConfig {
         interface: Some(Ipv4Addr::LOCALHOST),
         window_seconds: 30.0,
         staleness_threshold_secs: 2.0,
+        tail_keep_secs: 0.5,
+        recovery_settle_secs: 2.0,
         panels: vec![],
         forensic_log_path: None,
     }
@@ -97,7 +99,7 @@ fn schema_and_row_flow_through_receiver() {
     //
     // receiver::spawn joins the multicast group on the loopback interface, starts a background
     // thread, and returns a crossbeam Receiver<ReportingMessage>.
-    let (_tx, rx, _handle) = receiver::spawn(&config).expect("receiver::spawn");
+    let (rx, _handle) = receiver::spawn(&config).expect("receiver::spawn");
 
     // Give the receiver thread a moment to join the multicast group before we send.
     thread::sleep(Duration::from_millis(50));
@@ -249,11 +251,15 @@ fn late_joiner_receives_schema_within_reemit_window() {
         while !shutdown_clone.load(Ordering::Relaxed) {
             let timestamp = start.elapsed().as_nanos() as i64;
             let values = vec![seq as f64 * 0.01, seq as f64];
-            let _ = dispatcher.consume(SystemTime::now(), timestamp, values);
+            dispatcher
+                .consume(SystemTime::now(), timestamp, values)
+                .expect("ReportingDispatcher::consume must not return Err post-init");
             seq += 1;
             thread::sleep(Duration::from_millis(20));
         }
-        let _ = dispatcher.terminate();
+        dispatcher
+            .terminate()
+            .expect("ReportingDispatcher::terminate must not return Err");
     });
 
     // --- Late-joiner window ---
@@ -273,10 +279,12 @@ fn late_joiner_receives_schema_within_reemit_window() {
         interface: Some(Ipv4Addr::LOCALHOST),
         window_seconds: 30.0,
         staleness_threshold_secs: 2.0,
+        tail_keep_secs: 0.5,
+        recovery_settle_secs: 2.0,
         panels: vec![],
         forensic_log_path: None,
     };
-    let (_tx, rx, _handle) = receiver::spawn(&config).expect("receiver::spawn");
+    let (rx, _handle) = receiver::spawn(&config).expect("receiver::spawn");
 
     // --- Drain until we see a Schema; Rows before that are expected ---
     let timeout = TEST_SCHEMA_PERIOD * 2 + Duration::from_millis(500);

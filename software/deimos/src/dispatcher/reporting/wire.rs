@@ -2,8 +2,9 @@
 //!
 //! Two message kinds are sent on the UDP multicast channel:
 //!
-//! - [`ReportingMessage::Schema`] — emitted once when the controller enters Operating, and then
-//!   periodically while Operating so late-joining viewers can discover channel metadata.
+//! - [`ReportingMessage::Schema`] — emitted once when the controller enters Operating, then
+//!   periodically while Operating so late-joining viewers can discover channel metadata, and
+//!   once more from `terminate` with `is_session_end=true` to signal a clean session close.
 //! - [`ReportingMessage::Row`] — emitted once per control-loop cycle, carrying the latest values
 //!   for every dispatched channel.
 //!

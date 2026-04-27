@@ -11,6 +11,14 @@ fn default_staleness_threshold_secs() -> f64 {
     2.0
 }
 
+fn default_tail_keep_secs() -> f64 {
+    0.5
+}
+
+fn default_recovery_settle_secs() -> f64 {
+    2.0
+}
+
 /// Top-level configuration for the Deimos operator console.
 #[derive(Debug, Deserialize)]
 pub struct DeimosConsoleConfig {
@@ -30,6 +38,15 @@ pub struct DeimosConsoleConfig {
     /// Defaults to 2 seconds.
     #[serde(default = "default_staleness_threshold_secs")]
     pub staleness_threshold_secs: f64,
+    /// On stall detection, how many seconds of pre-stall samples to retain as visual context
+    /// leading into the discontinuity. Smaller values restore the live window faster; larger
+    /// values preserve more "before the stall" context for the operator. Defaults to 0.5 s.
+    #[serde(default = "default_tail_keep_secs")]
+    pub tail_keep_secs: f64,
+    /// After a stall is cleared, how long the connection-health indicator stays in the
+    /// `Recovering` state before transitioning back to `Fresh`. Defaults to 2 s.
+    #[serde(default = "default_recovery_settle_secs")]
+    pub recovery_settle_secs: f64,
     /// Panel definitions — each panel renders a set of channels.
     #[serde(default)]
     pub panels: Vec<PanelConfig>,

@@ -80,6 +80,7 @@
 //! controller timestamps.  This log is independent of the controller's own CSV.
 
 use std::net::Ipv4Addr;
+use std::sync::atomic::Ordering;
 use std::time::{Duration, SystemTime};
 
 use deimos::{
@@ -175,12 +176,18 @@ fn main() {
     // -----------------------------------------------------------------------
 
     // Reporting dispatcher: multicast every Row to the operator console.
+    //
+    // Clone the dropped-frames counter handle before handing the dispatcher to the
+    // controller. The controller consumes the Box, but the Arc keeps the counter
+    // alive so we can read the final count after `Controller::run` returns —
+    // including after `terminate` resets other runtime state.
     let reporting = ReportingDispatcher::new(
         MULTICAST_GROUP,
         MULTICAST_PORT,
         None,                   // outbound_interface: let the OS choose
         Duration::from_secs(2), // schema_period: re-emit Schema every 2 s
     );
+    let dropped_handle = reporting.dropped_frames_handle();
     controller.add_dispatcher("reporting", reporting);
 
     // CSV dispatcher: keep a local record alongside the multicast stream.
@@ -200,6 +207,13 @@ fn main() {
 
     // -----------------------------------------------------------------------
     // Report outcome.
+    //
+    // The dropped-frames check doubles as a smoke test: at 20 Hz the kernel UDP
+    // send buffer is large enough that every non-blocking send_to should succeed
+    // even with no receiver attached, so a non-zero count signals a regression
+    // (e.g., a much smaller default SO_SNDBUF on a new platform). Drops counted
+    // on the *viewer* side — when the operator console can't keep up — are a
+    // separate path tracked by `deimos_console::receiver::DROPPED_FRAMES`.
     // -----------------------------------------------------------------------
     match result {
         Ok(_reason) => {
@@ -210,5 +224,12 @@ fn main() {
             eprintln!("Controller exited with error: {e}");
             std::process::exit(1);
         }
+    }
+
+    let dropped = dropped_handle.load(Ordering::Relaxed);
+    println!("ReportingDispatcher dropped_frames: {dropped}");
+    if dropped != 0 {
+        eprintln!("FAIL: expected dropped_frames == 0 at {RATE_HZ} Hz, got {dropped}.");
+        std::process::exit(1);
     }
 }

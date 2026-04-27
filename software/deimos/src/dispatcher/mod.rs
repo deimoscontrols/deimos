@@ -141,9 +141,7 @@ pub fn csv_row(stringbuf: &mut String, vals: (SystemTime, i64, &[f64])) {
     stringbuf.clear();
     let (time, timestamp, channel_values) = vals;
 
-    // This format guarantees fixed-width date format by zero-padding sub-second decimal
     let t_iso8601 = fmt_time(time);
-    // Timestamp and floats need some effort to maintain fixed width
     stringbuf.extend(format!("{timestamp},{t_iso8601}").chars());
     for c in channel_values {
         stringbuf.push_str(&format!(",{}", *c));

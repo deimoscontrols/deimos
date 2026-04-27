@@ -64,7 +64,7 @@ fn main() -> Result<()> {
 
     // Spawn the UDP multicast receiver thread. The join handle is intentionally dropped here;
     // the thread exits when the process terminates or on a non-transient socket error.
-    let (_tx, rx, _recv_handle) =
+    let (rx, _recv_handle) =
         receiver::spawn(&config).with_context(|| "failed to start multicast receiver thread")?;
 
     let options = eframe::NativeOptions::default();

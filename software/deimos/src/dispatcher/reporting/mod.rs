@@ -4,12 +4,14 @@
 //!
 //! `ReportingDispatcher` serializes each [`Row`] onto a one-way UDP multicast transport
 //! suitable for multi-seat control rooms. Sends in the control loop are non-blocking and
-//! infallible: if the socket buffer is full, the frame is dropped and `dropped_frames` is
-//! incremented. The dispatcher never returns `Err` from `consume` after a successful `init`.
+//! infallible: any `send_to` error — `WouldBlock` from a full socket buffer, ENETUNREACH,
+//! or any other transient failure — increments `dropped_frames` and is swallowed so the
+//! dispatcher never returns `Err` from `consume` after a successful `init`.
 //!
 //! Two message types are sent on the wire:
-//! - [`ReportingMessage::Schema`] — emitted at the start of Operating and periodically
-//!   thereafter; contains channel names, units, and a wall-clock anchor.
+//! - [`ReportingMessage::Schema`] — emitted at the start of Operating, periodically
+//!   re-emitted while Operating, and once more from `terminate` with `is_session_end=true`;
+//!   contains channel names, units, and a wall-clock anchor.
 //! - [`ReportingMessage::Row`] — one per `consume` call; carries the sequence number,
 //!   timestamps, and channel values.
 
@@ -402,6 +404,8 @@ impl Dispatcher for ReportingDispatcher {
                     // Switch to blocking mode for the final send so a momentarily-full
                     // kernel buffer does not silently swallow the session-end marker.
                     // Errors are rate-limit-warned and ignored — terminate must not return Err.
+                    // Mode change is scoped to this single send: the socket is dropped a few
+                    // lines below when `self.socket = None;` runs, so we don't need to undo it.
                     if let Err(e) = socket.set_nonblocking(false) {
                         warn!(
                             "ReportingDispatcher: could not set blocking mode for session-end \
