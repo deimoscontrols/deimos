@@ -1,0 +1,40 @@
+name: test-rust-numerics
+
+on:
+  pull_request:
+    branches: [ "*" ]
+  push:
+    branches: [ "main" ]
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./software/deimos_numerics
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Lint
+        run: |
+          cargo fmt --check --verbose
+          cargo clippy --all-targets --verbose
+          cargo check --no-default-features --features alloc --verbose
+          cargo check --target wasm32-unknown-unknown --verbose
+
+      - name: Test
+        run: |
+          cargo test --no-default-features --verbose
+          cargo test --features fma --verbose
+          cargo test --verbose
