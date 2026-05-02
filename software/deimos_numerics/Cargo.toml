@@ -1,0 +1,47 @@
+[package]
+name = "deimos_numerics"
+version.workspace = true
+edition = "2024"
+authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/deimoscontrols/deimos/software/deimos_numerics"
+homepage = "https://github.com/deimoscontrols/deimos"
+description = "Numerical methods and control systems analysis"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+crunchy = "^0.2.4"
+num-traits = { version = "^0.2.19", default-features = false, features = ["libm"] }
+faer = { version = "^0.24.0", default-features = false, optional = true }
+faer-traits = { version = "^0.24.0", default-features = false, optional = true }
+levenberg-marquardt = { version = "^0.15.0", optional = true }
+nalgebra = { version = "^0.34", default-features = false, features = ["alloc", "libm"], optional = true }
+
+[features]
+default = ["alloc"]
+alloc = ["dep:faer", "dep:faer-traits", "dep:levenberg-marquardt", "dep:nalgebra", "faer/sparse-linalg"]
+fma = []
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[dev-dependencies]
+criterion = "0.8.2"
+
+[[bench]]
+name = "bench"
+harness = false
+
+[profile.release]
+opt-level = 3
+codegen-units = 16
+lto = true
+strip = true
+overflow-checks = true
+
+[profile.dev]
+opt-level = 1
+codegen-units = 32
+lto = false
