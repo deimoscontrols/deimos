@@ -4,8 +4,6 @@ Numerical methods and control systems analysis.
 
 ## Feature Status
 
-`no-std` means the feature does not require `std` when `alloc` is available. `no-alloc` means the feature is available with default features disabled.
-
 | Feature area | Sparse | Dense | Continuous | Discrete | no-std | no-alloc | wasm |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Linear solves | ✅ | ✅ | n/a | n/a | ✅ | n/a | ✅ |
@@ -19,18 +17,7 @@ Numerical methods and control systems analysis.
 | Identification and realization | n/a | ✅ | n/a | ✅ | ✅ | n/a | ✅ |
 | Model reduction | n/a | ✅ | ✅ | 💡 | ✅ | n/a | ✅ |
 
-### Embedded fixed runtime
-
-| Feature | Sparse | Dense | Continuous | Discrete | no-std | no-alloc | wasm |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Fixed-size matrix / vector storage | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
-| Fixed discrete state-space runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
-| Fixed FIR runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
-| Fixed delta-SOS runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
-| Fixed PID runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
-| Fractional-delay FIR taps | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
-| Fixed discrete Kalman filter | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
-| Fixed steady-state Kalman filter | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+## Numerical Methods
 
 ### Linear solves
 
@@ -54,6 +41,21 @@ Numerical methods and control systems analysis.
 | Singular value decomposition | ✅ | ✅ | n/a | n/a | ✅ | n/a | ✅ |
 | Matrix-free operator adapters | ✅ | n/a | n/a | n/a | ✅ | n/a | ✅ |
 | Convergence diagnostics | ✅ | ✅ | n/a | n/a | ✅ | n/a | ✅ |
+
+## Control Systems & Digital Signal Processing
+
+### Embedded fixed runtime
+
+| Feature | Sparse | Dense | Continuous | Discrete | no-std | no-alloc | wasm |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Fixed-size matrix / vector storage | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+| Fixed discrete state-space runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+| Fixed FIR runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+| Fixed delta-SOS runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+| Fixed PID runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+| Fractional-delay FIR taps | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+| Fixed discrete Kalman filter | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+| Fixed steady-state Kalman filter | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
 
 ### Matrix equations
 
@@ -130,7 +132,6 @@ Numerical methods and control systems analysis.
 | ERA from Markov data | n/a | ✅ | n/a | ✅ | ✅ | n/a | ✅ |
 | ERA from shifted Hankel data | n/a | ✅ | n/a | ✅ | ✅ | n/a | ✅ |
 | OKID from sampled I/O data | n/a | ✅ | n/a | ✅ | ✅ | n/a | ✅ |
-| Continuous-time identification | n/a | 💡 | 💡 | n/a | ✅ | n/a | ✅ |
 
 ### Model reduction
 
