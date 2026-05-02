@@ -19,6 +19,19 @@ Numerical methods and control systems analysis.
 | Identification and realization | n/a | ✅ | n/a | ✅ | ✅ | n/a | ✅ |
 | Model reduction | n/a | ✅ | ✅ | 💡 | ✅ | n/a | ✅ |
 
+### Embedded fixed runtime
+
+| Feature | Sparse | Dense | Continuous | Discrete | no-std | no-alloc | wasm |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Fixed-size matrix / vector storage | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+| Fixed discrete state-space runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+| Fixed FIR runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+| Fixed delta-SOS runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+| Fixed PID runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+| Fractional-delay FIR taps | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+| Fixed discrete Kalman filter | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+| Fixed steady-state Kalman filter | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
+
 ### Linear solves
 
 | Feature | Sparse | Dense | Continuous | Discrete | no-std | no-alloc | wasm |
@@ -106,19 +119,6 @@ Numerical methods and control systems analysis.
 | Steady-state Kalman filter | n/a | ✅ | n/a | ✅ | ✅ | n/a | ✅ |
 | EKF runtime | n/a | ✅ | n/a | ✅ | ✅ | n/a | ✅ |
 | UKF runtime | n/a | ✅ | n/a | ✅ | ✅ | n/a | ✅ |
-
-### Embedded fixed runtime
-
-| Feature | Sparse | Dense | Continuous | Discrete | no-std | no-alloc | wasm |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Fixed-size matrix / vector storage | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
-| Fixed discrete state-space runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
-| Fixed FIR runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
-| Fixed delta-SOS runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
-| Fixed PID runtime | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
-| Fractional-delay FIR taps | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
-| Fixed discrete Kalman filter | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
-| Fixed steady-state Kalman filter | n/a | ✅ | n/a | ✅ | ✅ | ✅ | ✅ |
 
 ### Identification and realization
 
