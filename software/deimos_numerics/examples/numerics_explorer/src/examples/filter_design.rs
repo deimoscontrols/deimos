@@ -1,4 +1,5 @@
 use crate::demo_signal::step_then_tone_signal;
+use crate::plot_helpers::DEIMOS_PLOT_INK;
 use crate::plotly_support::use_plotly_chart;
 use deimos_numerics::control::lti::{
     DeltaSection, DigitalFilterFamily, DigitalFilterSpec, DiscreteSos, DiscreteStateSpace,
@@ -1207,7 +1208,7 @@ fn build_multiline_plot(
     let mut plot = Plot::new();
     for (index, (name, x, y)) in series.into_iter().enumerate() {
         let line = Line::new()
-            .color("#000000")
+            .color(DEIMOS_PLOT_INK)
             .width(if show_legend { 2.0 } else { 1.0 })
             .dash(dash_style(index));
         let mut trace = Scatter::new(x, y).mode(Mode::Lines).line(line).name(name);

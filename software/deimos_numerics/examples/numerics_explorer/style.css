@@ -1,18 +1,20 @@
 :root {
-  --bg: #f3efe4;
-  --panel: #fff9ef;
-  --panel-strong: #f7edd7;
-  --ink: #20201b;
-  --muted: #625d4f;
-  --line: #d8ccb1;
-  --accent: #155e63;
-  --accent-soft: #d9efec;
-  --accent-strong: #0d3f43;
-  --warning: #856404;
-  --warning-bg: #fff3cd;
-  --success: #1d5d2f;
-  --success-bg: #e0f2e5;
-  --shadow: 0 10px 30px rgba(32, 32, 27, 0.08);
+  --deimos-primary: #8232ba;
+  --deimos-accent: #ac37ff;
+  --bg: #1e2129;
+  --panel: #2b2f3a;
+  --panel-strong: #363b48;
+  --ink: #f2f0f6;
+  --muted: #b9b2c6;
+  --line: #47404f;
+  --accent: var(--deimos-primary);
+  --accent-soft: rgba(172, 55, 255, 0.18);
+  --accent-strong: var(--deimos-accent);
+  --warning: #ffd166;
+  --warning-bg: rgba(255, 209, 102, 0.16);
+  --success: #80ed99;
+  --success-bg: rgba(128, 237, 153, 0.14);
+  --shadow: 0 14px 34px rgba(7, 8, 12, 0.3);
 }
 
 * {
@@ -22,8 +24,8 @@
 body {
   margin: 0;
   background:
-    radial-gradient(circle at top left, rgba(21, 94, 99, 0.08), transparent 28%),
-    linear-gradient(180deg, #f7f1e5 0%, var(--bg) 100%);
+    radial-gradient(circle at top left, rgba(172, 55, 255, 0.24), transparent 30%),
+    linear-gradient(180deg, #242833 0%, var(--bg) 100%);
   color: var(--ink);
   font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
 }
@@ -42,7 +44,7 @@ input {
 .sidebar {
   padding: 1.5rem;
   border-right: 1px solid var(--line);
-  background: rgba(255, 249, 239, 0.88);
+  background: rgba(31, 34, 43, 0.9);
   backdrop-filter: blur(12px);
 }
 

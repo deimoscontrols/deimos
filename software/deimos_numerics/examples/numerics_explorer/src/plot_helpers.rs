@@ -4,6 +4,8 @@ use plotly::{
     layout::{Axis, AxisConstrain, AxisType},
 };
 
+pub const DEIMOS_PLOT_INK: &str = "#ac37ff";
+
 /// One line-oriented Plotly trace.
 #[derive(Clone)]
 pub struct LineSeries {
@@ -124,16 +126,16 @@ pub fn build_line_plot(
     let mut plot = Plot::new();
     for (index, trace) in series.into_iter().enumerate() {
         let line_style = Line::new()
-            .color("#000000")
+            .color(DEIMOS_PLOT_INK)
             .dash(trace.dash.unwrap_or_else(|| dash_style(index)))
             .width(trace.line_width);
         let marker_size = trace.marker_size.unwrap_or(11);
         let marker_style = match trace.marker_symbol {
             Some(symbol) => Marker::new()
-                .color("#000000")
+                .color(DEIMOS_PLOT_INK)
                 .symbol(symbol)
                 .size(marker_size),
-            None => Marker::new().color("#000000"),
+            None => Marker::new().color(DEIMOS_PLOT_INK),
         };
         plot.add_trace(
             Scatter::new(trace.x, trace.y)
@@ -282,7 +284,7 @@ pub fn build_sparse_pattern_plot(
     plot.add_trace(
         Scatter::new(columns, rows).mode(Mode::Markers).marker(
             Marker::new()
-                .color("#000000")
+                .color(DEIMOS_PLOT_INK)
                 .size(4)
                 .symbol(MarkerSymbol::Square),
         ),
