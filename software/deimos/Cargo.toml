@@ -69,3 +69,6 @@ name = "ipc_plugin"
 
 [[example]]
 name = "sideloading"
+
+[[example]]
+name = "hootl_lifecycle"
