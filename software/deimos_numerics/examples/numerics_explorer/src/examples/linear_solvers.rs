@@ -2,13 +2,13 @@ use crate::demo_signal::gaussianish_signal;
 use crate::plot_helpers::{LineSeries, build_line_plot, build_sparse_pattern_plot};
 use crate::plotly_support::use_plotly_chart;
 use crate::timing::{measure, measure_average_until};
+use deimos_numerics::sparse::{
+    BiCGSTAB, DiagonalPrecond, Equilibration, EquilibrationParams, SparseLu, SparseMatVec,
+};
 use faer::sparse::linalg::lu::LuSymbolicParams;
 use faer::sparse::{SparseColMat, Triplet};
 use faer::{Par, Spec};
 use leptos::prelude::*;
-use numerical::sparse::{
-    BiCGSTAB, DiagonalPrecond, Equilibration, EquilibrationParams, SparseLu, SparseMatVec,
-};
 use plotly::Plot;
 
 /// Interactive sparse direct-versus-iterative solver comparison.
@@ -695,7 +695,7 @@ fn finish_bicg_solve<P>(
     max_iterations: usize,
 ) -> Result<BicgSolveResult, String>
 where
-    P: numerical::sparse::Precond<f64>,
+    P: deimos_numerics::sparse::Precond<f64>,
 {
     let mut residual_history = vec![solver.err()];
     let mut converged = solver.err() < tolerance;

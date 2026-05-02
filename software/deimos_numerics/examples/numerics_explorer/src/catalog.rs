@@ -131,7 +131,7 @@ pub const EXAMPLE_GROUPS: &[ExampleGroup] = &[
             ExampleEntry {
                 id: ExampleId::LtiProcessModels,
                 title: "Process Models",
-                summary: "Explore delayed first-order process models with step and Bode views driven by `numerical`.",
+                summary: "Explore delayed first-order process models with step and Bode views driven by `deimos_numerics`.",
                 status: ExampleStatus::Ready,
             },
             ExampleEntry {

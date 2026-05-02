@@ -5,9 +5,11 @@ use crate::plot_helpers::{
 };
 use crate::plotly_support::use_plotly_chart;
 use crate::timing::measure;
+use deimos_numerics::decomp::{
+    DenseDecompParams, dense_eigen, dense_self_adjoint_eigen, dense_svd,
+};
 use faer::Mat;
 use leptos::prelude::*;
-use numerical::decomp::{DenseDecompParams, dense_eigen, dense_self_adjoint_eigen, dense_svd};
 use plotly::Plot;
 
 /// Interactive dense spectral page comparing eigen and singular structure.

@@ -2,8 +2,8 @@ use crate::plot_helpers::{
     LineSeries, build_complex_plane_plot, build_line_plot, linspace, logspace,
 };
 use crate::plotly_support::use_plotly_chart;
+use deimos_numerics::control::lti::ContinuousTransferFunction;
 use leptos::prelude::*;
-use numerical::control::lti::ContinuousTransferFunction;
 use plotly::Plot;
 use plotly::common::{DashType, MarkerSymbol};
 

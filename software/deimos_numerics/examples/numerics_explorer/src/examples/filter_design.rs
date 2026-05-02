@@ -1,13 +1,13 @@
 use crate::demo_signal::step_then_tone_signal;
 use crate::plotly_support::use_plotly_chart;
-use faer_traits::RealField;
-use leptos::prelude::*;
-use num_traits::{Float, ToPrimitive};
-use numerical::control::lti::{
+use deimos_numerics::control::lti::{
     DeltaSection, DigitalFilterFamily, DigitalFilterSpec, DiscreteSos, DiscreteStateSpace,
     FilterShape, SecondOrderSection, design_digital_filter_sos,
 };
-use numerical::sparse::CompensatedField;
+use deimos_numerics::sparse::CompensatedField;
+use faer_traits::RealField;
+use leptos::prelude::*;
+use num_traits::{Float, ToPrimitive};
 use plotly::{
     Layout, Plot, Scatter,
     common::{DashType, Line, Mode, Title},

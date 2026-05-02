@@ -2,10 +2,10 @@ use crate::plot_helpers::{
     LineSeries, build_line_plot, build_matrix_heatmap_plot, linspace, logspace, matrix_grid_from_fn,
 };
 use crate::plotly_support::use_plotly_chart;
+use deimos_numerics::control::lti::ContinuousStateSpace;
+use deimos_numerics::control::reduction::BalancedParams;
 use faer::Mat;
 use leptos::prelude::*;
-use numerical::control::lti::ContinuousStateSpace;
-use numerical::control::reduction::BalancedParams;
 use plotly::Plot;
 
 /// Interactive balanced-truncation page comparing full and reduced models.
@@ -505,7 +505,7 @@ fn planted_reduction_system(order: usize) -> Result<ContinuousStateSpace<f64>, S
 #[cfg(test)]
 mod tests {
     use super::{planted_reduction_system, run_reduction_demo};
-    use numerical::control::reduction::BalancedParams;
+    use deimos_numerics::control::reduction::BalancedParams;
 
     #[test]
     fn planted_reduction_system_has_richer_hsv_spectrum() {

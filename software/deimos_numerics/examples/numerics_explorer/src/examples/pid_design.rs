@@ -1,15 +1,15 @@
 use crate::plot_helpers::{LineSeries, build_line_plot};
 use crate::plotly_support::use_plotly_chart;
-use faer::Mat;
-use leptos::{ev::Event, prelude::*};
-use numerical::control::lti::state_space::DiscretizationMethod;
-use numerical::control::lti::{
+use deimos_numerics::control::lti::state_space::DiscretizationMethod;
+use deimos_numerics::control::lti::{
     ContinuousStateSpace, ContinuousTransferFunction, FopdtModel, SopdtModel,
 };
-use numerical::control::synthesis::{
+use deimos_numerics::control::synthesis::{
     AntiWindup, FrequencyPidParams, Pid, PidControllerKind, PidState, SimcPidParams,
     design_pid_from_continuous_state_space_frequency, design_pid_from_fopdt, design_pid_from_sopdt,
 };
+use faer::Mat;
+use leptos::{ev::Event, prelude::*};
 use plotly::Plot;
 use plotly::common::DashType;
 use std::collections::VecDeque;

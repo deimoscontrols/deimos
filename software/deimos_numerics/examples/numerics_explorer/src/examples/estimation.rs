@@ -1,10 +1,10 @@
 use crate::demo_signal::{colored_signal, gaussianish_signal};
 use crate::plot_helpers::{LineSeries, build_line_plot};
 use crate::plotly_support::use_plotly_chart;
+use deimos_numerics::control::estimation::{DiscreteKalmanFilter, SteadyStateKalmanFilter};
+use deimos_numerics::control::lti::DiscreteStateSpace;
 use faer::Mat;
 use leptos::prelude::*;
-use numerical::control::estimation::{DiscreteKalmanFilter, SteadyStateKalmanFilter};
-use numerical::control::lti::DiscreteStateSpace;
 use plotly::Plot;
 
 /// Interactive linear-estimation page comparing full and steady-state Kalman

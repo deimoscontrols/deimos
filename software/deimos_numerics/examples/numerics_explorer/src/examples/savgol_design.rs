@@ -1,8 +1,8 @@
 use crate::demo_signal::step_then_tone_signal;
 use crate::plot_helpers::{LineSeries, build_line_plot, logspace};
 use crate::plotly_support::use_plotly_chart;
+use deimos_numerics::control::lti::{Fir, SavGolSpec, design_savgol};
 use leptos::prelude::*;
-use numerical::control::lti::{Fir, SavGolSpec, design_savgol};
 use plotly::Plot;
 
 /// Interactive Savitzky-Golay filter-design page.
@@ -41,7 +41,7 @@ pub fn SavGolDesignPage() -> impl IntoView {
                 <h1>"Savitzky-Golay"</h1>
                 <p>
                     "This page compares a Savitzky-Golay smoothing kernel against a same-window sliding mean,"
-                    " using the FIR design and analysis paths directly from `numerical`."
+                    " using the FIR design and analysis paths directly from `deimos_numerics`."
                 </p>
             </header>
 

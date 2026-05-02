@@ -2,9 +2,9 @@ use crate::plot_helpers::{
     LineSeries, build_line_plot, build_matrix_heatmap_plot, matrix_grid_from_fn,
 };
 use crate::plotly_support::use_plotly_chart;
+use deimos_numerics::control::lti::DiscreteStateSpace;
 use faer::Mat;
 use leptos::prelude::*;
-use numerical::control::lti::DiscreteStateSpace;
 use plotly::common::{DashType, Title};
 use plotly::{Layout, Plot};
 

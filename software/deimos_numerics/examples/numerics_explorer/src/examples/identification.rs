@@ -1,9 +1,11 @@
 use crate::plot_helpers::{LineSeries, build_line_plot, logspace};
 use crate::plotly_support::use_plotly_chart;
+use deimos_numerics::control::identification::{
+    EraError, EraParams, OkidParams, era_from_markov, okid,
+};
+use deimos_numerics::control::lti::DiscreteStateSpace;
 use faer::Mat;
 use leptos::prelude::*;
-use numerical::control::identification::{EraError, EraParams, OkidParams, era_from_markov, okid};
-use numerical::control::lti::DiscreteStateSpace;
 use plotly::Plot;
 
 /// Interactive identification page demonstrating an OKID -> ERA workflow on

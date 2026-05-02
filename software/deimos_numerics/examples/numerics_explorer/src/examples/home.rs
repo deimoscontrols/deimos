@@ -8,11 +8,11 @@ pub fn HomePage(set_selected: WriteSignal<ExampleId>) -> impl IntoView {
         <div class="page">
             <header class="page-header">
                 <p class="eyebrow">"Interactive Example Browser"</p>
-                <h1>"numerical + Leptos + Plotly"</h1>
+                <h1>"deimos_numerics + Leptos + Plotly"</h1>
                 <p>
                     "This app is a browser-hosted workbench for interactive examples across the major control and"
                     " numerics feature areas. Each page keeps controls in Leptos signals, builds figures in Rust,"
-                    " and calls directly into `numerical` for the plotted data."
+                    " and calls directly into `deimos_numerics` for the plotted data."
                 </p>
             </header>
 

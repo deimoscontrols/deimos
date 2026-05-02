@@ -1,14 +1,14 @@
-# numerical interactive examples
+# deimos_numerics interactive examples
 
 This is a standalone `Leptos` + `plotly.rs` client-side application for
-building interactive examples directly on top of the `numerical` crate.
+building interactive examples directly on top of the `deimos_numerics` crate.
 
 The scaffold is intentionally simple:
 
 - `Leptos` manages app state and controls.
 - `plotly.rs` builds figure specs in Rust.
 - Plot rendering is delegated to Plotly.js in the browser.
-- Each example lives in plain Rust and can call directly into `numerical`.
+- Each example lives in plain Rust and can call directly into `deimos_numerics`.
 
 ## Prerequisites
 
@@ -71,5 +71,5 @@ The existing pages are the reference patterns for:
 
 - control-panel signals
 - derived plot generation
-- calling `numerical` directly from UI logic
+- calling `deimos_numerics` directly from UI logic
 - rendering Plotly figures from Rust

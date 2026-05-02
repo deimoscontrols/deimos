@@ -3,13 +3,13 @@ use crate::plot_helpers::{
 };
 use crate::plotly_support::use_plotly_chart;
 use crate::timing::measure;
-use faer::Mat;
-use leptos::prelude::*;
-use numerical::control::lti::ContinuousStateSpace;
-use numerical::control::reduction::{HsvdParams, hsvd_from_dense_gramians};
-use numerical::decomp::{
+use deimos_numerics::control::lti::ContinuousStateSpace;
+use deimos_numerics::control::reduction::{HsvdParams, hsvd_from_dense_gramians};
+use deimos_numerics::decomp::{
     DenseDecompParams, dense_eigenvalues, dense_self_adjoint_eigen, dense_svd,
 };
+use faer::Mat;
+use leptos::prelude::*;
 use plotly::Plot;
 
 /// Interactive Gramian and HSVD exploration page.

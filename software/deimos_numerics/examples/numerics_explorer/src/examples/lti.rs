@@ -1,6 +1,6 @@
 use crate::plotly_support::use_plotly_chart;
+use deimos_numerics::control::lti::FopdtModel;
 use leptos::prelude::*;
-use numerical::control::lti::FopdtModel;
 use plotly::{
     Layout, Plot, Scatter,
     common::{Line, Mode, Title},
@@ -41,7 +41,7 @@ pub fn LtiProcessModelsPage() -> impl IntoView {
                 <p>
                     "This page exercises the explicit-delay process-model API directly in the browser."
                     " Adjust the gain, lag, and delay and the step and Bode plots are regenerated from "
-                    "`numerical::control::lti::FopdtModel`."
+                    "`deimos_numerics::control::lti::FopdtModel`."
                 </p>
             </header>
 

@@ -1,12 +1,12 @@
 use crate::demo_signal::gaussianish_signal;
 use crate::plot_helpers::{LineSeries, build_line_plot, linspace, logspace};
 use crate::plotly_support::use_plotly_chart;
-use leptos::prelude::*;
-use numerical::control::lti::{ContinuousTransferFunction, FopdtModel, SopdtModel};
-use numerical::control::synthesis::{
+use deimos_numerics::control::lti::{ContinuousTransferFunction, FopdtModel, SopdtModel};
+use deimos_numerics::control::synthesis::{
     ProcessModelFitOptions, StepResponseData, fit_fopdt_from_step_response_with_options,
     fit_sopdt_from_step_response_with_options,
 };
+use leptos::prelude::*;
 use plotly::Plot;
 use plotly::common::{DashType, MarkerSymbol};
 
@@ -811,7 +811,7 @@ fn process_fit_frequency_grid(inputs: ProcessFitInputs) -> Vec<f64> {
 fn true_source_bode(
     inputs: ProcessFitInputs,
     angular_frequencies: &[f64],
-) -> Result<numerical::control::lti::BodeData<f64>, String> {
+) -> Result<deimos_numerics::control::lti::BodeData<f64>, String> {
     match inputs.source_kind {
         FitSourceKind::Fopdt => FopdtModel {
             gain: inputs.fopdt_gain,
@@ -974,7 +974,7 @@ fn rms_error(lhs: &[f64], rhs: &[f64]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::{FitSourceKind, ProcessFitInputs, run_process_fit_demo};
-    use numerical::control::synthesis::ProcessModelFitOptions;
+    use deimos_numerics::control::synthesis::ProcessModelFitOptions;
 
     #[test]
     fn process_fit_demo_runs_for_all_sources() {

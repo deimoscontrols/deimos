@@ -1,13 +1,13 @@
 use crate::plot_helpers::{LineSeries, build_line_plot, build_sparse_pattern_plot};
 use crate::plotly_support::use_plotly_chart;
 use crate::timing::measure;
+use deimos_numerics::sparse::{SparseLdlt, SparseLlt, SparseMatVec};
 use faer::linalg::cholesky::ldlt::factor::LdltRegularization;
 use faer::linalg::cholesky::llt::factor::LltRegularization;
 use faer::sparse::linalg::cholesky::{CholeskySymbolicParams, SymmetricOrdering};
 use faer::sparse::{SparseColMat, Triplet};
 use faer::{Par, Side, Spec};
 use leptos::prelude::*;
-use numerical::sparse::{SparseLdlt, SparseLlt, SparseMatVec};
 use plotly::Plot;
 
 /// Interactive sparse Cholesky page comparing LLT and LDLT on symmetric systems.

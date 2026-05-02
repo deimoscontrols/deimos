@@ -2,11 +2,11 @@ use crate::demo_signal::gaussianish_signal;
 use crate::plot_helpers::{LineSeries, build_line_plot, build_sparse_pattern_plot};
 use crate::plotly_support::use_plotly_chart;
 use crate::timing::measure;
-use faer::sparse::{SparseColMat, Triplet};
-use leptos::prelude::*;
-use numerical::sparse::{
+use deimos_numerics::sparse::{
     BiCGSTAB, DiagonalPrecond, Equilibration, EquilibrationParams, Precond, SparseMatVec,
 };
+use faer::sparse::{SparseColMat, Triplet};
+use leptos::prelude::*;
 use plotly::Plot;
 
 /// Interactive sparse equilibration page comparing unscaled and equilibrated Krylov solves.

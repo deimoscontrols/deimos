@@ -1,14 +1,14 @@
 use crate::demo_signal::{colored_signal, gaussianish_signal};
 use crate::plot_helpers::{LineSeries, build_line_plot};
 use crate::plotly_support::use_plotly_chart;
-use faer::{Col, Mat};
-use leptos::prelude::*;
-use numerical::control::estimation::DiscreteKalmanFilter;
-use numerical::embedded::alloc::estimation::{
+use deimos_numerics::control::estimation::DiscreteKalmanFilter;
+use deimos_numerics::control::lti::DiscreteStateSpace;
+use deimos_numerics::embedded::alloc::estimation::{
     DiscreteExtendedKalmanModel, DiscreteNonlinearModel, ExtendedKalmanFilter,
     UnscentedKalmanFilter,
 };
-use numerical::control::lti::DiscreteStateSpace;
+use faer::{Col, Mat};
+use leptos::prelude::*;
 use plotly::Plot;
 use plotly::common::DashType;
 
