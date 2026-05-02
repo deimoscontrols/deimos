@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-01 deimos_numerics 0.16.1
+
+Initial addition of `deimos_numerics`, a wasm-compatible, no-std-compatible, and partially no-alloc-compatible numerics and control systems library.
+
 ## 2026-04-02 deimos 0.16.1, rev7 firmware 0.6.0
 
 This update continues the buildup of the firmware for the rev7,
