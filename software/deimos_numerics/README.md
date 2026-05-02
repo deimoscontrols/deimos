@@ -142,7 +142,6 @@ Numerical methods and control systems analysis.
 | Balanced realization | n/a | ✅ | ✅ | ✅ | ✅ | n/a | ✅ |
 | Balanced truncation | ✅ | ✅ | ✅ | ✅ | ✅ | n/a | ✅ |
 | Reduced-order diagnostics | ✅ | ✅ | ✅ | ✅ | ✅ | n/a | ✅ |
-| Sparse state-space reduction front end | 💡 | n/a | 💡 | 💡 | ✅ | n/a | ✅ |
 
 ## License
 
