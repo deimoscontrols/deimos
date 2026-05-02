@@ -32,9 +32,6 @@ pub fn GramianHsvdPage() -> impl IntoView {
     };
     let demo = Memo::new(move |_| run_gramian_hsvd_demo(inputs()));
 
-    use_plotly_chart("gramian-spectrum-plot", move || {
-        build_gramian_plot(demo.get(), GramianPlot::GramianSpectra)
-    });
     use_plotly_chart("hsvd-spectrum-plot", move || {
         build_gramian_plot(demo.get(), GramianPlot::HsvdVsSvd)
     });
@@ -202,28 +199,16 @@ pub fn GramianHsvdPage() -> impl IntoView {
                         <div class="plot-header">
                             <div>
                                 <h2>"Gramian and HSVD spectra"</h2>
-                                <p>"Energy-distribution and balanced-importance views for the same planted system."</p>
+                                <p>"Energy-distribution, balanced-importance, and state-matrix spectra for the same planted system."</p>
                             </div>
                         </div>
-                        <div class="plot-subsection">
-                            <div class="plot-header">
-                                <div>
-                                    <h2>"Gramian spectra"</h2>
-                                    <p>"Log10 eigenvalue spectra of the controllability and observability Gramians."</p>
-                                </div>
+                        <div class="plot-header">
+                            <div>
+                                <h2>"HSVD, Gramian spectra, and plain SVD"</h2>
+                                <p>"Log10 Hankel singular values, Gramian eigenvalue spectra, singular values of A, and eigenvalue magnitudes of A."</p>
                             </div>
-                            <div id="gramian-spectrum-plot" class="plot-surface"></div>
                         </div>
-
-                        <div class="plot-subsection">
-                            <div class="plot-header">
-                                <div>
-                                    <h2>"HSVD versus plain SVD"</h2>
-                                    <p>"Log10 Hankel singular values compared with the singular values and eigenvalue magnitudes of A."</p>
-                                </div>
-                            </div>
-                            <div id="hsvd-spectrum-plot" class="plot-surface"></div>
-                        </div>
+                        <div id="hsvd-spectrum-plot" class="plot-surface"></div>
                     </article>
 
                     <div class="plots-grid compact">
@@ -265,7 +250,6 @@ pub fn GramianHsvdPage() -> impl IntoView {
 
 #[derive(Clone, Copy)]
 enum GramianPlot {
-    GramianSpectra,
     HsvdVsSvd,
     StateMatrix,
     ControllabilityMatrix,
@@ -306,31 +290,23 @@ struct GramianHsvdDemo {
 fn build_gramian_plot(result: Result<GramianHsvdDemo, String>, which: GramianPlot) -> Plot {
     match result {
         Ok(demo) => match which {
-            GramianPlot::GramianSpectra => build_line_plot(
-                "Gramian spectra",
-                "state index",
-                "log10 spectrum",
-                false,
-                vec![
-                    LineSeries::lines_markers(
-                        "controllability",
-                        demo.state_index.clone(),
-                        demo.controllability_log10,
-                    ),
-                    LineSeries::lines_markers(
-                        "observability",
-                        demo.state_index.clone(),
-                        demo.observability_log10,
-                    ),
-                ],
-            ),
             GramianPlot::HsvdVsSvd => build_line_plot(
-                "HSVD versus SVD(A) and |eig(A)|",
+                "HSVD, Gramian spectra, SVD(A), and |eig(A)|",
                 "state index",
                 "log10 spectrum",
                 false,
                 vec![
                     LineSeries::lines_markers("HSV", demo.state_index.clone(), demo.hsv_log10),
+                    LineSeries::lines_markers(
+                        "controllability Gramian",
+                        demo.state_index.clone(),
+                        demo.controllability_log10,
+                    ),
+                    LineSeries::lines_markers(
+                        "observability Gramian",
+                        demo.state_index.clone(),
+                        demo.observability_log10,
+                    ),
                     LineSeries::lines_markers(
                         "sigma(A)",
                         demo.state_index.clone(),
