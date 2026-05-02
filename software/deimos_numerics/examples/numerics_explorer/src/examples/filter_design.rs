@@ -1,5 +1,5 @@
 use crate::demo_signal::step_then_tone_signal;
-use crate::plot_helpers::DEIMOS_PLOT_INK;
+use crate::plot_helpers::line_palette_color;
 use crate::plotly_support::use_plotly_chart;
 use deimos_numerics::control::lti::{
     DeltaSection, DigitalFilterFamily, DigitalFilterSpec, DiscreteSos, DiscreteStateSpace,
@@ -1207,10 +1207,11 @@ fn build_multiline_plot(
 ) -> Plot {
     let mut plot = Plot::new();
     for (index, (name, x, y)) in series.into_iter().enumerate() {
+        let color = line_palette_color(index, None);
         let line = Line::new()
-            .color(DEIMOS_PLOT_INK)
+            .color(color)
             .width(if show_legend { 2.0 } else { 1.0 })
-            .dash(dash_style(index));
+            .dash(DashType::Solid);
         let mut trace = Scatter::new(x, y).mode(Mode::Lines).line(line).name(name);
         if !show_legend {
             trace = trace.show_legend(false);
@@ -1239,17 +1240,6 @@ fn build_multiline_plot(
 
 fn build_empty_plot(title: &str, x_label: &str, y_label: &str) -> Plot {
     build_multiline_plot(title, x_label, y_label, false, false, false, Vec::new())
-}
-
-fn dash_style(index: usize) -> DashType {
-    match index % 6 {
-        0 => DashType::Solid,
-        1 => DashType::Dash,
-        2 => DashType::Dot,
-        3 => DashType::DashDot,
-        4 => DashType::LongDash,
-        _ => DashType::LongDashDot,
-    }
 }
 
 fn logspace(log10_start: f64, log10_stop: f64, n: usize) -> Vec<f64> {

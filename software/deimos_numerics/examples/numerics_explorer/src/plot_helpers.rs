@@ -1,10 +1,27 @@
 use plotly::{
     HeatMap, Layout, Plot, Scatter,
-    common::{ColorScale, ColorScalePalette, DashType, Line, Marker, MarkerSymbol, Mode, Title},
+    common::{ColorScale, ColorScaleElement, DashType, Line, Marker, MarkerSymbol, Mode, Title},
     layout::{Axis, AxisConstrain, AxisType},
 };
 
-pub const DEIMOS_PLOT_INK: &str = "#ac37ff";
+pub const SOLID_REFERENCE_LINE: &str = "#000000";
+
+const CUBEHELIX_LINE_PALETTE: [&str; 9] = [
+    "#5143a3", "#287bb8", "#1fa187", "#66bd63", "#c2c05c", "#f19c65", "#f26d7d", "#c45ab3",
+    "#7b4ab2",
+];
+
+#[must_use]
+pub fn line_palette_color(index: usize, dash: Option<DashType>) -> &'static str {
+    if matches!(
+        dash.unwrap_or_else(|| legacy_dash_style(index)),
+        DashType::Solid
+    ) {
+        SOLID_REFERENCE_LINE
+    } else {
+        CUBEHELIX_LINE_PALETTE[index % CUBEHELIX_LINE_PALETTE.len()]
+    }
+}
 
 /// One line-oriented Plotly trace.
 #[derive(Clone)]
@@ -125,17 +142,15 @@ pub fn build_line_plot(
 ) -> Plot {
     let mut plot = Plot::new();
     for (index, trace) in series.into_iter().enumerate() {
+        let color = line_palette_color(index, trace.dash);
         let line_style = Line::new()
-            .color(DEIMOS_PLOT_INK)
-            .dash(trace.dash.unwrap_or_else(|| dash_style(index)))
+            .color(color)
+            .dash(DashType::Solid)
             .width(trace.line_width);
         let marker_size = trace.marker_size.unwrap_or(11);
         let marker_style = match trace.marker_symbol {
-            Some(symbol) => Marker::new()
-                .color(DEIMOS_PLOT_INK)
-                .symbol(symbol)
-                .size(marker_size),
-            None => Marker::new().color(DEIMOS_PLOT_INK),
+            Some(symbol) => Marker::new().color(color).symbol(symbol).size(marker_size),
+            None => Marker::new().color(color),
         };
         plot.add_trace(
             Scatter::new(trace.x, trace.y)
@@ -228,15 +243,9 @@ pub fn build_matrix_heatmap_plot(
         }
     };
 
-    let colorscale = if symmetric_about_zero {
-        ColorScale::Palette(ColorScalePalette::RdBu)
-    } else {
-        ColorScale::Palette(ColorScalePalette::Greys)
-    };
-
     let mut plot = Plot::new();
     let mut trace = HeatMap::new(x, y, values)
-        .color_scale(colorscale)
+        .color_scale(cubehelix_color_scale())
         .zmin(zmin)
         .zmax(zmax)
         .x_gap(1)
@@ -284,7 +293,7 @@ pub fn build_sparse_pattern_plot(
     plot.add_trace(
         Scatter::new(columns, rows).mode(Mode::Markers).marker(
             Marker::new()
-                .color(DEIMOS_PLOT_INK)
+                .color(SOLID_REFERENCE_LINE)
                 .size(4)
                 .symbol(MarkerSymbol::Square),
         ),
@@ -328,7 +337,7 @@ pub fn matrix_grid_from_fn(
         .collect()
 }
 
-fn dash_style(index: usize) -> DashType {
+fn legacy_dash_style(index: usize) -> DashType {
     match index % 6 {
         0 => DashType::Solid,
         1 => DashType::Dash,
@@ -337,6 +346,25 @@ fn dash_style(index: usize) -> DashType {
         4 => DashType::LongDash,
         _ => DashType::LongDashDot,
     }
+}
+
+fn cubehelix_color_scale() -> ColorScale {
+    ColorScale::Vector(
+        [
+            (0.0, "#000000"),
+            (0.125, "#1a1530"),
+            (0.25, "#5143a3"),
+            (0.375, "#287bb8"),
+            (0.5, "#1fa187"),
+            (0.625, "#66bd63"),
+            (0.75, "#c2c05c"),
+            (0.875, "#f19c65"),
+            (1.0, "#f2f0f6"),
+        ]
+        .into_iter()
+        .map(|(stop, color)| ColorScaleElement(stop, color.to_string()))
+        .collect(),
+    )
 }
 
 fn symmetric_complex_plane_half_ranges(series: &[LineSeries]) -> (f64, f64) {
