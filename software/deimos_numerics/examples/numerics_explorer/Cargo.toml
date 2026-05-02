@@ -1,3 +1,5 @@
+[workspace]
+
 [package]
 name = "numerics_explorer"
 version = "0.1.0"
@@ -5,12 +7,15 @@ edition = "2024"
 publish = false
 
 [dependencies]
-console_error_panic_hook = "0.1.7"
+deimos_numerics = { path = "../.." }
+
+num-traits = { version = "^0.2.19", default-features = false, features = ["libm"] }
 faer = { version = "^0.24.0", default-features = false, features = ["std"] }
 faer-traits = { version = "^0.24.0", default-features = false }
-leptos = { version = "0.8.17", default-features = false, features = ["csr"] }
-numerical = { path = "../.." }
-num-traits = { version = "^0.2.19", default-features = false, features = ["libm"] }
+
 plotly = "0.14.1"
+
+leptos = { version = "0.8.17", default-features = false, features = ["csr"] }
+console_error_panic_hook = "0.1.7"
 wasm-bindgen-futures = "0.4.55"
 web-sys = { version = "0.3.82", features = ["Performance", "Window"] }

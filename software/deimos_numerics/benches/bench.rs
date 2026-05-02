@@ -1,5 +1,5 @@
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use numerical::twosum;
+use deimos_numerics::twosum;
 use std::hint::black_box;
 
 const INPUT_SIZES: [usize; 7] = [1, 10, 100, 500, 1_000, 10_000, 100_000];
