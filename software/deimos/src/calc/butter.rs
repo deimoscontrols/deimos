@@ -142,3 +142,53 @@ impl Calc for Butter2 {
     calc_input_names!(x);
     calc_output_names!(y);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::controller::context::ControllerCtx;
+
+    /// Running `terminate()` then `init()` must reset `Butter2` state to the same baseline,
+    /// so that two back-to-back sessions fed the same input sequence produce identical output.
+    #[test]
+    fn butter2_state_resets_across_terminate_init() {
+        let ctx = ControllerCtx {
+            dt_ns: 50_000_000, // 20 Hz sample rate
+            ..Default::default()
+        };
+
+        let mut calc = Butter2::new("ignored".to_owned(), 5.0, true);
+
+        // Input sits at tape[0], output at tape[1].
+        let inputs: [f64; 8] = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
+        let mut tape = [0.0f64; 2];
+
+        let mut run = || -> Vec<f64> {
+            calc.init(ctx.clone(), vec![0], 1..2).unwrap();
+            let mut out = Vec::with_capacity(inputs.len());
+            for &x in &inputs {
+                tape[0] = x;
+                calc.eval(&mut tape).unwrap();
+                out.push(tape[1]);
+            }
+            calc.terminate().unwrap();
+            out
+        };
+
+        let run1 = run();
+        let run2 = run();
+
+        assert_eq!(
+            run1, run2,
+            "Butter2 output must match bit-for-bit across terminate+init; \
+             run1={run1:?} run2={run2:?}"
+        );
+
+        // Sanity check: the filter must actually do work (beyond just passing through the
+        // first sample), otherwise the equality above is trivial.
+        assert!(
+            run1.iter().any(|&y| y != inputs[0]),
+            "Butter2 output never deviated from the first input — filter appears inert"
+        );
+    }
+}
