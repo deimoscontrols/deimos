@@ -43,7 +43,7 @@ typetag = "^0.2"
 serde_json = { version = "^1", features = ["preserve_order"] }
 csv = "^1.4.0"
 postcard = { version = "1", features = ["alloc"] }
-socket2 = { version = "^0.5", features = ["all"] }
+socket2 = "^0.5"
 network-interface = "^2.0"
 
 # Timescale DB / Postgres interface

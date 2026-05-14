@@ -135,11 +135,16 @@ impl ForensicLog {
 
 impl Drop for ForensicLog {
     fn drop(&mut self) {
-        let _ = self.writer.flush();
+        if let Err(e) = self.writer.flush() {
+            let path = shard_path(&self.base_path, self.shard);
+            eprintln!(
+                "deimos-console: forensic log final flush failed for {}: {e} \
+                 (final rows may be truncated)",
+                path.display()
+            );
+        }
     }
 }
-
-// ----- formatting helpers -----------------------------------------------------------------------
 
 /// Build the CSV header row.
 fn build_header(channel_names: &[String]) -> String {
@@ -175,8 +180,6 @@ fn format_row(
     }
     buf.push('\n');
 }
-
-// ----- file helpers -----------------------------------------------------------------------------
 
 /// Derive the path for shard `n`.
 ///
@@ -216,8 +219,6 @@ fn open_file(path: &Path, header: &str) -> std::io::Result<BufWriter<File>> {
     writer.write_all(header.as_bytes())?;
     Ok(writer)
 }
-
-// ---- tests -------------------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -267,7 +268,6 @@ mod tests {
         let contents = fs::read_to_string(&path).expect("read csv");
         let mut lines = contents.lines();
 
-        // ---- header assertions ----
         let header = lines.next().expect("header line present");
         assert!(
             header
@@ -281,7 +281,6 @@ mod tests {
             );
         }
 
-        // ---- collect data rows ----
         let data_rows: Vec<&str> = lines.collect();
         assert_eq!(
             data_rows.len(),
@@ -290,7 +289,6 @@ mod tests {
             data_rows.len()
         );
 
-        // ---- column count per row ----
         // Header has 4 metadata cols + N_CHANNELS channel cols.
         let expected_cols = 4 + N_CHANNELS;
         for row in &data_rows {
@@ -301,7 +299,6 @@ mod tests {
             );
         }
 
-        // ---- seq values: pre-stall then post-stall, gap in between ----
         let seqs: Vec<u64> = data_rows
             .iter()
             .map(|row| {
@@ -366,8 +363,7 @@ mod tests {
 
         // Every shard begins with an identical header so each file is independently parseable
         // by external tooling (Excel, pandas, etc.) without context from the others.
-        let header_prefix =
-            "viewer_received_at,seq,controller_timestamp,controller_system_time,temperature_K,pressure_Pa\n";
+        let header_prefix = "viewer_received_at,seq,controller_timestamp,controller_system_time,temperature_K,pressure_Pa\n";
 
         let mut total_rows = 0usize;
         for shard in &shard_paths {

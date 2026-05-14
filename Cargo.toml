@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "software/deimos",
-    "software/deimos-console",
+    "software/deimos_console",
     "software/deimos_shared",
     "software/deimos_numerics",
 ]

@@ -142,10 +142,8 @@ impl Calc for Butter2 {
     calc_input_names!(x);
     calc_output_names!(y);
 
-    // TODO: `Butter2` passes through its input's engineering unit (a filtered voltage is still a
-    // voltage). Returning `None` here is a placeholder until `CalcOrchestrator` supplies each
-    // calc's input unit at `init` time, at which point this should resolve to the input
-    // channel's declared unit.
+    // FUTURE: passthrough — a filtered voltage is still a voltage. Resolving to the input
+    // channel's unit requires `CalcOrchestrator` to pass channel units into `init`.
     fn get_output_units(&self) -> Vec<Option<String>> {
         vec![None]
     }

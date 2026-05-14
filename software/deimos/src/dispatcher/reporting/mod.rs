@@ -32,20 +32,11 @@ use crate::controller::context::ControllerCtx;
 
 use super::Dispatcher;
 
-/// Standard Ethernet MTU in bytes.
-const ETHERNET_MTU: usize = 1500;
-
-/// Ethernet (14 B) + IP (20 B) + UDP (8 B) header overhead in bytes.
-const IP_UDP_OVERHEAD: usize = 42;
-
-/// Maximum UDP payload budget before IP fragmentation occurs.
-const MTU_PAYLOAD_BUDGET: usize = ETHERNET_MTU - IP_UDP_OVERHEAD;
-
-/// Per-channel payload size estimate (8 bytes per f64 value).
+/// UDP payload budget before IP fragmentation: 1500 B MTU minus 14+20+8 B of Ethernet/IP/UDP
+/// headers. Used at init to warn if the projected `Row` payload would fragment.
+const MTU_PAYLOAD_BUDGET: usize = 1500 - 42;
 const BYTES_PER_CHANNEL: usize = 8;
-
-/// Estimated fixed overhead per Row message (seq u64, timestamp f64, system_time ~30 bytes,
-/// postcard framing ~10 bytes).
+/// seq u64 + timestamp f64 + system_time (~30 B) + postcard framing (~10 B).
 const ROW_OVERHEAD_BYTES: usize = 64;
 
 /// Push-based reporting dispatcher.
@@ -73,44 +64,33 @@ pub struct ReportingDispatcher {
     /// can discover channel metadata without waiting for the next run.
     pub schema_period: Duration,
 
-    /// Count of frames dropped because the non-blocking send would have blocked.
-    ///
-    /// Stored behind `Arc` so callers can clone a handle via [`dropped_frames_handle`] before
-    /// registering the dispatcher with the controller, and read the counter after the run ends
-    /// (including after `terminate` resets runtime state).
-    ///
-    /// `#[serde(skip)]` because this is runtime-only state, not configuration.
+    /// Frames dropped because a non-blocking send would have blocked. Behind `Arc` so callers
+    /// can clone a handle via [`dropped_frames_handle`] and read the count after the run ends.
     #[serde(skip)]
     dropped_frames: Arc<AtomicU64>,
 
-    /// Pre-allocated serialization scratch buffer. Re-used each `consume` to avoid
-    /// per-frame heap allocation in the control loop.
+    /// Re-used each `consume` to avoid per-frame heap allocation in the control loop.
     #[serde(skip)]
     scratch_buf: Vec<u8>,
 
-    // --- Runtime-only fields (cleared/reset by init) ---
-    /// Bound non-blocking UDP socket, present only while Operating.
     #[serde(skip)]
     socket: Option<UdpSocket>,
 
-    /// Resolved multicast destination address (multicast_group + port).
     #[serde(skip)]
     multicast_addr: Option<SocketAddrV4>,
 
-    /// Stored Schema message built at init time; re-emitted periodically and at terminate.
+    /// Built at `init`; re-emitted periodically and at `terminate`.
     #[serde(skip)]
     stored_schema: Option<ReportingMessage>,
 
-    /// Monotonically increasing sequence counter; reset to 0 at each init.
+    /// Sequence counter; reset at each `init`.
     #[serde(skip)]
     seq: u64,
 
-    /// Instant at which the last Schema packet was sent; used to throttle re-emission.
     #[serde(skip)]
     last_schema_sent: Option<Instant>,
 
-    /// Instant at which the last non-WouldBlock send error was logged; used to rate-limit
-    /// repeated error messages in the consume hot path.
+    /// Throttle for repeated non-WouldBlock send errors in the consume hot path.
     #[serde(skip)]
     last_error_log_at: Option<Instant>,
 }
@@ -119,14 +99,8 @@ pub struct ReportingDispatcher {
 const ERROR_LOG_RATE_LIMIT: Duration = Duration::from_secs(1);
 
 impl ReportingDispatcher {
-    /// Create a new `ReportingDispatcher` with the given configuration.
-    ///
-    /// # Arguments
-    ///
-    /// * `multicast_group` — UDP multicast destination address.
-    /// * `port` — UDP destination port.
-    /// * `outbound_interface` — Local interface for multicast traffic; `None` for OS default.
-    /// * `schema_period` — Interval between periodic Schema re-emissions while Operating.
+    /// `outbound_interface = None` lets the OS pick the NIC. `schema_period` controls re-emission
+    /// cadence while Operating so late-joining viewers can recover channel metadata.
     pub fn new(
         multicast_group: Ipv4Addr,
         port: u16,
@@ -154,22 +128,9 @@ impl ReportingDispatcher {
         self.dropped_frames.load(Ordering::Relaxed)
     }
 
-    /// Return a cloned `Arc` to the dropped-frames counter.
-    ///
-    /// Clone this handle **before** registering the dispatcher with the controller.
-    /// The controller consumes the dispatcher, but the `Arc` keeps the counter alive so
-    /// the caller can read it after `Controller::run` returns — even after `terminate`
-    /// has reset other runtime state.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// let reporting = ReportingDispatcher::new(...);
-    /// let dropped = reporting.dropped_frames_handle();
-    /// controller.add_dispatcher("reporting", reporting);
-    /// controller.run(...);
-    /// assert_eq!(dropped.load(Ordering::Relaxed), 0);
-    /// ```
+    /// Cloned `Arc` to the dropped-frames counter. Clone before registering the dispatcher
+    /// with the controller; the controller consumes the dispatcher, but the `Arc` keeps the
+    /// counter readable after `Controller::run` returns and after `terminate` resets other state.
     pub fn dropped_frames_handle(&self) -> Arc<AtomicU64> {
         Arc::clone(&self.dropped_frames)
     }
@@ -183,7 +144,7 @@ impl Dispatcher for ReportingDispatcher {
         channel_names: &[String],
         _core_assignment: usize,
     ) -> Result<(), String> {
-        // Reset all runtime state so re-init is clean.
+        // Reset runtime state so re-init is clean.
         self.socket = None;
         self.stored_schema = None;
         self.seq = 0;
@@ -192,22 +153,17 @@ impl Dispatcher for ReportingDispatcher {
         self.dropped_frames.store(0, Ordering::Relaxed);
         self.scratch_buf.clear();
 
-        // --- Bind socket with SO_REUSEADDR ---
-        //
-        // We use socket2 to set SO_REUSEADDR before bind, which is not possible with
-        // std::net::UdpSocket directly (it binds immediately in `bind()`).
+        // socket2 lets us set SO_REUSEADDR before bind; std::net::UdpSocket binds eagerly.
         let raw = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))
             .map_err(|e| format!("ReportingDispatcher: failed to create UDP socket: {e}"))?;
 
         raw.set_reuse_address(true)
             .map_err(|e| format!("ReportingDispatcher: SO_REUSEADDR failed: {e}"))?;
 
-        // Bind to INADDR_ANY on the chosen port so the OS assigns a source port.
         let bind_addr: SocketAddr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0).into();
         raw.bind(&bind_addr.into())
             .map_err(|e| format!("ReportingDispatcher: bind failed: {e}"))?;
 
-        // --- Multicast socket options (set via socket2 before converting) ---
         raw.set_multicast_ttl_v4(1)
             .map_err(|e| format!("ReportingDispatcher: set_multicast_ttl_v4 failed: {e}"))?;
 
@@ -219,35 +175,23 @@ impl Dispatcher for ReportingDispatcher {
         raw.set_nonblocking(true)
             .map_err(|e| format!("ReportingDispatcher: set_nonblocking failed: {e}"))?;
 
-        // Convert to std UdpSocket.
         let std_sock: UdpSocket = raw.into();
 
-        // --- MTU check ---
-        let channel_count = channel_names.len();
-        let projected_row_bytes = BYTES_PER_CHANNEL * channel_count + ROW_OVERHEAD_BYTES;
+        let projected_row_bytes = BYTES_PER_CHANNEL * channel_names.len() + ROW_OVERHEAD_BYTES;
         if projected_row_bytes > MTU_PAYLOAD_BUDGET {
             warn!(
-                channel_count,
-                projected_row_bytes,
-                mtu_payload_budget = MTU_PAYLOAD_BUDGET,
-                "ReportingDispatcher: projected Row payload ({projected_row_bytes} B) exceeds \
-                 MTU budget ({MTU_PAYLOAD_BUDGET} B); IP fragmentation will occur on some networks"
+                "ReportingDispatcher: projected Row payload {projected_row_bytes} B exceeds \
+                 MTU budget {MTU_PAYLOAD_BUDGET} B; IP fragmentation will occur on some networks"
             );
         }
 
-        // --- Compute monotonic epoch anchor ---
-        //
-        // We want the nanoseconds-since-Unix-epoch corresponding to controller timestamp 0.
-        // The controller's timestamps are session-relative (starting from dt_ns). Since we are
-        // at init time and the first cycle hasn't started, we use the current system time as a
-        // reasonable anchor. The viewer can compute approximate wall time from this anchor plus
-        // each Row's session-relative timestamp.
+        // Wall-clock anchor for controller timestamp 0; viewers add the session-relative
+        // Row timestamp to recover approximate wall time.
         let monotonic_epoch_ns = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_nanos() as u64)
             .unwrap_or(0);
 
-        // --- Build and store Schema message ---
         let schema = ReportingMessage::Schema {
             channel_names: channel_names.to_vec(),
             channel_units: ctx.channel_units.clone(),
@@ -274,12 +218,8 @@ impl Dispatcher for ReportingDispatcher {
             return Ok(());
         };
 
-        // --- Periodic Schema re-emission ---
-        //
-        // Emit a Schema packet on the first consume call (last_schema_sent is None). The first
-        // consume corresponds to Operating-state entry — init runs during Configuring, so the
-        // first data row arrives at the start of Operating. After that, re-emit every
-        // `schema_period` so late-joining viewers can discover channel metadata mid-run.
+        // Emit Schema on first consume (Operating-state entry) and every `schema_period` after,
+        // so late-joining viewers can discover channel metadata mid-run.
         let now = Instant::now();
         let should_emit_schema = match self.last_schema_sent {
             None => true,
@@ -293,17 +233,9 @@ impl Dispatcher for ReportingDispatcher {
                     warn!("ReportingDispatcher: Schema encode error (skipping): {e}");
                 }
                 Ok(_) => {
-                    // Advance last_schema_sent before the send attempt so that any
-                    // outcome — success, WouldBlock, or persistent error — causes the
-                    // re-emit to wait a full schema_period before the next attempt.
-                    // Without this, a persistent non-WouldBlock error (e.g. interface
-                    // down) would re-encode and re-send the Schema every cycle instead
-                    // of once per schema_period, wasting CPU. WouldBlock still silently
-                    // retries next period rather than next cycle, which is fine because
-                    // the Schema will come around again quickly anyway.
-                    // Schema drops are not counted into dropped_frames (that counter
-                    // tracks data rows only). Non-WouldBlock errors are rate-limit-logged
-                    // per the realtime-reporting spec (R8).
+                    // Advance `last_schema_sent` before the send so any outcome (success,
+                    // WouldBlock, persistent error) waits a full `schema_period` before retry.
+                    // Schema send failures are not counted into `dropped_frames` (data rows only).
                     self.last_schema_sent = Some(now);
                     match socket.send_to(&self.scratch_buf, *multicast_addr) {
                         Ok(_) => {}
@@ -324,38 +256,29 @@ impl Dispatcher for ReportingDispatcher {
             }
         }
 
-        // Build wire Row.
         let msg = ReportingMessage::Row {
             seq: self.seq,
-            // Convert nanoseconds (i64) to seconds (f64) for the wire format.
             timestamp: timestamp as f64 * 1e-9,
             system_time: super::fmt_time(time),
             values: channel_values,
         };
 
-        // Serialize into pre-allocated scratch buffer (clear first to avoid stale bytes).
         self.scratch_buf.clear();
         if let Err(e) = msg.encode_into(&mut self.scratch_buf) {
             warn!("ReportingDispatcher: postcard encode error (skipping frame): {e}");
             return Ok(());
         }
 
-        // Advance seq before the send attempt so the wire sequence number is always
-        // emitted (or accounted for) regardless of send outcome. This ensures the viewer's
-        // NaN-gap detector sees a gap even when the frame is dropped due to a non-WouldBlock
-        // error (e.g., ENETUNREACH).
+        // Advance seq before send so the wire sequence is accounted for on any outcome — the
+        // viewer's NaN-gap detector then sees a gap even when the send errored.
         self.seq += 1;
 
-        // Non-blocking send.
         match socket.send_to(&self.scratch_buf, *multicast_addr) {
             Ok(_) => {}
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
                 self.dropped_frames.fetch_add(1, Ordering::Relaxed);
             }
             Err(e) => {
-                // Non-WouldBlock error: count the drop and log at most once per rate-limit
-                // window. consume must never return Err so this dispatcher cannot abort the
-                // control loop.
                 self.dropped_frames.fetch_add(1, Ordering::Relaxed);
                 let should_log = self
                     .last_error_log_at
@@ -371,15 +294,13 @@ impl Dispatcher for ReportingDispatcher {
     }
 
     fn terminate(&mut self) -> Result<(), String> {
-        // Emit one final Schema with is_session_end=true so viewers can detect a clean
-        // session end rather than inferring it from a stale connection. Errors are swallowed
-        // — terminate must never return Err.
+        // Final Schema with `is_session_end=true` lets viewers distinguish a clean shutdown from
+        // a stale connection. Errors are swallowed — terminate must never return Err.
         if let (Some(socket), Some(multicast_addr), Some(stored_schema)) = (
             self.socket.as_ref(),
             self.multicast_addr.as_ref(),
             self.stored_schema.take(),
         ) {
-            // Build the session-end Schema from the stored one, flipping the flag.
             let session_end_schema = match stored_schema {
                 ReportingMessage::Schema {
                     channel_names,
@@ -401,11 +322,8 @@ impl Dispatcher for ReportingDispatcher {
                     warn!("ReportingDispatcher: session-end Schema encode error (ignored): {e}");
                 }
                 Ok(_) => {
-                    // Switch to blocking mode for the final send so a momentarily-full
-                    // kernel buffer does not silently swallow the session-end marker.
-                    // Errors are rate-limit-warned and ignored — terminate must not return Err.
-                    // Mode change is scoped to this single send: the socket is dropped a few
-                    // lines below when `self.socket = None;` runs, so we don't need to undo it.
+                    // Block on the final send so a momentarily-full kernel buffer cannot swallow
+                    // the session-end marker. The socket drops a few lines down, so no undo.
                     if let Err(e) = socket.set_nonblocking(false) {
                         warn!(
                             "ReportingDispatcher: could not set blocking mode for session-end \
@@ -421,10 +339,8 @@ impl Dispatcher for ReportingDispatcher {
             }
         }
 
-        // Drop the socket and reset all runtime state.
-        // Note: dropped_frames is NOT reset here so that callers holding a handle from
-        // dropped_frames_handle() can read the final count after the run ends.
-        // It will be reset to 0 at the next init() call.
+        // Drop the socket and reset runtime state. `dropped_frames` survives — handle holders
+        // read the final count after the run ends; the next `init` resets it.
         self.socket = None;
         self.multicast_addr = None;
         self.stored_schema = None;

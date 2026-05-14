@@ -25,7 +25,7 @@
 //!
 //! To view in the operator console, run in another terminal:
 //!
-//!   cargo run -p deimos-console -- --config software/deimos-console/examples/console.toml
+//!   cargo run -p deimos_console -- --config software/deimos_console/examples/console.toml
 //!
 //! Unit-labeled channel: voltage.y (unit: V)
 //! Starting controller...
@@ -46,8 +46,8 @@
 //! the controller every 2 seconds while Operating), then begin rendering traces.
 //!
 //! ```sh
-//! cargo run -p deimos-console -- \
-//!     --config software/deimos-console/examples/console.toml
+//! cargo run -p deimos_console -- \
+//!     --config software/deimos_console/examples/console.toml
 //! ```
 //!
 //! The viewer window opens immediately.  Channels appear once the first `Schema`
@@ -69,7 +69,7 @@
 //!
 //! ## Config file
 //!
-//! The viewer config is at `software/deimos-console/examples/console.toml`.  It
+//! The viewer config is at `software/deimos_console/examples/console.toml`.  It
 //! points at the same multicast group and port (`239.255.0.1:29573`) and defines
 //! two panels.  Edit the `[[panels]]` entries to watch different channels.
 //!
@@ -110,9 +110,7 @@ fn main() {
         unsafe { std::env::set_var("RUST_LOG", "info") };
     }
 
-    // -----------------------------------------------------------------------
-    // Print startup banner with connection info for the viewer.
-    // -----------------------------------------------------------------------
+    // Startup banner with connection info for the viewer.
     println!();
     println!("=== Deimos HOOTL with operator console ===");
     println!();
@@ -128,16 +126,13 @@ fn main() {
     println!("To view in the operator console, run in another terminal:");
     println!();
     println!(
-        "  cargo run -p deimos-console -- --config software/deimos-console/examples/console.toml"
+        "  cargo run -p deimos_console -- --config software/deimos_console/examples/console.toml"
     );
     println!();
     println!("Unit-labeled channel: voltage.y (unit: V)");
     println!("Starting controller...");
     println!();
 
-    // -----------------------------------------------------------------------
-    // Build controller context.
-    // -----------------------------------------------------------------------
     let op_dir = std::env::temp_dir().join("deimos_hootl_with_console");
     std::fs::create_dir_all(&op_dir).expect("Failed to create temp op_dir");
 
@@ -148,9 +143,6 @@ fn main() {
     ctx.loop_method = LoopMethod::Efficient;
     ctx.termination_criteria = Some(Termination::Timeout(Duration::from_secs(RUN_SECS)));
 
-    // -----------------------------------------------------------------------
-    // Build controller.
-    // -----------------------------------------------------------------------
     let mut controller = Controller::new(ctx);
     controller.clear_sockets();
     controller.add_socket(
@@ -171,16 +163,9 @@ fn main() {
     .with_output_unit("V");
     controller.add_calc("voltage", voltage_calc);
 
-    // -----------------------------------------------------------------------
-    // Dispatchers.
-    // -----------------------------------------------------------------------
-
-    // Reporting dispatcher: multicast every Row to the operator console.
-    //
-    // Clone the dropped-frames counter handle before handing the dispatcher to the
-    // controller. The controller consumes the Box, but the Arc keeps the counter
-    // alive so we can read the final count after `Controller::run` returns —
-    // including after `terminate` resets other runtime state.
+    // Reporting dispatcher: multicast every Row to the operator console. Clone the
+    // dropped-frames handle before handing the dispatcher to the controller so we can
+    // read the final count after `Controller::run` returns.
     let reporting = ReportingDispatcher::new(
         MULTICAST_GROUP,
         MULTICAST_PORT,
@@ -194,9 +179,6 @@ fn main() {
     let csv = CsvDispatcher::new(50, Overflow::Wrap);
     controller.add_dispatcher("csv", csv);
 
-    // -----------------------------------------------------------------------
-    // Attach HOOTL driver and run.
-    // -----------------------------------------------------------------------
     let end = Some(SystemTime::now() + Duration::from_secs(RUN_SECS + 10));
     let mut hootl_handle = controller
         .attach_hootl_driver("p1", HootlTransport::thread_channel("hootl_chan"), end)
@@ -205,16 +187,10 @@ fn main() {
     let result = controller.run(&None, None);
     hootl_handle.join().expect("HOOTL runner thread panicked");
 
-    // -----------------------------------------------------------------------
-    // Report outcome.
-    //
-    // The dropped-frames check doubles as a smoke test: at 20 Hz the kernel UDP
-    // send buffer is large enough that every non-blocking send_to should succeed
-    // even with no receiver attached, so a non-zero count signals a regression
-    // (e.g., a much smaller default SO_SNDBUF on a new platform). Drops counted
-    // on the *viewer* side — when the operator console can't keep up — are a
-    // separate path tracked by `deimos_console::receiver::DROPPED_FRAMES`.
-    // -----------------------------------------------------------------------
+    // The dropped-frames check doubles as a smoke test: at 20 Hz the kernel UDP send
+    // buffer should comfortably hold every non-blocking send_to even with no receiver
+    // attached, so a non-zero count signals a regression (e.g. a smaller default
+    // SO_SNDBUF on a new platform). Viewer-side drops are tracked separately.
     match result {
         Ok(_reason) => {
             println!();

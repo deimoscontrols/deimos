@@ -169,9 +169,8 @@ impl Calc for Pid {
     calc_input_names!(measurement, setpoint);
     calc_output_names!(y);
 
-    // TODO: A PID output carries whatever unit the downstream actuator expects from the error
-    // signal — typically the same unit as the measurement. Returning `None` is a placeholder
-    // until `CalcOrchestrator` supplies each calc's input unit at `init` time.
+    // FUTURE: PID output usually inherits the measurement's unit. Resolving it requires
+    // `CalcOrchestrator` to pass channel units into `init`.
     fn get_output_units(&self) -> Vec<Option<String>> {
         vec![None]
     }

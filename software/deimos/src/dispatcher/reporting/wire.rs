@@ -1,97 +1,45 @@
-//! Wire-format types for the realtime reporting transport.
-//!
-//! Two message kinds are sent on the UDP multicast channel:
-//!
-//! - [`ReportingMessage::Schema`] — emitted once when the controller enters Operating, then
-//!   periodically while Operating so late-joining viewers can discover channel metadata, and
-//!   once more from `terminate` with `is_session_end=true` to signal a clean session close.
-//! - [`ReportingMessage::Row`] — emitted once per control-loop cycle, carrying the latest values
-//!   for every dispatched channel.
-//!
-//! # Encoding
-//!
-//! Messages are encoded with [`postcard`]. Because `postcard` serializes Rust enums with a
-//! compact leading varint tag (tag 0 for `Schema`, tag 1 for `Row`), no separate framing byte
-//! is required — the enum tag *is* the leading byte tag called for in the design. For these two
-//! variants the tag fits in a single byte (varint encoding of 0 or 1).
-//!
-//! Use [`ReportingMessage::encode_into`] to serialize into an existing buffer and
-//! [`ReportingMessage::decode`] to deserialize from a received byte slice.
+//! Wire-format types for the realtime reporting transport. Encoded with [`postcard`]; the enum
+//! variant tag (0 = `Schema`, 1 = `Row`) serves as the leading byte tag, no extra framing.
 
 use serde::{Deserialize, Serialize};
 
 /// A single wire message sent by the reporting dispatcher.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ReportingMessage {
-    /// Metadata describing a run's channel layout.
-    ///
-    /// Emitted when the controller enters Operating and periodically thereafter (default every
-    /// 2 s). Viewers that join mid-run buffer `Row` messages until they receive a `Schema`.
-    ///
-    /// When `is_session_end` is `true`, this is the final packet for the run. Viewers should
-    /// treat receipt of this packet as a signal to close the current session, finalize their
-    /// forensic log, and display a "session ended" indicator.
+    /// Run channel layout. Emitted at start of Operating and re-emitted every `schema_period`
+    /// so late-joining viewers can discover channel metadata. `is_session_end = true` marks
+    /// the final packet of the run.
     Schema {
-        /// Ordered list of channel names, parallel to `channel_units` and to the `values` vec
-        /// in each `Row`.
         channel_names: Vec<String>,
-
-        /// Per-channel unit labels, parallel to `channel_names`. `None` means the unit is
-        /// unknown or not applicable.
+        /// `None` means unknown or not applicable.
         channel_units: Vec<Option<String>>,
-
-        /// Anchor that maps the controller's monotonic clock to wall time.
-        ///
-        /// Wall-clock Unix-epoch nanoseconds captured by the dispatcher at `init` time,
-        /// approximately equal to the wall time at which the controller's session-relative
-        /// timestamp read zero. The approximation error is the interval between
-        /// `ReportingDispatcher::init` and the first Operating cycle (typically one
-        /// configure-phase duration, on the order of tens of milliseconds).
-        ///
-        /// Viewers use this to convert `Row::timestamp` (seconds from session start) to an
-        /// approximate wall-clock display time.
+        /// Wall-clock Unix-epoch ns captured at dispatcher `init`, approximately the wall time
+        /// at which `Row::timestamp` reads zero. Viewers add `Row::timestamp` to recover an
+        /// approximate display time.
         monotonic_epoch_ns: u64,
-
-        /// Set to `true` on the final Schema packet emitted by `terminate`. Viewers use this
-        /// to detect a clean session end (as opposed to a stale/dropped connection).
-        /// Always `false` for normal periodic Schema packets.
-        ///
-        /// `#[serde(default)]` makes struct construction convenient when the field is omitted
-        /// in key-value formats (e.g., TOML config), but postcard binary encoding always
-        /// includes this byte on the wire.
+        /// `#[serde(default)]` keeps struct construction convenient; postcard always encodes
+        /// the byte on the wire.
         #[serde(default)]
         is_session_end: bool,
     },
 
-    /// One cycle of channel values from the control loop.
+    /// One control-loop cycle.
     Row {
-        /// Monotonically increasing sequence number, incremented once per Row regardless of
-        /// whether the send succeeded. Gaps in `seq` observed by the viewer indicate frames
-        /// that were dropped by the dispatcher (WouldBlock, ENETUNREACH, or any other send
-        /// error); the dispatcher's `dropped_frames` counter tracks the same events.
+        /// Incremented once per Row regardless of send outcome; viewer-observed gaps reveal
+        /// dropped frames (also counted by the dispatcher's `dropped_frames`).
         seq: u64,
-
-        /// Controller monotonic timestamp in seconds, measured from the start of the run.
+        /// Seconds from the start of the run.
         timestamp: f64,
-
-        /// Controller system time formatted as an ISO-8601 string (e.g.
-        /// `"2026-04-19T14:32:01.123456789Z"`).
+        /// ISO-8601 (e.g. `"2026-04-19T14:32:01.123456789Z"`).
         system_time: String,
-
-        /// Channel values, in the same order as `Schema::channel_names`.
+        /// In the order declared by `Schema::channel_names`.
         values: Vec<f64>,
     },
 }
 
 impl ReportingMessage {
-    /// Serialize `self` into `buf`, appending to any existing content.
-    ///
-    /// Returns a slice of the bytes that were appended. The buffer is extended as needed;
-    /// callers typically pass a pre-allocated `Vec<u8>` that is cleared between calls.
-    ///
-    /// # Errors
-    ///
-    /// Returns a [`postcard::Error`] if serialization fails (e.g. out-of-memory).
+    /// Append-encode `self` into `buf` and return the appended slice. Callers typically pass a
+    /// cleared pre-allocated `Vec<u8>` to avoid per-frame allocation.
     pub fn encode_into<'a>(&self, buf: &'a mut Vec<u8>) -> Result<&'a [u8], postcard::Error> {
         let start = buf.len();
         let owned = std::mem::take(buf);
@@ -99,11 +47,6 @@ impl ReportingMessage {
         Ok(&buf[start..])
     }
 
-    /// Deserialize a `ReportingMessage` from a byte slice produced by [`encode_into`].
-    ///
-    /// # Errors
-    ///
-    /// Returns a [`postcard::Error`] if the bytes are malformed or truncated.
     pub fn decode(bytes: &[u8]) -> Result<Self, postcard::Error> {
         postcard::from_bytes(bytes)
     }
