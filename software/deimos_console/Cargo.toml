@@ -1,0 +1,37 @@
+[package]
+name = "deimos_console"
+version.workspace = true
+edition = "2024"
+authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/deimoscontrols/deimos/software/deimos_console"
+homepage = "https://github.com/deimoscontrols/deimos"
+description = "Operator console for real-time display of Deimos controller data"
+readme = "./README.md"
+publish = false
+
+[[bin]]
+name = "deimos-console"
+path = "src/main.rs"
+
+[dependencies]
+deimos = { path = "../deimos" }
+
+# UI
+eframe = "^0.29"
+egui_plot = "^0.29"
+
+# CLI + config
+clap = { version = "^4", features = ["derive"] }
+serde = { version = "^1", features = ["derive"] }
+toml = "^0.8"
+
+# Transport
+crossbeam-channel = "^0.5"
+socket2 = { version = "^0.5", features = ["all"] }
+
+# Timestamps
+chrono = { version = "^0.4.42", features = ["std", "clock"], default-features = false }
+
+[dev-dependencies]
+tempfile = "^3"

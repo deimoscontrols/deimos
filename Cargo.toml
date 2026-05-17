@@ -1,13 +1,14 @@
 [workspace]
 members = [
-    "software/deimos", 
+    "software/deimos",
+    "software/deimos_console",
     "software/deimos_shared",
     "software/deimos_numerics",
 ]
-exclude = [ 
+exclude = [
     "firmware",
     "hardware",
-    "software/deimos_numerics/examples/numerics_explorer"
+    "software/deimos_numerics/examples/numerics_explorer",
 ]
 resolver = "3"
 

@@ -141,6 +141,12 @@ impl Calc for Butter2 {
     calc_config!(cutoff_hz);
     calc_input_names!(x);
     calc_output_names!(y);
+
+    // FUTURE: passthrough — a filtered voltage is still a voltage. Resolving to the input
+    // channel's unit requires `CalcOrchestrator` to pass channel units into `init`.
+    fn get_output_units(&self) -> Vec<Option<String>> {
+        vec![None]
+    }
 }
 
 #[cfg(test)]

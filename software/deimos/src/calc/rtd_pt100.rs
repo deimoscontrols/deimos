@@ -127,6 +127,10 @@ impl Calc for RtdPt100 {
         Ok(())
     }
 
+    fn get_output_units(&self) -> Vec<Option<String>> {
+        vec![Some("K".to_owned())]
+    }
+
     calc_config!();
     calc_input_names!(resistance_ohm);
     calc_output_names!(temperature_K);

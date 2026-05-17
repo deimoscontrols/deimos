@@ -237,6 +237,28 @@ impl CalcOrchestrator {
         self.state.dispatch_names.clone()
     }
 
+    /// Get units of fields marked to dispatch, in the same order as `get_dispatch_names`.
+    ///
+    /// Returns `None` for peripheral inputs and outputs (which carry no declared unit) and for
+    /// calc outputs whose calc does not override `get_output_units`.
+    pub fn get_dispatch_units(&self) -> Vec<Option<String>> {
+        self.state
+            .dispatch_names
+            .iter()
+            .map(|field_name| {
+                // Field names are "node_name.output_name". Split on the first `.`.
+                let (node_name, output_name) = match field_name.split_once('.') {
+                    Some(parts) => parts,
+                    None => return None,
+                };
+                let calc = self.calcs.get(node_name)?;
+                let output_names = calc.get_output_names();
+                let output_index = output_names.iter().position(|n| n == output_name)?;
+                calc.get_output_units().get(output_index)?.clone()
+            })
+            .collect()
+    }
+
     /// Add a calc
     ///
     /// # Panics
