@@ -162,6 +162,10 @@ impl Calc for TcKtype {
         Ok(())
     }
 
+    fn get_output_units(&self) -> Vec<Option<String>> {
+        vec![Some("K".to_owned())]
+    }
+
     calc_config!();
     calc_input_names!(voltage_V, cold_junction_temperature_K);
     calc_output_names!(temperature_K);

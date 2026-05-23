@@ -827,12 +827,19 @@ impl Controller {
             let mut channel_names = Vec::new();
             let metric_channel_names = controller_state.get_names_to_write();
             let io_channel_names = self.orchestrator.get_dispatch_names();
+            let io_channel_units = self.orchestrator.get_dispatch_units();
             channel_names.extend(metric_channel_names.iter().cloned());
             channel_names.extend(io_channel_names.iter().cloned());
             let n_metrics = metric_channel_names.len();
             let n_io = io_channel_names.len();
             let n_channels = n_metrics + n_io;
             let channel_values = vec![0.0; n_channels]; // Storage for dispatched values.
+
+            // Metric channels carry no declared unit; calc outputs use get_dispatch_units.
+            let mut channel_units: Vec<Option<String>> = vec![None; n_metrics];
+            channel_units.extend(io_channel_units);
+            self.ctx.channel_units = channel_units;
+
             for dispatcher in self.dispatchers.values_mut() {
                 dispatcher
                     .init(&self.ctx, &channel_names, aux_core_cycle.next().unwrap().id)

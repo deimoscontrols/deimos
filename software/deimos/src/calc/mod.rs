@@ -113,6 +113,17 @@ pub trait Calc: Send + Sync + Debug {
     /// List of output field names in the order that they will be written out
     fn get_output_names(&self) -> Vec<CalcOutputName>;
 
+    /// List of optional unit strings for each output, parallel to `get_output_names`.
+    /// Must return a `Vec` whose length equals `get_output_names().len()`.
+    /// `None` indicates the unit is unknown or not applicable for that output.
+    ///
+    /// The default implementation returns `vec![None; N]` where `N` is the number of outputs,
+    /// which is correct for calcs that do not transform engineering units (pass-through or
+    /// untyped outputs). Override when the calc declares concrete output units.
+    fn get_output_units(&self) -> Vec<Option<String>> {
+        vec![None; self.get_output_names().len()]
+    }
+
     /// Get the type name, which is guaranteed to be unique among implementations of the trait
     /// because of the use of a global vtable for serialization, and guaranteed not to include
     /// non-'static lifetimes due to trait bounds.
@@ -187,5 +198,81 @@ macro_rules! calc_output_names {
 
             names
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_units_len_matches_names_len(calc: &dyn Calc) {
+        assert_eq!(
+            calc.get_output_units().len(),
+            calc.get_output_names().len(),
+            "get_output_units().len() != get_output_names().len() for {}",
+            calc.kind()
+        );
+    }
+
+    #[test]
+    fn affine_units_len_matches_names_len() {
+        let calc = Affine::new("x".to_owned(), 1.0, 0.0, false);
+        assert_units_len_matches_names_len(&*calc);
+    }
+
+    #[test]
+    fn inverse_affine_units_len_matches_names_len() {
+        let calc = InverseAffine::new("x".to_owned(), 1.0, 0.0, false);
+        assert_units_len_matches_names_len(&*calc);
+    }
+
+    #[test]
+    fn polynomial_units_len_matches_names_len() {
+        let calc = Polynomial::new("x".to_owned(), vec![1.0, 2.0], String::new(), false);
+        assert_units_len_matches_names_len(&*calc);
+    }
+
+    #[test]
+    fn constant_units_len_matches_names_len() {
+        let calc = Constant::new(0.0, false);
+        assert_units_len_matches_names_len(&*calc);
+    }
+
+    #[test]
+    fn sin_units_len_matches_names_len() {
+        let calc = Sin::new(1.0, 0.0, -1.0, 1.0, false);
+        assert_units_len_matches_names_len(&*calc);
+    }
+
+    #[test]
+    fn butter2_units_len_matches_names_len() {
+        let calc = Butter2::new("x".to_owned(), 10.0, false);
+        assert_units_len_matches_names_len(&*calc);
+    }
+
+    #[test]
+    fn pid_units_len_matches_names_len() {
+        let calc = Pid::new(
+            "measurement".to_owned(),
+            "setpoint".to_owned(),
+            1.0,
+            0.0,
+            0.0,
+            100.0,
+            false,
+        );
+        assert_units_len_matches_names_len(&*calc);
+    }
+
+    #[test]
+    fn rtd_pt100_units_len_matches_names_len() {
+        let calc = RtdPt100::new("resistance_ohm".to_owned(), false);
+        assert_units_len_matches_names_len(&*calc);
+    }
+
+    #[test]
+    fn tc_ktype_units_len_matches_names_len() {
+        let calc = TcKtype::new("voltage_V".to_owned(), "cold_junction_K".to_owned(), false);
+        assert_units_len_matches_names_len(&*calc);
     }
 }

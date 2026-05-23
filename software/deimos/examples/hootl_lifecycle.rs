@@ -17,7 +17,7 @@
 //!   "Entering control loop."
 //!
 //! These correspond to the four lifecycle stages:
-//!   Connecting (implicit initial state) → Binding → Configuring → OperatingRoundtrip.
+//!   Disconnected (initial state) → Binding → Configuring → OperatingRoundtrip.
 
 use std::time::{Duration, SystemTime};
 

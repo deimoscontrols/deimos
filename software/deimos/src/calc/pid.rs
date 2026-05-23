@@ -168,4 +168,10 @@ impl Calc for Pid {
     calc_config!(kp, ki, kd, max_integral);
     calc_input_names!(measurement, setpoint);
     calc_output_names!(y);
+
+    // FUTURE: PID output usually inherits the measurement's unit. Resolving it requires
+    // `CalcOrchestrator` to pass channel units into `init`.
+    fn get_output_units(&self) -> Vec<Option<String>> {
+        vec![None]
+    }
 }

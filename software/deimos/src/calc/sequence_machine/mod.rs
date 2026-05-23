@@ -658,6 +658,14 @@ impl Calc for SequenceMachine {
         output_names
     }
 
+    /// `sequence_time_s` is in seconds; user-defined data channels have no declared unit.
+    fn get_output_units(&self) -> Vec<Option<String>> {
+        let n_data = self.entry_sequence().data.len();
+        let mut units = vec![Some("s".to_owned())];
+        units.extend(std::iter::repeat_n(None, n_data));
+        units
+    }
+
     /// Get flag for whether to save outputs
     fn get_save_outputs(&self) -> bool {
         self.cfg.save_outputs

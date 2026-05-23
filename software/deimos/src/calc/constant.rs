@@ -13,6 +13,8 @@ pub struct Constant {
     // User inputs
     y: f64,
     save_outputs: bool,
+    #[serde(default)]
+    output_unit: Option<String>,
 
     // Values provided by calc orchestrator during init
     #[serde(skip)]
@@ -27,8 +29,15 @@ impl Constant {
         Box::new(Self {
             y,
             save_outputs,
+            output_unit: None,
             output_index,
         })
+    }
+
+    /// Attach an output unit label (builder method).
+    pub fn with_output_unit(mut self: Box<Self>, unit: impl Into<String>) -> Box<Self> {
+        self.output_unit = Some(unit.into());
+        self
     }
 }
 
@@ -36,8 +45,11 @@ py_json_methods!(
     Constant,
     Calc,
     #[new]
-    fn py_new(y: f64, save_outputs: bool) -> PyResult<Self> {
-        Ok(*Self::new(y, save_outputs))
+    #[pyo3(signature = (y, save_outputs, output_unit = None))]
+    fn py_new(y: f64, save_outputs: bool, output_unit: Option<String>) -> PyResult<Self> {
+        let mut calc = Self::new(y, save_outputs);
+        calc.output_unit = output_unit;
+        Ok(*calc)
     }
 );
 
@@ -74,6 +86,10 @@ impl Calc for Constant {
     /// Change a value in the input map
     fn update_input_map(&mut self, field: &str, _: &str) -> Result<(), String> {
         Err(format!("Unrecognized field {field}"))
+    }
+
+    fn get_output_units(&self) -> Vec<Option<String>> {
+        vec![self.output_unit.clone()]
     }
 
     calc_config!(y);

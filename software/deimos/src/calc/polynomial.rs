@@ -22,6 +22,8 @@ pub struct Polynomial {
     coefficients: Vec<f64>,
     note: String,
     save_outputs: bool,
+    #[serde(default)]
+    output_unit: Option<String>,
 
     // Values provided by calc orchestrator during init
     #[serde(skip)]
@@ -43,9 +45,16 @@ impl Polynomial {
             coefficients,
             note,
             save_outputs,
+            output_unit: None,
             input_index: usize::MAX,
             output_index: usize::MAX,
         })
+    }
+
+    /// Attach an output unit label (builder method).
+    pub fn with_output_unit(mut self: Box<Self>, unit: impl Into<String>) -> Box<Self> {
+        self.output_unit = Some(unit.into());
+        self
     }
 
     pub fn fit_from_points(
@@ -70,13 +79,17 @@ py_json_methods!(
     Polynomial,
     Calc,
     #[new]
+    #[pyo3(signature = (input_name, coefficients, note, save_outputs, output_unit = None))]
     fn py_new(
         input_name: String,
         coefficients: Vec<f64>,
         note: String,
         save_outputs: bool,
+        output_unit: Option<String>,
     ) -> Self {
-        *Self::new(input_name, coefficients, note, save_outputs)
+        let mut calc = Self::new(input_name, coefficients, note, save_outputs);
+        calc.output_unit = output_unit;
+        *calc
     }
 );
 
@@ -128,6 +141,10 @@ impl Calc for Polynomial {
         } else {
             Err(format!("Unrecognized field {field}"))
         }
+    }
+
+    fn get_output_units(&self) -> Vec<Option<String>> {
+        vec![self.output_unit.clone()]
     }
 
     calc_config!();
