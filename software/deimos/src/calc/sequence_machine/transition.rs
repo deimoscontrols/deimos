@@ -3,20 +3,15 @@ use serde::{Deserialize, Serialize};
 use super::{CalcInputName, FieldName, SequenceLookup, StateName};
 
 /// Choice of behavior when a given sequence reaches the end of its lookup table
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum Timeout {
     /// Transition to the next sequence
     Transition(StateName),
 
     /// Start over from the beginning of the table
+    #[default]
     Loop,
-}
-
-impl Default for Timeout {
-    fn default() -> Self {
-        Self::Loop
-    }
 }
 
 /// A logical operator used to evaluate whether a transition should occur.
@@ -65,7 +60,7 @@ impl ThreshOp {
         let op = op.0.trim().to_ascii_lowercase();
 
         if param.is_nan() {
-            return Err(format!("Threshold op parameter must not be a NaN value"));
+            return Err("Threshold op parameter must not be a NaN value".to_string());
         }
 
         match op.as_str() {

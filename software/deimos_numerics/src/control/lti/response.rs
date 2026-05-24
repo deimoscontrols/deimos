@@ -779,7 +779,7 @@ mod tests {
     use faer::complex::Complex;
     use faer::sparse::{SparseColMat, Triplet};
     use faer::{Mat, MatRef};
-    use nalgebra::Normed;
+    use nalgebra::Normed; // Required for .norm()
 
     fn assert_close_real(lhs: MatRef<'_, f64>, rhs: MatRef<'_, f64>, tol: f64) {
         assert_eq!(lhs.nrows(), rhs.nrows());

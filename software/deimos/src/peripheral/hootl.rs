@@ -5,7 +5,7 @@ use std::net::{Ipv4Addr, SocketAddr as UdpSocketAddr, UdpSocket};
 #[cfg(unix)]
 use std::os::unix::net::{SocketAddr as UnixSocketAddr, UnixDatagram};
 #[cfg(unix)]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -170,7 +170,7 @@ impl Peripheral for HootlPeripheral {
 /// Choice of socket type to be used by the HOOTL driver.
 #[cfg(unix)]
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "python", pyclass)]
+#[cfg_attr(feature = "python", pyclass(from_py_object))]
 pub enum HootlTransport {
     /// A thread channel with this name.
     ThreadChannel { name: String },
@@ -377,7 +377,7 @@ impl HootlDriver {
     fn run_with(&self, controller: &PyController) -> PyResult<HootlRunHandle> {
         let ctx = controller.ctx()?;
         self.run(ctx)
-            .map_err(|e| BackendErr::InvalidPeripheralErr { msg: e }.into())
+            .map_err(|e| BackendErr::InvalidPeripheral { msg: e }.into())
     }
 }
 
@@ -397,7 +397,7 @@ impl HootlRunHandle {
     #[pyo3(name = "join")]
     fn py_join(&mut self) -> PyResult<()> {
         self.join()
-            .map_err(|e| PyErr::from(BackendErr::RunErr { msg: e }))
+            .map_err(|e| PyErr::from(BackendErr::Run { msg: e }))
     }
 
     fn __enter__(slf: PyRefMut<'_, Self>) -> PyResult<PyRefMut<'_, Self>> {
@@ -415,7 +415,7 @@ impl HootlRunHandle {
         }
         self.stop();
         self.join()
-            .map_err(|e| PyErr::from(BackendErr::RunErr { msg: e }))?;
+            .map_err(|e| PyErr::from(BackendErr::Run { msg: e }))?;
         Ok(false)
     }
 }
@@ -472,7 +472,7 @@ impl HootlRunner {
             if self.stop.load(Ordering::Relaxed) {
                 break;
             }
-            if self.config.end.map_or(false, |end| SystemTime::now() > end) {
+            if self.config.end.is_some_and(|end| SystemTime::now() > end) {
                 break;
             }
 
@@ -583,9 +583,11 @@ impl HootlRunner {
                         // Send operating response
                         // FUTURE: use peripheral object to write output
                         let mut out = vec![0u8; self.config.output_size];
-                        let mut metrics = OperatingMetrics::default();
-                        metrics.id = *counter;
-                        metrics.last_input_id = last_input_id;
+                        let metrics = OperatingMetrics {
+                            id: *counter,
+                            last_input_id,
+                            ..Default::default()
+                        };
                         metrics.write_bytes(&mut out[..OperatingMetrics::BYTE_LEN]);
 
                         let send_status = self.transport.send_packet(
@@ -777,17 +779,15 @@ impl TransportState {
             #[cfg(unix)]
             TransportState::UnixSocket { socket, .. } => {
                 let sock = socket.as_mut()?;
-                match sock.recv_from(buf).ok() {
-                    Some((size, addr)) => Some((size, Some(TransportAddr::Unix(addr)))),
-                    None => None,
-                }
+                sock.recv_from(buf)
+                    .ok()
+                    .map(|(size, addr)| (size, Some(TransportAddr::Unix(addr))))
             }
             TransportState::UdpSocket { socket } => {
                 let sock = socket.as_mut()?;
-                match sock.recv_from(buf).ok() {
-                    Some((size, addr)) => Some((size, Some(TransportAddr::Udp(addr)))),
-                    None => None,
-                }
+                sock.recv_from(buf)
+                    .ok()
+                    .map(|(size, addr)| (size, Some(TransportAddr::Udp(addr))))
             }
         }
     }
@@ -849,7 +849,7 @@ impl TransportState {
 
 /// Get the expected path to a unix socket with this name.
 #[cfg(unix)]
-fn socket_path(op_dir: &PathBuf, name: &str) -> PathBuf {
+fn socket_path(op_dir: &Path, name: &str) -> PathBuf {
     op_dir.join("sock").join("per").join(name)
 }
 

@@ -103,7 +103,7 @@ pub struct DataFrameDispatcher {
 /// overflow, older rows are overwritten in-place, so ordering may not be
 /// strictly chronological. Use `time()` and `timestamp()` for time columns;
 /// `columns()` returns channel values only.
-#[cfg_attr(feature = "python", pyclass)]
+#[cfg_attr(feature = "python", pyclass(from_py_object))]
 #[derive(Clone, Default)]
 pub struct DataFrameHandle {
     df: Arc<RwLock<SimpleDataFrame>>,
@@ -236,19 +236,19 @@ impl DataFrameHandle {
     #[pyo3(name = "columns")]
     fn py_columns(&self) -> PyResult<HashMap<String, Vec<f64>>> {
         self.columns()
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+            .map_err(pyo3::exceptions::PyRuntimeError::new_err)
     }
 
     #[pyo3(name = "time")]
     fn py_time(&self) -> PyResult<Vec<String>> {
         self.time()
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+            .map_err(pyo3::exceptions::PyRuntimeError::new_err)
     }
 
     #[pyo3(name = "timestamp")]
     fn py_timestamp(&self) -> PyResult<Vec<i64>> {
         self.timestamp()
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+            .map_err(pyo3::exceptions::PyRuntimeError::new_err)
     }
 }
 

@@ -18,17 +18,17 @@ path = "src/main.rs"
 deimos = { path = "../deimos" }
 
 # UI
-eframe = "^0.29"
-egui_plot = "^0.29"
+eframe = "^0.34.2"
+egui_plot = "^0.35.0"
 
 # CLI + config
 clap = { version = "^4", features = ["derive"] }
 serde = { version = "^1", features = ["derive"] }
-toml = "^0.8"
+toml = "^1.1.2"
 
 # Transport
 crossbeam-channel = "^0.5"
-socket2 = { version = "^0.5", features = ["all"] }
+socket2 = { version = "^0.6.3", features = ["all"] }
 
 # Timestamps
 chrono = { version = "^0.4.42", features = ["std", "clock"], default-features = false }

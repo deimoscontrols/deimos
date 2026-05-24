@@ -60,7 +60,7 @@ impl LowPassDispatcher {
         let filter_proto = butter2(cutoff_ratio)
             .map_err(|e| format!("Failed to construct butter2 filter: {e}"))?;
         for _ in 0..channel_count {
-            filters.push(filter_proto.clone());
+            filters.push(filter_proto);
         }
         Ok(filters)
     }

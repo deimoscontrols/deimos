@@ -49,7 +49,7 @@ macro_rules! impl_from_pyobject_json {
     };
 }
 
-impl_from_pyobject_json!(Calc, InvalidCalcErr, "Calc");
-impl_from_pyobject_json!(Dispatcher, InvalidDispatcherErr, "Dispatcher");
-impl_from_pyobject_json!(Peripheral, InvalidPeripheralErr, "Peripheral");
-impl_from_pyobject_json!(Socket, InvalidSocketErr, "Socket");
+impl_from_pyobject_json!(Calc, InvalidCalc, "Calc");
+impl_from_pyobject_json!(Dispatcher, InvalidDispatcher, "Dispatcher");
+impl_from_pyobject_json!(Peripheral, InvalidPeripheral, "Peripheral");
+impl_from_pyobject_json!(Socket, InvalidSocket, "Socket");

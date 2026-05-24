@@ -128,7 +128,7 @@ impl Sequence {
         let mut time_s = vec![vec![]; methods.len()];
         for (i, result) in records.enumerate() {
             let record = result.map_err(|e| format!("CSV read error on line {i}: {e}"))?;
-            if record.len() == 0 {
+            if record.is_empty() {
                 continue;
             }
             if record.len() < expected_len {
@@ -259,7 +259,7 @@ fn next_nonempty_record<R: std::io::Read>(
 ) -> Result<csv::StringRecord, String> {
     for result in records {
         let record = result.map_err(|e| e.to_string())?;
-        if record.len() == 0 {
+        if record.is_empty() {
             continue;
         }
         return Ok(record);

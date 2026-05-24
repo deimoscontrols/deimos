@@ -137,6 +137,7 @@ impl Calc for RtdPt100 {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod test {
     use super::INTERPOLATOR;
 

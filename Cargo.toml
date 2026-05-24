@@ -16,7 +16,7 @@ resolver = "3"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/deimoscontrols/deimos"
-version = "0.16.1"
+version = "0.16.2"
 
 [workspace.metadata."docs.rs"]
 all-features = true
@@ -26,3 +26,8 @@ opt-level = 3
 codegen-units = 1
 lto = true
 overflow-checks = true
+
+[profile.dev]
+opt-level = 1
+codegen-units = 32
+lto = false

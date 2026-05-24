@@ -160,7 +160,7 @@ where
             }
         }
 
-        for (dst, acc) in out.iter_mut().zip(acc.into_iter()) {
+        for (dst, acc) in out.iter_mut().zip(acc) {
             *dst = acc.finish();
         }
     }

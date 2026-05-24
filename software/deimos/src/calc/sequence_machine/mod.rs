@@ -202,9 +202,9 @@ impl SequenceMachine {
         self.cfg
             .transitions
             .entry(source_sequence)
-            .or_insert_with(BTreeMap::new)
+            .or_default()
             .entry(target_sequence)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(transition);
 
         Ok(())
@@ -693,9 +693,11 @@ impl Calc for SequenceMachine {
 impl SequenceMachine {
     #[new]
     fn py_new(entry: String) -> Self {
-        let mut cfg = MachineCfg::default();
-        cfg.save_outputs = true;
-        cfg.entry = entry;
+        let cfg = MachineCfg {
+            save_outputs: true,
+            entry,
+            ..Default::default()
+        };
 
         Self {
             cfg,
@@ -724,13 +726,13 @@ impl SequenceMachine {
         let path = Path::new(path);
         Self::load_folder(&path)
             .map(|machine| *machine)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+            .map_err(pyo3::exceptions::PyValueError::new_err)
     }
 
     #[pyo3(name = "save_folder")]
     fn py_save_folder(&self, path: &str) -> PyResult<()> {
         let path = Path::new(path);
-        Self::save_folder(self, &path).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+        Self::save_folder(self, &path).map_err(pyo3::exceptions::PyValueError::new_err)
     }
 
     fn get_entry(&self) -> PyResult<String> {
@@ -868,10 +870,7 @@ impl SequenceMachine {
             None => Timeout::Loop,
         };
         self.cfg.timeouts.insert(name.clone(), timeout);
-        self.cfg
-            .transitions
-            .entry(name)
-            .or_insert_with(BTreeMap::new);
+        self.cfg.transitions.entry(name).or_default();
 
         Ok(())
     }
@@ -886,12 +885,12 @@ impl SequenceMachine {
     ) -> PyResult<()> {
         // Unpack and parse
         let (source_sequence, target_sequence) = source_target;
-        let op = ThreshOp::try_parse(op).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+        let op = ThreshOp::try_parse(op).map_err(pyo3::exceptions::PyValueError::new_err)?;
 
         // Add to machine
         let transition = Transition::ConstantThresh(channel, op, threshold);
         self.add_transition(source_sequence, target_sequence, transition)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+            .map_err(pyo3::exceptions::PyValueError::new_err)
     }
 
     /// Add a channel threshold transition for a sequence.
@@ -904,12 +903,12 @@ impl SequenceMachine {
     ) -> PyResult<()> {
         // Unpack and parse
         let (source_sequence, target_sequence) = source_target;
-        let op = ThreshOp::try_parse(op).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+        let op = ThreshOp::try_parse(op).map_err(pyo3::exceptions::PyValueError::new_err)?;
 
         // Add to machine
         let transition = Transition::ChannelThresh(channel, op, threshold_channel);
         self.add_transition(source_sequence, target_sequence, transition)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+            .map_err(pyo3::exceptions::PyValueError::new_err)
     }
 
     /// Add a lookup threshold transition for a sequence.
@@ -923,8 +922,8 @@ impl SequenceMachine {
         // Unpack and parse
         let (source_sequence, target_sequence) = source_target;
         let (time_s, vals, method) = threshold_lookup;
-        let op = ThreshOp::try_parse(op).map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
-        let method = InterpMethod::try_parse(&method).map_err(|e| {
+        let op = ThreshOp::try_parse(op).map_err(pyo3::exceptions::PyValueError::new_err)?;
+        let method = InterpMethod::try_parse(method).map_err(|e| {
             pyo3::exceptions::PyValueError::new_err(format!(
                 "Lookup has invalid interp method: {e}"
             ))
@@ -938,7 +937,7 @@ impl SequenceMachine {
         // Add to machine
         let transition = Transition::LookupThresh(channel, op, lookup);
         self.add_transition(source_sequence, target_sequence, transition)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+            .map_err(pyo3::exceptions::PyValueError::new_err)
     }
 }
 

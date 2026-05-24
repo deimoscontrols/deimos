@@ -388,7 +388,7 @@ mod tests {
     };
     use crate::control::lti::filter_design::{design_analog_filter_zpk, design_digital_filter_zpk};
     use faer::complex::Complex;
-    use nalgebra::Normed;
+    use nalgebra::Normed; // Required for .norm()
 
     fn attenuation_db(value: f64) -> f64 {
         -20.0 * value.log10()

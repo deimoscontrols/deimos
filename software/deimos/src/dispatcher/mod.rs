@@ -28,7 +28,7 @@ use crate::controller::context::ControllerCtx;
 use pyo3::prelude::*;
 
 /// Choice of behavior when the current file is full
-#[cfg_attr(feature = "python", pyclass)]
+#[cfg_attr(feature = "python", pyclass(from_py_object))]
 #[derive(Serialize, Deserialize, Default, Clone, Copy, Debug)]
 pub enum Overflow {
     /// Wrap back to the beginning of the file and
@@ -223,7 +223,7 @@ mod tests {
             let parsed: f64 = formatted
                 .trim()
                 .parse()
-                .expect(&format!("Failed to parse `{formatted}` to `{value}`"));
+                .unwrap_or_else(|_| panic!("Failed to parse `{formatted}` to `{value}`"));
             if !value.is_nan() {
                 assert_eq!(
                     value, parsed,
@@ -254,7 +254,7 @@ mod tests {
             // Make sure we can parse the number back
             let parsed: i64 = formatted
                 .parse()
-                .expect(&format!("Failed to parse `{formatted}` to `{value}`"));
+                .unwrap_or_else(|_| panic!("Failed to parse `{formatted}` to `{value}`"));
             assert_eq!(
                 value, parsed,
                 "{value} was serialized as {formatted} and parsed as {parsed}"

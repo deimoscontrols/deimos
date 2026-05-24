@@ -70,31 +70,31 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
 #[derive(Debug)]
 #[allow(dead_code)]
 pub(crate) enum BackendErr {
-    InvalidPathErr { msg: String },
-    RunErr { msg: String },
-    InvalidPeripheralErr { msg: String },
-    InvalidCalcErr { msg: String },
-    InvalidDispatcherErr { msg: String },
-    InvalidSocketErr { msg: String },
+    InvalidPath { msg: String },
+    Run { msg: String },
+    InvalidPeripheral { msg: String },
+    InvalidCalc { msg: String },
+    InvalidDispatcher { msg: String },
+    InvalidSocket { msg: String },
 }
 
 impl From<BackendErr> for PyErr {
     fn from(val: BackendErr) -> Self {
         match &val {
-            BackendErr::InvalidPathErr { msg: _ } => {
+            BackendErr::InvalidPath { msg: _ } => {
                 exceptions::PyValueError::new_err(format!("{:#?}", val))
             }
-            BackendErr::RunErr { msg: _ } => exceptions::PyIOError::new_err(format!("{:#?}", val)),
-            BackendErr::InvalidPeripheralErr { msg: _ } => {
+            BackendErr::Run { msg: _ } => exceptions::PyIOError::new_err(format!("{:#?}", val)),
+            BackendErr::InvalidPeripheral { msg: _ } => {
                 exceptions::PyValueError::new_err(format!("{:#?}", val))
             }
-            BackendErr::InvalidCalcErr { msg: _ } => {
+            BackendErr::InvalidCalc { msg: _ } => {
                 exceptions::PyValueError::new_err(format!("{:#?}", val))
             }
-            BackendErr::InvalidDispatcherErr { msg: _ } => {
+            BackendErr::InvalidDispatcher { msg: _ } => {
                 exceptions::PyValueError::new_err(format!("{:#?}", val))
             }
-            BackendErr::InvalidSocketErr { msg: _ } => {
+            BackendErr::InvalidSocket { msg: _ } => {
                 exceptions::PyValueError::new_err(format!("{:#?}", val))
             }
         }

@@ -660,18 +660,17 @@ impl CalcOrchestrator {
             peripheral_input_slices.insert(name.clone(), start..end);
 
             // Populate the field order
-            let mut i = start;
-            for field in peripheral
-                .input_names()
-                .iter()
-                .map(|field| format!("{name}.{field}"))
-            {
+            for (i, field) in (start..).zip(
+                peripheral
+                    .input_names()
+                    .iter()
+                    .map(|field| format!("{name}.{field}")),
+            ) {
                 fields_order.push(field.clone());
                 field_index_map.insert(field.clone(), i);
                 dispatch_names.push(field.clone());
                 dispatch_indices.push(i);
                 peripheral_input_fields.push(field);
-                i += 1;
             }
         }
         //    Peripheral outputs
@@ -682,17 +681,16 @@ impl CalcOrchestrator {
             peripheral_output_slices.insert(name.clone(), start..end);
 
             // Populate the field order
-            let mut i = start;
-            for field in peripheral
-                .output_names()
-                .iter()
-                .map(|field| format!("{name}.{field}"))
-            {
+            for (i, field) in (start..).zip(
+                peripheral
+                    .output_names()
+                    .iter()
+                    .map(|field| format!("{name}.{field}")),
+            ) {
                 fields_order.push(field.clone());
                 field_index_map.insert(field.clone(), i);
                 dispatch_names.push(field);
                 dispatch_indices.push(i);
-                i += 1;
             }
         }
         //    Calcs, in eval order
@@ -727,8 +725,7 @@ impl CalcOrchestrator {
             let output_range = start..end;
 
             // Set output order
-            let mut i = start;
-            for output_name in output_names {
+            for (i, output_name) in (start..).zip(output_names.iter()) {
                 let output_field = format!("{calc_name}.{output_name}");
                 fields_order.push(output_field.clone());
                 field_index_map.insert(output_field.clone(), i);
@@ -738,8 +735,6 @@ impl CalcOrchestrator {
                     dispatch_names.push(output_field.clone());
                     dispatch_indices.push(i);
                 }
-
-                i += 1;
             }
 
             // Initialize this calc

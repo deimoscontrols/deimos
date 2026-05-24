@@ -21,7 +21,7 @@ pub(crate) struct Controller {
 impl Controller {
     fn ctrl(&mut self) -> PyResult<&mut crate::Controller> {
         self.controller.as_mut().ok_or_else(|| {
-            BackendErr::RunErr {
+            BackendErr::Run {
                 msg: "Controller has been moved into a running thread".to_string(),
             }
             .into()
@@ -32,7 +32,7 @@ impl Controller {
         self.controller
             .as_ref()
             .ok_or_else(|| {
-                BackendErr::RunErr {
+                BackendErr::Run {
                     msg: "Controller has been moved into a running thread".to_string(),
                 }
                 .into()
@@ -44,7 +44,7 @@ impl Controller {
         self.controller
             .as_mut()
             .ok_or_else(|| {
-                BackendErr::RunErr {
+                BackendErr::Run {
                     msg: "Controller has been moved into a running thread".to_string(),
                 }
                 .into()
@@ -61,10 +61,12 @@ impl Controller {
     /// This constructor does not run the controller or attach any peripherals.
     #[new]
     fn new(op_name: &str, op_dir: &str, rate_hz: f64) -> PyResult<Self> {
-        let mut ctx = crate::ControllerCtx::default();
-        ctx.op_name = op_name.into();
-        ctx.op_dir = op_dir.to_string().into();
-        ctx.dt_ns = (1e9 / rate_hz) as u32;
+        let ctx = crate::ControllerCtx {
+            op_name: op_name.into(),
+            op_dir: op_dir.to_string().into(),
+            dt_ns: (1e9 / rate_hz) as u32,
+            ..Default::default()
+        };
 
         let controller = crate::Controller::new(ctx);
 
@@ -84,7 +86,7 @@ impl Controller {
             let handle = std::thread::Builder::new()
                 .name("py-controller-run".to_string())
                 .spawn_scoped(s, move || ctrl.run(&None, Some(&*term_for_thread)))
-                .map_err(|e| BackendErr::RunErr {
+                .map_err(|e| BackendErr::Run {
                     msg: format!("Failed to spawn controller thread: {e}"),
                 })?;
 
@@ -100,11 +102,11 @@ impl Controller {
             }
 
             // The operation is done; check the result
-            match handle.join().map_err(|e| BackendErr::RunErr {
+            match handle.join().map_err(|e| BackendErr::Run {
                 msg: format!("Controller operation failed to complete: {e:?}"),
             })? {
                 Ok(msg) => Ok(msg),
-                Err(msg) => Err(BackendErr::RunErr { msg }.into()),
+                Err(msg) => Err(BackendErr::Run { msg }.into()),
             }
         })
     }
@@ -116,24 +118,24 @@ impl Controller {
         latest_value_cutoff_freq: Option<f64>,
         wait_for_ready: bool,
     ) -> PyResult<RunHandle> {
-        let controller = self.controller.take().ok_or_else(|| BackendErr::RunErr {
+        let controller = self.controller.take().ok_or_else(|| BackendErr::Run {
             msg: "Controller has already been moved into a running thread".to_string(),
         })?;
         controller
             .run_nonblocking(None, latest_value_cutoff_freq, wait_for_ready)
-            .map_err(|e| BackendErr::RunErr { msg: e }.into())
+            .map_err(|e| BackendErr::Run { msg: e }.into())
     }
 
     /// Scan the local network (and any other attached sockets) for available peripherals.
     #[pyo3(signature=(timeout_ms=10))]
     fn scan(&mut self, py: Python, timeout_ms: u16) -> PyResult<Vec<Py<PyAny>>> {
         match self.ctrl()?.scan(timeout_ms, &None) {
-            Err(msg) => Err(BackendErr::RunErr { msg }.into()),
+            Err(msg) => Err(BackendErr::Run { msg }.into()),
             Ok(map) => {
                 let module = py
                     .import("deimos")
                     .and_then(|root| root.getattr("peripheral"))
-                    .map_err(|e| BackendErr::InvalidPeripheralErr {
+                    .map_err(|e| BackendErr::InvalidPeripheral {
                         msg: format!("Failed to resolve peripheral module: {e}"),
                     })?;
                 let mut peripherals = Vec::with_capacity(map.len());
@@ -141,17 +143,17 @@ impl Controller {
                 for peripheral in map.values() {
                     let kind = peripheral.kind();
                     let json = serde_json::to_string(peripheral).map_err(|e| {
-                        BackendErr::InvalidPeripheralErr {
+                        BackendErr::InvalidPeripheral {
                             msg: format!("Failed to serialize {kind}: {e}"),
                         }
                     })?;
                     let cls = module.getattr(kind.as_str()).map_err(|e| {
-                        BackendErr::InvalidPeripheralErr {
+                        BackendErr::InvalidPeripheral {
                             msg: format!("Missing Python class for {kind}: {e}"),
                         }
                     })?;
                     let obj = cls.call_method1("from_json", (json,)).map_err(|e| {
-                        BackendErr::InvalidPeripheralErr {
+                        BackendErr::InvalidPeripheral {
                             msg: format!("Failed to construct {kind} from JSON: {e}"),
                         }
                     })?;
@@ -190,7 +192,7 @@ impl Controller {
             Ok(x.to_string())
         } else {
             let invalid_string = self.ctx()?.op_dir.to_string_lossy();
-            Err(BackendErr::InvalidPathErr {
+            Err(BackendErr::InvalidPath {
                 msg: format!(
                     "Unable to convert op_dir to valid string: {}",
                     invalid_string
@@ -261,8 +263,7 @@ impl Controller {
         _py: Python<'_>,
         v: Option<crate::Termination>,
     ) -> PyResult<()> {
-        let criteria = v.map(|term| term.clone());
-        self.ctx_mut()?.termination_criteria = criteria;
+        self.ctx_mut()?.termination_criteria = v;
         Ok(())
     }
 
@@ -339,7 +340,7 @@ impl Controller {
         };
         self.ctrl()?
             .attach_hootl_driver(peripheral_name, transport, end)
-            .map_err(|e| BackendErr::InvalidPeripheralErr { msg: e }.into())
+            .map_err(|e| BackendErr::InvalidPeripheral { msg: e }.into())
     }
 
     fn add_calc(&mut self, name: &str, calc: Box<dyn Calc>) -> PyResult<()> {
