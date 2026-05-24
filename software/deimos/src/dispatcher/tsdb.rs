@@ -119,6 +119,7 @@ py_json_methods!(
         op_name_suffix=None,
         chunk_interval_ns=None
     ))]
+    #[allow(clippy::too_many_arguments)]
     fn py_new(
         dbname: &str,
         host: &str,

@@ -172,6 +172,7 @@ impl Calc for TcKtype {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod test {
     use super::INTERPOLATOR;
 

@@ -76,17 +76,17 @@ impl SocketWorker {
     /// Run the worker loop until shutdown, returning the owned socket.
     pub fn run(mut self) -> Box<dyn Socket> {
         // Open socket
-        if !self.socket.is_open() {
-            if let Err(err) = self.socket.open(&self.ctx) {
-                let _ = self.event_tx.send(SocketWorkerEvent::Error {
-                    socket_id: self.socket_id,
-                    error: err,
-                });
-                let _ = self.event_tx.send(SocketWorkerEvent::Closed {
-                    socket_id: self.socket_id,
-                });
-                return self.socket;
-            }
+        if !self.socket.is_open()
+            && let Err(err) = self.socket.open(&self.ctx)
+        {
+            let _ = self.event_tx.send(SocketWorkerEvent::Error {
+                socket_id: self.socket_id,
+                error: err,
+            });
+            let _ = self.event_tx.send(SocketWorkerEvent::Closed {
+                socket_id: self.socket_id,
+            });
+            return self.socket;
         }
 
         // I/O loop

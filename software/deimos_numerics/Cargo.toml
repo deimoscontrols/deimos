@@ -33,15 +33,3 @@ criterion = "0.8.2"
 [[bench]]
 name = "bench"
 harness = false
-
-[profile.release]
-opt-level = 3
-codegen-units = 16
-lto = true
-strip = true
-overflow-checks = true
-
-[profile.dev]
-opt-level = 1
-codegen-units = 32
-lto = false

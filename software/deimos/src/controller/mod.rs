@@ -108,13 +108,18 @@ impl Controller {
     }
 
     /// Read-only access to dispatchers by name.
-    pub fn dispatcher(&self, name: &str) -> Option<&Box<dyn Dispatcher>> {
-        self.dispatchers.get(name)
+    pub fn dispatcher(&self, name: &str) -> Option<&dyn Dispatcher> {
+        self.dispatchers
+            .get(name)
+            .map(|dispatcher| dispatcher.as_ref())
     }
 
     /// Mutable access to dispatchers by name.
-    pub fn dispatcher_mut(&mut self, name: &str) -> Option<&mut Box<dyn Dispatcher>> {
-        self.dispatchers.get_mut(name)
+    pub fn dispatcher_mut(&mut self, name: &str) -> Option<&mut (dyn Dispatcher + '_)> {
+        match self.dispatchers.get_mut(name) {
+            Some(dispatcher) => Some(dispatcher.as_mut()),
+            None => None,
+        }
     }
 
     /// List dispatcher names.
@@ -182,12 +187,12 @@ impl Controller {
         transport: HootlTransport,
         end: Option<SystemTime>,
     ) -> Result<HootlRunHandle, String> {
-        if let Some(existing) = self.peripherals.get(peripheral_name) {
-            if existing.kind() == "HootlPeripheral" {
-                return Err(format!(
-                    "Peripheral `{peripheral_name}` is already a HootlPeripheral"
-                ));
-            }
+        if let Some(existing) = self.peripherals.get(peripheral_name)
+            && existing.kind() == "HootlPeripheral"
+        {
+            return Err(format!(
+                "Peripheral `{peripheral_name}` is already a HootlPeripheral"
+            ));
         }
 
         let inner = self
@@ -494,7 +499,7 @@ impl Controller {
             Some(ps) => ps,
             None => return,
         };
-        if !matches!(ps.conn_state, ConnState::Operating { .. }) {
+        if !matches!(ps.conn_state, ConnState::Operating()) {
             return;
         }
         let p = &self.peripherals[&ps.name];
@@ -787,7 +792,7 @@ impl Controller {
                 .filter(|(_pname, p)| !peripheral_set.contains(&p.id()))
                 .map(|(pname, _p)| pname.clone())
                 .collect();
-            if missing_peripherals.len() > 0 {
+            if !missing_peripherals.is_empty() {
                 // Report error
                 let msg = format!(
                     "Required peripherals not found on any sockets: {missing_peripherals:?}"
@@ -1018,8 +1023,8 @@ impl Controller {
                 // Figure out which peripherals were missing.
                 let peripherals_not_acknowledged = controller_state
                     .peripheral_state
-                    .iter()
-                    .filter_map(|(_k, v)| (!v.acknowledged_configuration).then_some(v.name.clone()))
+                    .values()
+                    .filter_map(|v| (!v.acknowledged_configuration).then_some(v.name.clone()))
                     .collect::<Vec<_>>();
                 warn!(
                     "Peripherals did not acknowledge configuration: {peripherals_not_acknowledged:?}"
@@ -1140,7 +1145,7 @@ impl Controller {
                     for p in controller_state.peripheral_state.values_mut() {
                         // Check loss of contact
                         if p.metrics.loss_of_contact_counter >= limit
-                            && matches!(p.conn_state, ConnState::Operating { .. })
+                            && matches!(p.conn_state, ConnState::Operating())
                         {
                             let deadline = reconnect_timeout.map(|d| now + d);
                             p.conn_state = ConnState::Disconnected { deadline };
@@ -1152,30 +1157,26 @@ impl Controller {
                             ConnState::Binding {
                                 binding_timeout,
                                 reconnect_deadline,
-                            } => {
-                                if now >= binding_timeout {
-                                    p.conn_state = ConnState::Disconnected {
-                                        deadline: reconnect_deadline,
-                                    };
-                                    // We don't warn here, because if the disconnected state
-                                    // persists for a while (like if someone is moving a peripheral
-                                    // from one room to another), logging here every few milliseconds
-                                    // would produce large and unhelpful log files.
-                                }
+                            } if now >= binding_timeout => {
+                                p.conn_state = ConnState::Disconnected {
+                                    deadline: reconnect_deadline,
+                                };
+                                // We don't warn here, because if the disconnected state
+                                // persists for a while (like if someone is moving a peripheral
+                                // from one room to another), logging here every few milliseconds
+                                // would produce large and unhelpful log files.
                             }
                             ConnState::Configuring {
                                 configuring_timeout,
                                 reconnect_deadline,
-                            } => {
-                                if now >= configuring_timeout {
-                                    p.conn_state = ConnState::Disconnected {
-                                        deadline: reconnect_deadline,
-                                    };
-                                    warn!(
-                                        "Did not receive Configuring response from peripheral `{}`",
-                                        p.name
-                                    );
-                                }
+                            } if now >= configuring_timeout => {
+                                p.conn_state = ConnState::Disconnected {
+                                    deadline: reconnect_deadline,
+                                };
+                                warn!(
+                                    "Did not receive Configuring response from peripheral `{}`",
+                                    p.name
+                                );
                             }
                             _ => {}
                         }
@@ -1189,12 +1190,12 @@ impl Controller {
                                 reconnect_deadline, ..
                             } => reconnect_deadline,
                             ConnState::Disconnected { deadline } => deadline,
-                            ConnState::Operating { .. } => None,
+                            ConnState::Operating() => None,
                         };
-                        if let Some(deadline) = deadline {
-                            if now >= deadline {
-                                expired_name = Some(p.name.clone());
-                            }
+                        if let Some(deadline) = deadline
+                            && now >= deadline
+                        {
+                            expired_name = Some(p.name.clone());
                         }
                     }
 
@@ -1256,21 +1257,21 @@ impl Controller {
             }
 
             // Check external termination signal
-            if let Some(s) = termination_signal {
-                if s.load(std::sync::atomic::Ordering::Relaxed) {
-                    let msg = format!("External termination signal received at {t:?}");
-                    let reason = Ok(msg.clone());
-                    info!("{msg}");
+            if let Some(s) = termination_signal
+                && s.load(std::sync::atomic::Ordering::Relaxed)
+            {
+                let msg = format!("External termination signal received at {t:?}");
+                let reason = Ok(msg.clone());
+                info!("{msg}");
 
-                    self.terminate(
-                        &controller_state,
-                        peripheral_input_buffer,
-                        i,
-                        &mut socket_orchestrator,
-                    );
-                    self.sockets = socket_orchestrator.close().into_iter().collect();
-                    return reason;
-                }
+                self.terminate(
+                    &controller_state,
+                    peripheral_input_buffer,
+                    i,
+                    &mut socket_orchestrator,
+                );
+                self.sockets = socket_orchestrator.close().into_iter().collect();
+                return reason;
             }
 
             // Periodically broadcast bind requests on sockets with Disconnected peripherals.
@@ -1288,7 +1289,7 @@ impl Controller {
                     };
 
                     // If we're already past the reconnection deadline, skip this one
-                    if deadline.map_or(false, |deadline| now >= deadline) {
+                    if deadline.is_some_and(|deadline| now >= deadline) {
                         continue;
                     }
 
@@ -1308,10 +1309,10 @@ impl Controller {
 
                     // Check if it has been long enough since our last broadcast on this socket.
                     // If not, skip broadcasting on this socket until a later cycle.
-                    if let Some(last) = reconnect_broadcasts.get(&sid).copied() {
-                        if now.duration_since(last) < reconnect_step_timeout {
-                            continue; // Go to the next socket
-                        }
+                    if let Some(last) = reconnect_broadcasts.get(&sid).copied()
+                        && now.duration_since(last) < reconnect_step_timeout
+                    {
+                        continue; // Go to the next socket
                     }
 
                     // Build binding packet
@@ -1375,7 +1376,7 @@ impl Controller {
             for (addr, ps) in controller_state.peripheral_state.iter_mut() {
                 // Don't spam Operating inputs to peripherals that are in the process
                 // of being reconnected
-                if !matches!(ps.conn_state, ConnState::Operating { .. }) {
+                if !matches!(ps.conn_state, ConnState::Operating()) {
                     continue;
                 }
                 let p = &self.peripherals[&ps.name];

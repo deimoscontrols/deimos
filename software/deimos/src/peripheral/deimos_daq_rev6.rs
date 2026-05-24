@@ -161,20 +161,17 @@ impl Peripheral for DeimosDaqRev6 {
 
         // 4-20mA channels use a 75 ohm reference resistor and G=1 amp
         {
-            let mut n = 0;
-            for i in milliamp_4_20_range {
+            for (n, i) in milliamp_4_20_range.enumerate() {
                 let input_name = format!("{name}.ain{i}");
                 let calc_name = format!("{name}_4_20_mA_{n}_A");
                 let slope = 75.0; // [V/A] due to 75 ohm resistor
                 calcs.insert(calc_name, InverseAffine::new(input_name, slope, 0.0, true));
-                n += 1;
             }
         }
 
         // Resistance sensors use a 250uA reference current and gain of 25.7
         {
-            let mut n = 0;
-            for i in rtd_range {
+            for (n, i) in rtd_range.enumerate() {
                 let input_name = format!("{name}.ain{i}");
                 let resistance_calc_name = format!("{name}_ohm_{n}");
                 let temperature_calc_name = format!("{name}_rtd_{n}");
@@ -185,15 +182,13 @@ impl Peripheral for DeimosDaqRev6 {
                 let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
                 calcs.insert(resistance_calc_name, resistance_calc);
                 calcs.insert(temperature_calc_name, temperature_calc);
-                n += 1;
             }
         }
 
         // TCs use a gain of 25.7 as well, and an output offset
         // to allow measuring temperatures below 0C
         {
-            let mut n = 0;
-            for i in tc_range {
+            for (n, i) in tc_range.enumerate() {
                 let slope = 25.7;
                 let offset = 1.024;
 
@@ -209,7 +204,6 @@ impl Peripheral for DeimosDaqRev6 {
                 );
                 calcs.insert(voltage_calc_name, voltage_calc);
                 calcs.insert(temperature_calc_name, temperature_calc);
-                n += 1;
             }
         }
 

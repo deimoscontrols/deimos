@@ -26,3 +26,8 @@ opt-level = 3
 codegen-units = 1
 lto = true
 overflow-checks = true
+
+[profile.dev]
+opt-level = 1
+codegen-units = 32
+lto = false

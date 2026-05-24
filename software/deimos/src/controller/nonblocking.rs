@@ -134,7 +134,7 @@ impl super::Controller {
 
 /// A snapshot of the values from all peripherals and calcs
 /// at the end of a cycle.
-#[cfg_attr(feature = "python", pyclass)]
+#[cfg_attr(feature = "python", pyclass(from_py_object))]
 #[derive(Clone, Debug, Default)]
 pub struct Snapshot {
     /// Cycle-end UTC system time in RFC3339 format with nanoseconds.
@@ -300,7 +300,7 @@ impl RunHandle {
     #[pyo3(name = "join")]
     fn py_join(&mut self) -> PyResult<String> {
         self.join()
-            .map_err(|e| PyErr::from(BackendErr::RunErr { msg: e }))
+            .map_err(|e| PyErr::from(BackendErr::Run { msg: e }))
     }
 
     #[pyo3(name = "latest_row")]
@@ -326,7 +326,7 @@ impl RunHandle {
     #[pyo3(name = "write")]
     fn py_write(&self, values: HashMap<String, f64>) -> PyResult<()> {
         self.write(values)
-            .map_err(|e| PyErr::from(BackendErr::RunErr { msg: e }))
+            .map_err(|e| PyErr::from(BackendErr::Run { msg: e }))
     }
 
     fn __enter__(slf: PyRefMut<'_, Self>) -> PyResult<PyRefMut<'_, Self>> {

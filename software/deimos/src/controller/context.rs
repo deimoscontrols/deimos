@@ -20,7 +20,7 @@ use tracing::warn;
 
 /// Criteria for exiting the control program
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[cfg_attr(feature = "python", pyclass)]
+#[cfg_attr(feature = "python", pyclass(from_py_object))]
 #[non_exhaustive]
 pub enum Termination {
     /// A duration after which the control program should terminate.
@@ -59,7 +59,7 @@ impl Termination {
 
 /// Response to losing contact with a peripheral
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[cfg_attr(feature = "python", pyclass)]
+#[cfg_attr(feature = "python", pyclass(from_py_object))]
 pub enum LossOfContactPolicy {
     /// Terminate the control program
     Terminate(),
@@ -104,7 +104,7 @@ impl LossOfContactPolicy {
 /// CPU usage, but degrades performance due to OS timing granularity and context-switching
 /// overhead.
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[cfg_attr(feature = "python", pyclass)]
+#[cfg_attr(feature = "python", pyclass(from_py_object))]
 pub enum LoopMethod {
     /// Use 100% of CPU 0 to ensure cycle timing and prevent context switching.
     Performant,

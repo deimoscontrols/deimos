@@ -182,8 +182,10 @@ impl Peripheral for IpcMockup {
     ) {
         // If this were a real peripheral, we'd take the inputs from `inputs` here
 
-        let mut msg = OperatingRoundtripInput::default();
-        msg.id = id;
+        let msg = OperatingRoundtripInput {
+            id,
+            ..Default::default()
+        };
 
         msg.write_bytes(bytes);
     }
