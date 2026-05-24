@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-05-24 deimos_console 0.16.2
+
+Initial addition of `deimos_console`, an egui-based realtime plotting client
+contributed by Jon Bass (@firstmorecoffee).
+
+* deimos
+    * Add multicast reporting system and `ReportingDispatcher` that distributes data and schemas for clients on the local network.
+* deimos_console
+    * Initial addition of realtime plotting client.
+* Deimos DAQ Rev7
+    * Updated enclosure and as-quoted enclosure CAD.
+
 ## 2026-05-01 deimos_numerics 0.16.1
 
 Initial addition of `deimos_numerics`, a wasm-compatible, no-std-compatible, and partially no-alloc-compatible numerics and control systems library.
