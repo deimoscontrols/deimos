@@ -9,6 +9,8 @@ contributed by Jon Bass (@firstmorecoffee).
     * Add multicast reporting system and `ReportingDispatcher` that distributes data and schemas for clients on the local network.
 * deimos_console
     * Initial addition of realtime plotting client.
+* deimos_numerics
+    * Remove unused imports in test modules.
 * Deimos DAQ Rev7
     * Updated enclosure and as-quoted enclosure CAD.
 
