@@ -11,7 +11,7 @@ contributed by Jon Bass (@firstmorecoffee).
 * deimos_console
     * Initial addition of realtime plotting client.
 * deimos_numerics
-    * Remove unused imports in test modules.
+    * Add notes about unused-import warnings in test modules.
 * Deimos DAQ Rev7
     * Updated enclosure and as-quoted enclosure CAD.
 
