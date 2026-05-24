@@ -28,7 +28,7 @@ toml = "^0.8"
 
 # Transport
 crossbeam-channel = "^0.5"
-socket2 = { version = "^0.5", features = ["all"] }
+socket2 = { version = "^0.6.3", features = ["all"] }
 
 # Timestamps
 chrono = { version = "^0.4.42", features = ["std", "clock"], default-features = false }
