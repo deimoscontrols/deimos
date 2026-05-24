@@ -7,6 +7,7 @@ contributed by Jon Bass (@firstmorecoffee).
 
 * deimos
     * Add multicast reporting system and `ReportingDispatcher` that distributes data and schemas for clients on the local network.
+    * Resolve new clippy lints.
 * deimos_console
     * Initial addition of realtime plotting client.
 * deimos_numerics
