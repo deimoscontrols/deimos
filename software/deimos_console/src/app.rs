@@ -874,8 +874,8 @@ impl ConsoleState {
     /// thread — see [`Self::background_tick`]. The freeze/unfreeze button is the one UI-side path
     /// that still mutates the per-channel ring buffers (it trims to the live window on unfreeze);
     /// everything else this method touches is UI-only state.
-    pub(crate) fn render_ui(state_arc: &Arc<Mutex<Self>>, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    pub(crate) fn render_ui(state_arc: &Arc<Mutex<Self>>, ui: &mut egui::Ui) {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             // Phase 1: take the lock just long enough to render the always-fast top section
             // (header + freeze button + status indicators) and to copy out the per-panel plot
             // data. The freeze button must run under the lock because clicking it mutates ring
@@ -895,7 +895,7 @@ impl ConsoleState {
         });
 
         // Fixed 30 Hz repaint cadence: schedule the next repaint ~33 ms from now.
-        ctx.request_repaint_after(Duration::from_millis(33));
+        ui.ctx().request_repaint_after(Duration::from_millis(33));
     }
 
     /// Render the always-cheap top section: header bar with the freeze button, the
@@ -1122,7 +1122,7 @@ impl ConsoleState {
 
             plot.show(ui, |plot_ui| {
                 for (ch, points) in &panel.series {
-                    let line = Line::new(PlotPoints::new(points.clone())).name(ch.as_str());
+                    let line = Line::new(ch.as_str(), PlotPoints::new(points.clone()));
                     plot_ui.line(line);
                 }
             });
@@ -1205,11 +1205,11 @@ impl DeimosConsoleApp {
 }
 
 impl eframe::App for DeimosConsoleApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         // `render_ui` manages the shared lock itself: it takes the lock briefly to render the
         // top section and snapshot per-panel data, then drops it before each `Plot::show` runs
         // so the buffer-processor thread is not blocked on the long render.
-        ConsoleState::render_ui(&self.state, ctx);
+        ConsoleState::render_ui(&self.state, ui);
     }
 }
 
