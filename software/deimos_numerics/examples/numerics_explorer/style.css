@@ -1,9 +1,13 @@
 :root {
   --deimos-primary: #8232ba;
   --deimos-accent: #ac37ff;
+  --app-background:
+    radial-gradient(circle at top left, rgba(172, 55, 255, 0.24), transparent 30%),
+    linear-gradient(180deg, #242833 0%, var(--bg) 100%);
   --bg: #1e2129;
   --panel: #2b2f3a;
   --panel-strong: #363b48;
+  --sidebar-bg: rgba(31, 34, 43, 0.9);
   --ink: #f2f0f6;
   --muted: #b9b2c6;
   --line: #47404f;
@@ -23,9 +27,7 @@
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at top left, rgba(172, 55, 255, 0.24), transparent 30%),
-    linear-gradient(180deg, #242833 0%, var(--bg) 100%);
+  background: var(--bg);
   color: var(--ink);
   font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
 }
@@ -39,12 +41,33 @@ input {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
+  background: var(--app-background);
+  color: var(--ink);
+}
+
+.app-shell.light-mode {
+  --app-background:
+    radial-gradient(circle at top left, rgba(130, 50, 186, 0.16), transparent 32%),
+    linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
+  --bg: #f6f7fb;
+  --panel: #ffffff;
+  --panel-strong: #eef1f7;
+  --sidebar-bg: rgba(255, 255, 255, 0.92);
+  --ink: #171922;
+  --muted: #586174;
+  --line: #d8deea;
+  --accent-soft: rgba(130, 50, 186, 0.11);
+  --warning: #8a5a00;
+  --warning-bg: rgba(255, 209, 102, 0.28);
+  --success: #197143;
+  --success-bg: rgba(25, 113, 67, 0.12);
+  --shadow: 0 14px 34px rgba(40, 45, 60, 0.12);
 }
 
 .sidebar {
   padding: 1.5rem;
   border-right: 1px solid var(--line);
-  background: rgba(31, 34, 43, 0.9);
+  background: var(--sidebar-bg);
   backdrop-filter: blur(12px);
 }
 
@@ -59,6 +82,63 @@ input {
   margin: 0.75rem 0 1.5rem;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.theme-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 700;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.theme-toggle:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+}
+
+.theme-toggle.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.theme-toggle-icon {
+  width: 2.25rem;
+  height: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0.15rem;
+  border-radius: 999px;
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+}
+
+.theme-toggle-icon::before {
+  content: "";
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  background: var(--muted);
+  transition:
+    transform 120ms ease,
+    background 120ms ease;
+}
+
+.theme-toggle.active .theme-toggle-icon::before {
+  transform: translateX(0.95rem);
+  background: var(--accent-strong);
 }
 
 .nav-group {
