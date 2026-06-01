@@ -114,6 +114,14 @@ impl Peripheral for HootlPeripheral {
         self.inner.output_names()
     }
 
+    fn metric_names(&self) -> Vec<String> {
+        self.inner.metric_names()
+    }
+
+    fn metric_units(&self) -> Vec<Option<String>> {
+        self.inner.metric_units()
+    }
+
     fn operating_roundtrip_input_size(&self) -> usize {
         self.inner.operating_roundtrip_input_size()
     }

@@ -107,6 +107,7 @@ impl Calc for Speaker {
         &mut self,
         ctx: ControllerCtx,
         _input_indices: Vec<usize>,
+        _input_units: Vec<Option<String>>,
         output_range: Range<usize>,
     ) -> Result<(), String> {
         self.output_index = output_range.clone().next().unwrap();
@@ -190,6 +191,7 @@ impl Calc for Listener {
         &mut self,
         ctx: ControllerCtx,
         _input_indices: Vec<usize>,
+        _input_units: Vec<Option<String>>,
         output_range: Range<usize>,
     ) -> Result<(), String> {
         self.output_index = output_range.clone().next().unwrap();

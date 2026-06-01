@@ -49,6 +49,22 @@ impl Peripheral for DeimosDaqRev7 {
         names
     }
 
+    fn metric_units(&self) -> Vec<Option<String>> {
+        // Parallel to the default `metric_names()` (8 entries). Channels whose unit
+        // is unambiguous from the suffix get `Some("ns")`; the trailing two are
+        // dimensionless cycle counts and stay `None`.
+        vec![
+            Some("ns".to_string()), // cycle_time_ns
+            Some("ns".to_string()), // cycle_time_margin_ns
+            Some("ns".to_string()), // raw_timing_delta_ns
+            Some("ns".to_string()), // filtered_timing_delta_ns
+            Some("ns".to_string()), // requested_period_delta_ns
+            Some("ns".to_string()), // requested_phase_delta_ns
+            None,                   // loss_of_contact_counter (dimensionless count)
+            None,                   // cycle_lag_count (dimensionless count)
+        ]
+    }
+
     fn output_names(&self) -> Vec<String> {
         let mut names = Vec::new();
 

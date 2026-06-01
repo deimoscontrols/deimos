@@ -8,6 +8,7 @@ use std::ops::Range;
 use serde::{Deserialize, Serialize};
 
 use crate::ControllerCtx;
+use crate::units;
 use crate::{calc::*, peripheral::Peripheral};
 use deimos_shared::states::OperatingMetrics;
 
@@ -17,6 +18,18 @@ struct CalcOrchestratorState {
     /// Values of every input and output field for calcs and peripherals.
     /// Notably does not include peripheral metrics.
     calc_tape: Vec<f64>,
+
+    /// Declared engineering unit per calc-tape index, parallel to `calc_tape`.
+    /// Peripheral input/output entries are `None` (peripherals don't declare
+    /// per-channel units in this scope). Calc-output entries are filled in
+    /// during pass 1 of `init` from each calc's `get_output_units(input_units)`.
+    ///
+    /// Metric channels (per-peripheral and controller-side) are NOT on the
+    /// calc tape and do not appear here. Their declared units come from
+    /// `Peripheral::metric_units` and `ControllerOperatingMetrics::units_to_write`,
+    /// and reach `ControllerCtx::channel_units` via
+    /// `ControllerState::get_units_to_write`.
+    tape_units: Vec<Option<String>>,
 
     /// Calc names in the order that they are evaluated at each cycle
     eval_order: Vec<CalcName>,
@@ -239,23 +252,15 @@ impl CalcOrchestrator {
 
     /// Get units of fields marked to dispatch, in the same order as `get_dispatch_names`.
     ///
-    /// Returns `None` for peripheral inputs and outputs (which carry no declared unit) and for
-    /// calc outputs whose calc does not override `get_output_units`.
+    /// Reads from the per-tape-index unit slice that pass 1 of `init` resolved.
+    /// Returns `None` for peripheral inputs and outputs (which carry no declared
+    /// unit on the calc tape) and for calc outputs whose calc returned `None`
+    /// from `get_output_units`.
     pub fn get_dispatch_units(&self) -> Vec<Option<String>> {
         self.state
-            .dispatch_names
+            .dispatch_indices
             .iter()
-            .map(|field_name| {
-                // Field names are "node_name.output_name". Split on the first `.`.
-                let (node_name, output_name) = match field_name.split_once('.') {
-                    Some(parts) => parts,
-                    None => return None,
-                };
-                let calc = self.calcs.get(node_name)?;
-                let output_names = calc.get_output_names();
-                let output_index = output_names.iter().position(|n| n == output_name)?;
-                calc.get_output_units().get(output_index)?.clone()
-            })
+            .map(|&i| self.state.tape_units.get(i).cloned().flatten())
             .collect()
     }
 
@@ -693,23 +698,49 @@ impl CalcOrchestrator {
                 dispatch_indices.push(i);
             }
         }
-        //    Calcs, in eval order
+        //    Calcs, in eval order — two passes:
+        //      Pass 1 walks calcs in dependency order to (a) assemble each
+        //      calc's input/output tape ranges, (b) compute its declared
+        //      output units via `get_output_units(input_units)` so passthrough
+        //      calcs (`Butter2`, `Pid`) inherit upstream units, and
+        //      (c) validate the calc's `get_input_units` against the
+        //      so-far-resolved upstream units. The first mismatch fails init
+        //      before any calc-side `init` runs.
+        //
+        //      Pass 2 walks the same `eval_order` and invokes each calc's
+        //      `init` with the assembled `input_units` slice.
+        //
+        // Per-calc binding info captured in pass 1, replayed in pass 2 to
+        // avoid recomputing input_indices / output_range.
+        struct CalcBinding {
+            calc_name: CalcName,
+            input_indices: Vec<usize>,
+            input_units: Vec<Option<String>>,
+            output_range: Range<usize>,
+        }
+        let mut bindings: Vec<CalcBinding> = Vec::with_capacity(eval_order.len());
+
+        // Tape unit slice, parallel to `fields_order`. Peripheral input/output
+        // entries are `None` (no per-channel declared unit at this layer);
+        // calc-output entries get filled in below from `get_output_units`.
+        let mut tape_units: Vec<Option<String>> = vec![None; fields_order.len()];
+
+        // Pass 1: resolve unit topology + bind tape indices.
         for calc_name in &eval_order {
-            // Unpack
             let calc = self
                 .calcs
-                .get_mut(calc_name)
+                .get(calc_name)
                 .ok_or_else(|| format!("Calc `{calc_name}` missing from registry"))?;
             let input_map = calc.get_input_map();
             let save_outputs = calc.get_save_outputs();
-            let input_names = &calc.get_input_names();
-            let output_names = &calc.get_output_names();
+            let input_names = calc.get_input_names();
+            let output_names = calc.get_output_names();
             let n_outputs = output_names.len();
 
-            // Find input indices from the part of the map that has
-            // been built so far
-            let mut input_indices = Vec::new();
-            for input_name in input_names {
+            // Resolve input tape indices from the field map built so far.
+            let mut input_indices = Vec::with_capacity(input_names.len());
+            let mut input_source_fields: Vec<FieldName> = Vec::with_capacity(input_names.len());
+            for input_name in &input_names {
                 let src_field = input_map.get(input_name).ok_or_else(|| {
                     format!("Calc `{calc_name}` missing mapping for input `{input_name}`")
                 })?;
@@ -717,28 +748,121 @@ impl CalcOrchestrator {
                     format!("Did not find field index for `{src_field}` while initializing `{calc_name}`")
                 })?;
                 input_indices.push(src_index);
+                input_source_fields.push(src_field.clone());
             }
 
-            // Set output range
+            // Look up each input's upstream-declared unit from the running
+            // tape-unit slice.
+            let input_units: Vec<Option<String>> = input_indices
+                .iter()
+                .map(|&idx| tape_units[idx].clone())
+                .collect();
+
+            // Validate this calc's declared input expectations against the
+            // upstream-declared units. First mismatch returns `Err` — no
+            // pass-2 calc-side `init` runs.
+            let declared_input_units = calc.get_input_units();
+            if declared_input_units.len() != input_names.len() {
+                return Err(format!(
+                    "Calc `{calc_name}`: get_input_units().len() = {} \
+                     != get_input_names().len() = {}",
+                    declared_input_units.len(),
+                    input_names.len(),
+                ));
+            }
+            for (i, declared) in declared_input_units.iter().enumerate() {
+                let upstream = &input_units[i];
+                let (Some(declared_unit), Some(upstream_unit)) = (declared, upstream) else {
+                    // A `None` on either side carries no unit to compare, so it passes.
+                    continue;
+                };
+                let dest_kind = calc.kind();
+                let dest_field = &input_names[i];
+                let source_name = &input_source_fields[i];
+                match units::units_equal(declared_unit, upstream_unit) {
+                    Ok(true) => {}
+                    Ok(false) => {
+                        return Err(units::unit_mismatch_message(
+                            &dest_kind,
+                            dest_field,
+                            source_name,
+                            Some(declared_unit),
+                            Some(upstream_unit),
+                        ));
+                    }
+                    Err(parse_err) => {
+                        // One side didn't parse. Treat as a mismatch with the
+                        // verbatim string echoed (the parse error already
+                        // contains the bad input): an unparseable unit is a
+                        // mismatch.
+                        return Err(format!(
+                            "{} (parse error: {parse_err})",
+                            units::unit_mismatch_message(
+                                &dest_kind,
+                                dest_field,
+                                source_name,
+                                Some(declared_unit),
+                                Some(upstream_unit),
+                            )
+                        ));
+                    }
+                }
+            }
+
+            // Compute this calc's declared output units now that we have the
+            // upstream `input_units` to pass through (Butter2/Pid use this).
+            let declared_output_units = calc.get_output_units(&input_units);
+            if declared_output_units.len() != n_outputs {
+                return Err(format!(
+                    "Calc `{calc_name}`: get_output_units().len() = {} \
+                     != get_output_names().len() = {}",
+                    declared_output_units.len(),
+                    n_outputs,
+                ));
+            }
+
+            // Lay out the calc's outputs on the tape, mark for dispatch, and
+            // record the unit slice in parallel.
             let start = fields_order.len();
             let end = start + n_outputs;
             let output_range = start..end;
-
-            // Set output order
-            for (i, output_name) in (start..).zip(output_names.iter()) {
+            for (offset, output_name) in output_names.iter().enumerate() {
+                let i = start + offset;
                 let output_field = format!("{calc_name}.{output_name}");
                 fields_order.push(output_field.clone());
                 field_index_map.insert(output_field.clone(), i);
+                tape_units.push(declared_output_units[offset].clone());
 
-                // Mark fields for dispatch
                 if save_outputs {
                     dispatch_names.push(output_field.clone());
                     dispatch_indices.push(i);
                 }
             }
+            debug_assert_eq!(tape_units.len(), end);
 
-            // Initialize this calc
-            calc.init(ctx.clone(), input_indices, output_range)?;
+            bindings.push(CalcBinding {
+                calc_name: calc_name.clone(),
+                input_indices,
+                input_units,
+                output_range,
+            });
+        }
+
+        // Pass 2: bind tape indices on the calc and run its `init`. All
+        // unit checks have already passed; nothing here can return a unit
+        // mismatch.
+        for binding in bindings {
+            let CalcBinding {
+                calc_name,
+                input_indices,
+                input_units,
+                output_range,
+            } = binding;
+            let calc = self
+                .calcs
+                .get_mut(&calc_name)
+                .ok_or_else(|| format!("Calc `{calc_name}` missing from registry"))?;
+            calc.init(ctx.clone(), input_indices, input_units, output_range)?;
         }
 
         // Find the indices of fields that will be given to the peripherals
@@ -769,10 +893,12 @@ impl CalcOrchestrator {
 
         // Initialize the calc tape
         let calc_tape: Vec<f64> = vec![0.0_f64; fields_order.len()];
+        debug_assert_eq!(tape_units.len(), calc_tape.len());
 
         // Take new internal state
         self.state = CalcOrchestratorState {
             calc_tape,
+            tape_units,
             eval_order,
             dispatch_names,
             dispatch_indices,
@@ -825,5 +951,398 @@ mod tests {
         assert!(dot.contains("\"periph::p::out\":out_0 -> \"calc::c0\":in_0;"));
         assert!(dot.contains("\"calc::c0\":out_0 -> \"calc::c1\":in_0;"));
         assert!(dot.contains("\"calc::c1\":out_0 -> \"periph::p::in\":in_0;"));
+    }
+
+    /// Test-only calc fixture that declares fixed input/output unit
+    /// expectations. Used to exercise the orchestrator's pass-1 unit check
+    /// without depending on `RtdPt100`/`Affine` or other concrete calcs.
+    ///
+    /// `output_for_input` defaults to `vec![None]`; tests can override it
+    /// with a fixed `Some(unit)` to drive a downstream mismatch.
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+    struct UnitFixture {
+        input_field: String,
+        declared_input: Option<String>,
+        declared_output: Option<String>,
+    }
+
+    #[typetag::serde]
+    impl Calc for UnitFixture {
+        fn init(
+            &mut self,
+            _: ControllerCtx,
+            _input_indices: Vec<usize>,
+            _input_units: Vec<Option<String>>,
+            _output_range: Range<usize>,
+        ) -> Result<(), String> {
+            Ok(())
+        }
+        fn terminate(&mut self) -> Result<(), String> {
+            Ok(())
+        }
+        fn eval(&mut self, _tape: &mut [f64]) -> Result<(), String> {
+            Ok(())
+        }
+        fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
+            let mut m = BTreeMap::new();
+            m.insert("x".to_owned(), self.input_field.clone());
+            m
+        }
+        fn update_input_map(&mut self, field: &str, source: &str) -> Result<(), String> {
+            if field == "x" {
+                self.input_field = source.to_owned();
+                Ok(())
+            } else {
+                Err(format!("Unrecognized field {field}"))
+            }
+        }
+        fn get_save_outputs(&self) -> bool {
+            true
+        }
+        fn set_save_outputs(&mut self, _v: bool) {}
+        fn get_config(&self) -> BTreeMap<String, f64> {
+            BTreeMap::new()
+        }
+        fn set_config(&mut self, _: &BTreeMap<String, f64>) -> Result<(), String> {
+            Ok(())
+        }
+        fn get_input_names(&self) -> Vec<CalcInputName> {
+            vec!["x".to_owned()]
+        }
+        fn get_output_names(&self) -> Vec<CalcOutputName> {
+            vec!["y".to_owned()]
+        }
+        fn get_output_units(&self, _input_units: &[Option<String>]) -> Vec<Option<String>> {
+            vec![self.declared_output.clone()]
+        }
+        fn get_input_units(&self) -> Vec<Option<String>> {
+            vec![self.declared_input.clone()]
+        }
+    }
+
+    /// Build an orchestrator wiring `source -> sink` where both are
+    /// `UnitFixture` calcs. `source` declares only an output unit and reads
+    /// from a peripheral channel that itself carries no declared unit.
+    fn two_calc_orchestrator(
+        peripheral_field: &str,
+        source_output: Option<&str>,
+        sink_input: Option<&str>,
+    ) -> CalcOrchestrator {
+        let mut o = CalcOrchestrator::default();
+        o.add_calc(
+            "src",
+            Box::new(UnitFixture {
+                input_field: peripheral_field.to_owned(),
+                declared_input: None,
+                declared_output: source_output.map(|s| s.to_owned()),
+            }),
+        );
+        o.add_calc(
+            "sink",
+            Box::new(UnitFixture {
+                input_field: "src.y".to_owned(),
+                declared_input: sink_input.map(|s| s.to_owned()),
+                declared_output: None,
+            }),
+        );
+        o
+    }
+
+    #[test]
+    fn k_to_celsius_wire_fails_init_with_affine_hint() {
+        // Source declares K, sink declares °C — same dimension, different
+        // scale. Pass 1 must fail init with a message that names both unit
+        // strings AND includes the copy-pasteable Affine hint.
+        let mut orch = two_calc_orchestrator("p.ain0", Some("K"), Some("°C"));
+        let peripherals: BTreeMap<String, Box<dyn Peripheral>> = BTreeMap::from([(
+            "p".to_owned(),
+            Box::new(AnalogIRev3 { serial_number: 1 }) as _,
+        )]);
+        let err = orch
+            .init(ControllerCtx::default(), &peripherals)
+            .unwrap_err();
+        assert!(err.contains("K"), "missing K in error: {err}");
+        assert!(err.contains("°C"), "missing °C in error: {err}");
+        assert!(err.contains("offset=-273.15"), "missing affine hint: {err}");
+    }
+
+    #[test]
+    fn mismatch_error_includes_all_required_fields() {
+        // Pa upstream → K downstream — different dimensions. The error must
+        // include: dest calc kind, dest input field, source name, both unit
+        // strings, and a dimensional reason.
+        let mut orch = two_calc_orchestrator("p.ain0", Some("Pa"), Some("K"));
+        let peripherals: BTreeMap<String, Box<dyn Peripheral>> = BTreeMap::from([(
+            "p".to_owned(),
+            Box::new(AnalogIRev3 { serial_number: 1 }) as _,
+        )]);
+        let err = orch
+            .init(ControllerCtx::default(), &peripherals)
+            .unwrap_err();
+        assert!(err.contains("UnitFixture"), "missing dest calc kind: {err}");
+        assert!(err.contains("`x`"), "missing dest input field: {err}");
+        assert!(err.contains("src.y"), "missing source name: {err}");
+        assert!(err.contains("K"), "missing dest unit: {err}");
+        assert!(err.contains("Pa"), "missing source unit: {err}");
+        // Dimensional reason — the `describe()` method renders dim names.
+        assert!(
+            err.contains("dimensions") || err.contains("temperature"),
+            "missing dimensional reason: {err}"
+        );
+    }
+
+    #[test]
+    fn matching_units_pass_init() {
+        // Sanity check: source K, sink K must succeed.
+        let mut orch = two_calc_orchestrator("p.ain0", Some("K"), Some("K"));
+        let peripherals: BTreeMap<String, Box<dyn Peripheral>> = BTreeMap::from([(
+            "p".to_owned(),
+            Box::new(AnalogIRev3 { serial_number: 1 }) as _,
+        )]);
+        orch.init(ControllerCtx::default(), &peripherals).unwrap();
+        // Confirm `get_dispatch_units` reflects the resolved per-tape unit.
+        let names = orch.get_dispatch_names();
+        let units = orch.get_dispatch_units();
+        assert_eq!(names.len(), units.len());
+        let src_idx = names.iter().position(|n| n == "src.y").unwrap();
+        assert_eq!(units[src_idx], Some("K".to_owned()));
+    }
+
+    #[test]
+    fn none_on_either_side_does_not_fail_init() {
+        // Source declares nothing, sink declares K — no mismatch (sink has
+        // no upstream unit to compare against; the `None` upstream passes).
+        let mut orch = two_calc_orchestrator("p.ain0", None, Some("K"));
+        let peripherals: BTreeMap<String, Box<dyn Peripheral>> = BTreeMap::from([(
+            "p".to_owned(),
+            Box::new(AnalogIRev3 { serial_number: 1 }) as _,
+        )]);
+        orch.init(ControllerCtx::default(), &peripherals).unwrap();
+    }
+
+    // End-to-end tests exercise the full `CalcOrchestrator::init` pipeline
+    // using production calcs (`RtdPt100`, `Butter2`) wired into test-only
+    // sinks that declare specific input units. Together with the unit-level
+    // tests above they cover the seam between the orchestrator's pass-1 unit
+    // topology and pass-2 calc-side init.
+
+    use crate::calc::{Butter2, RtdPt100};
+
+    /// Build a peripheral map with a single `AnalogIRev3` named `p`.
+    /// `RtdPt100` reads `p.ain<i>` as a resistance signal in these tests; we
+    /// don't run the controller, only init, so no driver is needed.
+    fn analog_peripheral_map() -> BTreeMap<String, Box<dyn Peripheral>> {
+        BTreeMap::from([(
+            "p".to_owned(),
+            Box::new(AnalogIRev3 { serial_number: 1 }) as _,
+        )])
+    }
+
+    #[test]
+    fn e2e_rtd_to_affine_pa_fails_init() {
+        // `RtdPt100` produces K. The downstream sink declares input unit
+        // `Pa`. Pass 1 must catch the dimensional mismatch and fail init
+        // with a message that names the upstream unit `K`, the downstream
+        // unit `Pa`, the destination calc kind, and a dimensional reason.
+        //
+        // We use `UnitFixture` as the test sink rather than the real `Affine`
+        // because `Affine` does not declare an input unit — its
+        // `get_input_units` returns the trait default (all-`None`). Keeping
+        // the test self-contained avoids growing `Affine`'s public surface
+        // just for the test.
+        let mut orch = CalcOrchestrator::default();
+        orch.add_calc("rtd", RtdPt100::new("p.ain0".to_owned(), true));
+        orch.add_calc(
+            "sink",
+            Box::new(UnitFixture {
+                input_field: "rtd.temperature_K".to_owned(),
+                declared_input: Some("Pa".to_owned()),
+                declared_output: None,
+            }),
+        );
+
+        let peripherals = analog_peripheral_map();
+        let err = orch
+            .init(ControllerCtx::default(), &peripherals)
+            .unwrap_err();
+
+        // Required fields in the mismatch error:
+        assert!(err.contains("K"), "missing source unit K: {err}");
+        assert!(err.contains("Pa"), "missing dest unit Pa: {err}");
+        assert!(err.contains("UnitFixture"), "missing dest calc kind: {err}");
+        assert!(
+            err.contains("rtd.temperature_K"),
+            "missing source name: {err}"
+        );
+        assert!(
+            err.contains("different dimensions")
+                || (err.contains("temperature") && err.contains("pressure")),
+            "missing dimensional reason: {err}"
+        );
+    }
+
+    #[test]
+    fn e2e_butter2_passes_unit_through_to_dispatch() {
+        // `RtdPt100`(K) -> `Butter2` -> sink(declared input K). Pass 1 must
+        // resolve `Butter2`'s output unit to `K` (passthrough inheritance
+        // from its input), the sink's K declaration must accept the K
+        // upstream, and `get_dispatch_units` must report `K` for the
+        // `Butter2` output. This is the regression test that catches a
+        // refactor that breaks Butter2's passthrough survival end-to-end.
+        let mut orch = CalcOrchestrator::default();
+        orch.add_calc("rtd", RtdPt100::new("p.ain0".to_owned(), true));
+        orch.add_calc(
+            "filt",
+            // `cutoff_hz=5.0` is a placeholder; we don't run `eval`, only
+            // `init`. The orchestrator only calls `get_output_units` and
+            // `init` on Butter2 here.
+            Butter2::new("rtd.temperature_K".to_owned(), 5.0, true),
+        );
+        orch.add_calc(
+            "sink",
+            Box::new(UnitFixture {
+                input_field: "filt.y".to_owned(),
+                declared_input: Some("K".to_owned()),
+                declared_output: None,
+            }),
+        );
+
+        let peripherals = analog_peripheral_map();
+        // Butter2::init asserts dt_ns > 0, so use a realistic ctx.
+        let ctx = ControllerCtx {
+            dt_ns: 50_000_000, // 20 Hz
+            ..Default::default()
+        };
+        orch.init(ctx, &peripherals).unwrap();
+
+        let names = orch.get_dispatch_names();
+        let units = orch.get_dispatch_units();
+        assert_eq!(names.len(), units.len(), "names/units length mismatch");
+
+        // The Butter2 output `filt.y` must carry the upstream's K through
+        // to the dispatcher's view of declared units.
+        let filt_idx = names
+            .iter()
+            .position(|n| n == "filt.y")
+            .expect("filt.y missing from dispatch names");
+        assert_eq!(
+            units[filt_idx],
+            Some("K".to_owned()),
+            "Butter2 output unit must be K (passthrough from RtdPt100)"
+        );
+
+        // Sanity: the upstream RtdPt100 output is also K.
+        let rtd_idx = names
+            .iter()
+            .position(|n| n == "rtd.temperature_K")
+            .expect("rtd.temperature_K missing from dispatch names");
+        assert_eq!(units[rtd_idx], Some("K".to_owned()));
+    }
+
+    /// One-input fixture whose `get_input_units` returns a length that does
+    /// not match `get_input_names`, used to exercise the orchestrator's
+    /// length-equality guard at pass 1.
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+    struct WrongInputUnitsLen {
+        input_field: String,
+    }
+
+    #[typetag::serde]
+    impl Calc for WrongInputUnitsLen {
+        fn init(
+            &mut self,
+            _: ControllerCtx,
+            _: Vec<usize>,
+            _: Vec<Option<String>>,
+            _: Range<usize>,
+        ) -> Result<(), String> {
+            Ok(())
+        }
+        fn terminate(&mut self) -> Result<(), String> {
+            Ok(())
+        }
+        fn eval(&mut self, _tape: &mut [f64]) -> Result<(), String> {
+            Ok(())
+        }
+        fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
+            let mut m = BTreeMap::new();
+            m.insert("x".to_owned(), self.input_field.clone());
+            m
+        }
+        fn update_input_map(&mut self, _: &str, _: &str) -> Result<(), String> {
+            Ok(())
+        }
+        fn get_save_outputs(&self) -> bool {
+            false
+        }
+        fn set_save_outputs(&mut self, _v: bool) {}
+        fn get_config(&self) -> BTreeMap<String, f64> {
+            BTreeMap::new()
+        }
+        fn set_config(&mut self, _: &BTreeMap<String, f64>) -> Result<(), String> {
+            Ok(())
+        }
+        fn get_input_names(&self) -> Vec<CalcInputName> {
+            vec!["x".to_owned()]
+        }
+        fn get_output_names(&self) -> Vec<CalcOutputName> {
+            vec!["y".to_owned()]
+        }
+        fn get_input_units(&self) -> Vec<Option<String>> {
+            // Intentionally length-2 against a length-1 input list.
+            vec![None, None]
+        }
+    }
+
+    #[test]
+    fn input_units_len_mismatch_fails_init() {
+        let mut orch = CalcOrchestrator::default();
+        orch.add_calc("rtd", RtdPt100::new("p.ain0".to_owned(), true));
+        orch.add_calc(
+            "buggy",
+            Box::new(WrongInputUnitsLen {
+                input_field: "rtd.temperature_K".to_owned(),
+            }),
+        );
+
+        let peripherals = analog_peripheral_map();
+        let err = orch
+            .init(ControllerCtx::default(), &peripherals)
+            .unwrap_err();
+        assert!(
+            err.contains("get_input_units().len()"),
+            "length-mismatch error must name the offending accessor: {err}"
+        );
+        assert!(
+            err.contains("buggy"),
+            "length-mismatch error must name the calc: {err}"
+        );
+    }
+
+    #[test]
+    fn e2e_unparseable_dest_unit_fails_init() {
+        // An unparseable declared-input unit on the downstream calc must
+        // still fail init (not silently pass): an unparseable string at any
+        // boundary that performs a check is treated as a mismatch, and the
+        // offending string appears verbatim in the error.
+        let mut orch = CalcOrchestrator::default();
+        orch.add_calc("rtd", RtdPt100::new("p.ain0".to_owned(), true));
+        orch.add_calc(
+            "sink",
+            Box::new(UnitFixture {
+                input_field: "rtd.temperature_K".to_owned(),
+                declared_input: Some("furlongs".to_owned()),
+                declared_output: None,
+            }),
+        );
+
+        let peripherals = analog_peripheral_map();
+        let err = orch
+            .init(ControllerCtx::default(), &peripherals)
+            .unwrap_err();
+        assert!(
+            err.contains("furlongs"),
+            "unparseable unit string must appear verbatim: {err}"
+        );
     }
 }

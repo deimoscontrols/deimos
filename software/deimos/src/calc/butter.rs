@@ -76,6 +76,7 @@ impl Calc for Butter2 {
         &mut self,
         ctx: ControllerCtx,
         input_indices: Vec<usize>,
+        _input_units: Vec<Option<String>>,
         output_range: Range<usize>,
     ) -> Result<(), String> {
         assert!(
@@ -142,10 +143,10 @@ impl Calc for Butter2 {
     calc_input_names!(x);
     calc_output_names!(y);
 
-    // FUTURE: passthrough — a filtered voltage is still a voltage. Resolving to the input
-    // channel's unit requires `CalcOrchestrator` to pass channel units into `init`.
-    fn get_output_units(&self) -> Vec<Option<String>> {
-        vec![None]
+    /// A second-order Butterworth low-pass filter does not change the engineering unit of
+    /// its input — a filtered voltage is still a voltage. Adopt the upstream input unit.
+    fn get_output_units(&self, input_units: &[Option<String>]) -> Vec<Option<String>> {
+        vec![input_units.first().cloned().flatten()]
     }
 }
 
@@ -170,7 +171,7 @@ mod tests {
         let mut tape = [0.0f64; 2];
 
         let mut run = || -> Vec<f64> {
-            calc.init(ctx.clone(), vec![0], 1..2).unwrap();
+            calc.init(ctx.clone(), vec![0], vec![None], 1..2).unwrap();
             let mut out = Vec::with_capacity(inputs.len());
             for &x in &inputs {
                 tape[0] = x;

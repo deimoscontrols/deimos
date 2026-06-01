@@ -5,6 +5,15 @@ use deimos_shared::{peripherals::PeripheralId, states::OperatingMetrics};
 
 use crate::socket::SocketAddr;
 
+/// Number of metric slots `write_metric_values` populates per peripheral.
+///
+/// `Peripheral::metric_names()` and `Peripheral::metric_units()` defaults must
+/// return exactly this many entries, and any override on a peripheral must
+/// match the same length until `write_metric_values` is generalized to drive
+/// from the metric name list. The invariant is asserted in
+/// `PeripheralState::new`.
+pub(crate) const PERIPHERAL_METRIC_COUNT: usize = 8;
+
 /// Peripheral control metrics
 #[derive(Default, Clone, Copy, Debug)]
 pub(crate) struct PeripheralMetrics {
@@ -82,6 +91,10 @@ pub(crate) struct PeripheralState {
     //
     /// Output channel names including peripheral name
     pub metric_full_names: Vec<String>,
+
+    /// Declared engineering units for each metric channel, parallel to
+    /// `metric_full_names`. Populated from `Peripheral::metric_units` at init.
+    pub metric_units: Vec<Option<String>>,
 }
 
 impl PeripheralState {
@@ -92,22 +105,33 @@ impl PeripheralState {
         p: &Box<dyn Peripheral>,
         ctx: &crate::controller::context::ControllerCtx,
     ) -> Self {
-        // Metric names are pretty manual
-        let mut mnames = Vec::new();
-        for orig in [
-            "cycle_time_ns",
-            "cycle_time_margin_ns",
-            "raw_timing_delta_ns",
-            "filtered_timing_delta_ns",
-            "requested_period_delta_ns",
-            "requested_phase_delta_ns",
-            "loss_of_contact_counter",
-            "cycle_lag_count",
-        ]
-        .iter()
-        {
-            mnames.push(format!("{name}.metrics.{orig}"))
-        }
+        // Metric names come from the peripheral; default impl returns the canonical
+        // timing/health set, but a peripheral may override.
+        let mnames = p
+            .metric_names()
+            .into_iter()
+            .map(|orig| format!("{name}.metrics.{orig}"))
+            .collect::<Vec<_>>();
+
+        let munits = p.metric_units();
+        assert_eq!(
+            munits.len(),
+            mnames.len(),
+            "Peripheral `{name}`: metric_units().len() != metric_names().len()"
+        );
+        // `write_metric_values` writes exactly `PERIPHERAL_METRIC_COUNT` slots
+        // by hardcoded index. A peripheral that overrides `metric_names()` to
+        // a different length would silently corrupt the metric stream or panic
+        // at write time. Lock the invariant here until `write_metric_values`
+        // is generalized to drive from `metric_names()`.
+        assert_eq!(
+            mnames.len(),
+            PERIPHERAL_METRIC_COUNT,
+            "Peripheral `{name}`: metric_names() returned {} entries, expected {PERIPHERAL_METRIC_COUNT}. \
+             Overriding metric_names() to a different length is currently unsupported \
+             until write_metric_values is generalized.",
+            mnames.len()
+        );
 
         let metrics = PeripheralMetrics::default();
         let acknowledged_configuration = false;
@@ -126,9 +150,15 @@ impl PeripheralState {
             metrics,
             has_received_packet: false,
             metric_full_names: mnames,
+            metric_units: munits,
         }
     }
 
+    /// Write the `PERIPHERAL_METRIC_COUNT` canonical timing/health metrics into
+    /// `out` by hardcoded positional index. The slot order matches the default
+    /// `Peripheral::metric_names()` list. `out.len()` must be at least
+    /// `PERIPHERAL_METRIC_COUNT`; the length-equality invariant with
+    /// `metric_names()` is enforced in `PeripheralState::new`.
     pub fn write_metric_values(&self, out: &mut [f64]) {
         out[0] = self.metrics.operating_metrics.cycle_time_ns as f64;
         out[1] = self.metrics.operating_metrics.cycle_time_margin_ns as f64;

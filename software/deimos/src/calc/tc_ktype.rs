@@ -107,6 +107,7 @@ impl Calc for TcKtype {
         &mut self,
         _: ControllerCtx,
         input_indices: Vec<usize>,
+        _input_units: Vec<Option<String>>,
         output_range: Range<usize>,
     ) -> Result<(), String> {
         self.input_indices = input_indices;
@@ -162,7 +163,7 @@ impl Calc for TcKtype {
         Ok(())
     }
 
-    fn get_output_units(&self) -> Vec<Option<String>> {
+    fn get_output_units(&self, _input_units: &[Option<String>]) -> Vec<Option<String>> {
         vec![Some("K".to_owned())]
     }
 

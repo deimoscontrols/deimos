@@ -23,6 +23,15 @@ impl ControllerOperatingMetrics {
         Vec::<String>::from_iter(OUT.iter().map(|&x| x.to_owned()))
     }
 
+    /// Declared engineering units for `names_to_write`, parallel and same length.
+    /// The fixed-size array gives the same compile-time length guarantee as
+    /// `OUT` in `names_to_write`: bumping `num_to_write` without updating this
+    /// array fails to compile rather than silently mis-sizing the unit slice.
+    pub fn units_to_write(&self) -> Vec<Option<String>> {
+        const UNITS: [Option<&str>; ControllerOperatingMetrics::num_to_write()] = [Some("ns")];
+        UNITS.iter().map(|u| u.map(|s| s.to_string())).collect()
+    }
+
     pub const fn num_to_write() -> usize {
         1
     }
@@ -121,6 +130,19 @@ impl ControllerState {
     /// Get metric names to write to database
     pub fn get_names_to_write(&self) -> Vec<String> {
         self.names_to_write.clone()
+    }
+
+    /// Get declared engineering units for `get_names_to_write`, parallel and
+    /// same length. `None` for an entry means the unit is unknown.
+    pub fn get_units_to_write(&self) -> Vec<Option<String>> {
+        let mut units = Vec::with_capacity(self.names_to_write.len());
+        // Peripheral metrics, in BTreeMap iteration order (matches build_names_to_write).
+        for state in self.peripheral_state.values() {
+            units.extend(state.metric_units.iter().cloned());
+        }
+        // Controller metrics
+        units.extend(self.controller_metrics.units_to_write());
+        units
     }
 
     /// Get metric values to write to database

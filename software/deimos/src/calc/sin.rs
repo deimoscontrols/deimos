@@ -61,8 +61,14 @@ impl Sin {
     }
 
     /// Attach an output unit label (builder method).
+    ///
+    /// Panics if `unit` is not a recognized UCUM-subset string.
     pub fn with_output_unit(mut self: Box<Self>, unit: impl Into<String>) -> Box<Self> {
-        self.output_unit = Some(unit.into());
+        let unit = unit.into();
+        if let Err(e) = crate::units::parse_unit(&unit) {
+            panic!("Sin::with_output_unit got unparseable unit string {unit:?}: {e}");
+        }
+        self.output_unit = Some(unit);
         self
     }
 }
@@ -93,6 +99,7 @@ impl Calc for Sin {
         &mut self,
         ctx: ControllerCtx,
         _input_indices: Vec<usize>,
+        _input_units: Vec<Option<String>>,
         output_range: Range<usize>,
     ) -> Result<(), String> {
         self.output_index = output_range.clone().next().unwrap();
@@ -128,7 +135,7 @@ impl Calc for Sin {
         Ok(())
     }
 
-    fn get_output_units(&self) -> Vec<Option<String>> {
+    fn get_output_units(&self, _input_units: &[Option<String>]) -> Vec<Option<String>> {
         vec![self.output_unit.clone()]
     }
 

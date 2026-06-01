@@ -103,6 +103,7 @@ impl Calc for Pid {
         &mut self,
         ctx: ControllerCtx,
         input_indices: Vec<usize>,
+        _input_units: Vec<Option<String>>,
         output_range: Range<usize>,
     ) -> Result<(), String> {
         assert!(
@@ -169,9 +170,10 @@ impl Calc for Pid {
     calc_input_names!(measurement, setpoint);
     calc_output_names!(y);
 
-    // FUTURE: PID output usually inherits the measurement's unit. Resolving it requires
-    // `CalcOrchestrator` to pass channel units into `init`.
-    fn get_output_units(&self) -> Vec<Option<String>> {
-        vec![None]
+    /// A PID controller's output carries the unit of its error signal, which is the unit of
+    /// the `measurement` input (index 0 by convention from
+    /// `calc_input_names!(measurement, setpoint)`). Adopt the measurement input's unit.
+    fn get_output_units(&self, input_units: &[Option<String>]) -> Vec<Option<String>> {
+        vec![input_units.first().cloned().flatten()]
     }
 }

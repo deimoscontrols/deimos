@@ -88,8 +88,50 @@ pub trait Peripheral: Send + Sync + Debug {
     /// List of names of output fields
     fn output_names(&self) -> Vec<String>;
 
-    // fn input_units(&self) -> Vec<String>;
-    // fn output_units(&self) -> Vec<String>;
+    /// List of unprefixed metric channel names this peripheral publishes each cycle.
+    ///
+    /// Default: the canonical set of timing/health metrics every peripheral produces
+    /// (sourced from `OperatingMetrics` plus controller-side bookkeeping). Override
+    /// only if a peripheral diverges from this fixed set.
+    ///
+    /// The returned length is currently locked to
+    /// `controller::peripheral_state::PERIPHERAL_METRIC_COUNT` (8). An override
+    /// that returns a different length will trip the assertion in
+    /// `PeripheralState::new` until `write_metric_values` is generalized to
+    /// drive from this list.
+    fn metric_names(&self) -> Vec<String> {
+        [
+            "cycle_time_ns",
+            "cycle_time_margin_ns",
+            "raw_timing_delta_ns",
+            "filtered_timing_delta_ns",
+            "requested_period_delta_ns",
+            "requested_phase_delta_ns",
+            "loss_of_contact_counter",
+            "cycle_lag_count",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
+    }
+
+    /// Declared engineering units for each entry in `metric_names`, parallel and
+    /// same length. `None` means the unit is unknown or not applicable.
+    ///
+    /// Default: all `None` so peripherals that have not been audited preserve
+    /// today's behavior (no declared metric units). Override on a specific
+    /// peripheral to publish per-channel units (see `DeimosDaqRev7`).
+    ///
+    /// As with `metric_names`, the length is locked to
+    /// `controller::peripheral_state::PERIPHERAL_METRIC_COUNT` (8) until
+    /// `write_metric_values` is generalized.
+    fn metric_units(&self) -> Vec<Option<String>> {
+        vec![None; self.metric_names().len()]
+    }
+    // Peripheral input and output channels do not yet declare units at the
+    // trait surface; only metric channels do (above). Calc-graph unit checking
+    // applies between calcs, and metric units flow through
+    // `ControllerState::get_units_to_write`.
 
     /// Byte length of packet to send to the peripheral
     fn operating_roundtrip_input_size(&self) -> usize;
