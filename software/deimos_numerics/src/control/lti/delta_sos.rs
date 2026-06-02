@@ -21,6 +21,20 @@
 //! - **Delta operator:** The discrete operator `δ = (1 - z^-1) / dt`.
 //! - **Low normalized cutoff:** A digital cutoff frequency close to DC
 //!   relative to the sample rate.
+//!
+//! # References
+//!
+//! \[1\] R. H. Middleton and G. C. Goodwin, *Digital Control and Estimation: A
+//!     Unified Approach*. Prentice Hall, 1990.
+//!
+//! \[2\] G. C. Goodwin, R. H. Middleton, and H. V. Poor, "High-speed digital
+//!     signal processing and control," *Proceedings of the IEEE*, vol. 80,
+//!     no. 2, pp. 240-259, Feb. 1992, doi: 10.1109/5.123294.
+//!
+//! \[3\] R. Middleton and G. Goodwin, "Improved finite word length
+//!     characteristics in digital control using delta operators," *IEEE
+//!     Transactions on Automatic Control*, vol. 31, no. 11, pp. 1015-1021,
+//!     Nov. 1986, doi: 10.1109/TAC.1986.1104162.
 
 use super::error::LtiError;
 use super::util::{cast_real_scalar, trim_leading_zeros, validate_sample_time};
