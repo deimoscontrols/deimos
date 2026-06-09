@@ -8,6 +8,7 @@ construction.
 
 * deimos_numerics
     * Add `DeltaSOS::set_steady_state` for initializing filters
+    * Add MedianSort method backed by bounded-loop insertion sort for small arrays
 * rev7 firmware 0.7.0
     * Add 32kB heap link region
     * Link with flip-link to grow stack away from heap

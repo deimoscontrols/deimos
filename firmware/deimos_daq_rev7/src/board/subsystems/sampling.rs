@@ -4,7 +4,11 @@ use deimos_numerics::{
     control::lti::{
         DigitalFilterFamily, DigitalFilterSpec, FilterShape, design_digital_filter_sos,
     },
-    embedded::fixed::lti::{DeltaSos as FixedDeltaSos, DeltaSosState as FixedDeltaSosState},
+    embedded::fixed::lti::{
+        DeltaSos as FixedDeltaSos, DeltaSosState as FixedDeltaSosState, Fir as FixedFir,
+        FirState as FixedFirState, lagrange_fractional_delay,
+    },
+    embedded::fixed::MedianFilter,
 };
 use nb::block;
 use stm32h7xx_hal::{
@@ -14,8 +18,6 @@ use stm32h7xx_hal::{
     stm32::*,
     timer::{GetClk, Timer},
 };
-
-use flaw::{MedianFilter, SisoFirFilter, polynomial_fractional_delay};
 
 use crate::board::{
     ACCUMULATED_SAMPLING_TIME_NS, ADC_CUTOFF_RATIO, ADC_SAMPLE_FREQ_HZ, ADC_SAMPLES,
@@ -36,6 +38,8 @@ const MAX_ADC_CUTOFF_RATIO: f64 = 0.4;
 
 type AdcFilter = FixedDeltaSos<f32, 1, 1>;
 type AdcFilterState = FixedDeltaSosState<f32, 1, 1>;
+type FractionalDelayFilter = FixedFir<f32, 3, 1>;
+type FractionalDelayState = FixedFirState<f32, 3, 1>;
 
 fn build_delta_butter2(cutoff_ratio: f64) -> AdcFilter {
     let sample_rate = ADC_SAMPLE_FREQ_HZ as f64;
@@ -170,7 +174,8 @@ pub struct Sampler {
     pub adc_scalings: [f32; 18],
     pub adc_filters: [AdcFilter; 18],
     pub adc_filter_states: [AdcFilterState; 18],
-    pub adc_filters_fractional_delay: [SisoFirFilter<3, f32>; 18],
+    pub adc_filters_fractional_delay: [FractionalDelayFilter; 18],
+    pub adc_filters_fractional_delay_states: [FractionalDelayState; 18],
     pub adc_values: [f32; 18],
 
     // Timing
@@ -283,12 +288,17 @@ impl Sampler {
         apply_delay(&mut delays, &groups.6, 6);
         apply_delay(&mut delays, &groups.7, 7);
 
-        let mut adc_filters_fractional_delay: [SisoFirFilter<3, f32>; 18] =
-            [SisoFirFilter::<3, f32>::new(&[0.0, 0.0, 0.0]); 18];
+        let mut adc_filters_fractional_delay: [FractionalDelayFilter; 18] =
+            [lagrange_fractional_delay::<3, 1, f32>(0.0, internal_sample_period as f32).unwrap();
+                18];
         for (i, filter) in adc_filters_fractional_delay.iter_mut().enumerate() {
             let delay_frac = (delays[i] / internal_sample_period) as f32;
-            *filter = polynomial_fractional_delay(delay_frac);
+            *filter =
+                lagrange_fractional_delay::<3, 1, f32>(delay_frac, internal_sample_period as f32)
+                    .unwrap();
         }
+        let adc_filters_fractional_delay_states =
+            [adc_filters_fractional_delay[0].reset_state(); 18];
 
         //
         // Set up frequency input adc_scalings
@@ -313,6 +323,7 @@ impl Sampler {
             adc_filters,
             adc_filter_states,
             adc_filters_fractional_delay,
+            adc_filters_fractional_delay_states,
             adc_values,
             timer,
             tick_period_ns,
@@ -441,16 +452,15 @@ impl Sampler {
         b[7] = block!(self.adc3.read_sample()).unwrap();
 
         // Apply calibration, scaling, and filter
-        self.adc_filters_fractional_delay
-            .iter_mut()
-            .zip(self.adc_filters.iter())
-            .zip(self.adc_filter_states.iter_mut())
-            .enumerate()
-            .zip(self.adc_scalings.iter())
-            .for_each(|((i, ((fractional_delay, filter), state)), scaling)| {
-                let delayed_sample = fractional_delay.update(b[i] as f32 * scaling);
-                self.adc_values[i] = filter.step(state, [delayed_sample])[0];
-            });
+        for i in 0..self.adc_values.len() {
+            let scaled_sample = b[i] as f32 * self.adc_scalings[i];
+            let delayed_sample = self.adc_filters_fractional_delay[i].step(
+                &mut self.adc_filters_fractional_delay_states[i],
+                [scaled_sample],
+            )[0];
+            self.adc_values[i] =
+                self.adc_filters[i].step(&mut self.adc_filter_states[i], [delayed_sample])[0];
+        }
 
         // Send measurements to shared storage
         for i in 0..ADC_SAMPLES.len() {
