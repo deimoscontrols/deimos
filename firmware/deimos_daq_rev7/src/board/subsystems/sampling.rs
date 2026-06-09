@@ -4,7 +4,7 @@ use deimos_numerics::{
     control::lti::{
         DigitalFilterFamily, DigitalFilterSpec, FilterShape, design_digital_filter_sos,
     },
-    embedded::fixed::lti::DeltaSos as FixedDeltaSos,
+    embedded::fixed::lti::{DeltaSos as FixedDeltaSos, DeltaSosState as FixedDeltaSosState},
 };
 use nb::block;
 use stm32h7xx_hal::{
@@ -15,10 +15,7 @@ use stm32h7xx_hal::{
     timer::{GetClk, Timer},
 };
 
-use flaw::{
-    MedianFilter, SisoFirFilter, SisoIirFilter, butter1, butter2, generated::butter,
-    polynomial_fractional_delay,
-};
+use flaw::{MedianFilter, SisoFirFilter, polynomial_fractional_delay};
 
 use crate::board::{
     ACCUMULATED_SAMPLING_TIME_NS, ADC_CUTOFF_RATIO, ADC_SAMPLE_FREQ_HZ, ADC_SAMPLES,
@@ -35,8 +32,14 @@ const WRAPPING_LIM_U16: i32 = (u16::MAX / 2) as i32;
 
 const WRAPPING_LIM_I32: i64 = i32::MAX as i64; // Max value is half-span for signed int
 
-fn build_delta_butter2_demo(cutoff_ratio: f64) -> FixedDeltaSos<f32, 1, 1> {
+const MAX_ADC_CUTOFF_RATIO: f64 = 0.4;
+
+type AdcFilter = FixedDeltaSos<f32, 1, 1>;
+type AdcFilterState = FixedDeltaSosState<f32, 1, 1>;
+
+fn build_delta_butter2(cutoff_ratio: f64) -> AdcFilter {
     let sample_rate = ADC_SAMPLE_FREQ_HZ as f64;
+    let cutoff_ratio = cutoff_ratio.min(MAX_ADC_CUTOFF_RATIO);
     let cutoff = cutoff_ratio * sample_rate * core::f64::consts::TAU;
     let spec = DigitalFilterSpec::new(
         2,
@@ -52,15 +55,7 @@ fn build_delta_butter2_demo(cutoff_ratio: f64) -> FixedDeltaSos<f32, 1, 1> {
         .unwrap()
         .try_cast::<f32>()
         .unwrap();
-    let filter = FixedDeltaSos::<f32, 1, 1>::try_from(&dynamic_delta).unwrap();
-
-    let mut state = filter.reset_state();
-    let output = filter.step(&mut state, [1.0]);
-    if !output[0].is_finite() {
-        panic!();
-    }
-
-    filter
+    AdcFilter::try_from(&dynamic_delta).unwrap()
 }
 
 /// Undo wrapping of U16 values and store in an I32 (which is also allowed to wrap).
@@ -173,10 +168,9 @@ pub struct Sampler {
     pub adc3: adc::Adc<ADC3, adc::Enabled>,
     pub adc_pins: AdcPins,
     pub adc_scalings: [f32; 18],
-    pub adc_filters: [SisoIirFilter<2>; 18],
-    pub adc_filters_low_rate: [SisoIirFilter<1>; 18],
+    pub adc_filters: [AdcFilter; 18],
+    pub adc_filter_states: [AdcFilterState; 18],
     pub adc_filters_fractional_delay: [SisoFirFilter<3, f32>; 18],
-    pub adc_filter_cutoff_ratio: f64,
     pub adc_values: [f32; 18],
 
     // Timing
@@ -240,9 +234,9 @@ impl Sampler {
 
         // Low-pass filters
         let cutoff_ratio = ADC_CUTOFF_RATIO.load(Ordering::Relaxed) as f64;
-        let _delta_butter2_demo = build_delta_butter2_demo(cutoff_ratio);
-        let adc_filters = [butter2(cutoff_ratio).unwrap(); 18];
-        let adc_filters_low_rate = [butter1(cutoff_ratio).unwrap(); 18];
+        let filter_proto = build_delta_butter2(cutoff_ratio);
+        let adc_filters = [filter_proto; 18];
+        let adc_filter_states = [filter_proto.reset_state(); 18];
         let adc_values = [0.0_f32; 18];
 
         // Fractional delay filters for synthetic simultaneous sampling
@@ -317,9 +311,8 @@ impl Sampler {
             adc_pins,
             adc_scalings,
             adc_filters,
-            adc_filters_low_rate,
+            adc_filter_states,
             adc_filters_fractional_delay,
-            adc_filter_cutoff_ratio: cutoff_ratio,
             adc_values,
             timer,
             tick_period_ns,
@@ -339,66 +332,23 @@ impl Sampler {
     /// This should be done with the sample timer paused to avoid interruptions.
     /// Also clears the encoder and pulse counter.
     pub fn update_cutoff(&mut self, cutoff_ratio: f64) {
-        // Store un-clipped cutoff so that we can check it later to decide which filter to use
-        self.adc_filter_cutoff_ratio = cutoff_ratio;
+        let filter_proto = build_delta_butter2(cutoff_ratio);
 
-        if cutoff_ratio >= butter::butter2::MIN_CUTOFF_RATIO {
-            // Clip to table bounds for init
-            let cutoff_ratio = cutoff_ratio
-                .min(butter::butter2::MAX_CUTOFF_RATIO)
-                .max(butter::butter2::MIN_CUTOFF_RATIO);
+        self.adc_filters
+            .iter_mut()
+            .zip(self.adc_filter_states.iter_mut())
+            .enumerate()
+            .for_each(|(i, (filter, state))| {
+                // Get the most recent existing sample to initialize the filter
+                // and, if it is in an error state, reset it to zero.
+                let mut init_val = ADC_SAMPLES[i].load(Ordering::Relaxed);
+                if !init_val.is_finite() {
+                    init_val = 0.0;
+                }
 
-            // Prototype of the new filter, initialized to zero internal state.
-            // Copying the filter is much faster than constructing a new one.
-            let filter_proto = butter2(cutoff_ratio).unwrap();
-
-            self.adc_filters
-                .iter_mut()
-                .enumerate()
-                .for_each(|(i, old_filter)| {
-                    // Get the most recent existing sample to initialize the filter
-                    // and, if it is in an error state, reset it to zero
-                    let mut init_val = ADC_SAMPLES[i].load(Ordering::Relaxed);
-                    if !init_val.is_finite() {
-                        init_val = 0.0;
-                    }
-
-                    // Construct and initialize the new filter
-                    let mut new_filter = filter_proto;
-                    new_filter.set_steady_state(init_val);
-
-                    // Swap the old and new adc_filters
-                    *old_filter = new_filter;
-                });
-        } else {
-            // Clip to table bounds for init
-            let cutoff_ratio = cutoff_ratio
-                .min(butter::butter1::MAX_CUTOFF_RATIO)
-                .max(butter::butter1::MIN_CUTOFF_RATIO);
-
-            // Prototype of the new filter, initialized to zero internal state.
-            // Copying the filter is much faster than constructing a new one.
-            let filter_proto = butter1(cutoff_ratio).unwrap();
-
-            self.adc_filters_low_rate
-                .iter_mut()
-                .enumerate()
-                .for_each(|(i, old_filter)| {
-                    // Get the most recent existing sample to initialize the filter
-                    // and, if it is in an error state, reset it to zero
-                    let mut init_val = ADC_SAMPLES[i].load(Ordering::Relaxed);
-                    if !init_val.is_finite() {
-                        init_val = 0.0;
-                    }
-
-                    // Construct and initialize the new filter
-                    let mut new_filter = filter_proto;
-                    new_filter.set_steady_state(init_val);
-
-                    // Swap the old and new adc_filters
-                    *old_filter = new_filter;
-                });
-        }
+                *filter = filter_proto;
+                filter.set_steady_state(state, [init_val]);
+            });
 
         // Reset counters and encoder
         self.pwmi0.0.cnt.reset();
@@ -491,29 +441,16 @@ impl Sampler {
         b[7] = block!(self.adc3.read_sample()).unwrap();
 
         // Apply calibration, scaling, and filter
-        // Use more stable order1 filter for lower output data rate if our
-        // selected cutoff ratio is below the table bounds for the order2 filter.
-        if self.adc_filter_cutoff_ratio >= butter::butter2::MIN_CUTOFF_RATIO {
-            // Nominal filter for higher reporting rate (above about 40Hz)
-            self.adc_filters_fractional_delay
-                .iter_mut()
-                .zip(self.adc_filters.iter_mut())
-                .enumerate()
-                .zip(self.adc_scalings.iter())
-                .for_each(|((i, (f1, f2)), s)| {
-                    self.adc_values[i] = f2.update(f1.update(b[i] as f32 * s));
-                });
-        } else {
-            // Alternate filter for low data rate
-            self.adc_filters_fractional_delay
-                .iter_mut()
-                .zip(self.adc_filters_low_rate.iter_mut())
-                .enumerate()
-                .zip(self.adc_scalings.iter())
-                .for_each(|((i, (f1, f2)), s)| {
-                    self.adc_values[i] = f2.update(f1.update(b[i] as f32 * s));
-                });
-        }
+        self.adc_filters_fractional_delay
+            .iter_mut()
+            .zip(self.adc_filters.iter())
+            .zip(self.adc_filter_states.iter_mut())
+            .enumerate()
+            .zip(self.adc_scalings.iter())
+            .for_each(|((i, ((fractional_delay, filter), state)), scaling)| {
+                let delayed_sample = fractional_delay.update(b[i] as f32 * scaling);
+                self.adc_values[i] = filter.step(state, [delayed_sample])[0];
+            });
 
         // Send measurements to shared storage
         for i in 0..ADC_SAMPLES.len() {

@@ -1,6 +1,21 @@
 # Changelog
 
-## 2026-05-24 deimos_console 0.16.2
+## 2026-06-08 0.16.3
+
+This update moves the rev7 firmware's filter construction and runtime
+from `flaw` to `deimos_numerics`, and from interpolated to analytic
+construction.
+
+* deimos_numerics
+    * Add `DeltaSOS::set_steady_state` for initializing filters
+* rev7 firmware 0.7.0
+    * Add 32kB heap link region
+    * Link with flip-link to grow stack away from heap
+    * Add embedded-alloc and use Llff allocator
+    * Use deimos_numerics Delta-SOS butter2 filters initialized live analytically
+    * Remove butter1 fallback path for low frequency operation
+
+## 2026-05-24 0.16.2
 
 Initial addition of `deimos_console`, an egui-based realtime plotting client
 contributed by Jon Bass (@firstmorecoffee).
@@ -15,11 +30,11 @@ contributed by Jon Bass (@firstmorecoffee).
 * Deimos DAQ Rev7
     * Updated enclosure and as-quoted enclosure CAD.
 
-## 2026-05-01 deimos_numerics 0.16.1
+## 2026-05-01 0.16.1
 
 Initial addition of `deimos_numerics`, a wasm-compatible, no-std-compatible, and partially no-alloc-compatible numerics and control systems library.
 
-## 2026-04-02 deimos 0.16.1, rev7 firmware 0.6.0
+## 2026-04-02 0.16.1, rev7 firmware 0.6.0
 
 This update continues the buildup of the firmware for the rev7,
 including support for statically-addressed networks without DHCP
