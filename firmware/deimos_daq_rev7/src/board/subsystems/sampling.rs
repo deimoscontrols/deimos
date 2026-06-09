@@ -1,5 +1,11 @@
 use core::sync::atomic::Ordering;
 
+use deimos_numerics::{
+    control::lti::{
+        DigitalFilterFamily, DigitalFilterSpec, FilterShape, design_digital_filter_sos,
+    },
+    embedded::fixed::lti::DeltaSos as FixedDeltaSos,
+};
 use nb::block;
 use stm32h7xx_hal::{
     adc,
@@ -28,6 +34,34 @@ use crate::board::{
 const WRAPPING_LIM_U16: i32 = (u16::MAX / 2) as i32;
 
 const WRAPPING_LIM_I32: i64 = i32::MAX as i64; // Max value is half-span for signed int
+
+fn build_delta_butter2_demo(cutoff_ratio: f64) -> FixedDeltaSos<f32, 1, 1> {
+    let sample_rate = ADC_SAMPLE_FREQ_HZ as f64;
+    let cutoff = cutoff_ratio * sample_rate * core::f64::consts::TAU;
+    let spec = DigitalFilterSpec::new(
+        2,
+        DigitalFilterFamily::Butterworth,
+        FilterShape::Lowpass { cutoff },
+        sample_rate,
+    )
+    .unwrap();
+
+    let dynamic_delta = design_digital_filter_sos(&spec)
+        .unwrap()
+        .to_delta_sos()
+        .unwrap()
+        .try_cast::<f32>()
+        .unwrap();
+    let filter = FixedDeltaSos::<f32, 1, 1>::try_from(&dynamic_delta).unwrap();
+
+    let mut state = filter.reset_state();
+    let output = filter.step(&mut state, [1.0]);
+    if !output[0].is_finite() {
+        panic!();
+    }
+
+    filter
+}
 
 /// Undo wrapping of U16 values and store in an I32 (which is also allowed to wrap).
 /// This allows integer wrapping events to happen rarely enough to be handled in a larger
@@ -206,6 +240,7 @@ impl Sampler {
 
         // Low-pass filters
         let cutoff_ratio = ADC_CUTOFF_RATIO.load(Ordering::Relaxed) as f64;
+        let _delta_butter2_demo = build_delta_butter2_demo(cutoff_ratio);
         let adc_filters = [butter2(cutoff_ratio).unwrap(); 18];
         let adc_filters_low_rate = [butter1(cutoff_ratio).unwrap(); 18];
         let adc_values = [0.0_f32; 18];
