@@ -15,6 +15,7 @@ use crate::peripheral::{AnalogIRev3, AnalogIRev4, DeimosDaqRev6};
 use controller::context::ControllerCtx;
 use deimos::calc::SequenceMachine;
 use deimos::calc::sequence_machine::{MachineCfg, ThreshOp, Timeout, Transition};
+use deimos::peripheral::DeimosDaqRev7;
 use deimos::*;
 use tracing::info;
 
@@ -78,6 +79,7 @@ fn main() {
     // controller.add_peripheral("p7", Box::new(AnalogIRev4 { serial_number: 5 }));
     // controller.add_peripheral("p8", Box::new(AnalogIRev4 { serial_number: 6 }));
     controller.add_peripheral("p8", Box::new(DeimosDaqRev6 { serial_number: 5 }));
+    controller.add_peripheral("p9", Box::new(DeimosDaqRev7 { serial_number: 2 }));
 
     // Set up database dispatchers
     let timescale_dispatcher: Box<dyn Dispatcher> = TimescaleDbDispatcher::new(
