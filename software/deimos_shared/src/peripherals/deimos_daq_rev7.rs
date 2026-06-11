@@ -186,10 +186,11 @@ pub mod filters {
     };
     use deimos_numerics::{
         control::lti::{
-            butter, design_digital_filter_tf, sallen_key_lowpass_transfer_function,
+            butter, design_digital_filter_tf, sallen_key_lowpass_transfer_function, BodeData,
             ContinuousTransferFunction, DiscreteTransferFunction, FilterDesignError,
             Fir as DynamicFir, LtiError,
         },
+        control::DiscretizationMethod,
         embedded::{
             error::EmbeddedError,
             fixed::lti::{
@@ -238,6 +239,18 @@ pub mod filters {
     /// Continuous-time transfer functions for all rev7 ADC analog front ends.
     pub type AdcAnalogFrontendTransferFunctionBank =
         [AdcAnalogFrontendTransferFunction; ADC_CHANNEL_COUNT];
+
+    /// Sampled transfer function for one full rev7 ADC measurement filter chain.
+    pub type AdcSampledTransferFunction = DiscreteTransferFunction<f64>;
+
+    /// Sampled transfer functions for all rev7 ADC measurement filter chains.
+    pub type AdcSampledTransferFunctionBank = [AdcSampledTransferFunction; ADC_CHANNEL_COUNT];
+
+    /// Bode data for one full rev7 ADC measurement filter chain.
+    pub type AdcSampledBodeData = BodeData<f64>;
+
+    /// Bode data for all rev7 ADC measurement filter chains.
+    pub type AdcSampledBodeDataBank = [AdcSampledBodeData; ADC_CHANNEL_COUNT];
 
     const SALLEN_KEY_CAPACITANCE_F: f64 = 10.0e-9;
     const SALLEN_KEY_100HZ_RESISTANCE_OHMS: f64 = 100.0e3;
@@ -375,6 +388,67 @@ pub mod filters {
         }))
     }
 
+    /// Builds sampled transfer functions for the full rev7 ADC measurement filter chain.
+    ///
+    /// Each returned transfer function models the channel's analog front end
+    /// sampled with a zero-order hold assumption at `sample_rate_hz`, followed
+    /// by the channel's fractional-delay FIR and the firmware ADC Butterworth
+    /// low-pass filter. The returned bank is ordered like reported ADC
+    /// voltages: `ain0..ain12` followed by `ain15..ain19`.
+    pub fn adc_sampled_transfer_functions(
+        cutoff_ratio: f64,
+        sample_rate_hz: f64,
+    ) -> Result<AdcSampledTransferFunctionBank, AdcFilterBuildError> {
+        let sample_time = validate_sample_rate_hz(sample_rate_hz)?;
+        let analog_transfer_functions = adc_analog_frontend_transfer_functions()?;
+        let fractional_delay_transfer_functions =
+            adc_fractional_delay_transfer_functions(sample_rate_hz)?;
+        let adc_filter_transfer_function =
+            adc_filter_transfer_function_at_sample_rate(cutoff_ratio, sample_rate_hz)?;
+
+        let mut output: [Option<AdcSampledTransferFunction>; ADC_CHANNEL_COUNT] =
+            core::array::from_fn(|_| None);
+        for idx in 0..ADC_CHANNEL_COUNT {
+            let sampled_analog = analog_transfer_functions[idx]
+                .to_state_space()?
+                .discretize(sample_time, DiscretizationMethod::ZeroOrderHold)
+                .map_err(LtiError::from)?
+                .to_transfer_function()?;
+
+            output[idx] = Some(
+                sampled_analog
+                    .mul(&fractional_delay_transfer_functions[idx])?
+                    .mul(&adc_filter_transfer_function)?,
+            );
+        }
+
+        Ok(output.map(|transfer_function| transfer_function.unwrap()))
+    }
+
+    /// Builds Bode data for the full rev7 ADC measurement filter chain.
+    ///
+    /// `frequencies_hz` is converted to rad/s before calling the discrete
+    /// transfer-function Bode evaluator, which maps each frequency to the unit
+    /// circle using `sample_rate_hz`.
+    pub fn adc_sampled_bode_data(
+        cutoff_ratio: f64,
+        sample_rate_hz: f64,
+        frequencies_hz: &[f64],
+    ) -> Result<AdcSampledBodeDataBank, AdcFilterBuildError> {
+        let transfer_functions = adc_sampled_transfer_functions(cutoff_ratio, sample_rate_hz)?;
+        let angular_frequencies: alloc::vec::Vec<f64> = frequencies_hz
+            .iter()
+            .map(|frequency_hz| frequency_hz * core::f64::consts::TAU)
+            .collect();
+        let mut output: [Option<AdcSampledBodeData>; ADC_CHANNEL_COUNT] =
+            core::array::from_fn(|_| None);
+        for (idx, transfer_function) in transfer_functions.iter().enumerate() {
+            output[idx] = Some(transfer_function.bode_data(&angular_frequencies)?);
+        }
+
+        Ok(output.map(|bode_data| bode_data.unwrap()))
+    }
+
     fn adc_filter(cutoff_ratio: f64) -> Result<AdcFilter, AdcFilterBuildError> {
         let cutoff_ratio = clamp_adc_filter_cutoff_ratio(cutoff_ratio);
         let dynamic_delta = butter::<ADC_FILTER_ORDER>(cutoff_ratio)
@@ -384,6 +458,24 @@ pub mod filters {
 
     fn clamp_adc_filter_cutoff_ratio(cutoff_ratio: f64) -> f64 {
         cutoff_ratio.min(ADC_FILTER_MAX_CUTOFF_RATIO)
+    }
+
+    fn adc_filter_transfer_function_at_sample_rate(
+        cutoff_ratio: f64,
+        sample_rate_hz: f64,
+    ) -> Result<AdcFilterTransferFunction, AdcFilterBuildError> {
+        validate_sample_rate_hz(sample_rate_hz)?;
+        let cutoff_ratio = clamp_adc_filter_cutoff_ratio(cutoff_ratio);
+        Ok(design_digital_filter_tf(
+            &deimos_numerics::control::lti::DigitalFilterSpec::new(
+                ADC_FILTER_ORDER,
+                deimos_numerics::control::lti::DigitalFilterFamily::Butterworth,
+                deimos_numerics::control::lti::FilterShape::Lowpass {
+                    cutoff: cutoff_ratio * sample_rate_hz * core::f64::consts::TAU,
+                },
+                sample_rate_hz,
+            )?,
+        )?)
     }
 
     fn adc_fractional_delay_samples(
@@ -428,6 +520,16 @@ pub mod filters {
         apply_delay(&groups.7, 7);
 
         Ok(core::array::from_fn(|idx| delays[idx] / sample_time))
+    }
+
+    fn validate_sample_rate_hz(sample_rate_hz: f64) -> Result<f64, AdcFilterBuildError> {
+        if !sample_rate_hz.is_finite() || sample_rate_hz <= 0.0 {
+            return Err(EmbeddedError::InvalidParameter {
+                which: "adc.sample_rate_hz",
+            }
+            .into());
+        }
+        Ok(1.0 / sample_rate_hz)
     }
 
     fn unfiltered_transfer_function() -> Result<AdcAnalogFrontendTransferFunction, LtiError> {
@@ -533,6 +635,49 @@ pub mod filters {
                 assert!(dc_gain.im.abs() < 1.0e-12);
             }
         }
+
+        #[test]
+        fn rev7_adc_sampled_transfer_functions_include_full_filter_chain() {
+            let transfer_functions =
+                adc_sampled_transfer_functions(0.1, super::super::ADC_SAMPLE_RATE_HZ).unwrap();
+
+            assert_eq!(transfer_functions.len(), ADC_CHANNEL_COUNT);
+            for transfer_function in transfer_functions {
+                assert_eq!(
+                    transfer_function.sample_time(),
+                    1.0 / super::super::ADC_SAMPLE_RATE_HZ
+                );
+                let dc_gain = transfer_function.dc_gain().unwrap();
+                assert!((dc_gain.re - 1.0).abs() < 1.0e-4);
+                assert!(dc_gain.im.abs() < 1.0e-10);
+                assert!(!transfer_function.numerator().is_empty());
+                assert!(!transfer_function.denominator().is_empty());
+            }
+        }
+
+        #[test]
+        fn rev7_adc_sampled_bode_data_builds_for_all_channels() {
+            let frequencies_hz = [0.0, 10.0, 100.0, 1_000.0];
+            let angular_frequencies: alloc::vec::Vec<f64> = frequencies_hz
+                .iter()
+                .map(|frequency_hz| frequency_hz * core::f64::consts::TAU)
+                .collect();
+            let bode_data =
+                adc_sampled_bode_data(0.1, super::super::ADC_SAMPLE_RATE_HZ, &frequencies_hz)
+                    .unwrap();
+
+            assert_eq!(bode_data.len(), ADC_CHANNEL_COUNT);
+            for channel_bode in bode_data {
+                assert_eq!(channel_bode.angular_frequencies, angular_frequencies);
+                assert_eq!(channel_bode.magnitude_db.len(), angular_frequencies.len());
+                assert_eq!(channel_bode.phase_deg.len(), angular_frequencies.len());
+                assert!(channel_bode
+                    .magnitude_db
+                    .iter()
+                    .all(|value| value.is_finite()));
+                assert!(channel_bode.phase_deg.iter().all(|value| value.is_finite()));
+            }
+        }
     }
 }
 
@@ -540,9 +685,10 @@ pub mod filters {
 pub use filters::{
     adc_analog_frontend_transfer_functions, adc_filter_bank, adc_filter_transfer_functions,
     adc_fractional_delay_filter_bank, adc_fractional_delay_transfer_functions,
-    AdcAnalogFrontendTransferFunction, AdcAnalogFrontendTransferFunctionBank, AdcFilter,
-    AdcFilterBank, AdcFilterBuildError, AdcFilterState, AdcFilterTransferFunction,
-    AdcFilterTransferFunctionBank, AdcFractionalDelayFilter, AdcFractionalDelayFilterBank,
-    AdcFractionalDelayFilterState, AdcFractionalDelayTransferFunction,
-    AdcFractionalDelayTransferFunctionBank,
+    adc_sampled_bode_data, adc_sampled_transfer_functions, AdcAnalogFrontendTransferFunction,
+    AdcAnalogFrontendTransferFunctionBank, AdcFilter, AdcFilterBank, AdcFilterBuildError,
+    AdcFilterState, AdcFilterTransferFunction, AdcFilterTransferFunctionBank,
+    AdcFractionalDelayFilter, AdcFractionalDelayFilterBank, AdcFractionalDelayFilterState,
+    AdcFractionalDelayTransferFunction, AdcFractionalDelayTransferFunctionBank, AdcSampledBodeData,
+    AdcSampledBodeDataBank, AdcSampledTransferFunction, AdcSampledTransferFunctionBank,
 };
