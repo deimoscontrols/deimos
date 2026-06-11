@@ -1,12 +1,9 @@
 use core::sync::atomic::Ordering;
 
-use deimos_numerics::{
-    control::lti::butter,
-    embedded::fixed::lti::{
-        DeltaSos as FixedDeltaSos, DeltaSosState as FixedDeltaSosState, Fir as FixedFir,
-        FirState as FixedFirState, lagrange_fractional_delay,
-    },
-    embedded::fixed::MedianFilter,
+use deimos_numerics::embedded::fixed::MedianFilter;
+use deimos_shared::peripherals::deimos_daq_rev7::{
+    AdcFilter, AdcFilterState, AdcFractionalDelayFilter, AdcFractionalDelayFilterState,
+    adc_filter_bank, adc_fractional_delay_filter_bank,
 };
 use nb::block;
 use stm32h7xx_hal::{
@@ -31,19 +28,6 @@ use crate::board::{
 const WRAPPING_LIM_U16: i32 = (u16::MAX / 2) as i32;
 
 const WRAPPING_LIM_I32: i64 = i32::MAX as i64; // Max value is half-span for signed int
-
-const MAX_ADC_CUTOFF_RATIO: f64 = 0.4;
-
-type AdcFilter = FixedDeltaSos<f32, 1, 1>;
-type AdcFilterState = FixedDeltaSosState<f32, 1, 1>;
-type FractionalDelayFilter = FixedFir<f32, 3, 1>;
-type FractionalDelayState = FixedFirState<f32, 3, 1>;
-
-fn build_delta_butter2(cutoff_ratio: f64) -> AdcFilter {
-    let cutoff_ratio = cutoff_ratio.min(MAX_ADC_CUTOFF_RATIO);
-    let dynamic_delta = butter::<2>(cutoff_ratio).unwrap().try_cast::<f32>().unwrap();
-    AdcFilter::try_from(&dynamic_delta).unwrap()
-}
 
 /// Undo wrapping of U16 values and store in an I32 (which is also allowed to wrap).
 /// This allows integer wrapping events to happen rarely enough to be handled in a larger
@@ -157,8 +141,8 @@ pub struct Sampler {
     pub adc_scalings: [f32; 18],
     pub adc_filters: [AdcFilter; 18],
     pub adc_filter_states: [AdcFilterState; 18],
-    pub adc_filters_fractional_delay: [FractionalDelayFilter; 18],
-    pub adc_filters_fractional_delay_states: [FractionalDelayState; 18],
+    pub adc_filters_fractional_delay: [AdcFractionalDelayFilter; 18],
+    pub adc_filters_fractional_delay_states: [AdcFractionalDelayFilterState; 18],
     pub adc_values: [f32; 18],
 
     // Timing
@@ -222,64 +206,14 @@ impl Sampler {
 
         // Low-pass filters
         let cutoff_ratio = ADC_CUTOFF_RATIO.load(Ordering::Relaxed) as f64;
-        let filter_proto = build_delta_butter2(cutoff_ratio);
-        let adc_filters = [filter_proto; 18];
-        let adc_filter_states = [filter_proto.reset_state(); 18];
+        let adc_filters = adc_filter_bank(cutoff_ratio).unwrap();
+        let adc_filter_states = [adc_filters[0].reset_state(); 18];
         let adc_values = [0.0_f32; 18];
 
         // Fractional delay filters for synthetic simultaneous sampling
-
-        // Timing components
-        let internal_sample_period = 1.0 / ADC_SAMPLE_FREQ_HZ as f64; // [s]
-        let adc_clock_speed = 50e6; // [Hz]
-        let adc_clock_period = 1.0 / adc_clock_speed; // [s]
-        let adc_sample_hold_cycles = 16.5; // [dimensionless]
-        let adc_sample_hold = adc_sample_hold_cycles * adc_clock_period; // [s]
-        let adc_conversion_time = 7.5 * adc_clock_period; // [s] RM0433 25.4.13
-
-        // Calculate fractional delay needed for each channel to align with the first sample group
-        //   Each group starts as soon as the previous one is done
-        let delay_per_group = adc_sample_hold + adc_conversion_time; // [s]
-
-        let groups = (
-            [8, 9, 0],
-            [10, 12, 1],
-            // [11, 13, 2],  // ain13,14 consumed for DAC
-            // [14, 15, 3],
-            [11, 2],
-            [15 - 2, 3],
-            [16 - 2, 17 - 2, 4],
-            [18 - 2, 5],
-            [19 - 2, 6],
-            [7],
-        );
-        let mut delays = [0_f64; 20];
-
-        let apply_delay = |delays: &mut [f64], group: &[usize], i: usize| {
-            let delay = i as f64 * delay_per_group;
-            for j in group {
-                delays[*j] = delay;
-            }
-        };
-
-        apply_delay(&mut delays, &groups.0, 0);
-        apply_delay(&mut delays, &groups.1, 1);
-        apply_delay(&mut delays, &groups.2, 2);
-        apply_delay(&mut delays, &groups.3, 3);
-        apply_delay(&mut delays, &groups.4, 4);
-        apply_delay(&mut delays, &groups.5, 5);
-        apply_delay(&mut delays, &groups.6, 6);
-        apply_delay(&mut delays, &groups.7, 7);
-
-        let mut adc_filters_fractional_delay: [FractionalDelayFilter; 18] =
-            [lagrange_fractional_delay::<3, 1, f32>(0.0, internal_sample_period as f32).unwrap();
-                18];
-        for (i, filter) in adc_filters_fractional_delay.iter_mut().enumerate() {
-            let delay_frac = (delays[i] / internal_sample_period) as f32;
-            *filter =
-                lagrange_fractional_delay::<3, 1, f32>(delay_frac, internal_sample_period as f32)
-                    .unwrap();
-        }
+        //   Each ADC group starts as soon as the previous one is done.
+        let adc_filters_fractional_delay =
+            adc_fractional_delay_filter_bank(ADC_SAMPLE_FREQ_HZ as f64).unwrap();
         let adc_filters_fractional_delay_states =
             [adc_filters_fractional_delay[0].reset_state(); 18];
 
@@ -326,7 +260,7 @@ impl Sampler {
     /// This should be done with the sample timer paused to avoid interruptions.
     /// Also clears the encoder and pulse counter.
     pub fn update_cutoff(&mut self, cutoff_ratio: f64) {
-        let filter_proto = build_delta_butter2(cutoff_ratio);
+        let filter_bank = adc_filter_bank(cutoff_ratio).unwrap();
 
         self.adc_filters
             .iter_mut()
@@ -340,7 +274,7 @@ impl Sampler {
                     init_val = 0.0;
                 }
 
-                *filter = filter_proto;
+                *filter = filter_bank[i];
                 filter.set_steady_state(state, [init_val]);
             });
 
