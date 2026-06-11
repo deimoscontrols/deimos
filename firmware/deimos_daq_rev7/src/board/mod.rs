@@ -34,15 +34,10 @@ use subsystems::output::*;
 use subsystems::sampling::*;
 
 use deimos_shared::peripherals::deimos_daq_rev7::operating_roundtrip::OperatingRoundtripInput;
-/// Model number
-pub const MODEL_NUMBER: u64 =
-    deimos_shared::peripherals::model_numbers::DEIMOS_DAQ_REV_7_MODEL_NUMBER;
-
-/// ADC sample frequency
-pub const ADC_SAMPLE_FREQ_HZ: u32 = 33_000;
-
-/// ADC voltage reference
-pub const VREF: f32 = 2.5;
+pub use deimos_shared::peripherals::deimos_daq_rev7::{
+    ADC_CHANNEL_COUNT, ADC_SAMPLE_FREQ_HZ, COUNTER_CHANNEL_COUNT, FREQUENCY_CHANNEL_COUNT,
+    MODEL_NUMBER, VREF,
+};
 
 /// Locally administered MAC address
 pub const MAC_ADDRESS: [u8; 6] = *include_bytes!("../../static/macaddr.in");
@@ -55,18 +50,22 @@ pub const SERIAL_NUMBER: u64 = u64::from_le_bytes(*include_bytes!("../../static/
 static mut DES_RING: MaybeUninit<ethernet::DesRing<4, 4>> = MaybeUninit::uninit();
 
 /// Storage for the latest ADC samples
-pub static ADC_SAMPLES: [AtomicF32; 18] = array_macro::array![_ => AtomicF32::new(0.0); 18];
+pub static ADC_SAMPLES: [AtomicF32; ADC_CHANNEL_COUNT] =
+    array_macro::array![_ => AtomicF32::new(0.0); ADC_CHANNEL_COUNT];
 
 /// Storage for latest unrolled counter samples
 /// These are only integer-unwrapped, not filtered
-pub static COUNTER_SAMPLES: [AtomicI32; 2] = array_macro::array![_ => AtomicI32::new(0); 2];
+pub static COUNTER_SAMPLES: [AtomicI32; COUNTER_CHANNEL_COUNT] =
+    array_macro::array![_ => AtomicI32::new(0); COUNTER_CHANNEL_COUNT];
 
 /// Storage for number of times (and direction) that the I32 counter has wrapped
-pub static COUNTER_WRAPS: [AtomicI32; 2] = array_macro::array![_ => AtomicI32::new(0); 2];
+pub static COUNTER_WRAPS: [AtomicI32; COUNTER_CHANNEL_COUNT] =
+    array_macro::array![_ => AtomicI32::new(0); COUNTER_CHANNEL_COUNT];
 
 /// Storage for the latest frequency samples
 /// These see the same filter as ADC samples
-pub static FREQ_SAMPLES: [AtomicF32; 2] = array_macro::array![_ => AtomicF32::new(0.0); 2];
+pub static FREQ_SAMPLES: [AtomicF32; FREQUENCY_CHANNEL_COUNT] =
+    array_macro::array![_ => AtomicF32::new(0.0); FREQUENCY_CHANNEL_COUNT];
 
 /// ADC filter cutoff ratio
 /// Ideally, this would be an AtomicF64, but the STM32H7 doesn't have 64-bit atomics

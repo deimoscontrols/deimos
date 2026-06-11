@@ -15,8 +15,8 @@ use stm32h7xx_hal::{
 };
 
 use crate::board::{
-    ACCUMULATED_SAMPLING_TIME_NS, ADC_CUTOFF_RATIO, ADC_SAMPLE_FREQ_HZ, ADC_SAMPLES,
-    COUNTER_SAMPLES, COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF, VREF,
+    ACCUMULATED_SAMPLING_TIME_NS, ADC_CHANNEL_COUNT, ADC_CUTOFF_RATIO, ADC_SAMPLE_FREQ_HZ,
+    ADC_SAMPLES, COUNTER_SAMPLES, COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF, VREF,
 };
 
 /// Above this size of change, 16-bit counters are assumed to have wrapped.
@@ -138,12 +138,12 @@ pub struct Sampler {
     pub adc2: adc::Adc<ADC2, adc::Enabled>,
     pub adc3: adc::Adc<ADC3, adc::Enabled>,
     pub adc_pins: AdcPins,
-    pub adc_scalings: [f32; 18],
-    pub adc_filters: [AdcFilter; 18],
-    pub adc_filter_states: [AdcFilterState; 18],
-    pub adc_filters_fractional_delay: [AdcFractionalDelayFilter; 18],
-    pub adc_filters_fractional_delay_states: [AdcFractionalDelayFilterState; 18],
-    pub adc_values: [f32; 18],
+    pub adc_scalings: [f32; ADC_CHANNEL_COUNT],
+    pub adc_filters: [AdcFilter; ADC_CHANNEL_COUNT],
+    pub adc_filter_states: [AdcFilterState; ADC_CHANNEL_COUNT],
+    pub adc_filters_fractional_delay: [AdcFractionalDelayFilter; ADC_CHANNEL_COUNT],
+    pub adc_filters_fractional_delay_states: [AdcFractionalDelayFilterState; ADC_CHANNEL_COUNT],
+    pub adc_values: [f32; ADC_CHANNEL_COUNT],
 
     // Timing
     pub timer: Timer<TIM2>,
@@ -207,15 +207,15 @@ impl Sampler {
         // Low-pass filters
         let cutoff_ratio = ADC_CUTOFF_RATIO.load(Ordering::Relaxed) as f64;
         let adc_filters = adc_filter_bank(cutoff_ratio).unwrap();
-        let adc_filter_states = [adc_filters[0].reset_state(); 18];
-        let adc_values = [0.0_f32; 18];
+        let adc_filter_states = [adc_filters[0].reset_state(); ADC_CHANNEL_COUNT];
+        let adc_values = [0.0_f32; ADC_CHANNEL_COUNT];
 
         // Fractional delay filters for synthetic simultaneous sampling
         //   Each ADC group starts as soon as the previous one is done.
         let adc_filters_fractional_delay =
             adc_fractional_delay_filter_bank(ADC_SAMPLE_FREQ_HZ as f64).unwrap();
         let adc_filters_fractional_delay_states =
-            [adc_filters_fractional_delay[0].reset_state(); 18];
+            [adc_filters_fractional_delay[0].reset_state(); ADC_CHANNEL_COUNT];
 
         //
         // Set up frequency input adc_scalings
@@ -317,7 +317,7 @@ impl Sampler {
             return;
         }
 
-        let mut b = [0_u32; 18];
+        let mut b = [0_u32; ADC_CHANNEL_COUNT];
 
         // Sample
         self.adc1.start_conversion(&mut self.adc_pins.ain8);
