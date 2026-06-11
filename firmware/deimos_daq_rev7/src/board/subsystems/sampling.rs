@@ -1,9 +1,7 @@
 use core::sync::atomic::Ordering;
 
 use deimos_numerics::{
-    control::lti::{
-        DigitalFilterFamily, DigitalFilterSpec, FilterShape, design_digital_filter_sos,
-    },
+    control::lti::butter,
     embedded::fixed::lti::{
         DeltaSos as FixedDeltaSos, DeltaSosState as FixedDeltaSosState, Fir as FixedFir,
         FirState as FixedFirState, lagrange_fractional_delay,
@@ -42,23 +40,8 @@ type FractionalDelayFilter = FixedFir<f32, 3, 1>;
 type FractionalDelayState = FixedFirState<f32, 3, 1>;
 
 fn build_delta_butter2(cutoff_ratio: f64) -> AdcFilter {
-    let sample_rate = ADC_SAMPLE_FREQ_HZ as f64;
     let cutoff_ratio = cutoff_ratio.min(MAX_ADC_CUTOFF_RATIO);
-    let cutoff = cutoff_ratio * sample_rate * core::f64::consts::TAU;
-    let spec = DigitalFilterSpec::new(
-        2,
-        DigitalFilterFamily::Butterworth,
-        FilterShape::Lowpass { cutoff },
-        sample_rate,
-    )
-    .unwrap();
-
-    let dynamic_delta = design_digital_filter_sos(&spec)
-        .unwrap()
-        .to_delta_sos()
-        .unwrap()
-        .try_cast::<f32>()
-        .unwrap();
+    let dynamic_delta = butter::<2>(cutoff_ratio).unwrap().try_cast::<f32>().unwrap();
     AdcFilter::try_from(&dynamic_delta).unwrap()
 }
 

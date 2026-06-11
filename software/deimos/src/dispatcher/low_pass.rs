@@ -7,9 +7,9 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
-use flaw::{
-    SisoIirFilter, butter2,
-    generated::butter::butter2::{MAX_CUTOFF_RATIO, MIN_CUTOFF_RATIO},
+use deimos_numerics::{
+    control::lti::butter,
+    embedded::fixed::lti::{DeltaSos as FixedDeltaSos, DeltaSosState as FixedDeltaSosState},
 };
 
 use crate::controller::context::ControllerCtx;
@@ -17,9 +17,14 @@ use crate::py_json_methods;
 
 use super::Dispatcher;
 
+const MAX_CUTOFF_RATIO: f64 = 0.4;
+
+type LowPassFilter = FixedDeltaSos<f64, 1, 1>;
+type LowPassFilterState = FixedDeltaSosState<f64, 1, 1>;
+
 /// Wraps another dispatcher and applies a 2nd order Butterworth low-pass filter per channel.
 ///
-/// The cutoff frequency is clamped to a stable ratio of the sample rate.
+/// The cutoff frequency is clamped to a conservative upper ratio of the sample rate.
 /// The filter is primed on the first row by setting each channel's steady-state
 /// value to the incoming sample, avoiding a cold-start transient.
 #[derive(Serialize, Deserialize)]
@@ -29,7 +34,9 @@ pub struct LowPassDispatcher {
     inner: Box<dyn Dispatcher>,
 
     #[serde(skip)]
-    filters: Vec<SisoIirFilter<2>>,
+    filter: Option<LowPassFilter>,
+    #[serde(skip)]
+    filter_states: Vec<LowPassFilterState>,
     #[serde(skip)]
     primed: bool,
     #[serde(skip)]
@@ -42,27 +49,21 @@ impl LowPassDispatcher {
         Box::new(Self {
             cutoff_hz,
             inner,
-            filters: Vec::new(),
+            filter: None,
+            filter_states: Vec::new(),
             primed: false,
             initialized: false,
         })
     }
 
-    fn build_filters(
-        &self,
-        channel_count: usize,
-        sample_rate_hz: f64,
-    ) -> Result<Vec<SisoIirFilter<2>>, String> {
-        let cutoff_ratio =
-            (self.cutoff_hz / sample_rate_hz).clamp(MIN_CUTOFF_RATIO, MAX_CUTOFF_RATIO);
+    fn build_filter(&self, sample_rate_hz: f64) -> Result<LowPassFilter, String> {
+        let cutoff_ratio = (self.cutoff_hz / sample_rate_hz).min(MAX_CUTOFF_RATIO);
 
-        let mut filters = Vec::with_capacity(channel_count);
-        let filter_proto = butter2(cutoff_ratio)
-            .map_err(|e| format!("Failed to construct butter2 filter: {e}"))?;
-        for _ in 0..channel_count {
-            filters.push(filter_proto);
-        }
-        Ok(filters)
+        LowPassFilter::try_from(
+            &butter::<2>(cutoff_ratio)
+                .map_err(|e| format!("Failed to construct butter2 filter: {e}"))?,
+        )
+        .map_err(|e| format!("Failed to convert butter2 filter to fixed delta SOS: {e}"))
     }
 }
 
@@ -88,7 +89,9 @@ impl Dispatcher for LowPassDispatcher {
         }
 
         let sample_rate_hz = 1e9f64 / f64::from(ctx.dt_ns);
-        self.filters = self.build_filters(channel_names.len(), sample_rate_hz)?;
+        let filter = self.build_filter(sample_rate_hz)?;
+        self.filter_states = vec![filter.reset_state(); channel_names.len()];
+        self.filter = Some(filter);
         self.primed = false;
 
         let result = self.inner.init(ctx, channel_names, core_assignment);
@@ -108,17 +111,20 @@ impl Dispatcher for LowPassDispatcher {
 
         // Update in-place and reuse the Vec to avoid reallocating
         let values = &mut channel_values[..];
+        let filter = self.filter.as_ref().ok_or_else(|| {
+            "LowPassDispatcher must be initialized before consuming data".to_string()
+        })?;
 
         if !self.primed {
             // On the first consume, use the value to initialize the filter.
-            for (filter, value) in self.filters.iter_mut().zip(values.iter()) {
-                filter.set_steady_state(*value as f32);
+            for (state, value) in self.filter_states.iter_mut().zip(values.iter()) {
+                filter.set_steady_state(state, [*value]);
             }
             self.primed = true;
         } else {
             // After the first consume, update the filter and return the filtered value.
-            for (filter, value) in self.filters.iter_mut().zip(values.iter_mut()) {
-                *value = filter.update(*value as f32) as f64;
+            for (state, value) in self.filter_states.iter_mut().zip(values.iter_mut()) {
+                *value = filter.step(state, [*value])[0];
             }
         }
 
@@ -127,7 +133,8 @@ impl Dispatcher for LowPassDispatcher {
 
     fn terminate(&mut self) -> Result<(), String> {
         let result = self.inner.terminate();
-        self.filters.clear();
+        self.filter = None;
+        self.filter_states.clear();
         self.primed = false;
         self.initialized = false;
         result

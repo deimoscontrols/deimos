@@ -93,7 +93,7 @@ use prototype::analog_lowpass_prototype_zpk;
 use transform::{analog_shape_transform, bilinear_transform_zpk};
 
 use super::{
-    ContinuousSos, ContinuousTransferFunction, ContinuousZpk, DiscreteSos,
+    ContinuousSos, ContinuousTransferFunction, ContinuousZpk, DeltaSos, DiscreteSos,
     DiscreteTransferFunction, DiscreteZpk,
 };
 use faer_traits::RealField;
@@ -184,6 +184,51 @@ where
     Ok(design_digital_filter_zpk(spec)?.to_sos()?)
 }
 
+/// Designs a normalized digital Butterworth low-pass filter in delta-SOS form.
+///
+/// `cutoff_ratio` is the cutoff frequency divided by the sample rate, so valid
+/// values are in `(0, 0.5)`. The returned delta-SOS uses a normalized sample
+/// interval of one sample.
+pub fn butter<const ORDER: usize>(cutoff_ratio: f64) -> Result<DeltaSos<f64>, FilterDesignError> {
+    normalized_delta_lowpass(ORDER, DigitalFilterFamily::Butterworth, cutoff_ratio)
+}
+
+/// Designs a normalized digital Chebyshev Type-I low-pass filter in delta-SOS form.
+///
+/// `cutoff_ratio` is the cutoff frequency divided by the sample rate, so valid
+/// values are in `(0, 0.5)`. `ripple_db` is the peak passband ripple in dB. The
+/// returned delta-SOS uses a normalized sample interval of one sample.
+pub fn chebyshev1<const ORDER: usize>(
+    cutoff_ratio: f64,
+    ripple_db: f64,
+) -> Result<DeltaSos<f64>, FilterDesignError> {
+    normalized_delta_lowpass(
+        ORDER,
+        DigitalFilterFamily::Chebyshev1 { ripple_db },
+        cutoff_ratio,
+    )
+}
+
+/// Alias for [`chebyshev1`], matching the common Chebyshev Type-I shorthand.
+pub fn cheby1<const ORDER: usize>(
+    cutoff_ratio: f64,
+    ripple_db: f64,
+) -> Result<DeltaSos<f64>, FilterDesignError> {
+    chebyshev1::<ORDER>(cutoff_ratio, ripple_db)
+}
+
+fn normalized_delta_lowpass(
+    order: usize,
+    family: DigitalFilterFamily<f64>,
+    cutoff_ratio: f64,
+) -> Result<DeltaSos<f64>, FilterDesignError> {
+    let sample_rate = 1.0;
+    let cutoff = cutoff_ratio * core::f64::consts::TAU;
+    let spec = DigitalFilterSpec::new(order, family, FilterShape::Lowpass { cutoff }, sample_rate)?;
+
+    Ok(design_digital_filter_sos(&spec)?.to_delta_sos()?)
+}
+
 /// Designs a digital IIR filter and returns it in coefficient form.
 ///
 /// This is kept for interoperability and inspection. For numerically sensitive
@@ -201,8 +246,9 @@ where
 mod tests {
     use super::{
         AnalogFilterFamily, AnalogFilterSpec, DigitalFilterFamily, DigitalFilterSpec, FilterShape,
-        design_analog_filter_sos, design_analog_filter_tf, design_analog_filter_zpk,
-        design_digital_filter_sos, design_digital_filter_tf, design_digital_filter_zpk,
+        butter, cheby1, chebyshev1, design_analog_filter_sos, design_analog_filter_tf,
+        design_analog_filter_zpk, design_digital_filter_sos, design_digital_filter_tf,
+        design_digital_filter_zpk,
     };
     use alloc::vec::Vec;
     use faer::complex::Complex;
@@ -315,6 +361,29 @@ mod tests {
         let dc = zpk.evaluate(Complex::new(1.0, 0.0)).norm();
         let nyquist = zpk.evaluate(Complex::new(-1.0, 0.0)).norm();
         assert!(dc > nyquist);
+    }
+
+    #[test]
+    fn normalized_butter_lowpass_returns_delta_sos() {
+        let filter = butter::<2>(0.1).unwrap();
+
+        assert_eq!(filter.sections().len(), 1);
+        assert_close(filter.sample_time(), 1.0, 1.0e-12);
+        assert_close(filter.dc_gain().unwrap().norm(), 1.0, 1.0e-10);
+        assert!(butter::<2>(0.0).is_err());
+        assert!(butter::<2>(0.5).is_err());
+    }
+
+    #[test]
+    fn normalized_chebyshev_lowpass_returns_delta_sos() {
+        let filter = chebyshev1::<2>(0.1, 1.0).unwrap();
+        let alias = cheby1::<2>(0.1, 1.0).unwrap();
+
+        assert_eq!(filter.sections().len(), 1);
+        assert_close(filter.sample_time(), 1.0, 1.0e-12);
+        assert!(filter.dc_gain().unwrap().norm().is_finite());
+        assert_eq!(filter, alias);
+        assert!(chebyshev1::<2>(0.1, 0.0).is_err());
     }
 
     #[test]
