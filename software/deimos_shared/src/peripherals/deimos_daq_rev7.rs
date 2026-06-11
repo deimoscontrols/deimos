@@ -59,6 +59,43 @@ pub const ADC_SAMPLE_HOLD_CYCLES: f64 = 16.5;
 /// ADC conversion duration in ADC clock cycles, from STM32H7 RM0433 25.4.13.
 pub const ADC_CONVERSION_CYCLES: f64 = 7.5;
 
+/// Rev7 analog front-end low-pass filter variants, ordered by reported ADC channel.
+///
+/// The channel order is `ain0..ain12` followed by `ain15..ain19`.
+pub const ADC_ANALOG_FRONTEND_FILTER_KINDS: [AdcAnalogFrontendFilterKind; ADC_CHANNEL_COUNT] = [
+    AdcAnalogFrontendFilterKind::Unfiltered,
+    AdcAnalogFrontendFilterKind::Unfiltered,
+    AdcAnalogFrontendFilterKind::SallenKey100Hz,
+    AdcAnalogFrontendFilterKind::SallenKey3kHz,
+    AdcAnalogFrontendFilterKind::SallenKey3kHz,
+    AdcAnalogFrontendFilterKind::SallenKey3kHz,
+    AdcAnalogFrontendFilterKind::SallenKey3kHz,
+    AdcAnalogFrontendFilterKind::SallenKey3kHz,
+    AdcAnalogFrontendFilterKind::SallenKey3kHz,
+    AdcAnalogFrontendFilterKind::SallenKey3kHz,
+    AdcAnalogFrontendFilterKind::SallenKey1kHz,
+    AdcAnalogFrontendFilterKind::SallenKey1kHz,
+    AdcAnalogFrontendFilterKind::SallenKey3kHz,
+    AdcAnalogFrontendFilterKind::SallenKey3kHz,
+    AdcAnalogFrontendFilterKind::SallenKey3kHz,
+    AdcAnalogFrontendFilterKind::SallenKey3kHz,
+    AdcAnalogFrontendFilterKind::SallenKey1kHz,
+    AdcAnalogFrontendFilterKind::SallenKey1kHz,
+];
+
+/// Rev7 analog front-end filter variant for one reported ADC voltage channel.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AdcAnalogFrontendFilterKind {
+    /// No analog low-pass filter is modeled for this channel.
+    Unfiltered,
+    /// Sallen-Key 100 Hz target, R1 = R2 = 100 kohm and C1 = C2 = 10 nF.
+    SallenKey100Hz,
+    /// Sallen-Key 1 kHz target, R1 = R2 = 10 kohm and C1 = C2 = 10 nF.
+    SallenKey1kHz,
+    /// Sallen-Key 3 kHz target, R1 = R2 = 3.3 kohm and C1 = C2 = 10 nF.
+    SallenKey3kHz,
+}
+
 pub mod operating_roundtrip {
     use core::default::Default;
 
@@ -143,13 +180,14 @@ pub mod filters {
     use core::fmt;
 
     use super::{
-        ADC_CHANNEL_COUNT, ADC_CLOCK_HZ, ADC_CONVERSION_CYCLES, ADC_FILTER_COUNT,
-        ADC_FILTER_MAX_CUTOFF_RATIO, ADC_FILTER_ORDER, ADC_FILTER_SECTIONS,
+        ADC_ANALOG_FRONTEND_FILTER_KINDS, ADC_CHANNEL_COUNT, ADC_CLOCK_HZ, ADC_CONVERSION_CYCLES,
+        ADC_FILTER_COUNT, ADC_FILTER_MAX_CUTOFF_RATIO, ADC_FILTER_ORDER, ADC_FILTER_SECTIONS,
         ADC_FRACTIONAL_DELAY_FILTER_TAPS, ADC_SAMPLE_HOLD_CYCLES,
     };
     use deimos_numerics::{
         control::lti::{
-            butter, design_digital_filter_tf, DiscreteTransferFunction, FilterDesignError,
+            butter, design_digital_filter_tf, sallen_key_lowpass_transfer_function,
+            ContinuousTransferFunction, DiscreteTransferFunction, FilterDesignError,
             Fir as DynamicFir, LtiError,
         },
         embedded::{
@@ -193,6 +231,20 @@ pub mod filters {
     /// Transfer functions corresponding to the full rev7 ADC fractional-delay filter bank.
     pub type AdcFractionalDelayTransferFunctionBank =
         [AdcFractionalDelayTransferFunction; ADC_FILTER_COUNT];
+
+    /// Continuous-time transfer function for one rev7 ADC analog front end.
+    pub type AdcAnalogFrontendTransferFunction = ContinuousTransferFunction<f64>;
+
+    /// Continuous-time transfer functions for all rev7 ADC analog front ends.
+    pub type AdcAnalogFrontendTransferFunctionBank =
+        [AdcAnalogFrontendTransferFunction; ADC_CHANNEL_COUNT];
+
+    const SALLEN_KEY_CAPACITANCE_F: f64 = 10.0e-9;
+    const SALLEN_KEY_100HZ_RESISTANCE_OHMS: f64 = 100.0e3;
+    const SALLEN_KEY_1KHZ_RESISTANCE_OHMS: f64 = 10.0e3;
+    const SALLEN_KEY_3KHZ_RESISTANCE_OHMS: f64 = 3.3e3;
+    const ADC_INPUT_RC_RESISTANCE_OHMS: f64 = 10.0;
+    const ADC_INPUT_RC_CAPACITANCE_F: f64 = 1.0e-6;
 
     /// Error returned while constructing rev7 ADC filters.
     #[derive(Debug)]
@@ -297,6 +349,32 @@ pub mod filters {
         Ok(output.map(|transfer_function| transfer_function.unwrap()))
     }
 
+    /// Builds continuous-time transfer functions for the rev7 analog voltage front ends.
+    ///
+    /// The modeled filtered channels are a unity-gain active Sallen-Key low-pass
+    /// followed by the ADC input RC filter. Board current and board voltage are
+    /// modeled as unity transfer functions.
+    pub fn adc_analog_frontend_transfer_functions(
+    ) -> Result<AdcAnalogFrontendTransferFunctionBank, AdcFilterBuildError> {
+        let unfiltered = unfiltered_transfer_function()?;
+        let sallen_key_100hz =
+            sallen_key_with_adc_rc_transfer_function(SALLEN_KEY_100HZ_RESISTANCE_OHMS)?;
+        let sallen_key_1khz =
+            sallen_key_with_adc_rc_transfer_function(SALLEN_KEY_1KHZ_RESISTANCE_OHMS)?;
+        let sallen_key_3khz =
+            sallen_key_with_adc_rc_transfer_function(SALLEN_KEY_3KHZ_RESISTANCE_OHMS)?;
+
+        Ok(core::array::from_fn(|idx| {
+            match ADC_ANALOG_FRONTEND_FILTER_KINDS[idx] {
+                super::AdcAnalogFrontendFilterKind::Unfiltered => &unfiltered,
+                super::AdcAnalogFrontendFilterKind::SallenKey100Hz => &sallen_key_100hz,
+                super::AdcAnalogFrontendFilterKind::SallenKey1kHz => &sallen_key_1khz,
+                super::AdcAnalogFrontendFilterKind::SallenKey3kHz => &sallen_key_3khz,
+            }
+            .clone()
+        }))
+    }
+
     fn adc_filter(cutoff_ratio: f64) -> Result<AdcFilter, AdcFilterBuildError> {
         let cutoff_ratio = clamp_adc_filter_cutoff_ratio(cutoff_ratio);
         let dynamic_delta = butter::<ADC_FILTER_ORDER>(cutoff_ratio)
@@ -352,6 +430,32 @@ pub mod filters {
         Ok(core::array::from_fn(|idx| delays[idx] / sample_time))
     }
 
+    fn unfiltered_transfer_function() -> Result<AdcAnalogFrontendTransferFunction, LtiError> {
+        ContinuousTransferFunction::continuous([1.0], [1.0])
+    }
+
+    fn sallen_key_with_adc_rc_transfer_function(
+        resistance_ohms: f64,
+    ) -> Result<AdcAnalogFrontendTransferFunction, LtiError> {
+        sallen_key_lowpass_transfer_function(
+            resistance_ohms,
+            resistance_ohms,
+            SALLEN_KEY_CAPACITANCE_F,
+            SALLEN_KEY_CAPACITANCE_F,
+        )?
+        .mul(&rc_lowpass_transfer_function(
+            ADC_INPUT_RC_RESISTANCE_OHMS,
+            ADC_INPUT_RC_CAPACITANCE_F,
+        )?)
+    }
+
+    fn rc_lowpass_transfer_function(
+        resistance_ohms: f64,
+        capacitance_f: f64,
+    ) -> Result<AdcAnalogFrontendTransferFunction, LtiError> {
+        ContinuousTransferFunction::continuous([1.0], [resistance_ohms * capacitance_f, 1.0])
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -382,14 +486,63 @@ pub mod filters {
                 .numerator()
                 .is_empty());
         }
+
+        #[test]
+        fn rev7_adc_analog_frontend_transfer_functions_match_channel_mapping() {
+            let transfer_functions = adc_analog_frontend_transfer_functions().unwrap();
+
+            assert_eq!(transfer_functions.len(), ADC_CHANNEL_COUNT);
+            assert_eq!(
+                ADC_ANALOG_FRONTEND_FILTER_KINDS[0],
+                super::super::AdcAnalogFrontendFilterKind::Unfiltered
+            );
+            assert_eq!(
+                ADC_ANALOG_FRONTEND_FILTER_KINDS[1],
+                super::super::AdcAnalogFrontendFilterKind::Unfiltered
+            );
+            assert_eq!(
+                ADC_ANALOG_FRONTEND_FILTER_KINDS[2],
+                super::super::AdcAnalogFrontendFilterKind::SallenKey100Hz
+            );
+            assert_eq!(
+                ADC_ANALOG_FRONTEND_FILTER_KINDS[10],
+                super::super::AdcAnalogFrontendFilterKind::SallenKey1kHz
+            );
+            assert_eq!(
+                ADC_ANALOG_FRONTEND_FILTER_KINDS[11],
+                super::super::AdcAnalogFrontendFilterKind::SallenKey1kHz
+            );
+            assert_eq!(
+                ADC_ANALOG_FRONTEND_FILTER_KINDS[16],
+                super::super::AdcAnalogFrontendFilterKind::SallenKey1kHz
+            );
+            assert_eq!(
+                ADC_ANALOG_FRONTEND_FILTER_KINDS[17],
+                super::super::AdcAnalogFrontendFilterKind::SallenKey1kHz
+            );
+
+            assert_eq!(transfer_functions[0].numerator(), &[1.0]);
+            assert_eq!(transfer_functions[0].denominator(), &[1.0]);
+            assert_eq!(transfer_functions[2].denominator().len(), 4);
+            assert_eq!(transfer_functions[3].denominator().len(), 4);
+            assert_eq!(transfer_functions[10].denominator().len(), 4);
+
+            for transfer_function in transfer_functions {
+                let dc_gain = transfer_function.dc_gain().unwrap();
+                assert!((dc_gain.re - 1.0).abs() < 1.0e-9);
+                assert!(dc_gain.im.abs() < 1.0e-12);
+            }
+        }
     }
 }
 
 #[cfg(feature = "alloc")]
 pub use filters::{
-    adc_filter_bank, adc_filter_transfer_functions, adc_fractional_delay_filter_bank,
-    adc_fractional_delay_transfer_functions, AdcFilter, AdcFilterBank, AdcFilterBuildError,
-    AdcFilterState, AdcFilterTransferFunction, AdcFilterTransferFunctionBank,
-    AdcFractionalDelayFilter, AdcFractionalDelayFilterBank, AdcFractionalDelayFilterState,
-    AdcFractionalDelayTransferFunction, AdcFractionalDelayTransferFunctionBank,
+    adc_analog_frontend_transfer_functions, adc_filter_bank, adc_filter_transfer_functions,
+    adc_fractional_delay_filter_bank, adc_fractional_delay_transfer_functions,
+    AdcAnalogFrontendTransferFunction, AdcAnalogFrontendTransferFunctionBank, AdcFilter,
+    AdcFilterBank, AdcFilterBuildError, AdcFilterState, AdcFilterTransferFunction,
+    AdcFilterTransferFunctionBank, AdcFractionalDelayFilter, AdcFractionalDelayFilterBank,
+    AdcFractionalDelayFilterState, AdcFractionalDelayTransferFunction,
+    AdcFractionalDelayTransferFunctionBank,
 };

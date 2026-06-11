@@ -92,6 +92,12 @@ pub enum LtiError {
         /// Identifies the computation that produced non-finite values.
         which: &'static str,
     },
+    /// A physical component value supplied to an analog topology helper was
+    /// nonfinite or nonpositive.
+    InvalidComponentValue {
+        /// Identifies the component value that failed validation.
+        which: &'static str,
+    },
     /// A scalar or sample-time cast between numeric dtypes failed.
     ScalarConversionFailed {
         /// Identifies the representation field that could not be cast.

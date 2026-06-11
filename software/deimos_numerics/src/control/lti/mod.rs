@@ -100,6 +100,7 @@
 //! | FIR / Savitzky-Golay | no | yes | n/a | n/a | FIR only |
 //! | Explicit delay-aware process models | yes | limited | no | no | process-model types |
 
+mod analog_topology;
 mod analysis;
 mod delta_sos;
 mod error;
@@ -118,6 +119,7 @@ mod transfer_function;
 mod util;
 mod zpk;
 
+pub use analog_topology::sallen_key_lowpass_transfer_function;
 pub use delta_sos::{DeltaSection, DeltaSos};
 pub use error::LtiError;
 pub use filter_design::{
