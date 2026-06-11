@@ -86,8 +86,7 @@ plugins:
       handlers:
         python:
           paths:
-            - ../deimos/software/deimos/src
-            - deimos/software/deimos/src
+            - ../deimos/src
           options:
             show_root_heading: true
             show_root_full_path: false
