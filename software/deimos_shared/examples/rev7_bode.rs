@@ -17,7 +17,7 @@ use deimos_shared::peripherals::deimos_daq_rev7::{
 };
 use plotly::{
     common::{Anchor, DashType, Font, Line, Mode, Title, Visible},
-    layout::{Annotation, Axis, AxisRange, AxisType, Layout, Shape, ShapeLine, ShapeType},
+    layout::{Annotation, Axis, AxisRange, AxisType, Layout, Margin, Shape, ShapeLine, ShapeType},
     plotly_static::StaticExporterBuilder,
     prelude::ExporterSyncExt,
     ImageFormat, Plot, Scatter,
@@ -26,6 +26,10 @@ use serde_json::{json, Value};
 
 const WIDTH: usize = 1200;
 const HEIGHT: usize = 850;
+const MAGNITUDE_DOMAIN_START: f64 = 0.57;
+const MAGNITUDE_DOMAIN_END: f64 = 1.0;
+const PHASE_DOMAIN_START: f64 = 0.0;
+const PHASE_DOMAIN_END: f64 = 0.43;
 const PREVIEW_DIR: &str = "target/rev7_bode_preview";
 const FREQUENCY_POINTS: usize = 5_000;
 const TRACES_PER_VARIANT: usize = 6;
@@ -480,6 +484,11 @@ fn write_interactive_html(
             flex: 1 1 auto;
             min-width: 0;
             min-height: {height}px;
+            height: {height}px;
+        }}
+
+        .rev7-plot .plotly-graph-div {{
+            height: {height}px !important;
         }}
     </style>
 </head>
@@ -670,14 +679,35 @@ fn layout(theme: &Theme, variant: &PlotVariant) -> Layout {
         .width(WIDTH)
         .height(HEIGHT)
         .font(Font::new().color(theme.foreground))
+        .margin(
+            Margin::new()
+                .left(90)
+                .right(40)
+                .top(70)
+                .bottom(70)
+                .auto_expand(true),
+        )
         .paper_background_color("rgba(0,0,0,0)")
         .plot_background_color("rgba(0,0,0,0)")
-        .x_axis(axis(theme, "Frequency [Hz]", true).domain(&[0.0, 1.0]))
-        .y_axis(axis(theme, "Magnitude [dB]", false).domain(&[0.57, 1.0]))
-        .x_axis2(axis(theme, "Frequency [Hz]", true).domain(&[0.0, 1.0]))
+        .x_axis(
+            axis(theme, "Frequency [Hz]", true)
+                .domain(&[0.0, 1.0])
+                .anchor("y"),
+        )
+        .y_axis(
+            axis(theme, "Magnitude [dB]", false)
+                .domain(&[MAGNITUDE_DOMAIN_START, MAGNITUDE_DOMAIN_END])
+                .anchor("x"),
+        )
+        .x_axis2(
+            axis(theme, "Frequency [Hz]", true)
+                .domain(&[0.0, 1.0])
+                .anchor("y2"),
+        )
         .y_axis2(
             axis(theme, "Phase [deg]", false)
-                .domain(&[0.0, 0.43])
+                .domain(&[PHASE_DOMAIN_START, PHASE_DOMAIN_END])
+                .anchor("x2")
                 .range(AxisRange::new(-180.0, 10.0)),
         )
         .shapes(variant.shapes.clone())
@@ -700,13 +730,25 @@ fn reference_marks(
     let mut shapes = Vec::with_capacity(vertical_marks.len() * 2 + 1);
     let mut annotations = Vec::with_capacity(vertical_marks.len() * 2 + 1);
     for (frequency_hz, label) in vertical_marks {
-        shapes.push(vertical_line(theme, frequency_hz, "x", 0.57, 1.0));
-        shapes.push(vertical_line(theme, frequency_hz, "x2", 0.0, 0.43));
+        shapes.push(vertical_line(
+            theme,
+            frequency_hz,
+            "x",
+            MAGNITUDE_DOMAIN_START,
+            MAGNITUDE_DOMAIN_END,
+        ));
+        shapes.push(vertical_line(
+            theme,
+            frequency_hz,
+            "x2",
+            PHASE_DOMAIN_START,
+            PHASE_DOMAIN_END,
+        ));
         annotations.push(vertical_annotation(
             theme,
             frequency_hz,
             "x",
-            0.57,
+            MAGNITUDE_DOMAIN_START,
             Anchor::Bottom,
             label,
         ));
@@ -714,7 +756,7 @@ fn reference_marks(
             theme,
             frequency_hz,
             "x2",
-            0.43,
+            PHASE_DOMAIN_END,
             Anchor::Top,
             label,
         ));
@@ -815,6 +857,7 @@ fn axis(theme: &Theme, title: &str, log_scale: bool) -> Axis {
         .grid_width(1)
         .zero_line(true)
         .zero_line_color(theme.grid)
+        .auto_margin(true)
         .tick_font(Font::new().color(theme.foreground));
 
     if log_scale {
