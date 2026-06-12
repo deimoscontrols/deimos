@@ -388,13 +388,18 @@ pub mod filters {
         }))
     }
 
-    /// Builds sampled transfer functions for the full rev7 ADC measurement filter chain.
+    /// Builds sampled-sequence transfer functions for the rev7 ADC measurement filter chain.
     ///
     /// Each returned transfer function models the channel's analog front end
-    /// sampled with a zero-order hold assumption at `sample_rate_hz`, followed
-    /// by the channel's fractional-delay FIR and the firmware ADC Butterworth
+    /// sampled with a bilinear transform at `sample_rate_hz`, followed by the
+    /// channel's fractional-delay FIR and the firmware ADC Butterworth
     /// low-pass filter. The returned bank is ordered like reported ADC
     /// voltages: `ain0..ain12` followed by `ain15..ain19`.
+    ///
+    /// These transfer functions are useful for baseband sampled-sequence
+    /// analysis. For physical input-frequency Bode data, use
+    /// [`adc_sampled_bode_data`], which keeps the analog frontend response in
+    /// continuous time so high-frequency analog attenuation is not aliased.
     pub fn adc_sampled_transfer_functions(
         cutoff_ratio: f64,
         sample_rate_hz: f64,
@@ -411,7 +416,12 @@ pub mod filters {
         for idx in 0..ADC_CHANNEL_COUNT {
             let sampled_analog = analog_transfer_functions[idx]
                 .to_state_space()?
-                .discretize(sample_time, DiscretizationMethod::ZeroOrderHold)
+                .discretize(
+                    sample_time,
+                    DiscretizationMethod::Bilinear {
+                        prewarp_frequency: None,
+                    },
+                )
                 .map_err(LtiError::from)?
                 .to_transfer_function()?;
 
@@ -425,25 +435,37 @@ pub mod filters {
         Ok(output.map(|transfer_function| transfer_function.unwrap()))
     }
 
-    /// Builds Bode data for the full rev7 ADC measurement filter chain.
+    /// Builds physical-input-frequency Bode data for the full rev7 ADC measurement filter chain.
     ///
-    /// `frequencies_hz` is converted to rad/s before calling the discrete
-    /// transfer-function Bode evaluator, which maps each frequency to the unit
-    /// circle using `sample_rate_hz`.
+    /// For each requested physical input frequency, this evaluates the analog
+    /// frontend as a continuous-time response and the fractional-delay plus
+    /// digital ADC filter as a discrete-time response. The returned magnitude
+    /// is therefore `|H_analog(jw)| * |H_digital(exp(jwT))|`, so analog
+    /// attenuation at high input frequencies is preserved even when the sampled
+    /// digital response aliases.
     pub fn adc_sampled_bode_data(
         cutoff_ratio: f64,
         sample_rate_hz: f64,
         frequencies_hz: &[f64],
     ) -> Result<AdcSampledBodeDataBank, AdcFilterBuildError> {
-        let transfer_functions = adc_sampled_transfer_functions(cutoff_ratio, sample_rate_hz)?;
+        validate_sample_rate_hz(sample_rate_hz)?;
+        let analog_transfer_functions = adc_analog_frontend_transfer_functions()?;
+        let fractional_delay_transfer_functions =
+            adc_fractional_delay_transfer_functions(sample_rate_hz)?;
+        let adc_filter_transfer_function =
+            adc_filter_transfer_function_at_sample_rate(cutoff_ratio, sample_rate_hz)?;
         let angular_frequencies: alloc::vec::Vec<f64> = frequencies_hz
             .iter()
             .map(|frequency_hz| frequency_hz * core::f64::consts::TAU)
             .collect();
         let mut output: [Option<AdcSampledBodeData>; ADC_CHANNEL_COUNT] =
             core::array::from_fn(|_| None);
-        for (idx, transfer_function) in transfer_functions.iter().enumerate() {
-            output[idx] = Some(transfer_function.bode_data(&angular_frequencies)?);
+        for idx in 0..ADC_CHANNEL_COUNT {
+            let analog_bode = analog_transfer_functions[idx].bode_data(&angular_frequencies)?;
+            let digital_transfer_function =
+                fractional_delay_transfer_functions[idx].mul(&adc_filter_transfer_function)?;
+            let digital_bode = digital_transfer_function.bode_data(&angular_frequencies)?;
+            output[idx] = Some(combine_bode_data(&analog_bode, &digital_bode)?);
         }
 
         Ok(output.map(|bode_data| bode_data.unwrap()))
@@ -556,6 +578,33 @@ pub mod filters {
         capacitance_f: f64,
     ) -> Result<AdcAnalogFrontendTransferFunction, LtiError> {
         ContinuousTransferFunction::continuous([1.0], [resistance_ohms * capacitance_f, 1.0])
+    }
+
+    fn combine_bode_data(
+        lhs: &BodeData<f64>,
+        rhs: &BodeData<f64>,
+    ) -> Result<BodeData<f64>, AdcFilterBuildError> {
+        if lhs.angular_frequencies != rhs.angular_frequencies {
+            return Err(LtiError::InvalidSampleGrid {
+                which: "combine_bode_data",
+            }
+            .into());
+        }
+        Ok(BodeData {
+            angular_frequencies: lhs.angular_frequencies.clone(),
+            magnitude_db: lhs
+                .magnitude_db
+                .iter()
+                .zip(rhs.magnitude_db.iter())
+                .map(|(lhs, rhs)| lhs + rhs)
+                .collect(),
+            phase_deg: lhs
+                .phase_deg
+                .iter()
+                .zip(rhs.phase_deg.iter())
+                .map(|(lhs, rhs)| lhs + rhs)
+                .collect(),
+        })
     }
 
     #[cfg(test)]
@@ -676,6 +725,34 @@ pub mod filters {
                     .iter()
                     .all(|value| value.is_finite()));
                 assert!(channel_bode.phase_deg.iter().all(|value| value.is_finite()));
+            }
+        }
+
+        #[test]
+        fn rev7_adc_combined_bode_preserves_high_frequency_analog_attenuation() {
+            let sample_rate_hz = super::super::ADC_SAMPLE_RATE_HZ;
+            let frequencies_hz = [1_000.0, 10_000.0, 16_000.0, 30_000.0, 100_000.0];
+            let angular_frequencies: alloc::vec::Vec<f64> = frequencies_hz
+                .iter()
+                .map(|frequency_hz| frequency_hz * core::f64::consts::TAU)
+                .collect();
+
+            let analog_transfer_functions = adc_analog_frontend_transfer_functions().unwrap();
+            let analog_bode = analog_transfer_functions[10]
+                .bode_data(&angular_frequencies)
+                .unwrap();
+            let combined_bode =
+                adc_sampled_bode_data(0.1, sample_rate_hz, &frequencies_hz).unwrap()[10].clone();
+
+            for ((&frequency_hz, &combined_magnitude_db), &analog_magnitude_db) in frequencies_hz
+                .iter()
+                .zip(combined_bode.magnitude_db.iter())
+                .zip(analog_bode.magnitude_db.iter())
+            {
+                assert!(
+                    combined_magnitude_db <= analog_magnitude_db + 1.0e-9,
+                    "combined magnitude at {frequency_hz} Hz is {combined_magnitude_db} dB, analog magnitude is {analog_magnitude_db} dB",
+                );
             }
         }
     }
