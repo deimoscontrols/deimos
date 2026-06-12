@@ -16,8 +16,8 @@ use deimos_shared::peripherals::deimos_daq_rev7::{
     adc_sampled_bode_data, ADC_FILTER_MAX_CUTOFF_RATIO, ADC_FILTER_ORDER, ADC_SAMPLE_RATE_HZ,
 };
 use plotly::{
-    common::{DashType, Font, Line, Mode, Title},
-    layout::{Axis, AxisType, Layout},
+    common::{Anchor, DashType, Font, Line, Mode, Title},
+    layout::{Annotation, Axis, AxisType, Layout, Shape, ShapeLine, ShapeType},
     plotly_static::StaticExporterBuilder,
     prelude::ExporterSyncExt,
     ImageFormat, Plot, Scatter,
@@ -28,11 +28,17 @@ const WIDTH: usize = 1200;
 const HEIGHT: usize = 850;
 const PREVIEW_DIR: &str = "target/rev7_bode_preview";
 const FREQUENCY_POINTS: usize = 5_000;
+const REPORTING_RATE_HZ: f64 = 1_000.0;
+const SALLEN_KEY_CAPACITANCE_F: f64 = 10.0e-9;
+const SALLEN_KEY_100HZ_RESISTANCE_OHMS: f64 = 100.0e3;
+const SALLEN_KEY_1KHZ_RESISTANCE_OHMS: f64 = 10.0e3;
+const SALLEN_KEY_3KHZ_RESISTANCE_OHMS: f64 = 3.3e3;
 
 struct FrontendGroup {
     name: &'static str,
     slug: &'static str,
     channel_idx: usize,
+    analog_cutoff_hz: f64,
 }
 
 struct Theme {
@@ -205,18 +211,25 @@ fn frontend_groups() -> [FrontendGroup; 3] {
             name: "Rev7 100 Hz frontend, board temperature representative",
             slug: "rev7_bode_100hz_frontend",
             channel_idx: 2,
+            analog_cutoff_hz: sallen_key_cutoff_hz(SALLEN_KEY_100HZ_RESISTANCE_OHMS),
         },
         FrontendGroup {
             name: "Rev7 1 kHz frontend, thermocouple / 25.7x representative",
             slug: "rev7_bode_1khz_frontend",
             channel_idx: 10,
+            analog_cutoff_hz: sallen_key_cutoff_hz(SALLEN_KEY_1KHZ_RESISTANCE_OHMS),
         },
         FrontendGroup {
             name: "Rev7 3 kHz frontend, analog-input representative",
             slug: "rev7_bode_3khz_frontend",
             channel_idx: 3,
+            analog_cutoff_hz: sallen_key_cutoff_hz(SALLEN_KEY_3KHZ_RESISTANCE_OHMS),
         },
     ]
+}
+
+const fn sallen_key_cutoff_hz(resistance_ohms: f64) -> f64 {
+    1.0 / (TAU * resistance_ohms * SALLEN_KEY_CAPACITANCE_F)
 }
 
 fn digital_filter_transfer_function(
@@ -317,10 +330,13 @@ fn build_plot(
 
     plot.set_layout(layout(
         theme,
+        group,
         &format!(
             "{} (fs = {:.0} Hz, cutoff ratio = {:.3})",
             group.name, sample_rate_hz, cutoff_ratio
         ),
+        sample_rate_hz,
+        cutoff_ratio,
     ));
     plot
 }
@@ -345,7 +361,15 @@ fn add_trace(
     }
 }
 
-fn layout(theme: &Theme, title: &str) -> Layout {
+fn layout(
+    theme: &Theme,
+    group: &FrontendGroup,
+    title: &str,
+    sample_rate_hz: f64,
+    cutoff_ratio: f64,
+) -> Layout {
+    let (shapes, annotations) = reference_marks(theme, group, sample_rate_hz, cutoff_ratio);
+
     Layout::new()
         .title(Title::with_text(title))
         .width(WIDTH)
@@ -357,6 +381,114 @@ fn layout(theme: &Theme, title: &str) -> Layout {
         .y_axis(axis(theme, "Magnitude [dB]", false).domain(&[0.57, 1.0]))
         .x_axis2(axis(theme, "Frequency [Hz]", true).domain(&[0.0, 1.0]))
         .y_axis2(axis(theme, "Phase [deg]", false).domain(&[0.0, 0.43]))
+        .shapes(shapes)
+        .annotations(annotations)
+}
+
+fn reference_marks(
+    theme: &Theme,
+    group: &FrontendGroup,
+    sample_rate_hz: f64,
+    cutoff_ratio: f64,
+) -> (Vec<Shape>, Vec<Annotation>) {
+    let digital_cutoff_hz = cutoff_ratio * sample_rate_hz;
+    let vertical_marks = [
+        (sample_rate_hz, "Samplerate"),
+        (sample_rate_hz / 2.0, "Nyquist"),
+        (REPORTING_RATE_HZ, "Reporting"),
+        (group.analog_cutoff_hz, "Analog cutoff"),
+        (digital_cutoff_hz, "Digital cutoff"),
+    ];
+
+    let mut shapes = Vec::with_capacity(vertical_marks.len() * 2 + 1);
+    let mut annotations = Vec::with_capacity(vertical_marks.len() * 2 + 1);
+    for (frequency_hz, label) in vertical_marks {
+        shapes.push(vertical_line(theme, frequency_hz, "x", 0.57, 1.0));
+        shapes.push(vertical_line(theme, frequency_hz, "x2", 0.0, 0.43));
+        annotations.push(vertical_annotation(theme, frequency_hz, "x", 0.57, label));
+        annotations.push(vertical_annotation(theme, frequency_hz, "x2", 0.0, label));
+    }
+
+    shapes.push(horizontal_phase_line(theme, -90.0));
+    annotations.push(phase_annotation(theme, -90.0, "-90 deg phase lag"));
+    (shapes, annotations)
+}
+
+fn vertical_line(
+    theme: &Theme,
+    frequency_hz: f64,
+    x_ref: &str,
+    y0_paper: f64,
+    y1_paper: f64,
+) -> Shape {
+    Shape::new()
+        .shape_type(ShapeType::Line)
+        .x_ref(x_ref)
+        .x0(frequency_hz)
+        .x1(frequency_hz)
+        .y_ref("paper")
+        .y0(y0_paper)
+        .y1(y1_paper)
+        .opacity(0.8)
+        .line(
+            ShapeLine::new()
+                .color(theme.foreground)
+                .width(1.0)
+                .dash(DashType::Solid),
+        )
+}
+
+fn horizontal_phase_line(theme: &Theme, phase_deg: f64) -> Shape {
+    Shape::new()
+        .shape_type(ShapeType::Line)
+        .x_ref("paper")
+        .x0(0.0)
+        .x1(1.0)
+        .y_ref("y2")
+        .y0(phase_deg)
+        .y1(phase_deg)
+        .opacity(0.5)
+        .line(
+            ShapeLine::new()
+                .color(theme.foreground)
+                .width(1.0)
+                .dash(DashType::Solid),
+        )
+}
+
+fn vertical_annotation(
+    theme: &Theme,
+    frequency_hz: f64,
+    x_ref: &str,
+    y_paper: f64,
+    label: &str,
+) -> Annotation {
+    Annotation::new()
+        .text(label)
+        .x_ref(x_ref)
+        .x(frequency_hz.log10())
+        .y_ref("paper")
+        .y(y_paper)
+        .x_anchor(Anchor::Left)
+        .y_anchor(Anchor::Bottom)
+        .text_angle(-90.0)
+        .show_arrow(false)
+        .opacity(0.5)
+        .font(Font::new().color(theme.foreground).size(11))
+}
+
+fn phase_annotation(theme: &Theme, phase_deg: f64, label: &str) -> Annotation {
+    Annotation::new()
+        .text(label)
+        .x_ref("paper")
+        .x(0.99)
+        .y_ref("y2")
+        .y(phase_deg)
+        .x_anchor(Anchor::Right)
+        .y_anchor(Anchor::Bottom)
+        .show_arrow(false)
+        .opacity(0.5)
+        .font(Font::new().color(theme.foreground).size(11))
 }
 
 fn axis(theme: &Theme, title: &str, log_scale: bool) -> Axis {
