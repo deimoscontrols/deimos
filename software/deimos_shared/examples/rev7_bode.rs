@@ -52,6 +52,7 @@ struct FrontendGroup {
 struct Theme {
     foreground: &'static str,
     grid: &'static str,
+    background: &'static str,
 }
 
 struct BodeTraces<'a> {
@@ -206,10 +207,12 @@ fn parse_args() -> Result<(Theme, Option<PathBuf>), Box<dyn Error>> {
         "dark" => Theme {
             foreground: "#ffffff",
             grid: "rgba(255,255,255,0.22)",
+            background: "#1e2129",
         },
         "light" => Theme {
             foreground: "#000000",
             grid: "rgba(0,0,0,0.18)",
+            background: "rgba(0,0,0,0)",
         },
         other => {
             return Err(format!("unknown theme {other:?}; expected \"dark\" or \"light\"").into())
@@ -407,6 +410,7 @@ fn write_interactive_html(
     let max_idx = variants.len().saturating_sub(1);
     let default_label = format_frequency(default_variant.reporting_rate_hz);
     let foreground = theme.foreground;
+    let background = theme.background;
 
     let html = format!(
         r#"<!doctype html>
@@ -418,7 +422,7 @@ fn write_interactive_html(
     <style>
         html, body {{
             margin: 0;
-            background: transparent;
+            background: {background};
         }}
 
         body {{
@@ -432,7 +436,7 @@ fn write_interactive_html(
             gap: 12px;
             min-height: {height}px;
             padding: 0;
-            background: transparent;
+            background: {background};
         }}
 
         .rev7-slider-panel {{
@@ -450,6 +454,7 @@ fn write_interactive_html(
         }}
 
         .rev7-slider-label {{
+            font-size: 14px;
             font-weight: 600;
             writing-mode: vertical-rl;
             transform: rotate(180deg);
@@ -519,6 +524,7 @@ fn write_interactive_html(
 "#,
         default_label = default_label,
         default_reporting_rate_idx = default_reporting_rate_idx,
+        background = background,
         foreground = foreground,
         height = HEIGHT,
         inline_plot = inline_plot,
@@ -676,8 +682,8 @@ fn layout(theme: &Theme, variant: &PlotVariant) -> Layout {
                 .bottom(70)
                 .auto_expand(true),
         )
-        .paper_background_color("rgba(0,0,0,0)")
-        .plot_background_color("rgba(0,0,0,0)")
+        .paper_background_color(theme.background)
+        .plot_background_color(theme.background)
         .x_axis(
             axis(theme, "Frequency [Hz]", true)
                 .domain(&[0.0, 1.0])
@@ -817,7 +823,7 @@ fn vertical_annotation(
         .text_angle(-90.0)
         .show_arrow(false)
         .opacity(1.0)
-        .font(Font::new().color(theme.foreground).size(11))
+        .font(Font::new().color(theme.foreground).size(13))
 }
 
 fn phase_annotation(theme: &Theme, phase_deg: f64, label: &str) -> Annotation {
@@ -831,7 +837,7 @@ fn phase_annotation(theme: &Theme, phase_deg: f64, label: &str) -> Annotation {
         .y_anchor(Anchor::Bottom)
         .show_arrow(false)
         .opacity(1.0)
-        .font(Font::new().color(theme.foreground).size(11))
+        .font(Font::new().color(theme.foreground).size(13))
 }
 
 fn axis(theme: &Theme, title: &str, log_scale: bool) -> Axis {
