@@ -251,19 +251,19 @@ fn open_command(path: &Path) -> Command {
 fn frontend_groups() -> [FrontendGroup; 3] {
     [
         FrontendGroup {
-            name: "Rev7 100 Hz frontend, board temperature representative",
+            name: "Deimos DAQ Rev7 100Hz Analog Frontend",
             slug: "rev7_bode_100hz_frontend",
             channel_idx: 2,
             analog_cutoff_hz: sallen_key_cutoff_hz(SALLEN_KEY_100HZ_RESISTANCE_OHMS),
         },
         FrontendGroup {
-            name: "Rev7 1 kHz frontend, thermocouple / 25.7x representative",
+            name: "Deimos DAQ Rev7 1kHz Analog Frontend",
             slug: "rev7_bode_1khz_frontend",
             channel_idx: 10,
             analog_cutoff_hz: sallen_key_cutoff_hz(SALLEN_KEY_1KHZ_RESISTANCE_OHMS),
         },
         FrontendGroup {
-            name: "Rev7 3 kHz frontend, analog-input representative",
+            name: "Deimos DAQ Rev7 3kHz Analog Frontend",
             slug: "rev7_bode_3khz_frontend",
             channel_idx: 3,
             analog_cutoff_hz: sallen_key_cutoff_hz(SALLEN_KEY_3KHZ_RESISTANCE_OHMS),
@@ -315,7 +315,7 @@ fn build_variants(
             frequency_grid.sampled_frequencies_hz,
         )?[group.channel_idx]
             .clone();
-        let title = plot_title(group, sample_rate_hz, reporting_rate_hz, cutoff_ratio);
+        let title = plot_title(group);
         let (shapes, annotations) =
             reference_marks(theme, group, sample_rate_hz, reporting_rate_hz);
 
@@ -346,19 +346,8 @@ fn reporting_rate_index(reporting_rate_hz: f64) -> Result<usize, Box<dyn Error>>
         })
 }
 
-fn plot_title(
-    group: &FrontendGroup,
-    sample_rate_hz: f64,
-    reporting_rate_hz: f64,
-    cutoff_ratio: f64,
-) -> String {
-    format!(
-        "{} (fs = {:.0} Hz, reporting = {}, cutoff ratio = {:.4})",
-        group.name,
-        sample_rate_hz,
-        format_frequency(reporting_rate_hz),
-        cutoff_ratio
-    )
+fn plot_title(group: &FrontendGroup) -> String {
+    group.name.to_string()
 }
 
 fn format_frequency(frequency_hz: f64) -> String {
@@ -602,7 +591,7 @@ fn add_variant_traces(
         bode_traces.sampled_frequencies_hz,
         &bode_traces.digital.magnitude_db,
         TraceStyle {
-            name: "Fractional delay + digital Butterworth",
+            name: "Fractional delay +<br>digital Butterworth",
             dash: DashType::Dash,
             width: 2.0,
         },
@@ -641,7 +630,7 @@ fn add_variant_traces(
         bode_traces.sampled_frequencies_hz,
         &bode_traces.digital.phase_deg,
         TraceStyle {
-            name: "Fractional delay + digital Butterworth",
+            name: "Fractional delay +<br>digital Butterworth",
             dash: DashType::Dash,
             width: 2.0,
         },
