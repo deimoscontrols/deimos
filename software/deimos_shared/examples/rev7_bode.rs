@@ -17,7 +17,7 @@ use deimos_shared::peripherals::deimos_daq_rev7::{
 };
 use plotly::{
     common::{Anchor, DashType, Font, Line, Mode, Title},
-    layout::{Annotation, Axis, AxisType, Layout, Shape, ShapeLine, ShapeType},
+    layout::{Annotation, Axis, AxisRange, AxisType, Layout, Shape, ShapeLine, ShapeType},
     plotly_static::StaticExporterBuilder,
     prelude::ExporterSyncExt,
     ImageFormat, Plot, Scatter,
@@ -380,7 +380,11 @@ fn layout(
         .x_axis(axis(theme, "Frequency [Hz]", true).domain(&[0.0, 1.0]))
         .y_axis(axis(theme, "Magnitude [dB]", false).domain(&[0.57, 1.0]))
         .x_axis2(axis(theme, "Frequency [Hz]", true).domain(&[0.0, 1.0]))
-        .y_axis2(axis(theme, "Phase [deg]", false).domain(&[0.0, 0.43]))
+        .y_axis2(
+            axis(theme, "Phase [deg]", false)
+                .domain(&[0.0, 0.43])
+                .range(AxisRange::new(-180.0, 10.0)),
+        )
         .shapes(shapes)
         .annotations(annotations)
 }
@@ -405,8 +409,22 @@ fn reference_marks(
     for (frequency_hz, label) in vertical_marks {
         shapes.push(vertical_line(theme, frequency_hz, "x", 0.57, 1.0));
         shapes.push(vertical_line(theme, frequency_hz, "x2", 0.0, 0.43));
-        annotations.push(vertical_annotation(theme, frequency_hz, "x", 0.57, label));
-        annotations.push(vertical_annotation(theme, frequency_hz, "x2", 0.0, label));
+        annotations.push(vertical_annotation(
+            theme,
+            frequency_hz,
+            "x",
+            0.57,
+            Anchor::Bottom,
+            label,
+        ));
+        annotations.push(vertical_annotation(
+            theme,
+            frequency_hz,
+            "x2",
+            0.43,
+            Anchor::Top,
+            label,
+        ));
     }
 
     shapes.push(horizontal_phase_line(theme, -90.0));
@@ -461,6 +479,7 @@ fn vertical_annotation(
     frequency_hz: f64,
     x_ref: &str,
     y_paper: f64,
+    y_anchor: Anchor,
     label: &str,
 ) -> Annotation {
     Annotation::new()
@@ -470,10 +489,10 @@ fn vertical_annotation(
         .y_ref("paper")
         .y(y_paper)
         .x_anchor(Anchor::Left)
-        .y_anchor(Anchor::Bottom)
+        .y_anchor(y_anchor)
         .text_angle(-90.0)
         .show_arrow(false)
-        .opacity(0.5)
+        .opacity(1.0)
         .font(Font::new().color(theme.foreground).size(11))
 }
 
@@ -487,7 +506,7 @@ fn phase_annotation(theme: &Theme, phase_deg: f64, label: &str) -> Annotation {
         .x_anchor(Anchor::Right)
         .y_anchor(Anchor::Bottom)
         .show_arrow(false)
-        .opacity(0.5)
+        .opacity(1.0)
         .font(Font::new().color(theme.foreground).size(11))
 }
 
