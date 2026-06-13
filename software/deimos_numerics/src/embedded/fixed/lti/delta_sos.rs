@@ -123,6 +123,55 @@ where
         DeltaSosState::zeros()
     }
 
+    /// Sets runtime state for a constant input.
+    ///
+    /// The delta-SOS sections use the forward-delta operator
+    /// `delta = (1 - z^-1) / dt`. At steady state, all delta derivatives are
+    /// zero. For a first-order section with `delta x = -alpha0 x + u` and
+    /// `y = c0 x + d u`, this gives `x = u / alpha0`. For a second-order
+    /// section with `delta x1 = x2`,
+    /// `delta x2 = -alpha0 x1 - alpha1 x2 + u`, and
+    /// `y = c1 x1 + c2 x2 + d u`, this gives `x2 = 0` and
+    /// `x1 = u / alpha0`.
+    ///
+    /// This applies those equations section by section through the cascade,
+    /// including the leading gain, so the next [`Self::step`] starts from the
+    /// steady-state trajectory for `input`.
+    pub fn set_steady_state(
+        &self,
+        state: &mut DeltaSosState<T, SECTIONS, LANES>,
+        input: [T; LANES],
+    ) {
+        let mut section_input = input;
+
+        for lane in 0..LANES {
+            section_input[lane] = section_input[lane] * self.gain;
+        }
+
+        for section_idx in 0..SECTIONS {
+            let section = self.sections[section_idx];
+            for lane in 0..LANES {
+                let sample = section_input[lane];
+                let state_lane = &mut state.section_state[section_idx][lane];
+                section_input[lane] = match section {
+                    DeltaSection::Direct { d } => d * sample,
+                    DeltaSection::First { alpha0, c0, d } => {
+                        let x = sample / alpha0;
+                        state_lane[0] = x;
+                        state_lane[1] = T::zero();
+                        c0 * x + d * sample
+                    }
+                    DeltaSection::Second { alpha0, c1, d, .. } => {
+                        let x1 = sample / alpha0;
+                        state_lane[0] = x1;
+                        state_lane[1] = T::zero();
+                        c1 * x1 + d * sample
+                    }
+                };
+            }
+        }
+    }
+
     /// Evaluates one multichannel timestep.
     pub fn step(
         &self,
@@ -341,5 +390,41 @@ mod tests {
 
         assert!(output.iter().flatten().all(|value| value.is_finite()));
         assert!(filter.dc_gain().unwrap().is_finite());
+    }
+
+    #[test]
+    fn fixed_delta_sos_set_steady_state_starts_at_dc_output() {
+        let filter = DeltaSos::<f64, 2, 2>::new(
+            [
+                DeltaSection::First {
+                    alpha0: 2.0,
+                    c0: 1.0,
+                    d: 0.0,
+                },
+                DeltaSection::Second {
+                    alpha0: 4.0,
+                    alpha1: 3.0,
+                    c1: 2.0,
+                    c2: 1.0,
+                    d: 0.25,
+                },
+            ],
+            1.5,
+            0.1,
+        )
+        .unwrap();
+        let mut state = filter.reset_state();
+        let input = [4.0, -2.0];
+        let dc_gain = filter.dc_gain().unwrap();
+        let expected = [input[0] * dc_gain, input[1] * dc_gain];
+
+        filter.set_steady_state(&mut state, input);
+
+        let first = filter.step(&mut state, input);
+        let second = filter.step(&mut state, input);
+        for lane in 0..2 {
+            assert!((first[lane] - expected[lane]).abs() < 1.0e-12);
+            assert!((second[lane] - expected[lane]).abs() < 1.0e-12);
+        }
     }
 }

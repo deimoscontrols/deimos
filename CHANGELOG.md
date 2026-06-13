@@ -1,6 +1,40 @@
 # Changelog
 
-## 2026-05-24 deimos_console 0.16.2
+## 2026-06-08 0.17.0
+
+This update moves the rev7 firmware's filter construction and runtime
+from `flaw` to `deimos_numerics`, and from interpolated to analytic
+construction. The filter construction pipeline is moved to deimos_shared
+and adds access to filter transfer functions on the application side
+that exactly match the ones used by the firmware, along with an example
+that plots those transfer functions.
+It also migrates `deimos_website` into this repo.
+
+* deimos
+    * Update Butter2 calc to use deimos_numerics delta-form SOS filter with 64-bit floats
+    * Update timing controller to use deimos_numerics median filter
+    * Update LowPassDispatcher to use deimos_numerics filter
+    * Minor cleanup of construction of rev7 standard calcs
+    * Add import error on detection of irresponsible error suppression via python -O
+* deimos_numerics
+    * !Add #[non_exhaustive] on `LtiError` and an error variant to support analog helpers
+    * Add `DeltaSOS::set_steady_state` for initializing filters to steady state
+    * Add MedianSort method backed by bounded-loop insertion sort for small arrays
+    * Add Sallen-Key analog transfer function
+    * Add light mode toggle to numerics explorer example
+* deimos_shared
+    * Add transfer functions and bode data for rev7
+    * Add rev7_bode example with plots of rev7 transfer functions
+    * Add rev7 board constants and filter module
+* rev7 firmware 0.7.0
+    * Add 32kB heap link region
+    * Link with flip-link to grow stack away from heap
+    * Add embedded-alloc and use Llff allocator
+    * Use deimos_numerics Delta-SOS butter2 filters initialized live analytically
+    * Remove butter1 fallback path for low frequency operation
+    * Move board constants and filter construction to deimos_shared
+
+## 2026-05-24 0.16.2
 
 Initial addition of `deimos_console`, an egui-based realtime plotting client
 contributed by Jon Bass (@firstmorecoffee).
@@ -15,11 +49,11 @@ contributed by Jon Bass (@firstmorecoffee).
 * Deimos DAQ Rev7
     * Updated enclosure and as-quoted enclosure CAD.
 
-## 2026-05-01 deimos_numerics 0.16.1
+## 2026-05-01 0.16.1
 
 Initial addition of `deimos_numerics`, a wasm-compatible, no-std-compatible, and partially no-alloc-compatible numerics and control systems library.
 
-## 2026-04-02 deimos 0.16.1, rev7 firmware 0.6.0
+## 2026-04-02 0.16.1, rev7 firmware 0.6.0
 
 This update continues the buildup of the firmware for the rev7,
 including support for statically-addressed networks without DHCP

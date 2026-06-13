@@ -5,12 +5,17 @@ use pyo3::prelude::*;
 
 use super::*;
 use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
-use flaw::{
-    SisoIirFilter, butter2,
-    generated::butter::butter2::{MAX_CUTOFF_RATIO, MIN_CUTOFF_RATIO},
+use deimos_numerics::{
+    control::lti::butter,
+    embedded::fixed::lti::{DeltaSos as FixedDeltaSos, DeltaSosState as FixedDeltaSosState},
 };
 
-/// Single-input, single-output Butterworth low-pass filter implemented with `flaw::butter2`
+const MAX_CUTOFF_RATIO: f64 = 0.4;
+
+type Butter2Filter = FixedDeltaSos<f64, 1, 1>;
+type Butter2FilterState = FixedDeltaSosState<f64, 1, 1>;
+
+/// Single-input, single-output Butterworth low-pass filter.
 #[cfg_attr(feature = "python", pyclass)]
 #[derive(Default, Serialize, Deserialize)]
 pub struct Butter2 {
@@ -28,7 +33,10 @@ pub struct Butter2 {
 
     // Internal state
     #[serde(skip)]
-    filt: SisoIirFilter<2>,
+    filt: Option<Butter2Filter>,
+
+    #[serde(skip)]
+    filt_state: Butter2FilterState,
 
     #[serde(skip)]
     initialized: bool,
@@ -55,7 +63,8 @@ impl Butter2 {
             save_outputs,
             input_index,
             output_index,
-            filt: SisoIirFilter::default(),
+            filt: None,
+            filt_state: Butter2FilterState::default(),
             initialized: false,
         })
     }
@@ -88,14 +97,16 @@ impl Calc for Butter2 {
         self.output_index = output_range.clone().next().unwrap();
 
         let sample_rate_hz = 1e9f64 / f64::from(ctx.dt_ns);
-        let cutoff_ratio =
-            (self.cutoff_hz / sample_rate_hz).clamp(MIN_CUTOFF_RATIO, MAX_CUTOFF_RATIO);
+        let cutoff_ratio = (self.cutoff_hz / sample_rate_hz).min(MAX_CUTOFF_RATIO);
 
-        let filter = butter2(cutoff_ratio).unwrap_or_else(|err| {
-            panic!("Failed to construct butter2 filter for ratio {cutoff_ratio}: {err}")
-        });
+        let filter = Butter2Filter::try_from(
+            &butter::<2>(cutoff_ratio)
+                .map_err(|err| format!("Failed to construct butter2 filter: {err}"))?,
+        )
+        .map_err(|err| format!("Failed to convert butter2 filter to fixed delta SOS: {err}"))?;
 
-        self.filt = filter;
+        self.filt_state = filter.reset_state();
+        self.filt = Some(filter);
         self.initialized = false;
         Ok(())
     }
@@ -103,21 +114,26 @@ impl Calc for Butter2 {
     fn terminate(&mut self) -> Result<(), String> {
         self.input_index = usize::MAX;
         self.output_index = usize::MAX;
-        self.filt = SisoIirFilter::default();
+        self.filt = None;
+        self.filt_state = Butter2FilterState::default();
         self.initialized = false;
         Ok(())
     }
 
     fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         let x = tape[self.input_index];
+        let filt = self
+            .filt
+            .as_ref()
+            .ok_or_else(|| "Butter2 must be initialized before eval".to_string())?;
         let y = if branches::unlikely(!self.initialized) {
             // Pass through the first value to avoid excessive timing
             // on first cycle due to initialization
-            self.filt.set_steady_state(x as f32);
+            filt.set_steady_state(&mut self.filt_state, [x]);
             self.initialized = true;
             x
         } else {
-            self.filt.update(x as f32) as f64
+            filt.step(&mut self.filt_state, [x])[0]
         };
         tape[self.output_index] = y;
         Ok(())

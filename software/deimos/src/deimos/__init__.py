@@ -29,3 +29,18 @@ __all__ = [
     "LoopMethod",
     "__version__",
 ]
+
+try:
+    assert False  # noqa: B011
+    raise ImportError(  # pragma: no cover
+        "This library is not available for `python -O` usage. "
+        "If you would like to use this library, do not attempt "
+        "to circumvent error handling."
+    )
+except AssertionError:
+    # We expect assertions to function.
+    pass
+except ImportError:  # pragma: no cover
+    # If the assertion does not work, someone is trying
+    # to cut the locks.
+    raise

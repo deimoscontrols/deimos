@@ -100,6 +100,7 @@
 //! | FIR / Savitzky-Golay | no | yes | n/a | n/a | FIR only |
 //! | Explicit delay-aware process models | yes | limited | no | no | process-model types |
 
+mod analog_topology;
 mod analysis;
 mod delta_sos;
 mod error;
@@ -118,14 +119,16 @@ mod transfer_function;
 mod util;
 mod zpk;
 
+pub use analog_topology::sallen_key_lowpass_transfer_function;
 pub use delta_sos::{DeltaSection, DeltaSos};
 pub use error::LtiError;
 pub use filter_design::{
     AnalogFilterFamily, AnalogFilterSpec, AnalogOrderSelectionSpec, ButterworthOrderResult,
     Chebyshev1OrderResult, DigitalFilterFamily, DigitalFilterSpec, DigitalOrderSelectionSpec,
-    FilterDesignError, FilterShape, buttord_analog, buttord_digital, cheb1ord_analog,
-    cheb1ord_digital, design_analog_filter_sos, design_analog_filter_tf, design_analog_filter_zpk,
-    design_digital_filter_sos, design_digital_filter_tf, design_digital_filter_zpk,
+    FilterDesignError, FilterShape, butter, buttord_analog, buttord_digital, cheb1ord_analog,
+    cheb1ord_digital, cheby1, chebyshev1, design_analog_filter_sos, design_analog_filter_tf,
+    design_analog_filter_zpk, design_digital_filter_sos, design_digital_filter_tf,
+    design_digital_filter_zpk,
 };
 pub use fir::{Fir, FirFilterState, SavGolSpec, design_savgol};
 pub use loop_analysis::{LoopCrossovers, LoopMargins, NicholsData, NyquistData};

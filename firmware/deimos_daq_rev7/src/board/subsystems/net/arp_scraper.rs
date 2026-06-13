@@ -166,7 +166,6 @@ impl<D: phy::Device> ObservedDevice<D> {
             },
         )
     }
-
 }
 
 /// Receive token wrapper that inspects incoming ARP frames before handing them to `smoltcp`.

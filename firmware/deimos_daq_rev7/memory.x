@@ -17,8 +17,10 @@ MEMORY
   /* STM32H7B0     */
   /* FLASH  : ORIGIN = 0x08000000, LENGTH = 128K */
 
-  /* DTCM  */
-  RAM    : ORIGIN = 0x20000000, LENGTH = 128K
+  /* DTCM.
+     Reserve the top 32 KiB for the startup-only allocator heap. */
+  RAM    : ORIGIN = 0x20000000, LENGTH = 96K
+  HEAP   : ORIGIN = 0x20018000, LENGTH = 32K
 
   /* AXISRAM */
   AXISRAM : ORIGIN = 0x24000000, LENGTH = 512K
@@ -36,8 +38,10 @@ MEMORY
   ITCM  : ORIGIN = 0x00000000, LENGTH = 64K
 }
 
-/* The location of the stack can be overridden using the
-   `_stack_start` symbol.  Place the stack at the end of RAM */
+_heap_start = ORIGIN(HEAP);
+_heap_size = LENGTH(HEAP);
+
+/* Place the stack below the heap so it grows downward, away from the heap. */
 _stack_start = ORIGIN(RAM) + LENGTH(RAM);
 
 /* The location of the .text section can be overridden using the

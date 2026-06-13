@@ -11,6 +11,7 @@ use leptos::prelude::*;
 #[component]
 pub fn App() -> impl IntoView {
     let (selected, set_selected) = signal(ExampleId::Home);
+    let (light_mode, set_light_mode) = signal(false);
 
     let current_entry = move || selected.get().entry();
     let current_page = move || match selected.get() {
@@ -36,12 +37,33 @@ pub fn App() -> impl IntoView {
     };
 
     view! {
-        <div class="app-shell">
+        <div class=move || {
+            if light_mode.get() {
+                "app-shell light-mode"
+            } else {
+                "app-shell"
+            }
+        }>
             <aside class="sidebar">
                 <h1 class="sidebar-title">"deimos_numerics"</h1>
                 <p class="sidebar-copy">
                     "A browser-hosted workbench for interactive demos built directly on top of the Rust library."
                 </p>
+
+                <button
+                    class=move || {
+                        if light_mode.get() {
+                            "theme-toggle active"
+                        } else {
+                            "theme-toggle"
+                        }
+                    }
+                    attr:aria-pressed=move || light_mode.get().to_string()
+                    on:click=move |_| set_light_mode.update(|enabled| *enabled = !*enabled)
+                >
+                    <span class="theme-toggle-icon" aria-hidden="true"></span>
+                    <span>"Light mode"</span>
+                </button>
 
                 <button
                     class=move || nav_button_class(current_entry(), ExampleId::Home)

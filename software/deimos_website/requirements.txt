@@ -1,0 +1,6 @@
+mkdocs == 1.6.1
+mkdocs-material == 9.6.14
+mkdocstrings == 0.27.0
+mkdocstrings-python == 1.12.2
+mkdocs-rss-plugin == 1.17.3
+mkdocs-redirects == 1.2.2

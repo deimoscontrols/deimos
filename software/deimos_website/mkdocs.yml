@@ -1,0 +1,108 @@
+site_name: Deimos
+site_url: https://deimoscontrols.com
+repo_url: https://github.com/deimoscontrols/deimos
+repo_name: deimos
+copyright: Copyright &copy; 2025 Deimos Controls LLC
+
+extra:
+  social:
+    - icon: octicons/rss-16
+      link: https://deimoscontrols.com/feed_rss_created.xml
+    - icon: fontawesome/brands/mastodon
+      link: https://hachyderm.io/@ponderingpothos
+    - icon: fontawesome/brands/bluesky
+      link: https://bsky.app/profile/ponderingpothos.bsky.social
+    - icon: fontawesome/brands/github
+      link: https://github.com/deimoscontrols/deimos
+  consent:
+    title: Cookie consent
+    description: >-
+      We use cookies to recognize your repeated visits and preferences, as well
+      as to measure the effectiveness of our documentation and whether users
+      find what they're searching for. With your consent, you're helping us to
+      make our documentation better.
+  analytics:
+    provider: google
+    property: G-P2P2LZGXE5
+
+theme:
+  name: material
+  custom_dir: overrides
+  highlightjs: true
+  hljs_languages:
+    - python
+    - rust
+  palette:
+    # Palette toggle for dark mode
+    - scheme: slate
+      # This doesn't actually map to anything, but causes it to fail and fall back on colors in extra.css
+      primary: deimos1
+      accent: deimos1
+  logo: assets/logo_light.png
+  favicon: assets/logo_minimal.svg
+  icon:
+    repo: fontawesome/brands/git-alt
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.footer
+    - search.suggest
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/contact-form.js
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - attr_list
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+plugins:
+  # - rss:
+  #     match_path: blog/posts/.* 
+  #     date_from_meta:
+  #       as_creation: date
+  #     categories:
+  #       - categories
+  #       - tags 
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths:
+            - ../deimos/src
+          options:
+            show_root_heading: true
+            show_root_full_path: false
+  - redirects:
+      redirect_maps:
+        api/api-rust.md: https://docs.rs/deimos
+
+nav:
+  - Home: index.md
+  - Products: products/index.md
+  - System: system.md
+  - Contact: contact.md
+  - Use-Cases:
+    - "Use-Case: Turbine Engine": usecases/turbine.md
+    - "Use-Case: Motor Control": usecases/motor.md
+    - "Use-Case: Electroplating": usecases/plating.md
+  # - Blog: blog/index.md
+  - Python API: api/api-python.md
+  - Rust API: api/api-rust.md

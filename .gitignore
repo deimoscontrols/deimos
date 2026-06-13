@@ -91,6 +91,7 @@ docs/_build/
 
 # Extra
 *.svg
+!software/deimos_website/docs/**/*.svg
 
 # KiCad
 *autosave*

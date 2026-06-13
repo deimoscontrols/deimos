@@ -176,9 +176,12 @@ jobs:
           command: upload
           args: --non-interactive --skip-existing wheels-*/*
 
-  notify_website_docs:
-    name: Notify website docs
+  deploy_website:
+    name: Deploy website
     needs: release
     if: ${{ needs.release.result == 'success' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/notify-website-docs.yml
-    secrets: inherit
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/deploy-website.yml

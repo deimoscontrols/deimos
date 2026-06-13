@@ -14,8 +14,6 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
-use flaw::MedianFilter;
-
 use crate::controller::context::LoopMethod;
 use crate::{
     SOCKET_BUFFER_LEN,
@@ -23,6 +21,7 @@ use crate::{
     logging,
     peripheral::{HootlRunHandle, HootlTransport, Peripheral, PluginMap, parse_binding},
 };
+use deimos_numerics::embedded::fixed::MedianFilter;
 use deimos_shared::states::*;
 
 use crate::calc::{CalcOrchestrator, FieldName, PeripheralInputName};

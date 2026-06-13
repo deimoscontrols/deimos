@@ -1,7 +1,7 @@
 use super::Peripheral;
 use crate::calc::{Affine, Butter2, Calc, InverseAffine, RtdPt100, TcKtype};
 use deimos_shared::OperatingMetrics;
-use deimos_shared::peripherals::{PeripheralId, deimos_daq_rev7::*, model_numbers};
+use deimos_shared::peripherals::{PeripheralId, deimos_daq_rev7::*};
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,7 @@ py_peripheral_methods!(DeimosDaqRev7);
 impl Peripheral for DeimosDaqRev7 {
     fn id(&self) -> PeripheralId {
         PeripheralId {
-            model_number: model_numbers::DEIMOS_DAQ_REV_7_MODEL_NUMBER,
+            model_number: MODEL_NUMBER,
             serial_number: self.serial_number,
         }
     }
@@ -31,20 +31,21 @@ impl Peripheral for DeimosDaqRev7 {
     fn input_names(&self) -> Vec<String> {
         let mut names = Vec::new();
 
-        for i in 0..4 {
+        for i in 0..PWM_CHANNEL_COUNT {
             names.push(format!("pwm{i}_duty").to_owned())
         }
 
-        for i in 0..4 {
+        for i in 0..PWM_CHANNEL_COUNT {
             names.push(format!("pwm{i}_freq").to_owned())
         }
 
-        names.push("dac0".to_string());
-        names.push("dac1".to_string());
-        names.push("do0".to_string());
-        names.push("do1".to_string());
-        names.push("do2".to_string());
-        names.push("do3".to_string());
+        for i in 0..DAC_CHANNEL_COUNT {
+            names.push(format!("dac{i}"));
+        }
+
+        for i in 0..DIGITAL_OUTPUT_COUNT {
+            names.push(format!("do{i}"));
+        }
 
         names
     }
@@ -87,23 +88,25 @@ impl Peripheral for DeimosDaqRev7 {
         inputs: &[f64],
         bytes: &mut [u8],
     ) {
-        let mut pwm_duty_frac = [0_f32; 4];
-        let mut pwm_freq_hz = [0_u32; 4];
+        let mut pwm_duty_frac = [0_f32; PWM_CHANNEL_COUNT];
+        let mut pwm_freq_hz = [0_u32; PWM_CHANNEL_COUNT];
 
-        for i in 0..4 {
+        for i in 0..PWM_CHANNEL_COUNT {
             pwm_duty_frac[i] = (inputs[i] as f32).clamp(0.0, 1.0);
-            pwm_freq_hz[i] = inputs[i + 4].clamp(1.0, u32::MAX as f64) as u32;
+            pwm_freq_hz[i] = inputs[i + PWM_CHANNEL_COUNT].clamp(1.0, u32::MAX as f64) as u32;
         }
 
+        let dac_start = PWM_CHANNEL_COUNT * 2;
         let dac_v = [
-            (inputs[8] as f32).clamp(0.0, 2.5),
-            (inputs[9] as f32).clamp(0.0, 2.5),
+            (inputs[dac_start] as f32).clamp(0.0, VREF),
+            (inputs[dac_start + 1] as f32).clamp(0.0, VREF),
         ];
 
         let mut gpio = 0_u8;
+        let digital_output_start = dac_start + DAC_CHANNEL_COUNT;
 
-        for i in 0..4 {
-            if inputs[10 + i] != 0.0 {
+        for i in 0..DIGITAL_OUTPUT_COUNT {
+            if inputs[digital_output_start + i] != 0.0 {
                 gpio |= 1 << i;
             }
         }
@@ -123,16 +126,20 @@ impl Peripheral for DeimosDaqRev7 {
     fn parse_operating_roundtrip(&self, bytes: &[u8], outputs: &mut [f64]) -> OperatingMetrics {
         let n = self.operating_roundtrip_output_size();
         let out = OperatingRoundtripOutput::read_bytes(&bytes[..n]);
-        for i in 0..18 {
+        for i in 0..ADC_CHANNEL_COUNT {
             outputs[i] = out.adc_voltages[i] as f64;
         }
-        outputs[18] = out.encoder as f64;
-        outputs[19] = out.pulse_counter as f64;
-        outputs[20] = out.frequency_meas[0] as f64;
-        outputs[21] = out.frequency_meas[1] as f64;
+        let counter_start = ADC_CHANNEL_COUNT;
+        let frequency_start = counter_start + COUNTER_CHANNEL_COUNT;
+        let digital_input_start = frequency_start + FREQUENCY_CHANNEL_COUNT;
 
-        outputs[22] = (out.gpio & 0b01) as f64;
-        outputs[23] = ((out.gpio >> 1) & 0b01) as f64;
+        outputs[counter_start] = out.encoder as f64;
+        outputs[counter_start + 1] = out.pulse_counter as f64;
+        outputs[frequency_start] = out.frequency_meas[0] as f64;
+        outputs[frequency_start + 1] = out.frequency_meas[1] as f64;
+
+        outputs[digital_input_start] = (out.gpio & 0b01) as f64;
+        outputs[digital_input_start + 1] = ((out.gpio >> 1) & 0b01) as f64;
 
         out.metrics
     }

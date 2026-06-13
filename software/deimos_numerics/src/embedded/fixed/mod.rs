@@ -3,3 +3,6 @@
 pub mod estimation;
 pub(crate) mod linalg;
 pub mod lti;
+mod median;
+
+pub use median::MedianFilter;

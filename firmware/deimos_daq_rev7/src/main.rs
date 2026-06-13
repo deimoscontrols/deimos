@@ -4,9 +4,11 @@
 
 mod board;
 
+extern crate alloc;
 extern crate cortex_m;
 extern crate cortex_m_rt as rt;
 
+use embedded_alloc::LlffHeap as Heap;
 use rt::{entry, exception};
 use stm32h7xx_hal::{interrupt, pac, stm32, timer::Event};
 
@@ -19,6 +21,14 @@ use irq::{handler, scope};
 use smoltcp::{iface::SocketStorage, storage::PacketMetadata};
 
 use crate::board::{Board, subsystems::net::NetStorageStatic};
+
+#[global_allocator]
+static HEAP: Heap = Heap::empty();
+
+unsafe extern "C" {
+    static _heap_start: u8;
+    static _heap_size: u8;
+}
 
 // MaybeUninit allows us write code that is correct even if STORE is not
 // initialised by the runtime
@@ -33,6 +43,13 @@ unsafe fn main() -> ! {
     // Initialize runtime-defined exception handlers before running any
     // application code or doing anything that might trigger them
     handler!(systick_default_handler = || {});
+
+    unsafe {
+        HEAP.init(
+            core::ptr::addr_of!(_heap_start) as usize,
+            core::ptr::addr_of!(_heap_size) as usize,
+        );
+    }
 
     // Initialize static storage
     // unsafe: mutable reference to static storage, we only do this once

@@ -2,6 +2,9 @@
 #![no_std]
 #![allow(clippy::needless_range_loop)]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 pub mod peripherals;
 pub mod states;
 pub use states::OperatingMetrics;

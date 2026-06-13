@@ -365,7 +365,7 @@ class _CalcModule(ModuleType):
 
     class Butter2(_CalcBase):
         """Single-input, single-output Butterworth low-pass
-        filter implemented with `flaw::butter2`."""
+        filter."""
         def __init__(
             self, input_name: str, cutoff_hz: float, save_outputs: bool
         ) -> None: ...
