@@ -12,6 +12,7 @@ It also migrates `deimos_website` into this repo.
 
 * deimos
     * Update Butter2 calc to use deimos_numerics delta-form SOS filter with 64-bit floats
+    * Minor cleanup of construction of rev7 standard calcs
 * deimos_numerics
     * Add `DeltaSOS::set_steady_state` for initializing filters to steady state
     * Add MedianSort method backed by bounded-loop insertion sort for small arrays
@@ -20,7 +21,6 @@ It also migrates `deimos_website` into this repo.
 * deimos_shared
     * Add transfer functions and bode data for rev7
     * Add rev7_bode example with plots of rev7 transfer functions
-    * Minor cleanup of construction of rev7 standard calcs
 * rev7 firmware 0.7.0
     * Add 32kB heap link region
     * Link with flip-link to grow stack away from heap
