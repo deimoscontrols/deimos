@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026-06-08 0.16.3
+## 2026-06-08 0.17.0
 
 This update moves the rev7 firmware's filter construction and runtime
 from `flaw` to `deimos_numerics`, and from interpolated to analytic
@@ -14,6 +14,7 @@ It also migrates `deimos_website` into this repo.
     * Update Butter2 calc to use deimos_numerics delta-form SOS filter with 64-bit floats
     * Minor cleanup of construction of rev7 standard calcs
 * deimos_numerics
+    * !Add #[non_exhaustive] on `LtiError` and an error variant to support analog helpers
     * Add `DeltaSOS::set_steady_state` for initializing filters to steady state
     * Add MedianSort method backed by bounded-loop insertion sort for small arrays
     * Add Sallen-Key analog transfer function

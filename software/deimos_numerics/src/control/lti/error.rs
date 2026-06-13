@@ -8,6 +8,7 @@ use faer::sparse::{CreationError, FaerError};
 
 /// Errors produced by LTI analysis and representation-conversion routines.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum LtiError {
     /// Dense eigendecomposition failed while extracting poles or roots.
     Eigen(EvdError),
