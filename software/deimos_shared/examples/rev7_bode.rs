@@ -41,6 +41,8 @@ const SALLEN_KEY_CAPACITANCE_F: f64 = 10.0e-9;
 const SALLEN_KEY_100HZ_RESISTANCE_OHMS: f64 = 100.0e3;
 const SALLEN_KEY_1KHZ_RESISTANCE_OHMS: f64 = 10.0e3;
 const SALLEN_KEY_3KHZ_RESISTANCE_OHMS: f64 = 3.3e3;
+const BROWSER_PATH_ENV: &str = "BROWSER_PATH";
+const WEBDRIVER_PATH_ENV: &str = "WEBDRIVER_PATH";
 
 struct FrontendGroup {
     name: &'static str,
@@ -117,6 +119,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let fractional_delay_transfer_functions =
         adc_fractional_delay_transfer_functions(sample_rate_hz)?;
     let mut exporter = if output_dir.is_some() {
+        configure_static_export_environment()?;
         Some(
             StaticExporterBuilder::default()
                 .webdriver_browser_caps(vec![
@@ -220,6 +223,145 @@ fn parse_args() -> Result<(Theme, Option<PathBuf>), Box<dyn Error>> {
     };
 
     Ok((theme, args.get(2).map(|path| Path::new(path).to_path_buf())))
+}
+
+fn configure_static_export_environment() -> Result<(), Box<dyn Error>> {
+    match configured_env_path(BROWSER_PATH_ENV)? {
+        Some(path) => println!("using {BROWSER_PATH_ENV}={}", path.display()),
+        None => {
+            let browser_path = find_chromium_browser().ok_or_else(|| {
+                format!(
+                    "could not find Chrome/Chromium for Plotly SVG export; set {BROWSER_PATH_ENV} \
+                     to a Chrome or Chromium executable"
+                )
+            })?;
+            env::set_var(BROWSER_PATH_ENV, &browser_path);
+            println!(
+                "using discovered {BROWSER_PATH_ENV}={}",
+                browser_path.display()
+            );
+        }
+    }
+
+    if configured_env_path(WEBDRIVER_PATH_ENV)?.is_none() {
+        if let Some(webdriver_path) = find_chromedriver() {
+            env::set_var(WEBDRIVER_PATH_ENV, &webdriver_path);
+            println!(
+                "using discovered {WEBDRIVER_PATH_ENV}={}",
+                webdriver_path.display()
+            );
+        } else {
+            eprintln!(
+                "warning: no chromedriver found on PATH or in ~/.local/bin; if export fails, \
+                 rebuild with {BROWSER_PATH_ENV} set so plotly_static can download a matching \
+                 driver, or set {WEBDRIVER_PATH_ENV} explicitly"
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn configured_env_path(name: &str) -> Result<Option<PathBuf>, Box<dyn Error>> {
+    let Some(value) = env::var_os(name) else {
+        return Ok(None);
+    };
+    if value.is_empty() {
+        return Ok(None);
+    }
+    let path = PathBuf::from(value);
+    if path.exists() {
+        Ok(Some(path))
+    } else {
+        Err(format!("{name} points to a missing path: {}", path.display()).into())
+    }
+}
+
+fn find_chromium_browser() -> Option<PathBuf> {
+    [
+        "chromium",
+        "chromium-browser",
+        "google-chrome",
+        "google-chrome-stable",
+        "chrome",
+    ]
+    .iter()
+    .find_map(|program| find_on_path(program))
+    .or_else(|| {
+        browser_candidate_paths()
+            .into_iter()
+            .find(|path| path.exists())
+    })
+}
+
+fn find_chromedriver() -> Option<PathBuf> {
+    find_on_path("chromedriver").or_else(|| {
+        home_dir()
+            .map(|home| home.join(".local/bin/chromedriver"))
+            .filter(|path| path.exists())
+    })
+}
+
+fn find_on_path(program: &str) -> Option<PathBuf> {
+    env::var_os("PATH").and_then(|path| {
+        env::split_paths(&path)
+            .map(|dir| dir.join(program))
+            .find(|candidate| candidate.exists())
+    })
+}
+
+fn home_dir() -> Option<PathBuf> {
+    env::var_os("HOME").map(PathBuf::from)
+}
+
+fn browser_candidate_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+
+    #[cfg(target_os = "linux")]
+    {
+        paths.extend([
+            PathBuf::from("/usr/bin/chromium"),
+            PathBuf::from("/usr/bin/chromium-browser"),
+            PathBuf::from("/usr/bin/google-chrome"),
+            PathBuf::from("/usr/bin/google-chrome-stable"),
+            PathBuf::from("/usr/local/bin/chromium"),
+            PathBuf::from("/usr/local/bin/chromium-browser"),
+            PathBuf::from("/usr/local/bin/google-chrome"),
+            PathBuf::from("/snap/chromium/current/usr/lib/chromium-browser/chrome"),
+            PathBuf::from("/snap/bin/chromium"),
+            PathBuf::from(
+                "/var/lib/flatpak/app/org.chromium.Chromium/current/active/files/chromium/chrome",
+            ),
+        ]);
+        if let Some(home) = home_dir() {
+            paths.push(home.join(
+                ".local/share/flatpak/app/org.chromium.Chromium/current/active/files/chromium/chrome",
+            ));
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        paths.extend([
+            PathBuf::from("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+            PathBuf::from("/Applications/Chromium.app/Contents/MacOS/Chromium"),
+        ]);
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(program_files) = env::var_os("PROGRAMFILES").map(PathBuf::from) {
+            paths.push(program_files.join("Google/Chrome/Application/chrome.exe"));
+        }
+        if let Some(program_files_x86) = env::var_os("PROGRAMFILES(X86)").map(PathBuf::from) {
+            paths.push(program_files_x86.join("Google/Chrome/Application/chrome.exe"));
+        }
+        if let Some(local_app_data) = env::var_os("LOCALAPPDATA").map(PathBuf::from) {
+            paths.push(local_app_data.join("Google/Chrome/Application/chrome.exe"));
+        }
+    }
+
+    paths
 }
 
 fn open_in_default_browser(path: &Path) -> Result<(), Box<dyn Error>> {
