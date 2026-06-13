@@ -21,12 +21,14 @@ It also migrates `deimos_website` into this repo.
 * deimos_shared
     * Add transfer functions and bode data for rev7
     * Add rev7_bode example with plots of rev7 transfer functions
+    * Add rev7 board constants and filter module
 * rev7 firmware 0.7.0
     * Add 32kB heap link region
     * Link with flip-link to grow stack away from heap
     * Add embedded-alloc and use Llff allocator
     * Use deimos_numerics Delta-SOS butter2 filters initialized live analytically
     * Remove butter1 fallback path for low frequency operation
+    * Move board constants and filter construction to deimos_shared
 
 ## 2026-05-24 0.16.2
 
