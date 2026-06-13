@@ -80,6 +80,7 @@ impl Calc for RtdPt100 {
         &mut self,
         _: ControllerCtx,
         input_indices: Vec<usize>,
+        _input_units: Vec<Option<String>>,
         output_range: Range<usize>,
     ) -> Result<(), String> {
         self.input_index = input_indices[0];
@@ -127,7 +128,7 @@ impl Calc for RtdPt100 {
         Ok(())
     }
 
-    fn get_output_units(&self) -> Vec<Option<String>> {
+    fn get_output_units(&self, _input_units: &[Option<String>]) -> Vec<Option<String>> {
         vec![Some("K".to_owned())]
     }
 

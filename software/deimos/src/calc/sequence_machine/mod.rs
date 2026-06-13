@@ -547,6 +547,7 @@ impl Calc for SequenceMachine {
         &mut self,
         ctx: ControllerCtx,
         input_indices: Vec<usize>,
+        _input_units: Vec<Option<String>>,
         output_range: Range<usize>,
     ) -> Result<(), String> {
         // Reload from folder, if linked
@@ -659,7 +660,7 @@ impl Calc for SequenceMachine {
     }
 
     /// `sequence_time_s` is in seconds; user-defined data channels have no declared unit.
-    fn get_output_units(&self) -> Vec<Option<String>> {
+    fn get_output_units(&self, _input_units: &[Option<String>]) -> Vec<Option<String>> {
         let n_data = self.entry_sequence().data.len();
         let mut units = vec![Some("s".to_owned())];
         units.extend(std::iter::repeat_n(None, n_data));

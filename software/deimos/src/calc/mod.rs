@@ -68,11 +68,18 @@ impl Clone for Box<dyn Calc> {
 /// at each timestep, and may have some persistent internal state.
 #[typetag::serde(tag = "type")]
 pub trait Calc: Send + Sync + Debug {
-    /// Reset internal state and register calc tape indices
+    /// Reset internal state and register calc tape indices.
+    ///
+    /// `input_units` is parallel to `input_indices` (same length, same order as
+    /// `get_input_names`) and carries the upstream-declared engineering unit for each
+    /// input — `None` if the upstream declares none. No built-in calc reads `input_units`
+    /// in `init` today; passthrough-inheritance calcs (`Butter2`, `Pid`) consult it in
+    /// `get_output_units` instead.
     fn init(
         &mut self,
         ctx: ControllerCtx,
         input_indices: Vec<usize>,
+        input_units: Vec<Option<String>>,
         output_range: Range<usize>,
     ) -> Result<(), String>;
 
@@ -117,11 +124,30 @@ pub trait Calc: Send + Sync + Debug {
     /// Must return a `Vec` whose length equals `get_output_names().len()`.
     /// `None` indicates the unit is unknown or not applicable for that output.
     ///
+    /// `input_units` carries the upstream-declared unit for each of this calc's inputs in
+    /// the same order as `get_input_names`. Most calcs ignore it and return their static
+    /// declaration. Passthrough-inheritance calcs (`Butter2`, `Pid`) read it: their declared
+    /// output unit is the unit of their (single) input channel.
+    ///
     /// The default implementation returns `vec![None; N]` where `N` is the number of outputs,
     /// which is correct for calcs that do not transform engineering units (pass-through or
     /// untyped outputs). Override when the calc declares concrete output units.
-    fn get_output_units(&self) -> Vec<Option<String>> {
+    fn get_output_units(&self, _input_units: &[Option<String>]) -> Vec<Option<String>> {
         vec![None; self.get_output_names().len()]
+    }
+
+    /// List of optional expected input units, parallel to `get_input_names`.
+    /// Must return a `Vec` whose length equals `get_input_names().len()`.
+    ///
+    /// `None` for an entry means "this calc declares no expectation; accept any input unit
+    /// (including `None`)." `Some(unit)` means the orchestrator will fail controller init if
+    /// the upstream channel's declared unit does not match.
+    ///
+    /// The default implementation returns `vec![None; N]` so unit-agnostic calcs (and
+    /// third-party plugins that do not override) compile and pass the orchestrator's
+    /// pass-1 check.
+    fn get_input_units(&self) -> Vec<Option<String>> {
+        vec![None; self.get_input_names().len()]
     }
 
     /// Get the type name, which is guaranteed to be unique among implementations of the trait
@@ -206,8 +232,12 @@ mod tests {
     use super::*;
 
     fn assert_units_len_matches_names_len(calc: &dyn Calc) {
+        // Stub `input_units` slice — equality-only calcs ignore the arg, and passthrough calcs
+        // (`Butter2`, `Pid`) treat a `None` input as a `None` output, both of which preserve
+        // the length-equality invariant the test asserts.
+        let input_units: Vec<Option<String>> = vec![None; calc.get_input_names().len()];
         assert_eq!(
-            calc.get_output_units().len(),
+            calc.get_output_units(&input_units).len(),
             calc.get_output_names().len(),
             "get_output_units().len() != get_output_names().len() for {}",
             calc.kind()
@@ -262,6 +292,52 @@ mod tests {
             false,
         );
         assert_units_len_matches_names_len(&*calc);
+    }
+
+    #[test]
+    fn butter2_inherits_input_unit() {
+        let calc = Butter2::new("x".to_owned(), 10.0, false);
+
+        // Upstream declares a unit -> Butter2 adopts it.
+        assert_eq!(
+            calc.get_output_units(&[Some("K".to_owned())]),
+            vec![Some("K".to_owned())],
+            "Butter2 must passthrough the input unit when one is declared"
+        );
+
+        // Upstream declares no unit -> Butter2 stays None.
+        assert_eq!(
+            calc.get_output_units(&[None]),
+            vec![None],
+            "Butter2 must remain None when the input declares no unit"
+        );
+    }
+
+    #[test]
+    fn pid_inherits_input_unit() {
+        let calc = Pid::new(
+            "measurement".to_owned(),
+            "setpoint".to_owned(),
+            1.0,
+            0.0,
+            0.0,
+            100.0,
+            false,
+        );
+
+        // `measurement` is the index-0 input by `calc_input_names!(measurement, setpoint)`,
+        // so a Some at index 0 must propagate to the output.
+        assert_eq!(
+            calc.get_output_units(&[Some("K".to_owned()), None]),
+            vec![Some("K".to_owned())],
+            "Pid must passthrough the measurement input's unit"
+        );
+
+        assert_eq!(
+            calc.get_output_units(&[None, None]),
+            vec![None],
+            "Pid must remain None when the measurement input declares no unit"
+        );
     }
 
     #[test]

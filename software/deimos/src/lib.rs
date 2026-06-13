@@ -8,6 +8,7 @@ pub mod logging;
 pub mod math;
 pub mod peripheral;
 pub mod socket;
+pub mod units;
 
 pub use controller::{
     Controller, RunHandle, Snapshot,

@@ -839,8 +839,11 @@ impl Controller {
             let n_channels = n_metrics + n_io;
             let channel_values = vec![0.0; n_channels]; // Storage for dispatched values.
 
-            // Metric channels carry no declared unit; calc outputs use get_dispatch_units.
-            let mut channel_units: Vec<Option<String>> = vec![None; n_metrics];
+            // Metric channel units come per-peripheral from `Peripheral::metric_units`
+            // (default all-`None`), followed by controller-side metric units. Calc
+            // outputs come from `get_dispatch_units`.
+            let mut channel_units: Vec<Option<String>> = controller_state.get_units_to_write();
+            debug_assert_eq!(channel_units.len(), n_metrics);
             channel_units.extend(io_channel_units);
             self.ctx.channel_units = channel_units;
 
