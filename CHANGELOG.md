@@ -4,11 +4,18 @@
 
 This update moves the rev7 firmware's filter construction and runtime
 from `flaw` to `deimos_numerics`, and from interpolated to analytic
-construction.
+construction, and adds access to filter transfer functions in deimos_shared
+along with an example that plots the rev7's filter transfer functions.
+It also migrates `deimos_website` into this repo.
 
 * deimos_numerics
     * Add `DeltaSOS::set_steady_state` for initializing filters
     * Add MedianSort method backed by bounded-loop insertion sort for small arrays
+    * Add Sallen-Key analog transfer function
+* deimos_shared
+    * Add transfer functions and bode data for rev7
+    * Add rev7_bode example with plots of rev7 transfer functions
+    * Minor cleanup of construction of rev7 standard calcs
 * rev7 firmware 0.7.0
     * Add 32kB heap link region
     * Link with flip-link to grow stack away from heap
