@@ -12,6 +12,8 @@ It also migrates `deimos_website` into this repo.
 
 * deimos
     * Update Butter2 calc to use deimos_numerics delta-form SOS filter with 64-bit floats
+    * Update timing controller to use deimos_numerics median filter
+    * Update LowPassDispatcher to use deimos_numerics filter
     * Minor cleanup of construction of rev7 standard calcs
     * Add import error on detection of irresponsible error suppression via python -O
 * deimos_numerics
