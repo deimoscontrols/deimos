@@ -861,6 +861,7 @@ fn reference_marks(
         (sample_rate_hz, "Samplerate"),
         (sample_rate_hz / 2.0, "Nyquist"),
         (reporting_rate_hz, "Reporting rate & digital cutoff"),
+        (reporting_rate_hz / 2.0, "Nyquist of reporting rate"),
         (group.analog_cutoff_hz, "Analog cutoff"),
     ];
 
