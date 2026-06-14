@@ -226,10 +226,7 @@ impl CalibrationChannel {
     }
 
     fn residual_x_axis_label(self) -> &'static str {
-        match self.kind {
-            CalibrationKind::Current4To20 => self.fit_x_axis_label(),
-            CalibrationKind::Rtd => "Reference temperature (K)",
-        }
+        self.reference_axis_label()
     }
 }
 
@@ -417,7 +414,7 @@ fn collect_all_channels(process_after_each_run: bool) -> Result<Vec<PathBuf>, St
         "4-20 mA channels use a Fluke 707 auto-step through 0, 5, 10, 15, and 20 mA during the recording. Each current channel records for {CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
-        "RTD channels use manual holds from -200 C to +700 C during the recording. Each RTD channel records for {RTD_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
+        "RTD channels use manual holds stepping up from -200 C to +700 C, then back down from +700 C to -200 C during the recording. Each RTD channel records for {RTD_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
         "Monitor live channels with: cargo run -p deimos_console -- --config {CONSOLE_CONFIG_PATH}"
@@ -458,7 +455,7 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
         }
         CalibrationKind::Rtd => {
             println!(
-                "Ready the RTD calibrator at -200 C. Press Enter to start recording, then manually step to +700 C during the {} second run with about 5 s holds every 100 K.",
+                "Ready the RTD calibrator at -200 C. Press Enter to start recording, then manually step up to +700 C and back down to -200 C during the {} second run with about 5 s holds every 100 K.",
                 channel.capture_seconds(),
             );
         }
@@ -1295,7 +1292,7 @@ fn write_analysis_plots(
         .iter()
         .map(|sample| sample.measured_a * display_scale)
         .collect::<Vec<_>>();
-    let accepted_reference_ma = analysis
+    let accepted_reference_display = analysis
         .samples
         .iter()
         .map(|sample| sample.reference_a * display_scale)
@@ -1329,14 +1326,11 @@ fn write_analysis_plots(
             CalibrationKind::Rtd => *residual,
         })
         .collect::<Vec<_>>();
-    let fit_residual_x = match capture.channel.kind {
-        CalibrationKind::Current4To20 => fit_measured_x.clone(),
-        CalibrationKind::Rtd => analysis
-            .samples
-            .iter()
-            .map(|sample| sample.reference_a)
-            .collect::<Vec<_>>(),
-    };
+    let fit_residual_reference = analysis
+        .samples
+        .iter()
+        .map(|sample| sample.reference_a * display_scale)
+        .collect::<Vec<_>>();
     let voltage_fit_label = fit_label(capture.channel, &analysis.voltage_fit);
     let residual_trace_name = match capture.channel.kind {
         CalibrationKind::Current4To20 => "Fit residual as current",
@@ -1428,7 +1422,7 @@ const rawTimeS = {raw_time_s};
 const rawMeasuredMA = {raw_measured_ma};
 const acceptedTimeS = {accepted_time_s};
 const acceptedMeasuredMA = {accepted_measured_ma};
-const acceptedReferenceMA = {accepted_reference_ma};
+const acceptedReference = {accepted_reference_display};
 const referenceStepTimeS = {reference_step_time_s};
 const referenceStepMA = {reference_step_ma};
 const errorPlotY = {error_plot_y};
@@ -1437,7 +1431,7 @@ const fitMeasuredX = {fit_measured_x};
 const fitExpectedY = {fit_expected_y};
 const fitLineX = {fit_line_x};
 const fitLineY = {fit_line_y};
-const fitResidualX = {fit_residual_x};
+const fitResidualReference = {fit_residual_reference};
 const fitResidualY = {fit_residual_y};
 const voltageFitLabel = {voltage_fit_label};
 
@@ -1477,17 +1471,28 @@ Plotly.newPlot("time-overlay", [
 
 Plotly.newPlot("relative-error", [
     {{
-        x: acceptedReferenceMA,
+        x: acceptedReference,
+        y: errorPlotY,
+        type: "box",
+        name: "Error distribution",
+        boxpoints: false,
+        line: {{ width: 2, color: "#228833" }},
+        fillcolor: "rgba(34, 136, 51, 0.16)",
+        marker: {{ color: "#228833" }}
+    }},
+    {{
+        x: acceptedReference,
         y: errorPlotY,
         mode: "markers",
         type: "scatter",
-        name: "Error",
-        marker: {{ size: 4, color: "#228833" }}
+        name: "Accepted samples",
+        marker: {{ size: 4, color: "rgba(34, 136, 51, 0.45)" }}
     }}
 ], {{
     title: {{ text: {error_plot_title} }},
     xaxis: {{ title: {{ text: {reference_axis_label}, standoff: 16 }}, automargin: true }},
     yaxis: {{ title: {{ text: {error_axis_label}, standoff: 18 }}, automargin: true }},
+    boxmode: "group",
     margin: {{ l: 88, r: 24, t: 64, b: 78 }}
 }}, {{ responsive: true }});
 
@@ -1517,17 +1522,28 @@ Plotly.newPlot("voltage-fit", [
 
 Plotly.newPlot("voltage-fit-residual", [
     {{
-        x: fitResidualX,
+        x: fitResidualReference,
+        y: fitResidualY,
+        type: "box",
+        name: "Residual distribution",
+        boxpoints: false,
+        line: {{ width: 2, color: "#aa3377" }},
+        fillcolor: "rgba(170, 51, 119, 0.16)",
+        marker: {{ color: "#aa3377" }}
+    }},
+    {{
+        x: fitResidualReference,
         y: fitResidualY,
         mode: "markers",
         type: "scatter",
         name: {residual_trace_name},
-        marker: {{ size: 5, color: "#aa3377" }}
+        marker: {{ size: 5, color: "rgba(170, 51, 119, 0.45)" }}
     }}
 ], {{
     title: {{ text: {residual_plot_title} }},
     xaxis: {{ title: {{ text: {residual_x_axis_label}, standoff: 16 }}, automargin: true }},
     yaxis: {{ title: {{ text: {residual_axis_label}, standoff: 18 }}, automargin: true }},
+    boxmode: "group",
     margin: {{ l: 88, r: 24, t: 64, b: 78 }}
 }}, {{ responsive: true }});
 </script>
@@ -1546,7 +1562,7 @@ Plotly.newPlot("voltage-fit-residual", [
             .map_err(|e| format!("Failed to serialize plot accepted time data: {e}"))?,
         accepted_measured_ma = serde_json::to_string(&accepted_measured_ma)
             .map_err(|e| format!("Failed to serialize plot accepted measurement data: {e}"))?,
-        accepted_reference_ma = serde_json::to_string(&accepted_reference_ma)
+        accepted_reference_display = serde_json::to_string(&accepted_reference_display)
             .map_err(|e| format!("Failed to serialize plot accepted reference data: {e}"))?,
         reference_step_time_s = serde_json::to_string(&reference_step_time_s)
             .map_err(|e| format!("Failed to serialize plot reference-step time data: {e}"))?,
@@ -1564,7 +1580,7 @@ Plotly.newPlot("voltage-fit-residual", [
             .map_err(|e| format!("Failed to serialize plot fit-line measured-voltage data: {e}"))?,
         fit_line_y = serde_json::to_string(&fit_line_y)
             .map_err(|e| format!("Failed to serialize plot fit-line expected-voltage data: {e}"))?,
-        fit_residual_x = serde_json::to_string(&fit_residual_x)
+        fit_residual_reference = serde_json::to_string(&fit_residual_reference)
             .map_err(|e| format!("Failed to serialize plot fit residual x data: {e}"))?,
         fit_residual_y = serde_json::to_string(&fit_residual_y)
             .map_err(|e| format!("Failed to serialize plot fit residual current data: {e}"))?,
