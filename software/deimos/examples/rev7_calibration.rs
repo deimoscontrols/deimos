@@ -29,9 +29,9 @@ use serde::{Deserialize, Serialize};
 const MODEL_NAME: &str = "deimos_daq_rev7";
 const PERIPHERAL_NAME: &str = "p1";
 const SERIAL_NUMBER: u64 = 2;
-const RATE_HZ: f64 = 20.0;
+const RATE_HZ: f64 = 200.0;
 const CAPTURE_SECONDS: u64 = 90;
-const DATAFRAME_MB: usize = 16;
+const DATAFRAME_MB: usize = 64;
 const REPORTING_MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(239, 255, 0, 1);
 const REPORTING_MULTICAST_PORT: u16 = 29573;
 const REPORTING_SCHEMA_PERIOD: Duration = Duration::from_secs(2);
@@ -45,9 +45,9 @@ const VOLTAGE_FIT_ORDER: usize = 1;
 const ZERO_C_K: f64 = 273.15;
 const RTD_MIN_REFERENCE_K: f64 = ZERO_C_K - 200.0;
 const RTD_MAX_REFERENCE_K: f64 = ZERO_C_K + 800.0;
-const RTD_STEP_K: f64 = 100.0;
+const RTD_STEP_K: f64 = 10.0;
 const RTD_STEP_DETECTION_TOLERANCE_K: f64 = 5.0;
-const MIN_RTD_STEP_DURATION_S: f64 = 2.0;
+const MIN_RTD_STEP_DURATION_S: f64 = 0.5;
 const RTD_CAPTURE_SECONDS: u64 = 240;
 const RTD_REFERENCE_CURRENT_A: f64 = 250e-6;
 const RTD_FRONTEND_GAIN: f64 = 25.7;
@@ -1439,19 +1439,20 @@ Plotly.newPlot("time-overlay", [
     {{
         x: rawTimeS,
         y: rawMeasuredMA,
-        mode: "markers",
+        mode: "lines",
         type: "scatter",
         name: "Measured",
-        marker: {{ size: 4, color: "rgba(51, 102, 204, 0.42)" }}
+        line: {{ width: 1, color: "#000000" }}
     }},
     {{
         x: referenceStepTimeS,
         y: referenceStepMA,
-        mode: "lines",
+        mode: "lines+markers",
         type: "scatter",
         name: "Detected reference step",
         connectgaps: false,
-        line: {{ width: 2, color: "#d65f00" }}
+        line: {{ width: 2, color: "#000000" }},
+        marker: {{ size: 6, color: "#000000", symbol: "circle" }}
     }},
     {{
         x: acceptedTimeS,
@@ -1459,7 +1460,7 @@ Plotly.newPlot("time-overlay", [
         mode: "markers",
         type: "scatter",
         name: "Accepted middle-half samples",
-        marker: {{ size: 5, color: "#228833" }}
+        marker: {{ size: 6, color: "#000000", symbol: "x" }}
     }}
 ], {{
     title: {{ text: "Detected steps and accepted calibration regions" }},
@@ -1476,9 +1477,10 @@ Plotly.newPlot("relative-error", [
         type: "box",
         name: "Error distribution",
         boxpoints: false,
-        line: {{ width: 2, color: "#228833" }},
-        fillcolor: "rgba(34, 136, 51, 0.16)",
-        marker: {{ color: "#228833" }}
+        boxmean: "sd",
+        line: {{ width: 2, color: "#000000" }},
+        fillcolor: "rgba(0, 0, 0, 0.08)",
+        marker: {{ color: "#000000" }}
     }},
     {{
         x: acceptedReference,
@@ -1486,7 +1488,7 @@ Plotly.newPlot("relative-error", [
         mode: "markers",
         type: "scatter",
         name: "Accepted samples",
-        marker: {{ size: 4, color: "rgba(34, 136, 51, 0.45)" }}
+        marker: {{ size: 4, color: "#000000" }}
     }}
 ], {{
     title: {{ text: {error_plot_title} }},
@@ -1503,7 +1505,7 @@ Plotly.newPlot("voltage-fit", [
         mode: "markers",
         type: "scatter",
         name: "Accepted calibration samples",
-        marker: {{ size: 5, color: "#3366cc" }}
+        marker: {{ size: 5, color: "#000000" }}
     }},
     {{
         x: fitLineX,
@@ -1511,7 +1513,7 @@ Plotly.newPlot("voltage-fit", [
         mode: "lines",
         type: "scatter",
         name: "Linear fit",
-        line: {{ width: 2, color: "#d65f00" }}
+        line: {{ width: 2, color: "#000000" }}
     }}
 ], {{
     title: {{ text: {fit_plot_title} }},
@@ -1527,9 +1529,10 @@ Plotly.newPlot("voltage-fit-residual", [
         type: "box",
         name: "Residual distribution",
         boxpoints: false,
-        line: {{ width: 2, color: "#aa3377" }},
-        fillcolor: "rgba(170, 51, 119, 0.16)",
-        marker: {{ color: "#aa3377" }}
+        boxmean: "sd",
+        line: {{ width: 2, color: "#000000" }},
+        fillcolor: "rgba(0, 0, 0, 0.08)",
+        marker: {{ color: "#000000" }}
     }},
     {{
         x: fitResidualReference,
@@ -1537,7 +1540,7 @@ Plotly.newPlot("voltage-fit-residual", [
         mode: "markers",
         type: "scatter",
         name: {residual_trace_name},
-        marker: {{ size: 5, color: "rgba(170, 51, 119, 0.45)" }}
+        marker: {{ size: 5, color: "#000000" }}
     }}
 ], {{
     title: {{ text: {residual_plot_title} }},
