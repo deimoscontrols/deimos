@@ -16,3 +16,11 @@ channels = [
     "p1_4_20_mA_2_A.y",
     "p1_4_20_mA_3_A.y",
 ]
+
+[[panels]]
+title = "Rev7 RTD Inputs"
+channels = [
+    "p1_rtd_0.temperature_K",
+    "p1_rtd_1.temperature_K",
+    "p1_rtd_2.temperature_K",
+]

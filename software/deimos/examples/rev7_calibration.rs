@@ -40,6 +40,14 @@ const STEP_DETECTION_TOLERANCE_A: f64 = 0.0015;
 const MIN_STEP_DURATION_S: f64 = 2.5;
 const REFERENCE_RESISTOR_OHM: f64 = 75.0;
 const VOLTAGE_FIT_ORDER: usize = 1;
+const ZERO_C_K: f64 = 273.15;
+const RTD_MIN_REFERENCE_K: f64 = ZERO_C_K - 200.0;
+const RTD_MAX_REFERENCE_K: f64 = ZERO_C_K + 800.0;
+const RTD_STEP_BELOW_ZERO_K: f64 = 10.0;
+const RTD_STEP_ABOVE_ZERO_K: f64 = 50.0;
+const RTD_STEP_DETECTION_TOLERANCE_K: f64 = 5.0;
+const MIN_RTD_STEP_DURATION_S: f64 = 1.0;
+const RTD_CAPTURE_SECONDS: u64 = 240;
 
 const OUTPUT_ROOT: &str = "./software/deimos/examples/rev7_calibration";
 const CONSOLE_CONFIG_PATH: &str = "software/deimos/examples/rev7_calibration_console.toml";
@@ -51,6 +59,13 @@ struct CalibrationChannel {
     analog_input_name: &'static str,
     signal_name: &'static str,
     slug: &'static str,
+    kind: CalibrationKind,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CalibrationKind {
+    Current4To20,
+    Rtd,
 }
 
 const CURRENT_CHANNELS: [CalibrationChannel; 4] = [
@@ -59,26 +74,158 @@ const CURRENT_CHANNELS: [CalibrationChannel; 4] = [
         analog_input_name: "ain3",
         signal_name: "p1_4_20_mA_0_A.y",
         slug: "4_20_mA_0",
+        kind: CalibrationKind::Current4To20,
     },
     CalibrationChannel {
         label: "4-20 mA channel 1 (ain4)",
         analog_input_name: "ain4",
         signal_name: "p1_4_20_mA_1_A.y",
         slug: "4_20_mA_1",
+        kind: CalibrationKind::Current4To20,
     },
     CalibrationChannel {
         label: "4-20 mA channel 2 (ain5)",
         analog_input_name: "ain5",
         signal_name: "p1_4_20_mA_2_A.y",
         slug: "4_20_mA_2",
+        kind: CalibrationKind::Current4To20,
     },
     CalibrationChannel {
         label: "4-20 mA channel 3 (ain6)",
         analog_input_name: "ain6",
         signal_name: "p1_4_20_mA_3_A.y",
         slug: "4_20_mA_3",
+        kind: CalibrationKind::Current4To20,
     },
 ];
+
+const RTD_CHANNELS: [CalibrationChannel; 3] = [
+    CalibrationChannel {
+        label: "RTD channel 0 (ain7)",
+        analog_input_name: "ain7",
+        signal_name: "p1_rtd_0.temperature_K",
+        slug: "rtd_0",
+        kind: CalibrationKind::Rtd,
+    },
+    CalibrationChannel {
+        label: "RTD channel 1 (ain8)",
+        analog_input_name: "ain8",
+        signal_name: "p1_rtd_1.temperature_K",
+        slug: "rtd_1",
+        kind: CalibrationKind::Rtd,
+    },
+    CalibrationChannel {
+        label: "RTD channel 2 (ain9)",
+        analog_input_name: "ain9",
+        signal_name: "p1_rtd_2.temperature_K",
+        slug: "rtd_2",
+        kind: CalibrationKind::Rtd,
+    },
+];
+
+impl CalibrationChannel {
+    fn capture_seconds(self) -> u64 {
+        match self.kind {
+            CalibrationKind::Current4To20 => CAPTURE_SECONDS,
+            CalibrationKind::Rtd => RTD_CAPTURE_SECONDS,
+        }
+    }
+
+    fn fit_units(self) -> &'static str {
+        match self.kind {
+            CalibrationKind::Current4To20 => "V",
+            CalibrationKind::Rtd => "K",
+        }
+    }
+
+    fn fit_heading(self) -> &'static str {
+        match self.kind {
+            CalibrationKind::Current4To20 => "Voltage fit",
+            CalibrationKind::Rtd => "Temperature fit",
+        }
+    }
+
+    fn min_step_duration_s(self) -> f64 {
+        match self.kind {
+            CalibrationKind::Current4To20 => MIN_STEP_DURATION_S,
+            CalibrationKind::Rtd => MIN_RTD_STEP_DURATION_S,
+        }
+    }
+
+    fn display_scale(self) -> f64 {
+        match self.kind {
+            CalibrationKind::Current4To20 => 1e3,
+            CalibrationKind::Rtd => 1.0,
+        }
+    }
+
+    fn value_axis_label(self) -> &'static str {
+        match self.kind {
+            CalibrationKind::Current4To20 => "Current (mA)",
+            CalibrationKind::Rtd => "Temperature (K)",
+        }
+    }
+
+    fn reference_axis_label(self) -> &'static str {
+        match self.kind {
+            CalibrationKind::Current4To20 => "Reference current (mA)",
+            CalibrationKind::Rtd => "Reference temperature (K)",
+        }
+    }
+
+    fn error_plot_title(self) -> &'static str {
+        match self.kind {
+            CalibrationKind::Current4To20 => "Error vs reference (%FS)",
+            CalibrationKind::Rtd => "Temperature error vs reference",
+        }
+    }
+
+    fn error_axis_label(self) -> &'static str {
+        match self.kind {
+            CalibrationKind::Current4To20 => "Error (%FS, 20 mA)",
+            CalibrationKind::Rtd => "Error (K)",
+        }
+    }
+
+    fn fit_plot_title(self) -> &'static str {
+        match self.kind {
+            CalibrationKind::Current4To20 => "Expected voltage vs measured voltage",
+            CalibrationKind::Rtd => "Expected temperature vs measured temperature",
+        }
+    }
+
+    fn fit_x_axis_label(self) -> &'static str {
+        match self.kind {
+            CalibrationKind::Current4To20 => "Measured voltage (V)",
+            CalibrationKind::Rtd => "Measured temperature (K)",
+        }
+    }
+
+    fn fit_y_axis_label(self) -> &'static str {
+        match self.kind {
+            CalibrationKind::Current4To20 => "Expected voltage (V)",
+            CalibrationKind::Rtd => "Expected temperature (K)",
+        }
+    }
+
+    fn residual_plot_title(self) -> &'static str {
+        match self.kind {
+            CalibrationKind::Current4To20 => "Residual after voltage fit, expressed as current",
+            CalibrationKind::Rtd => "Residual after temperature fit",
+        }
+    }
+
+    fn residual_axis_label(self) -> &'static str {
+        match self.kind {
+            CalibrationKind::Current4To20 => "Estimated current residual (uA)",
+            CalibrationKind::Rtd => "Temperature residual (K)",
+        }
+    }
+}
+
+fn all_calibration_channels() -> impl Iterator<Item = CalibrationChannel> {
+    CURRENT_CHANNELS.into_iter().chain(RTD_CHANNELS)
+}
 
 #[derive(Debug)]
 struct ChannelCapture {
@@ -144,7 +291,8 @@ struct CalibrationJsonRecord {
     channel: String,
     signal_name: String,
     datestamp_utc: String,
-    reference_resistor_ohm: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reference_resistor_ohm: Option<f64>,
     polynomial_order: usize,
     polynomial_coefficients: Vec<f64>,
     r2: f64,
@@ -160,13 +308,18 @@ enum RunMode {
     CollectAndProcess,
 }
 
+enum PromptDecision {
+    Start,
+    Skip,
+}
+
 fn main() -> Result<(), String> {
     let mode = parse_args()?;
     create_dir_all(OUTPUT_ROOT).map_err(|e| format!("Failed to create {OUTPUT_ROOT}: {e}"))?;
 
     match mode {
         RunMode::Collect => {
-            let paths = collect_all_channels()?;
+            let paths = collect_all_channels(false)?;
             println!("Collected {} calibration data files.", paths.len());
             for path in paths {
                 println!("  {}", path.display());
@@ -177,8 +330,11 @@ fn main() -> Result<(), String> {
             process_calibration_files(&paths, summary_dir_for_process_path(&path)?)?;
         }
         RunMode::CollectAndProcess => {
-            let paths = collect_all_channels()?;
-            process_calibration_files(&paths, Path::new(OUTPUT_ROOT))?;
+            let paths = collect_all_channels(true)?;
+            println!(
+                "Collected and processed {} calibration data files.",
+                paths.len()
+            );
         }
     }
 
@@ -197,10 +353,13 @@ fn parse_args() -> Result<RunMode, String> {
     }
 }
 
-fn collect_all_channels() -> Result<Vec<PathBuf>, String> {
-    println!("Rev7 4-20 mA calibration collection");
+fn collect_all_channels(process_after_each_run: bool) -> Result<Vec<PathBuf>, String> {
+    println!("Rev7 calibration collection");
     println!(
-        "Configure the Fluke 707 to auto-step through 0, 5, 10, 15, and 20 mA. Each channel records for {CAPTURE_SECONDS} s at {RATE_HZ} Hz."
+        "4-20 mA channels use a Fluke 707 auto-step through 0, 5, 10, 15, and 20 mA. Each current channel records for {CAPTURE_SECONDS} s at {RATE_HZ} Hz."
+    );
+    println!(
+        "RTD channels use manual holds from -200 C to +800 C. Each RTD channel records for {RTD_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
         "Monitor live channels with: cargo run -p deimos_console -- --config {CONSOLE_CONFIG_PATH}"
@@ -211,30 +370,52 @@ fn collect_all_channels() -> Result<Vec<PathBuf>, String> {
     );
 
     let mut paths = Vec::new();
-    for channel in CURRENT_CHANNELS {
-        prompt_for_channel(channel)?;
+    for channel in all_calibration_channels() {
+        if matches!(prompt_for_channel(channel)?, PromptDecision::Skip) {
+            println!("Skipped {}.", channel.label);
+            continue;
+        }
         let capture = run_channel_capture(channel)?;
+        let summary_dir = capture.op_dir.clone();
         let path = write_calibration_data(&capture)?;
         println!("Saved {}", path.display());
+        if process_after_each_run {
+            process_calibration_files(std::slice::from_ref(&path), &summary_dir)?;
+        }
         paths.push(path);
     }
 
     Ok(paths)
 }
 
-fn prompt_for_channel(channel: CalibrationChannel) -> Result<(), String> {
+fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, String> {
     println!();
     println!("Connect the calibrator to {}.", channel.label);
-    println!(
-        "Start the 0/5/10/15/20 mA auto-step sequence, then press Enter to record {CAPTURE_SECONDS} seconds."
-    );
-
+    match channel.kind {
+        CalibrationKind::Current4To20 => {
+            println!(
+                "Start the 0/5/10/15/20 mA auto-step sequence, then press Enter to record {} seconds.",
+                channel.capture_seconds(),
+            );
+        }
+        CalibrationKind::Rtd => {
+            println!(
+                "Manually step from -200 C to +800 C. Hold about 5 s every 10 K below 0 C and every 100 K above 0 C, then press Enter to record {} seconds.",
+                channel.capture_seconds(),
+            );
+        }
+    }
+    println!("Press Enter to start this run, or type s then Enter to skip it.");
     let mut line = String::new();
     stdin()
         .read_line(&mut line)
         .map_err(|e| format!("Failed to read operator prompt: {e}"))?;
 
-    Ok(())
+    if line.trim().eq_ignore_ascii_case("s") {
+        Ok(PromptDecision::Skip)
+    } else {
+        Ok(PromptDecision::Start)
+    }
 }
 
 fn run_channel_capture(channel: CalibrationChannel) -> Result<ChannelCapture, String> {
@@ -242,7 +423,8 @@ fn run_channel_capture(channel: CalibrationChannel) -> Result<ChannelCapture, St
     let op_dir = Path::new(OUTPUT_ROOT).join(&op_name);
     create_dir_all(&op_dir).map_err(|e| format!("Failed to create {}: {e}", op_dir.display()))?;
 
-    let mut controller = Controller::new(controller_context(op_name.clone(), op_dir.clone()));
+    let mut controller =
+        Controller::new(controller_context(op_name.clone(), op_dir.clone(), channel));
     controller.add_peripheral(
         PERIPHERAL_NAME,
         Box::new(DeimosDaqRev7 {
@@ -276,13 +458,19 @@ fn run_channel_capture(channel: CalibrationChannel) -> Result<ChannelCapture, St
     extract_capture(channel, op_name, op_dir, df_handle)
 }
 
-fn controller_context(op_name: String, op_dir: PathBuf) -> ControllerCtx {
+fn controller_context(
+    op_name: String,
+    op_dir: PathBuf,
+    channel: CalibrationChannel,
+) -> ControllerCtx {
     let mut ctx = ControllerCtx::default();
     ctx.op_name = op_name;
     ctx.op_dir = op_dir;
     ctx.dt_ns = (1e9_f64 / RATE_HZ).round() as u32;
     ctx.loop_method = LoopMethod::Performant;
-    ctx.termination_criteria = Some(Termination::Timeout(Duration::from_secs(CAPTURE_SECONDS)));
+    ctx.termination_criteria = Some(Termination::Timeout(Duration::from_secs(
+        channel.capture_seconds(),
+    )));
     ctx
 }
 
@@ -484,14 +672,18 @@ fn process_calibration_files(paths: &[PathBuf], summary_dir: &Path) -> Result<()
         )
         .map_err(|e| format!("Failed to write {}: {e}", summary_path.display()))?;
 
+        let (error_scale, error_units) = match capture.channel.kind {
+            CalibrationKind::Current4To20 => (1e6, "uA"),
+            CalibrationKind::Rtd => (1.0, "K"),
+        };
         println!(
-            "{}: steps={} accepted_samples={} rmse={:.3} uA mean_error={:.3} uA max_abs_error={:.3} uA",
+            "{}: steps={} accepted_samples={} rmse={:.3} {error_units} mean_error={:.3} {error_units} max_abs_error={:.3} {error_units}",
             capture.channel.label,
             analysis.segments.len(),
             analysis.samples.len(),
-            analysis.rmse_a * 1e6,
-            analysis.mean_error_a * 1e6,
-            analysis.max_abs_error_a * 1e6,
+            analysis.rmse_a * error_scale,
+            analysis.mean_error_a * error_scale,
+            analysis.max_abs_error_a * error_scale,
         );
         println!("  source {}", path.display());
         println!("  wrote {}", samples_path.display());
@@ -501,7 +693,7 @@ fn process_calibration_files(paths: &[PathBuf], summary_dir: &Path) -> Result<()
 
     println!("Summary written to {}", summary_path.display());
     println!(
-        "Polynomial correction fitting is intentionally deferred until these residuals are characterized."
+        "Calibration polynomial records and residual plots were written next to each source file."
     );
 
     Ok(())
@@ -596,7 +788,7 @@ fn analyze_capture(capture: &ChannelCapture) -> Result<ChannelAnalysis, String> 
             capture.channel.label
         ));
     }
-    let voltage_fit = fit_expected_voltage(&samples)?;
+    let voltage_fit = fit_expected_value(&samples, capture.channel.kind)?;
 
     let mean_error_a =
         samples.iter().map(|sample| sample.error_a).sum::<f64>() / samples.len() as f64;
@@ -621,13 +813,16 @@ fn analyze_capture(capture: &ChannelCapture) -> Result<ChannelAnalysis, String> 
     })
 }
 
-fn fit_expected_voltage(samples: &[ErrorSample]) -> Result<VoltageFit, String> {
+fn fit_expected_value(
+    samples: &[ErrorSample],
+    kind: CalibrationKind,
+) -> Result<VoltageFit, String> {
     let points = samples
         .iter()
         .map(|sample| {
             (
-                measured_voltage_v(sample),
-                expected_voltage_v(sample.reference_a),
+                fit_input_value(sample, kind),
+                fit_expected_value_y(sample, kind),
             )
         })
         .collect::<Vec<_>>();
@@ -637,12 +832,12 @@ fn fit_expected_voltage(samples: &[ErrorSample]) -> Result<VoltageFit, String> {
     let mut ss_res = 0.0;
     let mut ss_tot = 0.0;
     let mut residuals_v = Vec::with_capacity(points.len());
-    for (measured_v, expected_v) in points {
-        let fitted_v = polyval(measured_v, &coefficients);
-        let residual_v = expected_v - fitted_v;
-        residuals_v.push(residual_v);
-        ss_res += residual_v * residual_v;
-        let centered_expected_v = expected_v - expected_mean_v;
+    for (measured, expected) in points {
+        let fitted = polyval(measured, &coefficients);
+        let residual = expected - fitted;
+        residuals_v.push(residual);
+        ss_res += residual * residual;
+        let centered_expected_v = expected - expected_mean_v;
         ss_tot += centered_expected_v * centered_expected_v;
     }
 
@@ -667,7 +862,7 @@ fn detect_step_segments(capture: &ChannelCapture) -> Result<Vec<StepSegment>, St
     let mut active_start_idx = 0;
 
     for (idx, &measured_a) in capture.measured_a.iter().enumerate() {
-        let reference = nearest_step_reference(measured_a);
+        let reference = nearest_step_reference(measured_a, capture.channel.kind);
         if reference != active_reference {
             if let Some(reference_a) = active_reference {
                 push_step_segment(capture, reference_a, active_start_idx, idx, &mut segments);
@@ -688,23 +883,59 @@ fn detect_step_segments(capture: &ChannelCapture) -> Result<Vec<StepSegment>, St
     }
 
     if segments.is_empty() {
-        return Err(format!(
-            "No stable 0/5/10/15/20 mA steps found for {} using +/- {:.3} mA tolerance and {:.1} s minimum duration",
-            capture.channel.label,
-            STEP_DETECTION_TOLERANCE_A * 1e3,
-            MIN_STEP_DURATION_S,
-        ));
+        return Err(no_segments_error(capture));
     }
 
     Ok(segments)
 }
 
-fn nearest_step_reference(measured_a: f64) -> Option<f64> {
-    STEP_REFERENCE_VALUES_A
-        .iter()
-        .copied()
-        .min_by(|a, b| (measured_a - *a).abs().total_cmp(&(measured_a - *b).abs()))
-        .filter(|reference_a| (measured_a - *reference_a).abs() <= STEP_DETECTION_TOLERANCE_A)
+fn nearest_step_reference(measured: f64, kind: CalibrationKind) -> Option<f64> {
+    match kind {
+        CalibrationKind::Current4To20 => STEP_REFERENCE_VALUES_A
+            .iter()
+            .copied()
+            .min_by(|a, b| (measured - *a).abs().total_cmp(&(measured - *b).abs()))
+            .filter(|reference_a| (measured - *reference_a).abs() <= STEP_DETECTION_TOLERANCE_A),
+        CalibrationKind::Rtd => nearest_rtd_reference_k(measured),
+    }
+}
+
+fn nearest_rtd_reference_k(measured_k: f64) -> Option<f64> {
+    if !(RTD_MIN_REFERENCE_K..=RTD_MAX_REFERENCE_K).contains(&measured_k) {
+        return None;
+    }
+
+    let step_k = if measured_k < ZERO_C_K {
+        RTD_STEP_BELOW_ZERO_K
+    } else {
+        RTD_STEP_ABOVE_ZERO_K
+    };
+    let reference_k = ZERO_C_K + ((measured_k - ZERO_C_K) / step_k).round() * step_k;
+
+    if (RTD_MIN_REFERENCE_K..=RTD_MAX_REFERENCE_K).contains(&reference_k)
+        && (measured_k - reference_k).abs() <= RTD_STEP_DETECTION_TOLERANCE_K
+    {
+        Some(reference_k)
+    } else {
+        None
+    }
+}
+
+fn no_segments_error(capture: &ChannelCapture) -> String {
+    match capture.channel.kind {
+        CalibrationKind::Current4To20 => format!(
+            "No stable 0/5/10/15/20 mA steps found for {} using +/- {:.3} mA tolerance and {:.1} s minimum duration",
+            capture.channel.label,
+            STEP_DETECTION_TOLERANCE_A * 1e3,
+            capture.channel.min_step_duration_s(),
+        ),
+        CalibrationKind::Rtd => format!(
+            "No stable RTD temperature holds found for {} using +/- {:.1} K tolerance and {:.1} s minimum duration",
+            capture.channel.label,
+            RTD_STEP_DETECTION_TOLERANCE_K,
+            capture.channel.min_step_duration_s(),
+        ),
+    }
 }
 
 fn push_step_segment(
@@ -721,7 +952,7 @@ fn push_step_segment(
     let start_time_s = capture.times_s[start_idx];
     let stop_time_s = capture.times_s[end_idx - 1];
     let duration_s = stop_time_s - start_time_s;
-    if duration_s < MIN_STEP_DURATION_S {
+    if duration_s < capture.channel.min_step_duration_s() {
         return;
     }
 
@@ -774,6 +1005,20 @@ fn expected_voltage_v(reference_a: f64) -> f64 {
     reference_a * REFERENCE_RESISTOR_OHM
 }
 
+fn fit_input_value(sample: &ErrorSample, kind: CalibrationKind) -> f64 {
+    match kind {
+        CalibrationKind::Current4To20 => measured_voltage_v(sample),
+        CalibrationKind::Rtd => sample.measured_a,
+    }
+}
+
+fn fit_expected_value_y(sample: &ErrorSample, kind: CalibrationKind) -> f64 {
+    match kind {
+        CalibrationKind::Current4To20 => expected_voltage_v(sample.reference_a),
+        CalibrationKind::Rtd => sample.reference_a,
+    }
+}
+
 fn write_error_samples(
     capture: &ChannelCapture,
     analysis: &ChannelAnalysis,
@@ -812,12 +1057,15 @@ fn write_calibration_json_record(
         channel: capture.channel.analog_input_name.to_owned(),
         signal_name: capture.channel.signal_name.to_owned(),
         datestamp_utc: utc_datestamp(),
-        reference_resistor_ohm: REFERENCE_RESISTOR_OHM,
+        reference_resistor_ohm: match capture.channel.kind {
+            CalibrationKind::Current4To20 => Some(REFERENCE_RESISTOR_OHM),
+            CalibrationKind::Rtd => None,
+        },
         polynomial_order: VOLTAGE_FIT_ORDER,
         polynomial_coefficients: analysis.voltage_fit.coefficients.clone(),
         r2: analysis.voltage_fit.r2,
-        input_units: "V".to_owned(),
-        output_units: "V".to_owned(),
+        input_units: capture.channel.fit_units().to_owned(),
+        output_units: capture.channel.fit_units().to_owned(),
         accepted_sample_count: analysis.samples.len(),
         detected_step_count: analysis.segments.len(),
     };
@@ -835,12 +1083,13 @@ fn write_analysis_plots(
     let path = capture
         .op_dir
         .join(format!("{}_plots.html", capture.op_name));
+    let display_scale = capture.channel.display_scale();
 
     let raw_time_s = capture.times_s.clone();
     let raw_measured_ma = capture
         .measured_a
         .iter()
-        .map(|measured_a| measured_a * 1e3)
+        .map(|measured_a| measured_a * display_scale)
         .collect::<Vec<_>>();
     let accepted_time_s = analysis
         .samples
@@ -850,49 +1099,53 @@ fn write_analysis_plots(
     let accepted_measured_ma = analysis
         .samples
         .iter()
-        .map(|sample| sample.measured_a * 1e3)
+        .map(|sample| sample.measured_a * display_scale)
         .collect::<Vec<_>>();
     let accepted_reference_ma = analysis
         .samples
         .iter()
-        .map(|sample| sample.reference_a * 1e3)
+        .map(|sample| sample.reference_a * display_scale)
         .collect::<Vec<_>>();
-    let relative_error_percent = analysis
+    let error_plot_y = analysis
         .samples
         .iter()
-        .map(|sample| 100.0 * sample.error_a / REFERENCE_MAX_A)
+        .map(|sample| match capture.channel.kind {
+            CalibrationKind::Current4To20 => 100.0 * sample.error_a / REFERENCE_MAX_A,
+            CalibrationKind::Rtd => sample.error_a,
+        })
         .collect::<Vec<_>>();
-    let measured_voltage_v = analysis
+    let fit_measured_x = analysis
         .samples
         .iter()
-        .map(measured_voltage_v)
+        .map(|sample| fit_input_value(sample, capture.channel.kind))
         .collect::<Vec<_>>();
-    let expected_voltage_v = analysis
+    let fit_expected_y = analysis
         .samples
         .iter()
-        .map(|sample| expected_voltage_v(sample.reference_a))
+        .map(|sample| fit_expected_value_y(sample, capture.channel.kind))
         .collect::<Vec<_>>();
-    let min_measured_voltage_v = measured_voltage_v
-        .iter()
-        .copied()
-        .fold(f64::INFINITY, f64::min);
-    let max_measured_voltage_v = measured_voltage_v
+    let min_fit_x = fit_measured_x.iter().copied().fold(f64::INFINITY, f64::min);
+    let max_fit_x = fit_measured_x
         .iter()
         .copied()
         .fold(f64::NEG_INFINITY, f64::max);
-    let fit_line_measured_voltage_v = vec![min_measured_voltage_v, max_measured_voltage_v];
-    let fit_line_expected_voltage_v = fit_line_measured_voltage_v
+    let fit_line_x = vec![min_fit_x, max_fit_x];
+    let fit_line_y = fit_line_x
         .iter()
-        .map(|&measured_v| polyval(measured_v, &analysis.voltage_fit.coefficients))
+        .map(|&measured| polyval(measured, &analysis.voltage_fit.coefficients))
         .collect::<Vec<_>>();
-    let fit_residual_current_ua = analysis
+    let fit_residual_y = analysis
         .voltage_fit
         .residuals_v
         .iter()
-        .map(|residual_v| residual_v / REFERENCE_RESISTOR_OHM * 1e6)
+        .map(|residual| match capture.channel.kind {
+            CalibrationKind::Current4To20 => residual / REFERENCE_RESISTOR_OHM * 1e6,
+            CalibrationKind::Rtd => *residual,
+        })
         .collect::<Vec<_>>();
     let voltage_fit_label = format!(
-        "Voltage fit: expected = {:.9} + {:.9} * measured, R^2 = {:.9}",
+        "{}: expected = {:.9} + {:.9} * measured, R^2 = {:.9}",
+        capture.channel.fit_heading(),
         analysis.voltage_fit.coefficients[0],
         analysis.voltage_fit.coefficients[1],
         analysis.voltage_fit.r2,
@@ -904,8 +1157,8 @@ fn write_analysis_plots(
         reference_step_time_s.push(Some(segment.start_time_s));
         reference_step_time_s.push(Some(segment.stop_time_s));
         reference_step_time_s.push(None);
-        reference_step_ma.push(Some(segment.reference_a * 1e3));
-        reference_step_ma.push(Some(segment.reference_a * 1e3));
+        reference_step_ma.push(Some(segment.reference_a * display_scale));
+        reference_step_ma.push(Some(segment.reference_a * display_scale));
         reference_step_ma.push(None);
     }
     let accepted_shapes = analysis
@@ -986,13 +1239,13 @@ const acceptedMeasuredMA = {accepted_measured_ma};
 const acceptedReferenceMA = {accepted_reference_ma};
 const referenceStepTimeS = {reference_step_time_s};
 const referenceStepMA = {reference_step_ma};
-const relativeErrorPercent = {relative_error_percent};
+const errorPlotY = {error_plot_y};
 const acceptedShapes = {accepted_shapes};
-const measuredVoltageV = {measured_voltage_v};
-const expectedVoltageV = {expected_voltage_v};
-const fitLineMeasuredVoltageV = {fit_line_measured_voltage_v};
-const fitLineExpectedVoltageV = {fit_line_expected_voltage_v};
-const fitResidualCurrentUA = {fit_residual_current_ua};
+const fitMeasuredX = {fit_measured_x};
+const fitExpectedY = {fit_expected_y};
+const fitLineX = {fit_line_x};
+const fitLineY = {fit_line_y};
+const fitResidualY = {fit_residual_y};
 const voltageFitLabel = {voltage_fit_label};
 
 Plotly.newPlot("time-overlay", [
@@ -1024,7 +1277,7 @@ Plotly.newPlot("time-overlay", [
 ], {{
     title: {{ text: "Detected steps and accepted calibration regions" }},
     xaxis: {{ title: {{ text: "Time (s)", standoff: 16 }}, automargin: true }},
-    yaxis: {{ title: {{ text: "Current (mA)", standoff: 18 }}, automargin: true }},
+    yaxis: {{ title: {{ text: {value_axis_label}, standoff: 18 }}, automargin: true }},
     shapes: acceptedShapes,
     margin: {{ l: 88, r: 24, t: 64, b: 78 }}
 }}, {{ responsive: true }});
@@ -1032,56 +1285,56 @@ Plotly.newPlot("time-overlay", [
 Plotly.newPlot("relative-error", [
     {{
         x: acceptedReferenceMA,
-        y: relativeErrorPercent,
+        y: errorPlotY,
         mode: "markers",
         type: "scatter",
         name: "Error",
         marker: {{ size: 4, color: "#228833" }}
     }}
 ], {{
-    title: {{ text: "Error vs reference (%FS)" }},
-    xaxis: {{ title: {{ text: "Reference current (mA)", standoff: 16 }}, automargin: true }},
-    yaxis: {{ title: {{ text: "Error (%FS, 20 mA)", standoff: 18 }}, automargin: true }},
+    title: {{ text: {error_plot_title} }},
+    xaxis: {{ title: {{ text: {reference_axis_label}, standoff: 16 }}, automargin: true }},
+    yaxis: {{ title: {{ text: {error_axis_label}, standoff: 18 }}, automargin: true }},
     margin: {{ l: 88, r: 24, t: 64, b: 78 }}
 }}, {{ responsive: true }});
 
 Plotly.newPlot("voltage-fit", [
     {{
-        x: measuredVoltageV,
-        y: expectedVoltageV,
+        x: fitMeasuredX,
+        y: fitExpectedY,
         mode: "markers",
         type: "scatter",
         name: "Accepted calibration samples",
         marker: {{ size: 5, color: "#3366cc" }}
     }},
     {{
-        x: fitLineMeasuredVoltageV,
-        y: fitLineExpectedVoltageV,
+        x: fitLineX,
+        y: fitLineY,
         mode: "lines",
         type: "scatter",
         name: "Linear fit",
         line: {{ width: 2, color: "#d65f00" }}
     }}
 ], {{
-    title: {{ text: "Expected voltage vs measured voltage" }},
-    xaxis: {{ title: {{ text: "Measured voltage (V)", standoff: 16 }}, automargin: true }},
-    yaxis: {{ title: {{ text: "Expected voltage (V)", standoff: 18 }}, automargin: true }},
+    title: {{ text: {fit_plot_title} }},
+    xaxis: {{ title: {{ text: {fit_x_axis_label}, standoff: 16 }}, automargin: true }},
+    yaxis: {{ title: {{ text: {fit_y_axis_label}, standoff: 18 }}, automargin: true }},
     margin: {{ l: 88, r: 24, t: 100, b: 78 }}
 }}, {{ responsive: true }});
 
 Plotly.newPlot("voltage-fit-residual", [
     {{
-        x: measuredVoltageV,
-        y: fitResidualCurrentUA,
+        x: fitMeasuredX,
+        y: fitResidualY,
         mode: "markers",
         type: "scatter",
         name: "Fit residual as current",
         marker: {{ size: 5, color: "#aa3377" }}
     }}
 ], {{
-    title: {{ text: "Residual after voltage fit, expressed as current" }},
-    xaxis: {{ title: {{ text: "Measured voltage (V)", standoff: 16 }}, automargin: true }},
-    yaxis: {{ title: {{ text: "Estimated current residual (uA)", standoff: 18 }}, automargin: true }},
+    title: {{ text: {residual_plot_title} }},
+    xaxis: {{ title: {{ text: {fit_x_axis_label}, standoff: 16 }}, automargin: true }},
+    yaxis: {{ title: {{ text: {residual_axis_label}, standoff: 18 }}, automargin: true }},
     margin: {{ l: 88, r: 24, t: 64, b: 78 }}
 }}, {{ responsive: true }});
 </script>
@@ -1090,6 +1343,8 @@ Plotly.newPlot("voltage-fit-residual", [
 "##,
         title = html_escape(&title),
         voltage_fit_label_html = html_escape(&voltage_fit_label),
+        value_axis_label = serde_json::to_string(capture.channel.value_axis_label())
+            .map_err(|e| format!("Failed to serialize value axis label: {e}"))?,
         raw_time_s = serde_json::to_string(&raw_time_s)
             .map_err(|e| format!("Failed to serialize plot raw time data: {e}"))?,
         raw_measured_ma = serde_json::to_string(&raw_measured_ma)
@@ -1104,22 +1359,38 @@ Plotly.newPlot("voltage-fit-residual", [
             .map_err(|e| format!("Failed to serialize plot reference-step time data: {e}"))?,
         reference_step_ma = serde_json::to_string(&reference_step_ma)
             .map_err(|e| format!("Failed to serialize plot reference-step data: {e}"))?,
-        relative_error_percent = serde_json::to_string(&relative_error_percent)
+        error_plot_y = serde_json::to_string(&error_plot_y)
             .map_err(|e| format!("Failed to serialize plot relative-error y data: {e}"))?,
         accepted_shapes = serde_json::to_string(&accepted_shapes)
             .map_err(|e| format!("Failed to serialize plot accepted-region shapes: {e}"))?,
-        measured_voltage_v = serde_json::to_string(&measured_voltage_v)
+        fit_measured_x = serde_json::to_string(&fit_measured_x)
             .map_err(|e| format!("Failed to serialize plot measured-voltage data: {e}"))?,
-        expected_voltage_v = serde_json::to_string(&expected_voltage_v)
+        fit_expected_y = serde_json::to_string(&fit_expected_y)
             .map_err(|e| format!("Failed to serialize plot expected-voltage data: {e}"))?,
-        fit_line_measured_voltage_v = serde_json::to_string(&fit_line_measured_voltage_v)
+        fit_line_x = serde_json::to_string(&fit_line_x)
             .map_err(|e| format!("Failed to serialize plot fit-line measured-voltage data: {e}"))?,
-        fit_line_expected_voltage_v = serde_json::to_string(&fit_line_expected_voltage_v)
+        fit_line_y = serde_json::to_string(&fit_line_y)
             .map_err(|e| format!("Failed to serialize plot fit-line expected-voltage data: {e}"))?,
-        fit_residual_current_ua = serde_json::to_string(&fit_residual_current_ua)
+        fit_residual_y = serde_json::to_string(&fit_residual_y)
             .map_err(|e| format!("Failed to serialize plot fit residual current data: {e}"))?,
         voltage_fit_label = serde_json::to_string(&voltage_fit_label)
             .map_err(|e| format!("Failed to serialize voltage-fit label: {e}"))?,
+        error_plot_title = serde_json::to_string(capture.channel.error_plot_title())
+            .map_err(|e| format!("Failed to serialize error plot title: {e}"))?,
+        reference_axis_label = serde_json::to_string(capture.channel.reference_axis_label())
+            .map_err(|e| format!("Failed to serialize reference axis label: {e}"))?,
+        error_axis_label = serde_json::to_string(capture.channel.error_axis_label())
+            .map_err(|e| format!("Failed to serialize error axis label: {e}"))?,
+        fit_plot_title = serde_json::to_string(capture.channel.fit_plot_title())
+            .map_err(|e| format!("Failed to serialize fit plot title: {e}"))?,
+        fit_x_axis_label = serde_json::to_string(capture.channel.fit_x_axis_label())
+            .map_err(|e| format!("Failed to serialize fit x-axis label: {e}"))?,
+        fit_y_axis_label = serde_json::to_string(capture.channel.fit_y_axis_label())
+            .map_err(|e| format!("Failed to serialize fit y-axis label: {e}"))?,
+        residual_plot_title = serde_json::to_string(capture.channel.residual_plot_title())
+            .map_err(|e| format!("Failed to serialize residual plot title: {e}"))?,
+        residual_axis_label = serde_json::to_string(capture.channel.residual_axis_label())
+            .map_err(|e| format!("Failed to serialize residual axis label: {e}"))?,
     );
 
     fs::write(&path, html).map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
@@ -1141,10 +1412,7 @@ fn utc_datestamp() -> String {
 }
 
 fn channel_for_signal_name(signal_name: &str) -> Option<CalibrationChannel> {
-    CURRENT_CHANNELS
-        .iter()
-        .copied()
-        .find(|channel| channel.signal_name == signal_name)
+    all_calibration_channels().find(|channel| channel.signal_name == signal_name)
 }
 
 fn html_escape(s: &str) -> String {
