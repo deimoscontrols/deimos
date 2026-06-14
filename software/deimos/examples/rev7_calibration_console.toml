@@ -1,0 +1,18 @@
+# Operator console config for `software/deimos/examples/rev7_calibration.rs`.
+# Run with:
+# cargo run -p deimos_console -- --config software/deimos/examples/rev7_calibration_console.toml
+
+multicast_group = "239.255.0.1"
+port = 29573
+window_seconds = 90.0
+staleness_threshold_secs = 3.0
+forensic_log_path = "/tmp/deimos-rev7-calibration-console.csv"
+
+[[panels]]
+title = "Rev7 4-20 mA Inputs"
+channels = [
+    "p1_4_20_mA_0_A.y",
+    "p1_4_20_mA_1_A.y",
+    "p1_4_20_mA_2_A.y",
+    "p1_4_20_mA_3_A.y",
+]
