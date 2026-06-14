@@ -1,16 +1,12 @@
 //! Calculate a Pt100 RTD's temperature reading from calculated probe resistance.
 //!
-//! ## References
-//!
-//! * [1] “ITS-90 Thermocouple Database, How to Use the Database.”
-//!   Accessed: May 19, 2024. [Online]. Available:
-//!   <https://srdata.nist.gov/its90/useofdatabase/use_of_database.html#Coefficients%20Tables>
+//! Based on DIN-43-760 tables; see scripts/pt100_rtd_din-43-760.py for processing.
 use once_cell::sync::Lazy;
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
-use interpn::MulticubicRegular;
+use interpn::{MulticubicRectilinear, MulticubicRegular};
 
 use super::*;
 use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
@@ -30,6 +26,37 @@ pub static INTERPOLATOR: Lazy<MulticubicRegular<'static, f64, 1>> = Lazy::new(||
     )
     .unwrap()
 });
+
+static PROBE_TEMP_GRID: [&[f64]; 1] = [&PROBE_TEMP_K];
+
+static PROBE_RESISTANCE_OHM: Lazy<Vec<f64>> = Lazy::new(|| {
+    (0..PROBE_RESISTANCE_N)
+        .map(|i| PROBE_RESISTANCE_START_OHM + PROBE_RESISTANCE_STEP_OHM * i as f64)
+        .collect()
+});
+
+static INVERSE_INTERPOLATOR: Lazy<MulticubicRectilinear<'static, f64, 1>> = Lazy::new(|| {
+    MulticubicRectilinear::<'_, f64, 1>::new(
+        &PROBE_TEMP_GRID,
+        PROBE_RESISTANCE_OHM.as_slice(),
+        true,
+    )
+    .unwrap()
+});
+
+/// Convert Pt100 resistance to temperature using the same table as the RTD calc.
+pub fn pt100_temperature_k_from_resistance_ohm(resistance_ohm: f64) -> Result<f64, String> {
+    INTERPOLATOR
+        .interp_one([resistance_ohm])
+        .map_err(|e| format!("Failed to interpolate Pt100 temperature: {e}"))
+}
+
+/// Convert Pt100 temperature to resistance using the inverse of the RTD calc table.
+pub fn pt100_resistance_ohm_from_temperature_k(temperature_k: f64) -> Result<f64, String> {
+    INVERSE_INTERPOLATOR
+        .interp_one([temperature_k])
+        .map_err(|e| format!("Failed to interpolate Pt100 resistance: {e}"))
+}
 
 /// Derive input voltage from amplifier output
 #[cfg_attr(feature = "python", pyclass)]
@@ -85,8 +112,9 @@ impl Calc for RtdPt100 {
         self.input_index = input_indices[0];
         self.output_index = output_range.clone().next().unwrap();
 
-        // Call the interpolator once to make sure it is initialized
+        // Call the interpolators once to make sure they are initialized.
         INTERPOLATOR.interp_one([0.0]).unwrap();
+        INVERSE_INTERPOLATOR.interp_one([273.15]).unwrap();
         Ok(())
     }
 
@@ -99,10 +127,7 @@ impl Calc for RtdPt100 {
     /// Run calcs for a cycle
     fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         let sensed_resistance = tape[self.input_index];
-
-        // An error here would indicate that we have encountered an unrepresentable number during interpolation.
-        // As of writing, no method of producing an error here is known.
-        let y = INTERPOLATOR.interp_one([sensed_resistance]).unwrap();
+        let y = pt100_temperature_k_from_resistance_ohm(sensed_resistance)?;
 
         tape[self.output_index] = y;
         Ok(())
@@ -139,17 +164,28 @@ impl Calc for RtdPt100 {
 #[cfg(test)]
 #[allow(clippy::items_after_test_module)]
 mod test {
-    use super::INTERPOLATOR;
+    use super::{
+        PROBE_RESISTANCE_START_OHM, PROBE_RESISTANCE_STEP_OHM,
+        pt100_resistance_ohm_from_temperature_k, pt100_temperature_k_from_resistance_ohm,
+    };
 
     #[test]
     fn test_interpolator() {
         // Check the interpolator against a value from the table
-        let inp = [19.82];
-        let interped = INTERPOLATOR.interp_one(inp).unwrap();
+        let interped = pt100_temperature_k_from_resistance_ohm(19.82).unwrap();
         let expected = -197.0 + 273.15;
         println!("{interped}, {expected}");
         let rel_err = (interped - expected) / expected;
         assert!(rel_err.abs() < 1e-8);
+    }
+
+    #[test]
+    fn test_inverse_interpolator_at_table_point() {
+        let expected_resistance = PROBE_RESISTANCE_START_OHM + 1000.0 * PROBE_RESISTANCE_STEP_OHM;
+        let temperature = pt100_temperature_k_from_resistance_ohm(expected_resistance).unwrap();
+        let resistance = pt100_resistance_ohm_from_temperature_k(temperature).unwrap();
+
+        assert!((resistance - expected_resistance).abs() < 1e-10);
     }
 }
 

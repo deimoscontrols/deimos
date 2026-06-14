@@ -1,9 +1,10 @@
 //! Rev7 DAQ calibration scaffold.
 //!
 //! This example starts with the rev7 4-20 mA inputs. For each channel, connect a
-//! Fluke 707 configured to auto-step through 0, 5, 10, 15, and 20 mA, then press
-//! Enter. The example records 90 seconds, writes one calibration CSV per channel,
-//! then processes calibration CSVs by loading them back from disk.
+//! Fluke 707 configured to auto-step through 0, 5, 10, 15, and 20 mA, press Enter
+//! to start recording, then run the stepping sequence during the recording. The
+//! example records 90 seconds, writes one calibration CSV per channel, then
+//! processes calibration CSVs by loading them back from disk.
 
 use std::{
     env,
@@ -18,6 +19,7 @@ use std::{
 use chrono::{DateTime, SecondsFormat, Utc};
 use deimos::{
     Controller, ControllerCtx, DataFrameDispatcher, LoopMethod, Overflow, Termination,
+    calc::{pt100_resistance_ohm_from_temperature_k, pt100_temperature_k_from_resistance_ohm},
     dispatcher::{DataFrameHandle, ReportingDispatcher},
     math::{polyfit, polyval},
     peripheral::DeimosDaqRev7,
@@ -27,7 +29,7 @@ use serde::{Deserialize, Serialize};
 const MODEL_NAME: &str = "deimos_daq_rev7";
 const PERIPHERAL_NAME: &str = "p1";
 const SERIAL_NUMBER: u64 = 2;
-const RATE_HZ: f64 = 10.0;
+const RATE_HZ: f64 = 20.0;
 const CAPTURE_SECONDS: u64 = 90;
 const DATAFRAME_MB: usize = 16;
 const REPORTING_MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(239, 255, 0, 1);
@@ -43,11 +45,12 @@ const VOLTAGE_FIT_ORDER: usize = 1;
 const ZERO_C_K: f64 = 273.15;
 const RTD_MIN_REFERENCE_K: f64 = ZERO_C_K - 200.0;
 const RTD_MAX_REFERENCE_K: f64 = ZERO_C_K + 800.0;
-const RTD_STEP_BELOW_ZERO_K: f64 = 10.0;
-const RTD_STEP_ABOVE_ZERO_K: f64 = 50.0;
+const RTD_STEP_K: f64 = 100.0;
 const RTD_STEP_DETECTION_TOLERANCE_K: f64 = 5.0;
-const MIN_RTD_STEP_DURATION_S: f64 = 1.0;
+const MIN_RTD_STEP_DURATION_S: f64 = 2.0;
 const RTD_CAPTURE_SECONDS: u64 = 240;
+const RTD_REFERENCE_CURRENT_A: f64 = 250e-6;
+const RTD_FRONTEND_GAIN: f64 = 25.7;
 
 const OUTPUT_ROOT: &str = "./software/deimos/examples/rev7_calibration";
 const CONSOLE_CONFIG_PATH: &str = "software/deimos/examples/rev7_calibration_console.toml";
@@ -134,14 +137,14 @@ impl CalibrationChannel {
     fn fit_units(self) -> &'static str {
         match self.kind {
             CalibrationKind::Current4To20 => "V",
-            CalibrationKind::Rtd => "K",
+            CalibrationKind::Rtd => "V",
         }
     }
 
     fn fit_heading(self) -> &'static str {
         match self.kind {
             CalibrationKind::Current4To20 => "Voltage fit",
-            CalibrationKind::Rtd => "Temperature fit",
+            CalibrationKind::Rtd => "Voltage fit",
         }
     }
 
@@ -190,28 +193,28 @@ impl CalibrationChannel {
     fn fit_plot_title(self) -> &'static str {
         match self.kind {
             CalibrationKind::Current4To20 => "Expected voltage vs measured voltage",
-            CalibrationKind::Rtd => "Expected temperature vs measured temperature",
+            CalibrationKind::Rtd => "Corrected RTD voltage vs measured voltage",
         }
     }
 
     fn fit_x_axis_label(self) -> &'static str {
         match self.kind {
             CalibrationKind::Current4To20 => "Measured voltage (V)",
-            CalibrationKind::Rtd => "Measured temperature (K)",
+            CalibrationKind::Rtd => "Measured RTD voltage (V)",
         }
     }
 
     fn fit_y_axis_label(self) -> &'static str {
         match self.kind {
             CalibrationKind::Current4To20 => "Expected voltage (V)",
-            CalibrationKind::Rtd => "Expected temperature (K)",
+            CalibrationKind::Rtd => "Corrected RTD voltage (V)",
         }
     }
 
     fn residual_plot_title(self) -> &'static str {
         match self.kind {
             CalibrationKind::Current4To20 => "Residual after voltage fit, expressed as current",
-            CalibrationKind::Rtd => "Residual after temperature fit",
+            CalibrationKind::Rtd => "Residual temperature error after voltage fit propagation",
         }
     }
 
@@ -219,6 +222,13 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Estimated current residual (uA)",
             CalibrationKind::Rtd => "Temperature residual (K)",
+        }
+    }
+
+    fn residual_x_axis_label(self) -> &'static str {
+        match self.kind {
+            CalibrationKind::Current4To20 => self.fit_x_axis_label(),
+            CalibrationKind::Rtd => "Reference temperature (K)",
         }
     }
 }
@@ -270,7 +280,18 @@ struct ChannelAnalysis {
 struct VoltageFit {
     coefficients: Vec<f64>,
     r2: f64,
-    residuals_v: Vec<f64>,
+    measured_x: Vec<f64>,
+    expected_y: Vec<f64>,
+    residuals: Vec<f64>,
+    temperature_error_fit: Option<NormalizedLinearFit>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct NormalizedLinearFit {
+    coefficients: Vec<f64>,
+    r2: f64,
+    x_center: f64,
+    x_scale: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -293,6 +314,12 @@ struct CalibrationJsonRecord {
     datestamp_utc: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     reference_resistor_ohm: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rtd_reference_current_a: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rtd_frontend_gain: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature_error_fit: Option<NormalizedLinearFit>,
     polynomial_order: usize,
     polynomial_coefficients: Vec<f64>,
     r2: f64,
@@ -300,6 +327,37 @@ struct CalibrationJsonRecord {
     output_units: String,
     accepted_sample_count: usize,
     detected_step_count: usize,
+}
+
+#[derive(Debug, Serialize)]
+struct CalibrationSummary {
+    model: String,
+    serial_number: u64,
+    datestamp_utc: String,
+    records: Vec<CalibrationSummaryRecord>,
+}
+
+#[derive(Debug, Serialize)]
+struct CalibrationSummaryRecord {
+    source: String,
+    channel_label: String,
+    channel: String,
+    signal_name: String,
+    detected_step_count: usize,
+    accepted_sample_count: usize,
+    error_units: String,
+    rmse: f64,
+    mean_error: f64,
+    max_abs_error: f64,
+    polynomial_coefficients: Vec<f64>,
+    r2: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature_error_fit: Option<NormalizedLinearFit>,
+    input_units: String,
+    output_units: String,
+    samples_path: String,
+    plot_path: String,
+    calibration_record_path: String,
 }
 
 enum RunMode {
@@ -356,10 +414,10 @@ fn parse_args() -> Result<RunMode, String> {
 fn collect_all_channels(process_after_each_run: bool) -> Result<Vec<PathBuf>, String> {
     println!("Rev7 calibration collection");
     println!(
-        "4-20 mA channels use a Fluke 707 auto-step through 0, 5, 10, 15, and 20 mA. Each current channel records for {CAPTURE_SECONDS} s at {RATE_HZ} Hz."
+        "4-20 mA channels use a Fluke 707 auto-step through 0, 5, 10, 15, and 20 mA during the recording. Each current channel records for {CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
-        "RTD channels use manual holds from -200 C to +800 C. Each RTD channel records for {RTD_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
+        "RTD channels use manual holds from -200 C to +700 C during the recording. Each RTD channel records for {RTD_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
         "Monitor live channels with: cargo run -p deimos_console -- --config {CONSOLE_CONFIG_PATH}"
@@ -394,13 +452,13 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
     match channel.kind {
         CalibrationKind::Current4To20 => {
             println!(
-                "Start the 0/5/10/15/20 mA auto-step sequence, then press Enter to record {} seconds.",
+                "Ready the 0/5/10/15/20 mA auto-step sequence. Press Enter to start recording, then start the stepping sequence during the {} second run.",
                 channel.capture_seconds(),
             );
         }
         CalibrationKind::Rtd => {
             println!(
-                "Manually step from -200 C to +800 C. Hold about 5 s every 10 K below 0 C and every 100 K above 0 C, then press Enter to record {} seconds.",
+                "Ready the RTD calibrator at -200 C. Press Enter to start recording, then manually step to +700 C during the {} second run with about 5 s holds every 100 K.",
                 channel.capture_seconds(),
             );
         }
@@ -445,7 +503,21 @@ fn run_channel_capture(channel: CalibrationChannel) -> Result<ChannelCapture, St
     let dropped_frames = reporting.dropped_frames_handle();
     controller.add_dispatcher("reporting", reporting);
 
-    controller.run(&None, None)?;
+    let mut run_handle = controller.run_nonblocking(None, None, true)?;
+    println!(
+        "Recording {} for up to {} seconds. Perform the calibration stepping now. Press Enter to stop this run early.",
+        channel.label,
+        channel.capture_seconds(),
+    );
+    let mut line = String::new();
+    stdin()
+        .read_line(&mut line)
+        .map_err(|e| format!("Failed to read early-stop prompt: {e}"))?;
+    if run_handle.is_running() {
+        run_handle.stop();
+    }
+    let stop_reason = run_handle.join()?;
+    println!("Stopped {}: {stop_reason}", channel.label);
 
     let dropped = dropped_frames.load(Ordering::Relaxed);
     if dropped != 0 {
@@ -636,17 +708,9 @@ fn summary_dir_for_process_path(path: &Path) -> Result<&Path, String> {
 fn process_calibration_files(paths: &[PathBuf], summary_dir: &Path) -> Result<(), String> {
     create_dir_all(summary_dir)
         .map_err(|e| format!("Failed to create {}: {e}", summary_dir.display()))?;
-    let summary_path =
-        summary_dir.join(format!("rev7_calibration_summary_{}.csv", utc_datestamp()));
-    let mut summary = BufWriter::new(
-        File::create(&summary_path)
-            .map_err(|e| format!("Failed to create {}: {e}", summary_path.display()))?,
-    );
-    writeln!(
-        summary,
-        "source,channel,signal,detected_steps,accepted_samples,rmse_a,mean_error_a,max_abs_error_a,voltage_fit_c0,voltage_fit_c1,voltage_fit_r2"
-    )
-    .map_err(|e| format!("Failed to write {}: {e}", summary_path.display()))?;
+    let datestamp_utc = utc_datestamp();
+    let summary_path = summary_dir.join(format!("rev7_calibration_summary_{datestamp_utc}.json"));
+    let mut summary_records = Vec::new();
 
     for path in paths {
         let capture = read_calibration_data(path)?;
@@ -655,27 +719,30 @@ fn process_calibration_files(paths: &[PathBuf], summary_dir: &Path) -> Result<()
         let plot_path = write_analysis_plots(&capture, &analysis)?;
         let record_path = write_calibration_json_record(&capture, &analysis)?;
 
-        writeln!(
-            summary,
-            "{},{},{},{},{},{:.12},{:.12},{:.12},{:.12},{:.12},{:.12}",
-            path.display(),
-            capture.channel.label,
-            capture.channel.signal_name,
-            analysis.segments.len(),
-            analysis.samples.len(),
-            analysis.rmse_a,
-            analysis.mean_error_a,
-            analysis.max_abs_error_a,
-            analysis.voltage_fit.coefficients[0],
-            analysis.voltage_fit.coefficients[1],
-            analysis.voltage_fit.r2,
-        )
-        .map_err(|e| format!("Failed to write {}: {e}", summary_path.display()))?;
-
         let (error_scale, error_units) = match capture.channel.kind {
             CalibrationKind::Current4To20 => (1e6, "uA"),
             CalibrationKind::Rtd => (1.0, "K"),
         };
+        summary_records.push(CalibrationSummaryRecord {
+            source: path.display().to_string(),
+            channel_label: capture.channel.label.to_owned(),
+            channel: capture.channel.analog_input_name.to_owned(),
+            signal_name: capture.channel.signal_name.to_owned(),
+            detected_step_count: analysis.segments.len(),
+            accepted_sample_count: analysis.samples.len(),
+            error_units: error_units.to_owned(),
+            rmse: analysis.rmse_a * error_scale,
+            mean_error: analysis.mean_error_a * error_scale,
+            max_abs_error: analysis.max_abs_error_a * error_scale,
+            polynomial_coefficients: analysis.voltage_fit.coefficients.clone(),
+            r2: analysis.voltage_fit.r2,
+            temperature_error_fit: analysis.voltage_fit.temperature_error_fit.clone(),
+            input_units: capture.channel.fit_units().to_owned(),
+            output_units: capture.channel.fit_units().to_owned(),
+            samples_path: samples_path.display().to_string(),
+            plot_path: plot_path.display().to_string(),
+            calibration_record_path: record_path.display().to_string(),
+        });
         println!(
             "{}: steps={} accepted_samples={} rmse={:.3} {error_units} mean_error={:.3} {error_units} max_abs_error={:.3} {error_units}",
             capture.channel.label,
@@ -690,6 +757,17 @@ fn process_calibration_files(paths: &[PathBuf], summary_dir: &Path) -> Result<()
         println!("  wrote {}", plot_path.display());
         println!("  wrote {}", record_path.display());
     }
+
+    let summary = CalibrationSummary {
+        model: MODEL_NAME.to_owned(),
+        serial_number: SERIAL_NUMBER,
+        datestamp_utc,
+        records: summary_records,
+    };
+    let json = serde_json::to_string_pretty(&summary)
+        .map_err(|e| format!("Failed to serialize calibration summary: {e}"))?;
+    fs::write(&summary_path, json)
+        .map_err(|e| format!("Failed to write {}: {e}", summary_path.display()))?;
 
     println!("Summary written to {}", summary_path.display());
     println!(
@@ -817,30 +895,118 @@ fn fit_expected_value(
     samples: &[ErrorSample],
     kind: CalibrationKind,
 ) -> Result<VoltageFit, String> {
+    match kind {
+        CalibrationKind::Current4To20 => fit_current_voltage(samples),
+        CalibrationKind::Rtd => fit_rtd_voltage_from_temperature_error(samples),
+    }
+}
+
+fn fit_current_voltage(samples: &[ErrorSample]) -> Result<VoltageFit, String> {
     let points = samples
         .iter()
         .map(|sample| {
             (
-                fit_input_value(sample, kind),
-                fit_expected_value_y(sample, kind),
+                measured_voltage_v(sample),
+                expected_voltage_v(sample.reference_a),
             )
         })
         .collect::<Vec<_>>();
-    let coefficients = polyfit(&points, VOLTAGE_FIT_ORDER)?;
-    let expected_mean_v = points.iter().map(|(_, y)| *y).sum::<f64>() / points.len() as f64;
+    let (coefficients, r2, residuals) = fit_linear_points(&points)?;
 
+    Ok(VoltageFit {
+        coefficients,
+        r2,
+        measured_x: points.iter().map(|(x, _)| *x).collect(),
+        expected_y: points.iter().map(|(_, y)| *y).collect(),
+        residuals,
+        temperature_error_fit: None,
+    })
+}
+
+fn fit_rtd_voltage_from_temperature_error(samples: &[ErrorSample]) -> Result<VoltageFit, String> {
+    let temperature_error_fit = fit_normalized_temperature_error(samples)?;
+    let points = samples
+        .iter()
+        .map(|sample| {
+            let measured_temperature_k = sample.measured_a;
+            let fitted_error_k = normalized_fit_value(
+                measured_temperature_k,
+                &temperature_error_fit.coefficients,
+                temperature_error_fit.x_center,
+                temperature_error_fit.x_scale,
+            );
+            let corrected_temperature_k = measured_temperature_k + fitted_error_k;
+            Ok((
+                rtd_voltage_from_temperature_k(measured_temperature_k)?,
+                rtd_voltage_from_temperature_k(corrected_temperature_k)?,
+            ))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let (coefficients, r2, _) = fit_linear_points(&points)?;
+
+    let residuals = samples
+        .iter()
+        .zip(points.iter())
+        .map(|(sample, (measured_voltage_v, _))| {
+            let corrected_voltage_v = polyval(*measured_voltage_v, &coefficients);
+            let corrected_temperature_k = rtd_temperature_from_voltage_v(corrected_voltage_v)?;
+            Ok(sample.reference_a - corrected_temperature_k)
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+
+    Ok(VoltageFit {
+        coefficients,
+        r2,
+        measured_x: points.iter().map(|(x, _)| *x).collect(),
+        expected_y: points.iter().map(|(_, y)| *y).collect(),
+        residuals,
+        temperature_error_fit: Some(temperature_error_fit),
+    })
+}
+
+fn fit_normalized_temperature_error(
+    samples: &[ErrorSample],
+) -> Result<NormalizedLinearFit, String> {
+    let x_center =
+        samples.iter().map(|sample| sample.measured_a).sum::<f64>() / samples.len() as f64;
+    let x_scale = samples
+        .iter()
+        .map(|sample| (sample.measured_a - x_center).abs())
+        .fold(0.0, f64::max)
+        .max(1.0);
+    let points = samples
+        .iter()
+        .map(|sample| {
+            (
+                normalized_x(sample.measured_a, x_center, x_scale),
+                sample.error_a,
+            )
+        })
+        .collect::<Vec<_>>();
+    let (coefficients, r2, _) = fit_linear_points(&points)?;
+
+    Ok(NormalizedLinearFit {
+        coefficients,
+        r2,
+        x_center,
+        x_scale,
+    })
+}
+
+fn fit_linear_points(points: &[(f64, f64)]) -> Result<(Vec<f64>, f64, Vec<f64>), String> {
+    let coefficients = polyfit(points, VOLTAGE_FIT_ORDER)?;
+    let expected_mean = points.iter().map(|(_, y)| *y).sum::<f64>() / points.len() as f64;
     let mut ss_res = 0.0;
     let mut ss_tot = 0.0;
-    let mut residuals_v = Vec::with_capacity(points.len());
-    for (measured, expected) in points {
+    let mut residuals = Vec::with_capacity(points.len());
+    for &(measured, expected) in points {
         let fitted = polyval(measured, &coefficients);
         let residual = expected - fitted;
-        residuals_v.push(residual);
+        residuals.push(residual);
         ss_res += residual * residual;
-        let centered_expected_v = expected - expected_mean_v;
-        ss_tot += centered_expected_v * centered_expected_v;
+        let centered_expected = expected - expected_mean;
+        ss_tot += centered_expected * centered_expected;
     }
-
     let r2 = if ss_tot > 0.0 {
         1.0 - ss_res / ss_tot
     } else if ss_res == 0.0 {
@@ -849,11 +1015,15 @@ fn fit_expected_value(
         0.0
     };
 
-    Ok(VoltageFit {
-        coefficients,
-        r2,
-        residuals_v,
-    })
+    Ok((coefficients, r2, residuals))
+}
+
+fn normalized_x(x: f64, center: f64, scale: f64) -> f64 {
+    (x - center) / scale
+}
+
+fn normalized_fit_value(x: f64, coefficients: &[f64], center: f64, scale: f64) -> f64 {
+    polyval(normalized_x(x, center, scale), coefficients)
 }
 
 fn detect_step_segments(capture: &ChannelCapture) -> Result<Vec<StepSegment>, String> {
@@ -905,12 +1075,7 @@ fn nearest_rtd_reference_k(measured_k: f64) -> Option<f64> {
         return None;
     }
 
-    let step_k = if measured_k < ZERO_C_K {
-        RTD_STEP_BELOW_ZERO_K
-    } else {
-        RTD_STEP_ABOVE_ZERO_K
-    };
-    let reference_k = ZERO_C_K + ((measured_k - ZERO_C_K) / step_k).round() * step_k;
+    let reference_k = ZERO_C_K + ((measured_k - ZERO_C_K) / RTD_STEP_K).round() * RTD_STEP_K;
 
     if (RTD_MIN_REFERENCE_K..=RTD_MAX_REFERENCE_K).contains(&reference_k)
         && (measured_k - reference_k).abs() <= RTD_STEP_DETECTION_TOLERANCE_K
@@ -1005,18 +1170,15 @@ fn expected_voltage_v(reference_a: f64) -> f64 {
     reference_a * REFERENCE_RESISTOR_OHM
 }
 
-fn fit_input_value(sample: &ErrorSample, kind: CalibrationKind) -> f64 {
-    match kind {
-        CalibrationKind::Current4To20 => measured_voltage_v(sample),
-        CalibrationKind::Rtd => sample.measured_a,
-    }
+fn rtd_voltage_from_temperature_k(temperature_k: f64) -> Result<f64, String> {
+    Ok(pt100_resistance_ohm_from_temperature_k(temperature_k)?
+        * RTD_REFERENCE_CURRENT_A
+        * RTD_FRONTEND_GAIN)
 }
 
-fn fit_expected_value_y(sample: &ErrorSample, kind: CalibrationKind) -> f64 {
-    match kind {
-        CalibrationKind::Current4To20 => expected_voltage_v(sample.reference_a),
-        CalibrationKind::Rtd => sample.reference_a,
-    }
+fn rtd_temperature_from_voltage_v(voltage_v: f64) -> Result<f64, String> {
+    let resistance_ohm = voltage_v / (RTD_REFERENCE_CURRENT_A * RTD_FRONTEND_GAIN);
+    pt100_temperature_k_from_resistance_ohm(resistance_ohm)
 }
 
 fn write_error_samples(
@@ -1061,6 +1223,15 @@ fn write_calibration_json_record(
             CalibrationKind::Current4To20 => Some(REFERENCE_RESISTOR_OHM),
             CalibrationKind::Rtd => None,
         },
+        rtd_reference_current_a: match capture.channel.kind {
+            CalibrationKind::Current4To20 => None,
+            CalibrationKind::Rtd => Some(RTD_REFERENCE_CURRENT_A),
+        },
+        rtd_frontend_gain: match capture.channel.kind {
+            CalibrationKind::Current4To20 => None,
+            CalibrationKind::Rtd => Some(RTD_FRONTEND_GAIN),
+        },
+        temperature_error_fit: analysis.voltage_fit.temperature_error_fit.clone(),
         polynomial_order: VOLTAGE_FIT_ORDER,
         polynomial_coefficients: analysis.voltage_fit.coefficients.clone(),
         r2: analysis.voltage_fit.r2,
@@ -1074,6 +1245,29 @@ fn write_calibration_json_record(
     fs::write(&path, json).map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
 
     Ok(path)
+}
+
+fn fit_label(channel: CalibrationChannel, fit: &VoltageFit) -> String {
+    let voltage_fit = format!(
+        "{}: expected = {:.9} + {:.9} * measured, R^2 = {:.9}",
+        channel.fit_heading(),
+        fit.coefficients[0],
+        fit.coefficients[1],
+        fit.r2,
+    );
+
+    if let Some(temperature_error_fit) = &fit.temperature_error_fit {
+        format!(
+            "Temperature error fit: error_K = {:.9} + {:.9} * ((T_K - {:.6}) / {:.6}), R^2 = {:.9}; {voltage_fit}",
+            temperature_error_fit.coefficients[0],
+            temperature_error_fit.coefficients[1],
+            temperature_error_fit.x_center,
+            temperature_error_fit.x_scale,
+            temperature_error_fit.r2,
+        )
+    } else {
+        voltage_fit
+    }
 }
 
 fn write_analysis_plots(
@@ -1114,16 +1308,8 @@ fn write_analysis_plots(
             CalibrationKind::Rtd => sample.error_a,
         })
         .collect::<Vec<_>>();
-    let fit_measured_x = analysis
-        .samples
-        .iter()
-        .map(|sample| fit_input_value(sample, capture.channel.kind))
-        .collect::<Vec<_>>();
-    let fit_expected_y = analysis
-        .samples
-        .iter()
-        .map(|sample| fit_expected_value_y(sample, capture.channel.kind))
-        .collect::<Vec<_>>();
+    let fit_measured_x = analysis.voltage_fit.measured_x.clone();
+    let fit_expected_y = analysis.voltage_fit.expected_y.clone();
     let min_fit_x = fit_measured_x.iter().copied().fold(f64::INFINITY, f64::min);
     let max_fit_x = fit_measured_x
         .iter()
@@ -1136,20 +1322,26 @@ fn write_analysis_plots(
         .collect::<Vec<_>>();
     let fit_residual_y = analysis
         .voltage_fit
-        .residuals_v
+        .residuals
         .iter()
         .map(|residual| match capture.channel.kind {
             CalibrationKind::Current4To20 => residual / REFERENCE_RESISTOR_OHM * 1e6,
             CalibrationKind::Rtd => *residual,
         })
         .collect::<Vec<_>>();
-    let voltage_fit_label = format!(
-        "{}: expected = {:.9} + {:.9} * measured, R^2 = {:.9}",
-        capture.channel.fit_heading(),
-        analysis.voltage_fit.coefficients[0],
-        analysis.voltage_fit.coefficients[1],
-        analysis.voltage_fit.r2,
-    );
+    let fit_residual_x = match capture.channel.kind {
+        CalibrationKind::Current4To20 => fit_measured_x.clone(),
+        CalibrationKind::Rtd => analysis
+            .samples
+            .iter()
+            .map(|sample| sample.reference_a)
+            .collect::<Vec<_>>(),
+    };
+    let voltage_fit_label = fit_label(capture.channel, &analysis.voltage_fit);
+    let residual_trace_name = match capture.channel.kind {
+        CalibrationKind::Current4To20 => "Fit residual as current",
+        CalibrationKind::Rtd => "Propagated temperature residual",
+    };
 
     let mut reference_step_time_s = Vec::new();
     let mut reference_step_ma = Vec::new();
@@ -1245,6 +1437,7 @@ const fitMeasuredX = {fit_measured_x};
 const fitExpectedY = {fit_expected_y};
 const fitLineX = {fit_line_x};
 const fitLineY = {fit_line_y};
+const fitResidualX = {fit_residual_x};
 const fitResidualY = {fit_residual_y};
 const voltageFitLabel = {voltage_fit_label};
 
@@ -1324,16 +1517,16 @@ Plotly.newPlot("voltage-fit", [
 
 Plotly.newPlot("voltage-fit-residual", [
     {{
-        x: fitMeasuredX,
+        x: fitResidualX,
         y: fitResidualY,
         mode: "markers",
         type: "scatter",
-        name: "Fit residual as current",
+        name: {residual_trace_name},
         marker: {{ size: 5, color: "#aa3377" }}
     }}
 ], {{
     title: {{ text: {residual_plot_title} }},
-    xaxis: {{ title: {{ text: {fit_x_axis_label}, standoff: 16 }}, automargin: true }},
+    xaxis: {{ title: {{ text: {residual_x_axis_label}, standoff: 16 }}, automargin: true }},
     yaxis: {{ title: {{ text: {residual_axis_label}, standoff: 18 }}, automargin: true }},
     margin: {{ l: 88, r: 24, t: 64, b: 78 }}
 }}, {{ responsive: true }});
@@ -1371,10 +1564,14 @@ Plotly.newPlot("voltage-fit-residual", [
             .map_err(|e| format!("Failed to serialize plot fit-line measured-voltage data: {e}"))?,
         fit_line_y = serde_json::to_string(&fit_line_y)
             .map_err(|e| format!("Failed to serialize plot fit-line expected-voltage data: {e}"))?,
+        fit_residual_x = serde_json::to_string(&fit_residual_x)
+            .map_err(|e| format!("Failed to serialize plot fit residual x data: {e}"))?,
         fit_residual_y = serde_json::to_string(&fit_residual_y)
             .map_err(|e| format!("Failed to serialize plot fit residual current data: {e}"))?,
         voltage_fit_label = serde_json::to_string(&voltage_fit_label)
             .map_err(|e| format!("Failed to serialize voltage-fit label: {e}"))?,
+        residual_trace_name = serde_json::to_string(residual_trace_name)
+            .map_err(|e| format!("Failed to serialize residual trace name: {e}"))?,
         error_plot_title = serde_json::to_string(capture.channel.error_plot_title())
             .map_err(|e| format!("Failed to serialize error plot title: {e}"))?,
         reference_axis_label = serde_json::to_string(capture.channel.reference_axis_label())
@@ -1389,6 +1586,8 @@ Plotly.newPlot("voltage-fit-residual", [
             .map_err(|e| format!("Failed to serialize fit y-axis label: {e}"))?,
         residual_plot_title = serde_json::to_string(capture.channel.residual_plot_title())
             .map_err(|e| format!("Failed to serialize residual plot title: {e}"))?,
+        residual_x_axis_label = serde_json::to_string(capture.channel.residual_x_axis_label())
+            .map_err(|e| format!("Failed to serialize residual x-axis label: {e}"))?,
         residual_axis_label = serde_json::to_string(capture.channel.residual_axis_label())
             .map_err(|e| format!("Failed to serialize residual axis label: {e}"))?,
     );
