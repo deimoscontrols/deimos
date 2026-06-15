@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-06-15 0.17.1
+
+This update adds calibration procedures for the Rev7 and makes some
+supporting improvements.
+
+* deimos
+    * Add `rev7_calibration` example
+    * Remove initial calc evaluation before entering control loop
+        * No longer needed, since we now wait until all peripherals have responded to start calcs
+        * Removing this fixes software-side filter initialization
+    * Add supporting functions to thermocouple and RTD calc modules
+
 ## 2026-06-08 0.17.0
 
 This update moves the rev7 firmware's filter construction and runtime
