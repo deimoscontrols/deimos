@@ -24,3 +24,11 @@ channels = [
     "p1_rtd_1.temperature_K",
     "p1_rtd_2.temperature_K",
 ]
+
+[[panels]]
+title = "Rev7 Thermocouple Inputs"
+channels = [
+    "p1_tc_0.temperature_K",
+    "p1_tc_1.temperature_K",
+    "p1_board_rtd_filtered.y",
+]

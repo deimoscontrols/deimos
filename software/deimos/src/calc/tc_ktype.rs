@@ -47,6 +47,15 @@ pub static INTERPOLATOR: Lazy<MulticubicRegular<'static, f64, 2>> = Lazy::new(||
     .unwrap()
 });
 
+pub fn ktype_temperature_k_from_voltage_v_and_cold_junction_k(
+    sensed_voltage_v: f64,
+    cold_junction_temperature_k: f64,
+) -> Result<f64, String> {
+    INTERPOLATOR
+        .interp_one([sensed_voltage_v, cold_junction_temperature_k])
+        .map_err(|e| format!("Failed to interpolate K-type thermocouple table: {e:?}"))
+}
+
 /// Calculate a K-type thermocouple's temperature reading in (K) from voltage,
 /// using the ITS-90 method for cold-junction correction.
 #[cfg_attr(feature = "python", pyclass)]
@@ -129,9 +138,11 @@ impl Calc for TcKtype {
         let cold_junction_temp = tape[self.input_indices[1]];
         // An error here would indicate that we have encountered an unrepresentable number during interpolation.
         // As of writing, no method of producing an error here is known.
-        let y = INTERPOLATOR
-            .interp_one([sensed_voltage, cold_junction_temp])
-            .unwrap();
+        let y = ktype_temperature_k_from_voltage_v_and_cold_junction_k(
+            sensed_voltage,
+            cold_junction_temp,
+        )
+        .unwrap();
 
         tape[self.output_index] = y;
         Ok(())
@@ -174,7 +185,7 @@ impl Calc for TcKtype {
 #[cfg(test)]
 #[allow(clippy::items_after_test_module)]
 mod test {
-    use super::INTERPOLATOR;
+    use super::{INTERPOLATOR, ktype_temperature_k_from_voltage_v_and_cold_junction_k};
 
     #[test]
     fn test_interpolator() {
@@ -185,6 +196,15 @@ mod test {
         let expected = -90.0 + 273.15;
         let rel_err = (interped - expected) / expected;
         assert!(rel_err.abs() < 1e-5);
+    }
+
+    #[test]
+    fn helper_matches_interpolator() {
+        let inp = [0.0, 273.15];
+        let helper =
+            ktype_temperature_k_from_voltage_v_and_cold_junction_k(inp[0], inp[1]).unwrap();
+        let interped = INTERPOLATOR.interp_one(inp).unwrap();
+        assert_eq!(helper, interped);
     }
 }
 

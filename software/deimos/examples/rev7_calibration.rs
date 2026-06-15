@@ -19,7 +19,10 @@ use std::{
 use chrono::{DateTime, SecondsFormat, Utc};
 use deimos::{
     Controller, ControllerCtx, DataFrameDispatcher, LoopMethod, Overflow, Termination,
-    calc::{pt100_resistance_ohm_from_temperature_k, pt100_temperature_k_from_resistance_ohm},
+    calc::{
+        ktype_temperature_k_from_voltage_v_and_cold_junction_k,
+        pt100_resistance_ohm_from_temperature_k, pt100_temperature_k_from_resistance_ohm,
+    },
     dispatcher::{DataFrameHandle, ReportingDispatcher},
     math::{polyfit, polyval},
     peripheral::DeimosDaqRev7,
@@ -53,6 +56,16 @@ const RTD_CAPTURE_SECONDS: u64 = 240;
 const VA720_ACCURACY_K: f64 = 0.33;
 const RTD_REFERENCE_CURRENT_A: f64 = 250e-6;
 const RTD_FRONTEND_GAIN: f64 = 25.7;
+const TC_MIN_REFERENCE_K: f64 = ZERO_C_K - 50.0;
+const TC_MAX_REFERENCE_K: f64 = ZERO_C_K + 1300.0;
+const TC_STEP_K: f64 = 10.0;
+const TC_STEP_DETECTION_TOLERANCE_K: f64 = 5.0;
+const MIN_TC_STEP_DURATION_S: f64 = 0.5;
+const TC_CAPTURE_SECONDS: u64 = 240;
+const VA710_TEMPERATURE_ACCURACY_K: f64 = 0.3;
+const VA710_COLD_JUNCTION_ACCURACY_K: f64 = 0.3;
+const VA710_NEAR_ROOM_VOLTAGE_ACCURACY_K: f64 = 0.25;
+const BOARD_COLD_JUNCTION_SIGNAL_NAME: &str = "p1_board_rtd_filtered.y";
 
 const OUTPUT_ROOT: &str = "./software/deimos/examples/rev7_calibration";
 const CONSOLE_CONFIG_PATH: &str = "software/deimos/examples/rev7_calibration_console.toml";
@@ -71,6 +84,7 @@ struct CalibrationChannel {
 enum CalibrationKind {
     Current4To20,
     Rtd,
+    Thermocouple,
 }
 
 const CURRENT_CHANNELS: [CalibrationChannel; 4] = [
@@ -128,11 +142,29 @@ const RTD_CHANNELS: [CalibrationChannel; 3] = [
     },
 ];
 
+const THERMOCOUPLE_CHANNELS: [CalibrationChannel; 2] = [
+    CalibrationChannel {
+        label: "Thermocouple channel 0 (ain10)",
+        analog_input_name: "ain10",
+        signal_name: "p1_tc_0.temperature_K",
+        slug: "tc_0",
+        kind: CalibrationKind::Thermocouple,
+    },
+    CalibrationChannel {
+        label: "Thermocouple channel 1 (ain11)",
+        analog_input_name: "ain11",
+        signal_name: "p1_tc_1.temperature_K",
+        slug: "tc_1",
+        kind: CalibrationKind::Thermocouple,
+    },
+];
+
 impl CalibrationChannel {
     fn capture_seconds(self) -> u64 {
         match self.kind {
             CalibrationKind::Current4To20 => CAPTURE_SECONDS,
             CalibrationKind::Rtd => RTD_CAPTURE_SECONDS,
+            CalibrationKind::Thermocouple => TC_CAPTURE_SECONDS,
         }
     }
 
@@ -140,6 +172,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "V",
             CalibrationKind::Rtd => "V",
+            CalibrationKind::Thermocouple => "K",
         }
     }
 
@@ -147,6 +180,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Voltage fit",
             CalibrationKind::Rtd => "Voltage fit",
+            CalibrationKind::Thermocouple => "Temperature fit",
         }
     }
 
@@ -154,6 +188,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => MIN_STEP_DURATION_S,
             CalibrationKind::Rtd => MIN_RTD_STEP_DURATION_S,
+            CalibrationKind::Thermocouple => MIN_TC_STEP_DURATION_S,
         }
     }
 
@@ -161,6 +196,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => 1e3,
             CalibrationKind::Rtd => 1.0,
+            CalibrationKind::Thermocouple => 1.0,
         }
     }
 
@@ -168,6 +204,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Current (mA)",
             CalibrationKind::Rtd => "Temperature (K)",
+            CalibrationKind::Thermocouple => "Adjusted temperature (K)",
         }
     }
 
@@ -175,6 +212,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Reference current (mA)",
             CalibrationKind::Rtd => "Reference temperature (K)",
+            CalibrationKind::Thermocouple => "Reference temperature (K)",
         }
     }
 
@@ -182,6 +220,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Error vs reference (%FS)",
             CalibrationKind::Rtd => "Temperature error vs reference",
+            CalibrationKind::Thermocouple => "Thermocouple temperature error vs reference",
         }
     }
 
@@ -189,6 +228,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Error (%FS, 20 mA)",
             CalibrationKind::Rtd => "Error (K)",
+            CalibrationKind::Thermocouple => "Error (K)",
         }
     }
 
@@ -196,6 +236,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Expected voltage vs measured voltage",
             CalibrationKind::Rtd => "Corrected RTD voltage vs measured voltage",
+            CalibrationKind::Thermocouple => "Reference temperature vs adjusted temperature",
         }
     }
 
@@ -203,6 +244,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Measured voltage (V)",
             CalibrationKind::Rtd => "Measured RTD voltage (V)",
+            CalibrationKind::Thermocouple => "Adjusted thermocouple temperature (K)",
         }
     }
 
@@ -210,6 +252,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Expected voltage (V)",
             CalibrationKind::Rtd => "Corrected RTD voltage (V)",
+            CalibrationKind::Thermocouple => "Reference temperature (K)",
         }
     }
 
@@ -217,6 +260,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Residual after voltage fit, expressed as current",
             CalibrationKind::Rtd => "Residual temperature error after voltage fit propagation",
+            CalibrationKind::Thermocouple => "Residual temperature error after temperature fit",
         }
     }
 
@@ -224,6 +268,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Estimated current residual (uA)",
             CalibrationKind::Rtd => "Temperature residual (K)",
+            CalibrationKind::Thermocouple => "Temperature residual (K)",
         }
     }
 
@@ -235,6 +280,11 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => FLUKE_707_CURRENT_ACCURACY_A * 1e6,
             CalibrationKind::Rtd => VA720_ACCURACY_K,
+            CalibrationKind::Thermocouple => {
+                VA710_TEMPERATURE_ACCURACY_K
+                    + VA710_COLD_JUNCTION_ACCURACY_K
+                    + VA710_NEAR_ROOM_VOLTAGE_ACCURACY_K
+            }
         }
     }
 
@@ -242,12 +292,24 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Fluke 707 accuracy range",
             CalibrationKind::Rtd => "VA720 accuracy range",
+            CalibrationKind::Thermocouple => "VA710 approximate accuracy range",
+        }
+    }
+
+    fn tc_voltage_signal_name(self) -> Option<&'static str> {
+        match self.slug {
+            "tc_0" => Some("p1_tc_0_V.y"),
+            "tc_1" => Some("p1_tc_1_V.y"),
+            _ => None,
         }
     }
 }
 
 fn all_calibration_channels() -> impl Iterator<Item = CalibrationChannel> {
-    CURRENT_CHANNELS.into_iter().chain(RTD_CHANNELS)
+    CURRENT_CHANNELS
+        .into_iter()
+        .chain(RTD_CHANNELS)
+        .chain(THERMOCOUPLE_CHANNELS)
 }
 
 #[derive(Debug)]
@@ -258,6 +320,10 @@ struct ChannelCapture {
     timestamps_ns: Vec<i64>,
     times_s: Vec<f64>,
     measured_a: Vec<f64>,
+    calibrator_cold_junction_temperature_k: Option<f64>,
+    board_cold_junction_temperature_k: Vec<f64>,
+    board_cold_junction_offset_k: Option<f64>,
+    thermocouple_voltage_v: Vec<f64>,
 }
 
 #[derive(Debug)]
@@ -316,6 +382,14 @@ struct CalibrationRecord {
     timestamp_ns: i64,
     time_s: f64,
     measured_a: f64,
+    #[serde(default)]
+    calibrator_cold_junction_temperature_k: Option<f64>,
+    #[serde(default)]
+    board_cold_junction_temperature_k: Option<f64>,
+    #[serde(default)]
+    board_cold_junction_offset_k: Option<f64>,
+    #[serde(default)]
+    thermocouple_voltage_v: Option<f64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -333,6 +407,10 @@ struct CalibrationJsonRecord {
     rtd_frontend_gain: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     temperature_error_fit: Option<NormalizedLinearFit>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    calibrator_cold_junction_temperature_k: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    board_cold_junction_offset_k: Option<f64>,
     polynomial_order: usize,
     polynomial_coefficients: Vec<f64>,
     r2: f64,
@@ -461,7 +539,9 @@ impl PlotTheme {
 }
 
 enum PromptDecision {
-    Start,
+    Start {
+        calibrator_cold_junction_temperature_k: Option<f64>,
+    },
     Skip,
 }
 
@@ -516,6 +596,9 @@ fn collect_all_channels(process_after_each_run: bool) -> Result<Vec<PathBuf>, St
         "RTD channels use manual holds stepping up from -200 C to +700 C, then back down from +700 C to -200 C during the recording. Each RTD channel records for {RTD_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
+        "Thermocouple channels use a VA710 simulator with manual holds during the recording. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
+    );
+    println!(
         "Monitor live channels with: cargo run -p deimos_console -- --config {CONSOLE_CONFIG_PATH}"
     );
     println!(
@@ -525,11 +608,14 @@ fn collect_all_channels(process_after_each_run: bool) -> Result<Vec<PathBuf>, St
 
     let mut paths = Vec::new();
     for channel in all_calibration_channels() {
-        if matches!(prompt_for_channel(channel)?, PromptDecision::Skip) {
+        let PromptDecision::Start {
+            calibrator_cold_junction_temperature_k,
+        } = prompt_for_channel(channel)?
+        else {
             println!("Skipped {}.", channel.label);
             continue;
-        }
-        let capture = run_channel_capture(channel)?;
+        };
+        let capture = run_channel_capture(channel, calibrator_cold_junction_temperature_k)?;
         let summary_dir = capture.op_dir.clone();
         let path = write_calibration_data(&capture)?;
         println!("Saved {}", path.display());
@@ -558,21 +644,60 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
                 channel.capture_seconds(),
             );
         }
+        CalibrationKind::Thermocouple => {
+            println!(
+                "Ready the VA710 thermocouple simulator at the first reference temperature. During the {} second run, manually step through the reference temperatures with stable holds.",
+                channel.capture_seconds(),
+            );
+            println!(
+                "Enter the VA710 cold-junction temperature in degC, or type s then Enter to skip this run."
+            );
+            let line = read_operator_line()?;
+            if line.trim().eq_ignore_ascii_case("s") {
+                return Ok(PromptDecision::Skip);
+            }
+            let calibrator_cold_junction_temperature_c = line.trim().parse::<f64>().map_err(|e| {
+                format!(
+                    "Expected VA710 cold-junction temperature in degC or 's' to skip, got '{}': {e}",
+                    line.trim()
+                )
+            })?;
+            println!("Press Enter to start this run, or type s then Enter to skip it.");
+            let line = read_operator_line()?;
+            if line.trim().eq_ignore_ascii_case("s") {
+                return Ok(PromptDecision::Skip);
+            }
+            return Ok(PromptDecision::Start {
+                calibrator_cold_junction_temperature_k: Some(
+                    ZERO_C_K + calibrator_cold_junction_temperature_c,
+                ),
+            });
+        }
     }
     println!("Press Enter to start this run, or type s then Enter to skip it.");
-    let mut line = String::new();
-    stdin()
-        .read_line(&mut line)
-        .map_err(|e| format!("Failed to read operator prompt: {e}"))?;
+    let line = read_operator_line()?;
 
     if line.trim().eq_ignore_ascii_case("s") {
         Ok(PromptDecision::Skip)
     } else {
-        Ok(PromptDecision::Start)
+        Ok(PromptDecision::Start {
+            calibrator_cold_junction_temperature_k: None,
+        })
     }
 }
 
-fn run_channel_capture(channel: CalibrationChannel) -> Result<ChannelCapture, String> {
+fn read_operator_line() -> Result<String, String> {
+    let mut line = String::new();
+    stdin()
+        .read_line(&mut line)
+        .map_err(|e| format!("Failed to read operator prompt: {e}"))?;
+    Ok(line)
+}
+
+fn run_channel_capture(
+    channel: CalibrationChannel,
+    calibrator_cold_junction_temperature_k: Option<f64>,
+) -> Result<ChannelCapture, String> {
     let op_name = op_name_for_channel(channel)?;
     let op_dir = Path::new(OUTPUT_ROOT).join(&op_name);
     create_dir_all(&op_dir).map_err(|e| format!("Failed to create {}: {e}", op_dir.display()))?;
@@ -623,7 +748,13 @@ fn run_channel_capture(channel: CalibrationChannel) -> Result<ChannelCapture, St
         );
     }
 
-    extract_capture(channel, op_name, op_dir, df_handle)
+    extract_capture(
+        channel,
+        op_name,
+        op_dir,
+        df_handle,
+        calibrator_cold_junction_temperature_k,
+    )
 }
 
 fn controller_context(
@@ -647,6 +778,7 @@ fn extract_capture(
     op_name: String,
     op_dir: PathBuf,
     df_handle: DataFrameHandle,
+    calibrator_cold_junction_temperature_k: Option<f64>,
 ) -> Result<ChannelCapture, String> {
     let timestamps = df_handle.timestamp()?;
     let columns = df_handle.columns()?;
@@ -658,6 +790,25 @@ fn extract_capture(
             channel.signal_name
         )
     })?;
+    let thermocouple_voltage = match channel.tc_voltage_signal_name() {
+        Some(signal_name) => Some(columns.get(signal_name).ok_or_else(|| {
+            let mut available = columns.keys().cloned().collect::<Vec<_>>();
+            available.sort();
+            format!("Signal '{signal_name}' was not found in dataframe columns: {available:?}")
+        })?),
+        None => None,
+    };
+    let board_cold_junction_temperature = if matches!(channel.kind, CalibrationKind::Thermocouple) {
+        Some(columns.get(BOARD_COLD_JUNCTION_SIGNAL_NAME).ok_or_else(|| {
+                let mut available = columns.keys().cloned().collect::<Vec<_>>();
+                available.sort();
+                format!(
+                    "Signal '{BOARD_COLD_JUNCTION_SIGNAL_NAME}' was not found in dataframe columns: {available:?}"
+                )
+            })?)
+    } else {
+        None
+    };
 
     let first_timestamp = *timestamps
         .first()
@@ -666,12 +817,22 @@ fn extract_capture(
     let mut timestamps_ns = Vec::with_capacity(timestamps.len());
     let mut times_s = Vec::with_capacity(timestamps.len());
     let mut measured_a = Vec::with_capacity(timestamps.len());
+    let mut board_cold_junction_temperature_k = Vec::with_capacity(timestamps.len());
+    let mut thermocouple_voltage_v = Vec::with_capacity(timestamps.len());
     let mut last_time_s = None;
 
-    for (&timestamp, &measurement) in timestamps.iter().zip(measurements.iter()) {
+    for (idx, (&timestamp, &measurement)) in timestamps.iter().zip(measurements.iter()).enumerate()
+    {
         let time_s = (timestamp - first_timestamp) as f64 * 1e-9;
+        let board_cold_junction_k = board_cold_junction_temperature.map(|column| column[idx]);
+        let thermocouple_voltage_v_sample = thermocouple_voltage.map(|column| column[idx]);
 
         if !time_s.is_finite() || !measurement.is_finite() {
+            continue;
+        }
+        if board_cold_junction_k.is_some_and(|value| !value.is_finite())
+            || thermocouple_voltage_v_sample.is_some_and(|value| !value.is_finite())
+        {
             continue;
         }
         if last_time_s.is_some_and(|last| time_s <= last) {
@@ -681,6 +842,12 @@ fn extract_capture(
         timestamps_ns.push(timestamp);
         times_s.push(time_s);
         measured_a.push(measurement);
+        if let Some(board_cold_junction_k) = board_cold_junction_k {
+            board_cold_junction_temperature_k.push(board_cold_junction_k);
+        }
+        if let Some(thermocouple_voltage_v_sample) = thermocouple_voltage_v_sample {
+            thermocouple_voltage_v.push(thermocouple_voltage_v_sample);
+        }
         last_time_s = Some(time_s);
     }
 
@@ -691,6 +858,41 @@ fn extract_capture(
             times_s.len()
         ));
     }
+    let board_cold_junction_offset_k = if matches!(channel.kind, CalibrationKind::Thermocouple) {
+        let calibrator_cold_junction_temperature_k = calibrator_cold_junction_temperature_k
+            .ok_or_else(|| {
+                format!(
+                    "Missing VA710 cold-junction temperature for {}",
+                    channel.label
+                )
+            })?;
+        if board_cold_junction_temperature_k.len() != measured_a.len()
+            || thermocouple_voltage_v.len() != measured_a.len()
+        {
+            return Err(format!(
+                "Thermocouple capture for {} is missing voltage or board cold-junction samples",
+                channel.label
+            ));
+        }
+        let mean_board_cold_junction_temperature_k =
+            board_cold_junction_temperature_k.iter().sum::<f64>()
+                / board_cold_junction_temperature_k.len() as f64;
+        let offset_k =
+            calibrator_cold_junction_temperature_k - mean_board_cold_junction_temperature_k;
+        measured_a = thermocouple_voltage_v
+            .iter()
+            .zip(board_cold_junction_temperature_k.iter())
+            .map(|(&voltage_v, &board_temperature_k)| {
+                ktype_temperature_k_from_voltage_v_and_cold_junction_k(
+                    voltage_v,
+                    board_temperature_k + offset_k,
+                )
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        Some(offset_k)
+    } else {
+        None
+    };
 
     Ok(ChannelCapture {
         channel,
@@ -699,6 +901,10 @@ fn extract_capture(
         timestamps_ns,
         times_s,
         measured_a,
+        calibrator_cold_junction_temperature_k,
+        board_cold_junction_temperature_k,
+        board_cold_junction_offset_k,
+        thermocouple_voltage_v,
     })
 }
 
@@ -711,11 +917,12 @@ fn write_calibration_data(capture: &ChannelCapture) -> Result<PathBuf, String> {
         .from_path(&path)
         .map_err(|e| format!("Failed to create {}: {e}", path.display()))?;
 
-    for ((&timestamp_ns, &time_s), &measured_a) in capture
+    for (idx, ((&timestamp_ns, &time_s), &measured_a)) in capture
         .timestamps_ns
         .iter()
         .zip(capture.times_s.iter())
         .zip(capture.measured_a.iter())
+        .enumerate()
     {
         writer
             .serialize(CalibrationRecord {
@@ -726,6 +933,14 @@ fn write_calibration_data(capture: &ChannelCapture) -> Result<PathBuf, String> {
                 timestamp_ns,
                 time_s,
                 measured_a,
+                calibrator_cold_junction_temperature_k: capture
+                    .calibrator_cold_junction_temperature_k,
+                board_cold_junction_temperature_k: capture
+                    .board_cold_junction_temperature_k
+                    .get(idx)
+                    .copied(),
+                board_cold_junction_offset_k: capture.board_cold_junction_offset_k,
+                thermocouple_voltage_v: capture.thermocouple_voltage_v.get(idx).copied(),
             })
             .map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
     }
@@ -818,6 +1033,7 @@ fn process_calibration_files(paths: &[PathBuf], summary_dir: &Path) -> Result<()
         let (error_scale, error_units) = match capture.channel.kind {
             CalibrationKind::Current4To20 => (1e6, "uA"),
             CalibrationKind::Rtd => (1.0, "K"),
+            CalibrationKind::Thermocouple => (1.0, "K"),
         };
         summary_records.push(CalibrationSummaryRecord {
             source: path.display().to_string(),
@@ -905,6 +1121,10 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
     let mut timestamps_ns = Vec::with_capacity(records.len());
     let mut times_s = Vec::with_capacity(records.len());
     let mut measured_a = Vec::with_capacity(records.len());
+    let mut board_cold_junction_temperature_k = Vec::with_capacity(records.len());
+    let mut thermocouple_voltage_v = Vec::with_capacity(records.len());
+    let mut calibrator_cold_junction_temperature_k = None;
+    let mut board_cold_junction_offset_k = None;
     let mut last_time_s = None;
 
     for record in records {
@@ -933,6 +1153,28 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
         timestamps_ns.push(record.timestamp_ns);
         times_s.push(record.time_s);
         measured_a.push(record.measured_a);
+        if matches!(channel.kind, CalibrationKind::Thermocouple) {
+            calibrator_cold_junction_temperature_k = calibrator_cold_junction_temperature_k
+                .or(record.calibrator_cold_junction_temperature_k);
+            board_cold_junction_offset_k =
+                board_cold_junction_offset_k.or(record.board_cold_junction_offset_k);
+            let board_temperature_k = record.board_cold_junction_temperature_k.ok_or_else(|| {
+                format!(
+                    "{} is missing board_cold_junction_temperature_k for thermocouple signal '{}'",
+                    path.display(),
+                    channel.signal_name
+                )
+            })?;
+            let voltage_v = record.thermocouple_voltage_v.ok_or_else(|| {
+                format!(
+                    "{} is missing thermocouple_voltage_v for thermocouple signal '{}'",
+                    path.display(),
+                    channel.signal_name
+                )
+            })?;
+            board_cold_junction_temperature_k.push(board_temperature_k);
+            thermocouple_voltage_v.push(voltage_v);
+        }
         last_time_s = Some(record.time_s);
     }
 
@@ -951,6 +1193,10 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
         timestamps_ns,
         times_s,
         measured_a,
+        calibrator_cold_junction_temperature_k,
+        board_cold_junction_temperature_k,
+        board_cold_junction_offset_k,
+        thermocouple_voltage_v,
     })
 }
 
@@ -996,6 +1242,7 @@ fn fit_expected_value(
     match kind {
         CalibrationKind::Current4To20 => fit_current_voltage(samples),
         CalibrationKind::Rtd => fit_rtd_voltage_from_temperature_error(samples),
+        CalibrationKind::Thermocouple => fit_thermocouple_temperature(samples),
     }
 }
 
@@ -1059,6 +1306,46 @@ fn fit_rtd_voltage_from_temperature_error(samples: &[ErrorSample]) -> Result<Vol
         expected_y: points.iter().map(|(_, y)| *y).collect(),
         residuals,
         temperature_error_fit: Some(temperature_error_fit),
+    })
+}
+
+fn fit_thermocouple_temperature(samples: &[ErrorSample]) -> Result<VoltageFit, String> {
+    let points = samples
+        .iter()
+        .map(|sample| (sample.measured_a, sample.reference_a))
+        .collect::<Vec<_>>();
+    let min_x = points.iter().map(|(x, _)| *x).fold(f64::INFINITY, f64::min);
+    let max_x = points
+        .iter()
+        .map(|(x, _)| *x)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let min_y = points.iter().map(|(_, y)| *y).fold(f64::INFINITY, f64::min);
+    let max_y = points
+        .iter()
+        .map(|(_, y)| *y)
+        .fold(f64::NEG_INFINITY, f64::max);
+
+    let (coefficients, r2, residuals) =
+        if (max_x - min_x).abs() > f64::EPSILON && (max_y - min_y).abs() > f64::EPSILON {
+            fit_linear_points(&points)?
+        } else {
+            let mean_measured = points.iter().map(|(x, _)| *x).sum::<f64>() / points.len() as f64;
+            let mean_reference = points.iter().map(|(_, y)| *y).sum::<f64>() / points.len() as f64;
+            let coefficients = vec![mean_reference - mean_measured, 1.0];
+            let residuals = points
+                .iter()
+                .map(|(measured, expected)| expected - polyval(*measured, &coefficients))
+                .collect::<Vec<_>>();
+            (coefficients, 1.0, residuals)
+        };
+
+    Ok(VoltageFit {
+        coefficients,
+        r2,
+        measured_x: points.iter().map(|(x, _)| *x).collect(),
+        expected_y: points.iter().map(|(_, y)| *y).collect(),
+        residuals,
+        temperature_error_fit: None,
     })
 }
 
@@ -1165,6 +1452,7 @@ fn nearest_step_reference(measured: f64, kind: CalibrationKind) -> Option<f64> {
             .min_by(|a, b| (measured - *a).abs().total_cmp(&(measured - *b).abs()))
             .filter(|reference_a| (measured - *reference_a).abs() <= STEP_DETECTION_TOLERANCE_A),
         CalibrationKind::Rtd => nearest_rtd_reference_k(measured),
+        CalibrationKind::Thermocouple => nearest_thermocouple_reference_k(measured),
     }
 }
 
@@ -1184,6 +1472,22 @@ fn nearest_rtd_reference_k(measured_k: f64) -> Option<f64> {
     }
 }
 
+fn nearest_thermocouple_reference_k(measured_k: f64) -> Option<f64> {
+    if !(TC_MIN_REFERENCE_K..=TC_MAX_REFERENCE_K).contains(&measured_k) {
+        return None;
+    }
+
+    let reference_k = ZERO_C_K + ((measured_k - ZERO_C_K) / TC_STEP_K).round() * TC_STEP_K;
+
+    if (TC_MIN_REFERENCE_K..=TC_MAX_REFERENCE_K).contains(&reference_k)
+        && (measured_k - reference_k).abs() <= TC_STEP_DETECTION_TOLERANCE_K
+    {
+        Some(reference_k)
+    } else {
+        None
+    }
+}
+
 fn no_segments_error(capture: &ChannelCapture) -> String {
     match capture.channel.kind {
         CalibrationKind::Current4To20 => format!(
@@ -1196,6 +1500,12 @@ fn no_segments_error(capture: &ChannelCapture) -> String {
             "No stable RTD temperature holds found for {} using +/- {:.1} K tolerance and {:.1} s minimum duration",
             capture.channel.label,
             RTD_STEP_DETECTION_TOLERANCE_K,
+            capture.channel.min_step_duration_s(),
+        ),
+        CalibrationKind::Thermocouple => format!(
+            "No stable thermocouple temperature holds found for {} using +/- {:.1} K tolerance and {:.1} s minimum duration",
+            capture.channel.label,
+            TC_STEP_DETECTION_TOLERANCE_K,
             capture.channel.min_step_duration_s(),
         ),
     }
@@ -1320,16 +1630,21 @@ fn write_calibration_json_record(
         reference_resistor_ohm: match capture.channel.kind {
             CalibrationKind::Current4To20 => Some(REFERENCE_RESISTOR_OHM),
             CalibrationKind::Rtd => None,
+            CalibrationKind::Thermocouple => None,
         },
         rtd_reference_current_a: match capture.channel.kind {
             CalibrationKind::Current4To20 => None,
             CalibrationKind::Rtd => Some(RTD_REFERENCE_CURRENT_A),
+            CalibrationKind::Thermocouple => None,
         },
         rtd_frontend_gain: match capture.channel.kind {
             CalibrationKind::Current4To20 => None,
             CalibrationKind::Rtd => Some(RTD_FRONTEND_GAIN),
+            CalibrationKind::Thermocouple => None,
         },
         temperature_error_fit: analysis.voltage_fit.temperature_error_fit.clone(),
+        calibrator_cold_junction_temperature_k: capture.calibrator_cold_junction_temperature_k,
+        board_cold_junction_offset_k: capture.board_cold_junction_offset_k,
         polynomial_order: VOLTAGE_FIT_ORDER,
         polynomial_coefficients: analysis.voltage_fit.coefficients.clone(),
         r2: analysis.voltage_fit.r2,
@@ -1417,6 +1732,7 @@ fn write_analysis_plot(
         .map(|sample| match capture.channel.kind {
             CalibrationKind::Current4To20 => 100.0 * sample.error_a / REFERENCE_MAX_A,
             CalibrationKind::Rtd => sample.error_a,
+            CalibrationKind::Thermocouple => sample.error_a,
         })
         .collect::<Vec<_>>();
     let fit_measured_x = analysis.voltage_fit.measured_x.clone();
@@ -1426,6 +1742,12 @@ fn write_analysis_plot(
         .iter()
         .copied()
         .fold(f64::NEG_INFINITY, f64::max);
+    let (min_fit_x, max_fit_x) = if min_fit_x == max_fit_x {
+        let padding = (min_fit_x.abs() * 0.05).max(1.0);
+        (min_fit_x - padding, max_fit_x + padding)
+    } else {
+        (min_fit_x, max_fit_x)
+    };
     let fit_line_x = vec![min_fit_x, max_fit_x];
     let fit_line_y = fit_line_x
         .iter()
@@ -1438,6 +1760,7 @@ fn write_analysis_plot(
         .map(|residual| match capture.channel.kind {
             CalibrationKind::Current4To20 => residual / REFERENCE_RESISTOR_OHM * 1e6,
             CalibrationKind::Rtd => *residual,
+            CalibrationKind::Thermocouple => *residual,
         })
         .collect::<Vec<_>>();
     let fit_residual_reference = analysis
@@ -1449,6 +1772,7 @@ fn write_analysis_plot(
     let residual_trace_name = match capture.channel.kind {
         CalibrationKind::Current4To20 => "Fit residual as current",
         CalibrationKind::Rtd => "Propagated temperature residual",
+        CalibrationKind::Thermocouple => "Temperature fit residual",
     };
 
     let mut reference_step_time_s = Vec::new();
