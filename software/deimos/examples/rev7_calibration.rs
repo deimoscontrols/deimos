@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 const MODEL_NAME: &str = "deimos_daq_rev7";
 const PERIPHERAL_NAME: &str = "p1";
 const SERIAL_NUMBER: u64 = 2;
-const RATE_HZ: f64 = 200.0;
+const RATE_HZ: f64 = 100.0;
 const CAPTURE_SECONDS: u64 = 90;
 const DATAFRAME_MB: usize = 64;
 const REPORTING_MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(239, 255, 0, 1);
@@ -41,6 +41,7 @@ const STEP_REFERENCE_VALUES_A: [f64; 5] = [0.0, 0.005, 0.010, 0.015, 0.020];
 const STEP_DETECTION_TOLERANCE_A: f64 = 0.0015;
 const MIN_STEP_DURATION_S: f64 = 2.5;
 const REFERENCE_RESISTOR_OHM: f64 = 75.0;
+const FLUKE_707_CURRENT_ACCURACY_A: f64 = REFERENCE_MAX_A * 0.015 / 100.0 + 2.0e-6;
 const VOLTAGE_FIT_ORDER: usize = 1;
 const ZERO_C_K: f64 = 273.15;
 const RTD_MIN_REFERENCE_K: f64 = ZERO_C_K - 200.0;
@@ -49,6 +50,7 @@ const RTD_STEP_K: f64 = 10.0;
 const RTD_STEP_DETECTION_TOLERANCE_K: f64 = 5.0;
 const MIN_RTD_STEP_DURATION_S: f64 = 0.5;
 const RTD_CAPTURE_SECONDS: u64 = 240;
+const VA720_ACCURACY_K: f64 = 0.33;
 const RTD_REFERENCE_CURRENT_A: f64 = 250e-6;
 const RTD_FRONTEND_GAIN: f64 = 25.7;
 
@@ -228,6 +230,20 @@ impl CalibrationChannel {
     fn residual_x_axis_label(self) -> &'static str {
         self.reference_axis_label()
     }
+
+    fn residual_accuracy_limit(self) -> f64 {
+        match self.kind {
+            CalibrationKind::Current4To20 => FLUKE_707_CURRENT_ACCURACY_A * 1e6,
+            CalibrationKind::Rtd => VA720_ACCURACY_K,
+        }
+    }
+
+    fn residual_accuracy_label(self) -> &'static str {
+        match self.kind {
+            CalibrationKind::Current4To20 => "Fluke 707 accuracy range",
+            CalibrationKind::Rtd => "VA720 accuracy range",
+        }
+    }
 }
 
 fn all_calibration_channels() -> impl Iterator<Item = CalibrationChannel> {
@@ -353,14 +369,95 @@ struct CalibrationSummaryRecord {
     input_units: String,
     output_units: String,
     samples_path: String,
-    plot_path: String,
+    plot_light_path: String,
+    plot_dark_path: String,
     calibration_record_path: String,
+}
+
+struct PlotPaths {
+    light: PathBuf,
+    dark: PathBuf,
 }
 
 enum RunMode {
     Collect,
     Process(PathBuf),
     CollectAndProcess,
+}
+
+#[derive(Clone, Copy)]
+enum PlotTheme {
+    Light,
+    Dark,
+}
+
+impl PlotTheme {
+    fn file_suffix(self) -> &'static str {
+        match self {
+            Self::Light => "light",
+            Self::Dark => "dark",
+        }
+    }
+
+    fn page_background(self) -> &'static str {
+        match self {
+            Self::Light => {
+                "radial-gradient(circle at top left, rgba(130, 50, 186, 0.16), transparent 32%), linear-gradient(180deg, #ffffff 0%, #f6f7fb 100%)"
+            }
+            Self::Dark => {
+                "radial-gradient(circle at top left, rgba(172, 55, 255, 0.24), transparent 30%), linear-gradient(180deg, #242833 0%, #1e2129 100%)"
+            }
+        }
+    }
+
+    fn plot_background(self) -> &'static str {
+        match self {
+            Self::Light => "#ffffff",
+            Self::Dark => "#2b2f3a",
+        }
+    }
+
+    fn text_color(self) -> &'static str {
+        match self {
+            Self::Light => "#171922",
+            Self::Dark => "#f2f0f6",
+        }
+    }
+
+    fn grid_color(self) -> &'static str {
+        match self {
+            Self::Light => "#d8deea",
+            Self::Dark => "#47404f",
+        }
+    }
+
+    fn trace_color(self) -> &'static str {
+        match self {
+            Self::Light => "#000000",
+            Self::Dark => "#f2f0f6",
+        }
+    }
+
+    fn box_fill_color(self) -> &'static str {
+        match self {
+            Self::Light => "rgba(0, 0, 0, 0.08)",
+            Self::Dark => "rgba(242, 240, 246, 0.10)",
+        }
+    }
+
+    fn accepted_fill_color(self) -> &'static str {
+        match self {
+            Self::Light => "rgba(130, 50, 186, 0.11)",
+            Self::Dark => "rgba(172, 55, 255, 0.18)",
+        }
+    }
+
+    fn accuracy_fill_color(self) -> &'static str {
+        match self {
+            Self::Light => "rgba(130, 50, 186, 0.14)",
+            Self::Dark => "rgba(172, 55, 255, 0.20)",
+        }
+    }
 }
 
 enum PromptDecision {
@@ -402,10 +499,12 @@ fn parse_args() -> Result<RunMode, String> {
         [] => Ok(RunMode::CollectAndProcess),
         [mode] if mode == "collect" => Ok(RunMode::Collect),
         [mode, folder] if mode == "process" => Ok(RunMode::Process(PathBuf::from(folder))),
-        _ => Err(format!(
-            "Usage:\n  rev7_calibration\n  rev7_calibration collect\n  rev7_calibration process <folder-or-calibration-csv>"
-        )),
+        _ => Err(usage()),
     }
+}
+
+fn usage() -> String {
+    "Usage:\n  rev7_calibration\n  rev7_calibration collect\n  rev7_calibration process <folder-or-calibration-csv>".to_owned()
 }
 
 fn collect_all_channels(process_after_each_run: bool) -> Result<Vec<PathBuf>, String> {
@@ -713,7 +812,7 @@ fn process_calibration_files(paths: &[PathBuf], summary_dir: &Path) -> Result<()
         let capture = read_calibration_data(path)?;
         let analysis = analyze_capture(&capture)?;
         let samples_path = write_error_samples(&capture, &analysis)?;
-        let plot_path = write_analysis_plots(&capture, &analysis)?;
+        let plot_paths = write_analysis_plots(&capture, &analysis)?;
         let record_path = write_calibration_json_record(&capture, &analysis)?;
 
         let (error_scale, error_units) = match capture.channel.kind {
@@ -737,7 +836,8 @@ fn process_calibration_files(paths: &[PathBuf], summary_dir: &Path) -> Result<()
             input_units: capture.channel.fit_units().to_owned(),
             output_units: capture.channel.fit_units().to_owned(),
             samples_path: samples_path.display().to_string(),
-            plot_path: plot_path.display().to_string(),
+            plot_light_path: plot_paths.light.display().to_string(),
+            plot_dark_path: plot_paths.dark.display().to_string(),
             calibration_record_path: record_path.display().to_string(),
         });
         println!(
@@ -751,7 +851,8 @@ fn process_calibration_files(paths: &[PathBuf], summary_dir: &Path) -> Result<()
         );
         println!("  source {}", path.display());
         println!("  wrote {}", samples_path.display());
-        println!("  wrote {}", plot_path.display());
+        println!("  wrote {}", plot_paths.light.display());
+        println!("  wrote {}", plot_paths.dark.display());
         println!("  wrote {}", record_path.display());
     }
 
@@ -768,7 +869,7 @@ fn process_calibration_files(paths: &[PathBuf], summary_dir: &Path) -> Result<()
 
     println!("Summary written to {}", summary_path.display());
     println!(
-        "Calibration polynomial records and residual plots were written next to each source file."
+        "Calibration polynomial records and light/dark plots were written next to each source file."
     );
 
     Ok(())
@@ -1270,10 +1371,23 @@ fn fit_label(channel: CalibrationChannel, fit: &VoltageFit) -> String {
 fn write_analysis_plots(
     capture: &ChannelCapture,
     analysis: &ChannelAnalysis,
+) -> Result<PlotPaths, String> {
+    Ok(PlotPaths {
+        light: write_analysis_plot(capture, analysis, PlotTheme::Light)?,
+        dark: write_analysis_plot(capture, analysis, PlotTheme::Dark)?,
+    })
+}
+
+fn write_analysis_plot(
+    capture: &ChannelCapture,
+    analysis: &ChannelAnalysis,
+    plot_theme: PlotTheme,
 ) -> Result<PathBuf, String> {
-    let path = capture
-        .op_dir
-        .join(format!("{}_plots.html", capture.op_name));
+    let path = capture.op_dir.join(format!(
+        "{}_plots_{}.html",
+        capture.op_name,
+        plot_theme.file_suffix()
+    ));
     let display_scale = capture.channel.display_scale();
 
     let raw_time_s = capture.times_s.clone();
@@ -1347,6 +1461,7 @@ fn write_analysis_plots(
         reference_step_ma.push(Some(segment.reference_a * display_scale));
         reference_step_ma.push(None);
     }
+    let accepted_fill_color = plot_theme.accepted_fill_color();
     let accepted_shapes = analysis
         .segments
         .iter()
@@ -1359,12 +1474,51 @@ fn write_analysis_plots(
                 "x1": segment.accept_stop_time_s,
                 "y0": 0.0,
                 "y1": 1.0,
-                "fillcolor": "rgba(34, 136, 51, 0.14)",
+                "fillcolor": accepted_fill_color,
                 "line": { "width": 0 },
                 "layer": "below",
             })
         })
         .collect::<Vec<_>>();
+    let residual_accuracy_limit = capture.channel.residual_accuracy_limit();
+    let min_residual_reference = fit_residual_reference
+        .iter()
+        .copied()
+        .fold(f64::INFINITY, f64::min);
+    let max_residual_reference = fit_residual_reference
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, f64::max);
+    let (min_residual_reference, max_residual_reference) =
+        if min_residual_reference == max_residual_reference {
+            let padding = (min_residual_reference.abs() * 0.05).max(1.0);
+            (
+                min_residual_reference - padding,
+                max_residual_reference + padding,
+            )
+        } else {
+            (min_residual_reference, max_residual_reference)
+        };
+    let residual_accuracy_x = vec![
+        min_residual_reference,
+        max_residual_reference,
+        max_residual_reference,
+        min_residual_reference,
+        min_residual_reference,
+    ];
+    let residual_accuracy_y = vec![
+        -residual_accuracy_limit,
+        -residual_accuracy_limit,
+        residual_accuracy_limit,
+        residual_accuracy_limit,
+        -residual_accuracy_limit,
+    ];
+    let max_abs_residual = fit_residual_y
+        .iter()
+        .map(|residual| residual.abs())
+        .fold(0.0, f64::max);
+    let residual_y_limit = (2.0 * residual_accuracy_limit).max(max_abs_residual);
+    let residual_y_axis_range = vec![-residual_y_limit, residual_y_limit];
 
     let title = format!(
         "{} SN{} {} calibration",
@@ -1380,8 +1534,8 @@ fn write_analysis_plots(
     <style>
         html, body {{
             margin: 0;
-            background: #f7f7f2;
-            color: #1f2523;
+            background: {page_background};
+            color: {text_color};
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }}
         main {{
@@ -1404,7 +1558,7 @@ fn write_analysis_plots(
             margin: 8px 0 8px;
             font-size: 16px;
             font-weight: 650;
-            color: #1f2523;
+            color: {text_color};
         }}
     </style>
 </head>
@@ -1431,9 +1585,46 @@ const fitMeasuredX = {fit_measured_x};
 const fitExpectedY = {fit_expected_y};
 const fitLineX = {fit_line_x};
 const fitLineY = {fit_line_y};
+const residualAccuracyX = {residual_accuracy_x};
+const residualAccuracyY = {residual_accuracy_y};
+const residualYAxisRange = {residual_y_axis_range};
 const fitResidualReference = {fit_residual_reference};
 const fitResidualY = {fit_residual_y};
 const voltageFitLabel = {voltage_fit_label};
+const textColor = {text_color_js};
+const traceColor = {trace_color};
+const plotBackground = {plot_background};
+const gridColor = {grid_color};
+const boxFillColor = {box_fill_color};
+const accuracyFillColor = {accuracy_fill_color};
+
+const baseLayout = {{
+    paper_bgcolor: plotBackground,
+    plot_bgcolor: plotBackground,
+    font: {{ color: textColor }},
+    legend: {{ font: {{ color: textColor }} }}
+}};
+
+function themedLayout(layout) {{
+    return {{
+        ...baseLayout,
+        ...layout,
+        xaxis: {{
+            gridcolor: gridColor,
+            zerolinecolor: gridColor,
+            linecolor: gridColor,
+            tickcolor: gridColor,
+            ...layout.xaxis
+        }},
+        yaxis: {{
+            gridcolor: gridColor,
+            zerolinecolor: gridColor,
+            linecolor: gridColor,
+            tickcolor: gridColor,
+            ...layout.yaxis
+        }}
+    }};
+}}
 
 Plotly.newPlot("time-overlay", [
     {{
@@ -1442,7 +1633,7 @@ Plotly.newPlot("time-overlay", [
         mode: "lines",
         type: "scatter",
         name: "Measured",
-        line: {{ width: 1, color: "#000000" }}
+        line: {{ width: 1, color: traceColor }}
     }},
     {{
         x: referenceStepTimeS,
@@ -1451,8 +1642,8 @@ Plotly.newPlot("time-overlay", [
         type: "scatter",
         name: "Detected reference step",
         connectgaps: false,
-        line: {{ width: 2, color: "#000000" }},
-        marker: {{ size: 6, color: "#000000", symbol: "circle" }}
+        line: {{ width: 2, color: traceColor }},
+        marker: {{ size: 6, color: traceColor, symbol: "circle" }}
     }},
     {{
         x: acceptedTimeS,
@@ -1460,15 +1651,15 @@ Plotly.newPlot("time-overlay", [
         mode: "markers",
         type: "scatter",
         name: "Accepted middle-half samples",
-        marker: {{ size: 6, color: "#000000", symbol: "x" }}
+        marker: {{ size: 6, color: traceColor, symbol: "x" }}
     }}
-], {{
+], themedLayout({{
     title: {{ text: "Detected steps and accepted calibration regions" }},
     xaxis: {{ title: {{ text: "Time (s)", standoff: 16 }}, automargin: true }},
     yaxis: {{ title: {{ text: {value_axis_label}, standoff: 18 }}, automargin: true }},
     shapes: acceptedShapes,
     margin: {{ l: 88, r: 24, t: 64, b: 78 }}
-}}, {{ responsive: true }});
+}}), {{ responsive: true }});
 
 Plotly.newPlot("relative-error", [
     {{
@@ -1478,9 +1669,9 @@ Plotly.newPlot("relative-error", [
         name: "Error distribution",
         boxpoints: false,
         boxmean: "sd",
-        line: {{ width: 2, color: "#000000" }},
-        fillcolor: "rgba(0, 0, 0, 0.08)",
-        marker: {{ color: "#000000" }}
+        line: {{ width: 2, color: traceColor }},
+        fillcolor: boxFillColor,
+        marker: {{ color: traceColor }}
     }},
     {{
         x: acceptedReference,
@@ -1488,15 +1679,15 @@ Plotly.newPlot("relative-error", [
         mode: "markers",
         type: "scatter",
         name: "Accepted samples",
-        marker: {{ size: 4, color: "#000000" }}
+        marker: {{ size: 4, color: traceColor }}
     }}
-], {{
+], themedLayout({{
     title: {{ text: {error_plot_title} }},
     xaxis: {{ title: {{ text: {reference_axis_label}, standoff: 16 }}, automargin: true }},
     yaxis: {{ title: {{ text: {error_axis_label}, standoff: 18 }}, automargin: true }},
     boxmode: "group",
     margin: {{ l: 88, r: 24, t: 64, b: 78 }}
-}}, {{ responsive: true }});
+}}), {{ responsive: true }});
 
 Plotly.newPlot("voltage-fit", [
     {{
@@ -1505,7 +1696,7 @@ Plotly.newPlot("voltage-fit", [
         mode: "markers",
         type: "scatter",
         name: "Accepted calibration samples",
-        marker: {{ size: 5, color: "#000000" }}
+        marker: {{ size: 5, color: traceColor }}
     }},
     {{
         x: fitLineX,
@@ -1513,16 +1704,27 @@ Plotly.newPlot("voltage-fit", [
         mode: "lines",
         type: "scatter",
         name: "Linear fit",
-        line: {{ width: 2, color: "#000000" }}
+        line: {{ width: 2, color: traceColor }}
     }}
-], {{
+], themedLayout({{
     title: {{ text: {fit_plot_title} }},
     xaxis: {{ title: {{ text: {fit_x_axis_label}, standoff: 16 }}, automargin: true }},
     yaxis: {{ title: {{ text: {fit_y_axis_label}, standoff: 18 }}, automargin: true }},
     margin: {{ l: 88, r: 24, t: 100, b: 78 }}
-}}, {{ responsive: true }});
+}}), {{ responsive: true }});
 
 Plotly.newPlot("voltage-fit-residual", [
+    {{
+        x: residualAccuracyX,
+        y: residualAccuracyY,
+        mode: "lines",
+        type: "scatter",
+        fill: "toself",
+        name: {residual_accuracy_label},
+        line: {{ width: 0, color: accuracyFillColor }},
+        fillcolor: accuracyFillColor,
+        hoverinfo: "skip"
+    }},
     {{
         x: fitResidualReference,
         y: fitResidualY,
@@ -1530,9 +1732,9 @@ Plotly.newPlot("voltage-fit-residual", [
         name: "Residual distribution",
         boxpoints: false,
         boxmean: "sd",
-        line: {{ width: 2, color: "#000000" }},
-        fillcolor: "rgba(0, 0, 0, 0.08)",
-        marker: {{ color: "#000000" }}
+        line: {{ width: 2, color: traceColor }},
+        fillcolor: boxFillColor,
+        marker: {{ color: traceColor }}
     }},
     {{
         x: fitResidualReference,
@@ -1540,21 +1742,35 @@ Plotly.newPlot("voltage-fit-residual", [
         mode: "markers",
         type: "scatter",
         name: {residual_trace_name},
-        marker: {{ size: 5, color: "#000000" }}
+        marker: {{ size: 5, color: traceColor }}
     }}
-], {{
+], themedLayout({{
     title: {{ text: {residual_plot_title} }},
     xaxis: {{ title: {{ text: {residual_x_axis_label}, standoff: 16 }}, automargin: true }},
-    yaxis: {{ title: {{ text: {residual_axis_label}, standoff: 18 }}, automargin: true }},
+    yaxis: {{ title: {{ text: {residual_axis_label}, standoff: 18 }}, range: residualYAxisRange, automargin: true }},
     boxmode: "group",
     margin: {{ l: 88, r: 24, t: 64, b: 78 }}
-}}, {{ responsive: true }});
+}}), {{ responsive: true }});
 </script>
 </body>
 </html>
 "##,
         title = html_escape(&title),
         voltage_fit_label_html = html_escape(&voltage_fit_label),
+        page_background = plot_theme.page_background(),
+        text_color = plot_theme.text_color(),
+        text_color_js = serde_json::to_string(plot_theme.text_color())
+            .map_err(|e| format!("Failed to serialize plot text color: {e}"))?,
+        trace_color = serde_json::to_string(plot_theme.trace_color())
+            .map_err(|e| format!("Failed to serialize plot trace color: {e}"))?,
+        plot_background = serde_json::to_string(plot_theme.plot_background())
+            .map_err(|e| format!("Failed to serialize plot background: {e}"))?,
+        grid_color = serde_json::to_string(plot_theme.grid_color())
+            .map_err(|e| format!("Failed to serialize plot grid color: {e}"))?,
+        box_fill_color = serde_json::to_string(plot_theme.box_fill_color())
+            .map_err(|e| format!("Failed to serialize plot box fill color: {e}"))?,
+        accuracy_fill_color = serde_json::to_string(plot_theme.accuracy_fill_color())
+            .map_err(|e| format!("Failed to serialize plot accuracy fill color: {e}"))?,
         value_axis_label = serde_json::to_string(capture.channel.value_axis_label())
             .map_err(|e| format!("Failed to serialize value axis label: {e}"))?,
         raw_time_s = serde_json::to_string(&raw_time_s)
@@ -1575,6 +1791,14 @@ Plotly.newPlot("voltage-fit-residual", [
             .map_err(|e| format!("Failed to serialize plot relative-error y data: {e}"))?,
         accepted_shapes = serde_json::to_string(&accepted_shapes)
             .map_err(|e| format!("Failed to serialize plot accepted-region shapes: {e}"))?,
+        residual_accuracy_x = serde_json::to_string(&residual_accuracy_x)
+            .map_err(|e| format!("Failed to serialize plot residual accuracy x data: {e}"))?,
+        residual_accuracy_y = serde_json::to_string(&residual_accuracy_y)
+            .map_err(|e| format!("Failed to serialize plot residual accuracy y data: {e}"))?,
+        residual_y_axis_range = serde_json::to_string(&residual_y_axis_range)
+            .map_err(|e| format!("Failed to serialize plot residual y-axis range: {e}"))?,
+        residual_accuracy_label = serde_json::to_string(capture.channel.residual_accuracy_label())
+            .map_err(|e| format!("Failed to serialize residual accuracy label: {e}"))?,
         fit_measured_x = serde_json::to_string(&fit_measured_x)
             .map_err(|e| format!("Failed to serialize plot measured-voltage data: {e}"))?,
         fit_expected_y = serde_json::to_string(&fit_expected_y)
