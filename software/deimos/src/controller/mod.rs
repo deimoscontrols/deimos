@@ -820,9 +820,6 @@ impl Controller {
         self.orchestrator
             .init(self.ctx.clone(), &self.peripherals)
             .map_err(|e| format!("Failed to initialize calc orchestrator: {e}"))?;
-        self.orchestrator
-            .eval()
-            .map_err(|e| format!("Failed to evaluate calc orchestrator during init: {e}"))?;
 
         // Set up dispatcher(s)
         // FUTURE: send metrics to calcs so that they can be used as calc inputs
