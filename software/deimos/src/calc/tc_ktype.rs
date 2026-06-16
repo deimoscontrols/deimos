@@ -26,7 +26,7 @@ use once_cell::sync::Lazy;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
-use interpn::MulticubicRegular;
+use interpn::{MulticubicRectilinear, MulticubicRegular};
 
 use super::*;
 use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
@@ -45,6 +45,27 @@ pub static INTERPOLATOR: Lazy<MulticubicRegular<'static, f64, 2>> = Lazy::new(||
         true,
     )
     .unwrap()
+});
+
+pub static INVERSE_VOLTAGE_GRID: Lazy<Vec<f64>> = Lazy::new(|| {
+    (0..SENSED_VOLTAGE_N)
+        .map(|i| (i as f64) * SENSED_VOLTAGE_STEP_V + SENSED_VOLTAGE_START_V)
+        .collect()
+});
+
+pub static INVERSE_TEMP_GRID: Lazy<Vec<f64>> = Lazy::new(|| {
+    INVERSE_VOLTAGE_GRID
+        .iter()
+        .map(|x| INTERPOLATOR.interp_one([*x, 0.0]).unwrap())
+        .collect()
+});
+
+pub static INVERSE_TEMP_GRID_SLICE: Lazy<[&[f64]; 1]> =
+    Lazy::new(|| [INVERSE_TEMP_GRID.as_slice()]);
+
+pub static INVERSE_INTERPOLATOR: Lazy<MulticubicRectilinear<'static, f64, 1>> = Lazy::new(|| {
+    MulticubicRectilinear::<'_, f64, 1>::new(&INVERSE_TEMP_GRID_SLICE, &INVERSE_VOLTAGE_GRID, true)
+        .unwrap()
 });
 
 pub fn ktype_temperature_k_from_voltage_v_and_cold_junction_k(
@@ -138,9 +159,17 @@ impl Calc for TcKtype {
         let cold_junction_temp = tape[self.input_indices[1]];
         // An error here would indicate that we have encountered an unrepresentable number during interpolation.
         // As of writing, no method of producing an error here is known.
+
+        // Back-calculate cold junction error voltage
+        let v_cj = INVERSE_INTERPOLATOR.interp_one([cold_junction_temp]).unwrap();
+
+        // Corrected sensed voltage
+        let v_cor = sensed_voltage - v_cj;
+
+        // Temperature from corrected voltage
         let y = ktype_temperature_k_from_voltage_v_and_cold_junction_k(
-            sensed_voltage,
-            cold_junction_temp,
+            v_cor,
+            0.0,
         )
         .unwrap();
 
