@@ -33,7 +33,6 @@ const MODEL_NAME: &str = "deimos_daq_rev7";
 const PERIPHERAL_NAME: &str = "p1";
 const SERIAL_NUMBER: u64 = 2;
 const RATE_HZ: f64 = 100.0;
-const CAPTURE_SECONDS: u64 = 90;
 const DATAFRAME_MB: usize = 64;
 const REPORTING_MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(239, 255, 0, 1);
 const REPORTING_MULTICAST_PORT: u16 = 29573;
@@ -43,6 +42,7 @@ const REFERENCE_MAX_A: f64 = 0.020;
 const STEP_REFERENCE_VALUES_A: [f64; 5] = [0.0, 0.005, 0.010, 0.015, 0.020];
 const STEP_DETECTION_TOLERANCE_A: f64 = 0.0015;
 const MIN_STEP_DURATION_S: f64 = 2.5;
+const CAPTURE_SECONDS: u64 = 90;
 const REFERENCE_RESISTOR_OHM: f64 = 75.0;
 const FLUKE_707_CURRENT_ACCURACY_A: f64 = REFERENCE_MAX_A * 0.015 / 100.0 + 2.0e-6;
 const VOLTAGE_FIT_ORDER: usize = 1;
@@ -1861,16 +1861,6 @@ fn write_analysis_plot(
         .iter()
         .map(|measured_a| measured_a * display_scale)
         .collect::<Vec<_>>();
-    let accepted_time_s = analysis
-        .samples
-        .iter()
-        .map(|sample| sample.time_s)
-        .collect::<Vec<_>>();
-    let accepted_measured_ma = analysis
-        .samples
-        .iter()
-        .map(|sample| sample.measured_a * display_scale)
-        .collect::<Vec<_>>();
     let accepted_reference_display = analysis
         .samples
         .iter()
@@ -2098,8 +2088,6 @@ fn write_analysis_plot(
 <script>
 const rawTimeS = {raw_time_s};
 const rawMeasuredMA = {raw_measured_ma};
-const acceptedTimeS = {accepted_time_s};
-const acceptedMeasuredMA = {accepted_measured_ma};
 const acceptedReference = {accepted_reference_display};
 const referenceStepTimeS = {reference_step_time_s};
 const referenceStepMA = {reference_step_ma};
@@ -2165,20 +2153,11 @@ Plotly.newPlot("time-overlay", [
     {{
         x: referenceStepTimeS,
         y: referenceStepMA,
-        mode: "lines+markers",
+        mode: "lines",
         type: "scatter",
         name: "Detected reference step",
         connectgaps: false,
-        line: {{ width: 2, color: traceColor }},
-        marker: {{ size: 6, color: traceColor, symbol: "circle" }}
-    }},
-    {{
-        x: acceptedTimeS,
-        y: acceptedMeasuredMA,
-        mode: "markers",
-        type: "scatter",
-        name: "Accepted middle-half samples",
-        marker: {{ size: 6, color: traceColor, symbol: "x" }}
+        line: {{ width: 2, color: traceColor, dash: "dash" }}
     }}
 ], themedLayout({{
     title: {{ text: "Detected steps and accepted calibration regions" }},
@@ -2316,10 +2295,6 @@ Plotly.newPlot("voltage-fit-residual", [
             .map_err(|e| format!("Failed to serialize plot raw time data: {e}"))?,
         raw_measured_ma = serde_json::to_string(&raw_measured_ma)
             .map_err(|e| format!("Failed to serialize plot raw measurement data: {e}"))?,
-        accepted_time_s = serde_json::to_string(&accepted_time_s)
-            .map_err(|e| format!("Failed to serialize plot accepted time data: {e}"))?,
-        accepted_measured_ma = serde_json::to_string(&accepted_measured_ma)
-            .map_err(|e| format!("Failed to serialize plot accepted measurement data: {e}"))?,
         accepted_reference_display = serde_json::to_string(&accepted_reference_display)
             .map_err(|e| format!("Failed to serialize plot accepted reference data: {e}"))?,
         reference_step_time_s = serde_json::to_string(&reference_step_time_s)
