@@ -37,7 +37,7 @@ pub use rtd_pt100::{
 };
 pub use sequence_machine::SequenceMachine;
 pub use sin::Sin;
-pub use tc_ktype::{TcKtype, ktype_corrected_temp_k};
+pub use tc_ktype::{TcKtype, ktype_corrected_temp_k, ktype_temp_k, ktype_voltage_v};
 
 use crate::ControllerCtx;
 
