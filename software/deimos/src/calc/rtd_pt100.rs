@@ -45,17 +45,13 @@ static INVERSE_INTERPOLATOR: Lazy<MulticubicRectilinear<'static, f64, 1>> = Lazy
 });
 
 /// Convert Pt100 resistance to temperature using the same table as the RTD calc.
-pub fn pt100_temperature_k_from_resistance_ohm(resistance_ohm: f64) -> Result<f64, String> {
-    INTERPOLATOR
-        .interp_one([resistance_ohm])
-        .map_err(|e| format!("Failed to interpolate Pt100 temperature: {e}"))
+pub fn pt100_temp_k(resistance_ohm: f64) -> f64 {
+    INTERPOLATOR.interp_one([resistance_ohm]).unwrap()
 }
 
 /// Convert Pt100 temperature to resistance using the inverse of the RTD calc table.
-pub fn pt100_resistance_ohm_from_temperature_k(temperature_k: f64) -> Result<f64, String> {
-    INVERSE_INTERPOLATOR
-        .interp_one([temperature_k])
-        .map_err(|e| format!("Failed to interpolate Pt100 resistance: {e}"))
+pub fn pt100_resistance_ohm(temperature_k: f64) -> f64 {
+    INVERSE_INTERPOLATOR.interp_one([temperature_k]).unwrap()
 }
 
 /// Derive input voltage from amplifier output
@@ -127,7 +123,7 @@ impl Calc for RtdPt100 {
     /// Run calcs for a cycle
     fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         let sensed_resistance = tape[self.input_index];
-        let y = pt100_temperature_k_from_resistance_ohm(sensed_resistance)?;
+        let y = pt100_temp_k(sensed_resistance);
 
         tape[self.output_index] = y;
         Ok(())
@@ -165,14 +161,13 @@ impl Calc for RtdPt100 {
 #[allow(clippy::items_after_test_module)]
 mod test {
     use super::{
-        PROBE_RESISTANCE_START_OHM, PROBE_RESISTANCE_STEP_OHM,
-        pt100_resistance_ohm_from_temperature_k, pt100_temperature_k_from_resistance_ohm,
+        PROBE_RESISTANCE_START_OHM, PROBE_RESISTANCE_STEP_OHM, pt100_resistance_ohm, pt100_temp_k,
     };
 
     #[test]
     fn test_interpolator() {
         // Check the interpolator against a value from the table
-        let interped = pt100_temperature_k_from_resistance_ohm(19.82).unwrap();
+        let interped = pt100_temp_k(19.82);
         let expected = -197.0 + 273.15;
         println!("{interped}, {expected}");
         let rel_err = (interped - expected) / expected;
@@ -182,8 +177,8 @@ mod test {
     #[test]
     fn test_inverse_interpolator_at_table_point() {
         let expected_resistance = PROBE_RESISTANCE_START_OHM + 1000.0 * PROBE_RESISTANCE_STEP_OHM;
-        let temperature = pt100_temperature_k_from_resistance_ohm(expected_resistance).unwrap();
-        let resistance = pt100_resistance_ohm_from_temperature_k(temperature).unwrap();
+        let temperature = pt100_temp_k(expected_resistance);
+        let resistance = pt100_resistance_ohm(temperature);
 
         assert!((resistance - expected_resistance).abs() < 1e-10);
     }

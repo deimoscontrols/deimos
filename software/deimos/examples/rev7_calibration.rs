@@ -19,10 +19,7 @@ use std::{
 use chrono::{DateTime, SecondsFormat, Utc};
 use deimos::{
     Controller, ControllerCtx, DataFrameDispatcher, LoopMethod, Overflow, Termination,
-    calc::{
-        ktype_corrected_temp_k, ktype_voltage_v, pt100_resistance_ohm_from_temperature_k,
-        pt100_temperature_k_from_resistance_ohm,
-    },
+    calc::{ktype_corrected_temp_k, ktype_voltage_v, pt100_resistance_ohm, pt100_temp_k},
     dispatcher::{DataFrameHandle, ReportingDispatcher},
     math::{polyfit, polyval},
     peripheral::DeimosDaqRev7,
@@ -1349,12 +1346,12 @@ fn fit_rtd_voltage_from_temperature_error(samples: &[ErrorSample]) -> Result<Vol
                 temperature_error_fit.x_scale,
             );
             let corrected_temperature_k = measured_temperature_k + fitted_error_k;
-            Ok((
-                rtd_voltage_from_temperature_k(measured_temperature_k)?,
-                rtd_voltage_from_temperature_k(corrected_temperature_k)?,
-            ))
+            (
+                rtd_voltage_from_temperature_k(measured_temperature_k),
+                rtd_voltage_from_temperature_k(corrected_temperature_k),
+            )
         })
-        .collect::<Result<Vec<_>, String>>()?;
+        .collect::<Vec<_>>();
     let (coefficients, r2, _) = fit_linear_points(&points)?;
 
     let residuals = samples
@@ -1362,10 +1359,10 @@ fn fit_rtd_voltage_from_temperature_error(samples: &[ErrorSample]) -> Result<Vol
         .zip(points.iter())
         .map(|(sample, (measured_voltage_v, _))| {
             let corrected_voltage_v = polyval(*measured_voltage_v, &coefficients);
-            let corrected_temperature_k = rtd_temperature_from_voltage_v(corrected_voltage_v)?;
-            Ok(sample.reference_a - corrected_temperature_k)
+            let corrected_temperature_k = rtd_temperature_from_voltage_v(corrected_voltage_v);
+            sample.reference_a - corrected_temperature_k
         })
-        .collect::<Result<Vec<_>, String>>()?;
+        .collect::<Vec<_>>();
 
     Ok(VoltageFit {
         coefficients,
@@ -1671,15 +1668,13 @@ fn expected_voltage_v(reference_a: f64) -> f64 {
     reference_a * REFERENCE_RESISTOR_OHM
 }
 
-fn rtd_voltage_from_temperature_k(temperature_k: f64) -> Result<f64, String> {
-    Ok(pt100_resistance_ohm_from_temperature_k(temperature_k)?
-        * RTD_REFERENCE_CURRENT_A
-        * RTD_FRONTEND_GAIN)
+fn rtd_voltage_from_temperature_k(temperature_k: f64) -> f64 {
+    pt100_resistance_ohm(temperature_k) * RTD_REFERENCE_CURRENT_A * RTD_FRONTEND_GAIN
 }
 
-fn rtd_temperature_from_voltage_v(voltage_v: f64) -> Result<f64, String> {
+fn rtd_temperature_from_voltage_v(voltage_v: f64) -> f64 {
     let resistance_ohm = voltage_v / (RTD_REFERENCE_CURRENT_A * RTD_FRONTEND_GAIN);
-    pt100_temperature_k_from_resistance_ohm(resistance_ohm)
+    pt100_temp_k(resistance_ohm)
 }
 
 fn write_error_samples(
@@ -1733,8 +1728,8 @@ fn thermocouple_cold_junction_json_record(
 
     let mut offset_sum_v = 0.0;
     for &board_temperature_k in &capture.board_cold_junction_temperature_k {
-        offset_sum_v += rtd_voltage_from_temperature_k(board_temperature_k + offset_k)?
-            - rtd_voltage_from_temperature_k(board_temperature_k)?;
+        offset_sum_v += rtd_voltage_from_temperature_k(board_temperature_k + offset_k)
+            - rtd_voltage_from_temperature_k(board_temperature_k);
     }
 
     Ok(ThermocoupleColdJunctionJsonRecord {
