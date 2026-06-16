@@ -59,10 +59,10 @@ const RTD_REFERENCE_CURRENT_A: f64 = 250e-6;
 const RTD_FRONTEND_GAIN: f64 = 25.7;
 
 const TC_MIN_REFERENCE_K: f64 = ZERO_C_K - 210.0;
-const TC_MAX_REFERENCE_K: f64 = ZERO_C_K + 1300.0;
+const TC_MAX_REFERENCE_K: f64 = ZERO_C_K + 1260.0;
 const TC_STEP_K: f64 = 10.0;
 const TC_STEP_DETECTION_TOLERANCE_K: f64 = 5.0;
-const MIN_TC_STEP_DURATION_S: f64 = 0.5;
+const MIN_TC_STEP_DURATION_S: f64 = 1.0;
 const TC_CAPTURE_SECONDS: u64 = 240;
 const VA710_TEMPERATURE_ACCURACY_K: f64 = 0.3;
 const VA710_COLD_JUNCTION_ACCURACY_K: f64 = 0.3;
@@ -404,6 +404,20 @@ struct CalibrationRecord {
 
 #[derive(Debug, Serialize)]
 struct CalibrationJsonRecord {
+    #[serde(flatten)]
+    core: CalibrationJsonCore,
+}
+
+#[derive(Debug, Serialize)]
+struct ThermocoupleCalibrationJsonRecord {
+    #[serde(flatten)]
+    core: CalibrationJsonCore,
+    #[serde(flatten)]
+    thermocouple_cold_junction: ThermocoupleColdJunctionJsonRecord,
+}
+
+#[derive(Debug, Serialize)]
+struct CalibrationJsonCore {
     model: String,
     serial_number: u64,
     channel: String,
@@ -417,10 +431,6 @@ struct CalibrationJsonRecord {
     rtd_frontend_gain: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     temperature_error_fit: Option<NormalizedLinearFit>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    calibrator_cold_junction_temperature_k: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    board_cold_junction_offset_k: Option<f64>,
     polynomial_order: usize,
     polynomial_coefficients: Vec<f64>,
     r2: f64,
@@ -428,6 +438,14 @@ struct CalibrationJsonRecord {
     output_units: String,
     accepted_sample_count: usize,
     detected_step_count: usize,
+}
+
+#[derive(Debug, Serialize)]
+struct ThermocoupleColdJunctionJsonRecord {
+    calibrator_cold_junction_temperature_k: f64,
+    cold_junction_temperature_offset_k: f64,
+    cold_junction_rtd_voltage_offset_v: f64,
+    board_cold_junction_offset_k: f64,
 }
 
 #[derive(Debug, Serialize)]
@@ -606,7 +624,7 @@ fn collect_all_channels(process_after_each_run: bool) -> Result<Vec<PathBuf>, St
         "RTD channels use manual holds stepping up from -200 C to +700 C, then back down from +700 C to -200 C during the recording. Each RTD channel records for {RTD_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
-        "Thermocouple channels use a VA710 simulator with manual holds stepping from -200 C to +1250 C during the recording. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
+        "Thermocouple channels use a VA710 simulator with manual holds stepping from -200 C to +1250 C and back down to -200 C during the recording. Target 50 K increments below 100 C and 100 K increments above 100 C. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
         "Monitor live channels with: cargo run -p deimos_console -- --config {CONSOLE_CONFIG_PATH}"
@@ -656,7 +674,7 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
         }
         CalibrationKind::Thermocouple => {
             println!(
-                "Ready the VA710 thermocouple simulator at -200 C. During the {} second run, manually step from -200 C to +1250 C with stable holds.",
+                "Ready the VA710 thermocouple simulator at -200 C. During the {} second run, manually step up to +1250 C and back down to -200 C with stable holds, targeting 50 K increments below 100 C and 100 K increments above 100 C.",
                 channel.capture_seconds(),
             );
             println!(
@@ -1669,6 +1687,45 @@ fn write_error_samples(
     Ok(path)
 }
 
+fn thermocouple_cold_junction_json_record(
+    capture: &ChannelCapture,
+) -> Result<ThermocoupleColdJunctionJsonRecord, String> {
+    let calibrator_cold_junction_temperature_k = capture
+        .calibrator_cold_junction_temperature_k
+        .ok_or_else(|| {
+            format!(
+                "Thermocouple capture for {} is missing calibrator cold-junction temperature",
+                capture.channel.label
+            )
+        })?;
+    let offset_k = capture.board_cold_junction_offset_k.ok_or_else(|| {
+        format!(
+            "Thermocouple capture for {} is missing cold-junction temperature offset",
+            capture.channel.label
+        )
+    })?;
+    if capture.board_cold_junction_temperature_k.is_empty() {
+        return Err(format!(
+            "Thermocouple capture for {} is missing board cold-junction temperature samples",
+            capture.channel.label
+        ));
+    }
+
+    let mut offset_sum_v = 0.0;
+    for &board_temperature_k in &capture.board_cold_junction_temperature_k {
+        offset_sum_v += rtd_voltage_from_temperature_k(board_temperature_k + offset_k)?
+            - rtd_voltage_from_temperature_k(board_temperature_k)?;
+    }
+
+    Ok(ThermocoupleColdJunctionJsonRecord {
+        calibrator_cold_junction_temperature_k,
+        cold_junction_temperature_offset_k: offset_k,
+        cold_junction_rtd_voltage_offset_v: offset_sum_v
+            / capture.board_cold_junction_temperature_k.len() as f64,
+        board_cold_junction_offset_k: offset_k,
+    })
+}
+
 fn write_calibration_json_record(
     capture: &ChannelCapture,
     analysis: &ChannelAnalysis,
@@ -1676,7 +1733,7 @@ fn write_calibration_json_record(
     let path = capture
         .op_dir
         .join(format!("{}_calibration.json", capture.op_name));
-    let record = CalibrationJsonRecord {
+    let core = CalibrationJsonCore {
         model: MODEL_NAME.to_owned(),
         serial_number: SERIAL_NUMBER,
         channel: capture.channel.analog_input_name.to_owned(),
@@ -1689,17 +1746,13 @@ fn write_calibration_json_record(
         },
         rtd_reference_current_a: match capture.channel.kind {
             CalibrationKind::Current4To20 => None,
-            CalibrationKind::Rtd => Some(RTD_REFERENCE_CURRENT_A),
-            CalibrationKind::Thermocouple => None,
+            CalibrationKind::Rtd | CalibrationKind::Thermocouple => Some(RTD_REFERENCE_CURRENT_A),
         },
         rtd_frontend_gain: match capture.channel.kind {
             CalibrationKind::Current4To20 => None,
-            CalibrationKind::Rtd => Some(RTD_FRONTEND_GAIN),
-            CalibrationKind::Thermocouple => None,
+            CalibrationKind::Rtd | CalibrationKind::Thermocouple => Some(RTD_FRONTEND_GAIN),
         },
         temperature_error_fit: analysis.voltage_fit.temperature_error_fit.clone(),
-        calibrator_cold_junction_temperature_k: capture.calibrator_cold_junction_temperature_k,
-        board_cold_junction_offset_k: capture.board_cold_junction_offset_k,
         polynomial_order: VOLTAGE_FIT_ORDER,
         polynomial_coefficients: analysis.voltage_fit.coefficients.clone(),
         r2: analysis.voltage_fit.r2,
@@ -1708,14 +1761,23 @@ fn write_calibration_json_record(
         accepted_sample_count: analysis.samples.len(),
         detected_step_count: analysis.segments.len(),
     };
-    let json = serde_json::to_string_pretty(&record)
-        .map_err(|e| format!("Failed to serialize calibration record: {e}"))?;
+
+    let json = if matches!(capture.channel.kind, CalibrationKind::Thermocouple) {
+        serde_json::to_string_pretty(&ThermocoupleCalibrationJsonRecord {
+            core,
+            thermocouple_cold_junction: thermocouple_cold_junction_json_record(capture)?,
+        })
+    } else {
+        serde_json::to_string_pretty(&CalibrationJsonRecord { core })
+    }
+    .map_err(|e| format!("Failed to serialize calibration record: {e}"))?;
     fs::write(&path, json).map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
 
     Ok(path)
 }
 
-fn fit_label(channel: CalibrationChannel, fit: &VoltageFit) -> String {
+fn fit_label(capture: &ChannelCapture, fit: &VoltageFit) -> Result<String, String> {
+    let channel = capture.channel;
     let voltage_fit = format!(
         "{}: expected = {:.9} + {:.9} * measured, R^2 = {:.9}",
         channel.fit_heading(),
@@ -1724,7 +1786,7 @@ fn fit_label(channel: CalibrationChannel, fit: &VoltageFit) -> String {
         fit.r2,
     );
 
-    if let Some(temperature_error_fit) = &fit.temperature_error_fit {
+    let label = if let Some(temperature_error_fit) = &fit.temperature_error_fit {
         format!(
             "Temperature error fit: error_K = {:.9} + {:.9} * ((T_K - {:.6}) / {:.6}), R^2 = {:.9}; {voltage_fit}",
             temperature_error_fit.coefficients[0],
@@ -1735,6 +1797,18 @@ fn fit_label(channel: CalibrationChannel, fit: &VoltageFit) -> String {
         )
     } else {
         voltage_fit
+    };
+
+    if matches!(channel.kind, CalibrationKind::Thermocouple) {
+        let cold_junction = thermocouple_cold_junction_json_record(capture)?;
+        Ok(format!(
+            "{label}; cold junction: calibrator = {:.3} K, temperature offset = {:.6} K, RTD voltage offset = {:.9} V",
+            cold_junction.calibrator_cold_junction_temperature_k,
+            cold_junction.cold_junction_temperature_offset_k,
+            cold_junction.cold_junction_rtd_voltage_offset_v,
+        ))
+    } else {
+        Ok(label)
     }
 }
 
@@ -1823,7 +1897,7 @@ fn write_analysis_plot(
         .iter()
         .map(|sample| sample.reference_a * display_scale)
         .collect::<Vec<_>>();
-    let voltage_fit_label = fit_label(capture.channel, &analysis.voltage_fit);
+    let voltage_fit_label = fit_label(capture, &analysis.voltage_fit)?;
     let residual_trace_name = match capture.channel.kind {
         CalibrationKind::Current4To20 => "Fit residual as current",
         CalibrationKind::Rtd => "Propagated temperature residual",
