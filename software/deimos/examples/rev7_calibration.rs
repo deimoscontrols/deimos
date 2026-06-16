@@ -220,7 +220,7 @@ impl CalibrationChannel {
 
     fn error_plot_title(self) -> &'static str {
         match self.kind {
-            CalibrationKind::Current4To20 => "Error vs reference (%FS)",
+            CalibrationKind::Current4To20 => "Current error vs reference",
             CalibrationKind::Rtd => "Temperature error vs reference",
             CalibrationKind::Thermocouple => "Thermocouple temperature error vs reference",
         }
@@ -228,9 +228,29 @@ impl CalibrationChannel {
 
     fn error_axis_label(self) -> &'static str {
         match self.kind {
-            CalibrationKind::Current4To20 => "Error (%FS, 20 mA)",
+            CalibrationKind::Current4To20 => "Error (mA)",
             CalibrationKind::Rtd => "Error (K)",
             CalibrationKind::Thermocouple => "Error (K)",
+        }
+    }
+
+    fn error_accuracy_limit(self) -> f64 {
+        match self.kind {
+            CalibrationKind::Current4To20 => FLUKE_707_CURRENT_ACCURACY_A * 1e3,
+            CalibrationKind::Rtd => VA720_ACCURACY_K,
+            CalibrationKind::Thermocouple => {
+                VA710_TEMPERATURE_ACCURACY_K
+                    + VA710_COLD_JUNCTION_ACCURACY_K
+                    + VA710_NEAR_ROOM_VOLTAGE_ACCURACY_K
+            }
+        }
+    }
+
+    fn error_accuracy_label(self) -> &'static str {
+        match self.kind {
+            CalibrationKind::Current4To20 => "Fluke 707 accuracy range",
+            CalibrationKind::Rtd => "VA720 accuracy range",
+            CalibrationKind::Thermocouple => "VA710 approximate accuracy range",
         }
     }
 
@@ -1776,8 +1796,7 @@ fn write_calibration_json_record(
     Ok(path)
 }
 
-fn fit_label(capture: &ChannelCapture, fit: &VoltageFit) -> Result<String, String> {
-    let channel = capture.channel;
+fn fit_label(channel: CalibrationChannel, fit: &VoltageFit) -> String {
     let voltage_fit = format!(
         "{}: expected = {:.9} + {:.9} * measured, R^2 = {:.9}",
         channel.fit_heading(),
@@ -1786,7 +1805,7 @@ fn fit_label(capture: &ChannelCapture, fit: &VoltageFit) -> Result<String, Strin
         fit.r2,
     );
 
-    let label = if let Some(temperature_error_fit) = &fit.temperature_error_fit {
+    if let Some(temperature_error_fit) = &fit.temperature_error_fit {
         format!(
             "Temperature error fit: error_K = {:.9} + {:.9} * ((T_K - {:.6}) / {:.6}), R^2 = {:.9}; {voltage_fit}",
             temperature_error_fit.coefficients[0],
@@ -1797,18 +1816,20 @@ fn fit_label(capture: &ChannelCapture, fit: &VoltageFit) -> Result<String, Strin
         )
     } else {
         voltage_fit
-    };
+    }
+}
 
-    if matches!(channel.kind, CalibrationKind::Thermocouple) {
+fn cold_junction_label(capture: &ChannelCapture) -> Result<Option<String>, String> {
+    if matches!(capture.channel.kind, CalibrationKind::Thermocouple) {
         let cold_junction = thermocouple_cold_junction_json_record(capture)?;
-        Ok(format!(
-            "{label}; cold junction: calibrator = {:.3} K, temperature offset = {:.6} K, RTD voltage offset = {:.9} V",
+        Ok(Some(format!(
+            "Cold junction: calibrator = {:.3} K, temperature offset = {:.6} K, RTD voltage offset = {:.9} V",
             cold_junction.calibrator_cold_junction_temperature_k,
             cold_junction.cold_junction_temperature_offset_k,
             cold_junction.cold_junction_rtd_voltage_offset_v,
-        ))
+        )))
     } else {
-        Ok(label)
+        Ok(None)
     }
 }
 
@@ -1859,11 +1880,46 @@ fn write_analysis_plot(
         .samples
         .iter()
         .map(|sample| match capture.channel.kind {
-            CalibrationKind::Current4To20 => 100.0 * sample.error_a / REFERENCE_MAX_A,
+            CalibrationKind::Current4To20 => sample.error_a * 1e3,
             CalibrationKind::Rtd => sample.error_a,
             CalibrationKind::Thermocouple => sample.error_a,
         })
         .collect::<Vec<_>>();
+    let error_accuracy_limit = capture.channel.error_accuracy_limit();
+    let min_error_reference = accepted_reference_display
+        .iter()
+        .copied()
+        .fold(f64::INFINITY, f64::min);
+    let max_error_reference = accepted_reference_display
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, f64::max);
+    let (min_error_reference, max_error_reference) = if min_error_reference == max_error_reference {
+        let padding = (min_error_reference.abs() * 0.05).max(1.0);
+        (min_error_reference - padding, max_error_reference + padding)
+    } else {
+        (min_error_reference, max_error_reference)
+    };
+    let error_accuracy_x = vec![
+        min_error_reference,
+        max_error_reference,
+        max_error_reference,
+        min_error_reference,
+        min_error_reference,
+    ];
+    let error_accuracy_y = vec![
+        -error_accuracy_limit,
+        -error_accuracy_limit,
+        error_accuracy_limit,
+        error_accuracy_limit,
+        -error_accuracy_limit,
+    ];
+    let max_abs_error = error_plot_y
+        .iter()
+        .map(|error| error.abs())
+        .fold(0.0, f64::max);
+    let error_y_limit = (2.0 * error_accuracy_limit).max(max_abs_error);
+    let error_y_axis_range = vec![-error_y_limit, error_y_limit];
     let fit_measured_x = analysis.voltage_fit.measured_x.clone();
     let fit_expected_y = analysis.voltage_fit.expected_y.clone();
     let min_fit_x = fit_measured_x.iter().copied().fold(f64::INFINITY, f64::min);
@@ -1897,7 +1953,16 @@ fn write_analysis_plot(
         .iter()
         .map(|sample| sample.reference_a * display_scale)
         .collect::<Vec<_>>();
-    let voltage_fit_label = fit_label(capture, &analysis.voltage_fit)?;
+    let voltage_fit_label = fit_label(capture.channel, &analysis.voltage_fit);
+    let cold_junction_label_html = if let Some(cold_junction_label) = cold_junction_label(capture)?
+    {
+        format!(
+            r#"<p class="plot-note">{}</p>"#,
+            html_escape(&cold_junction_label)
+        )
+    } else {
+        String::new()
+    };
     let residual_trace_name = match capture.channel.kind {
         CalibrationKind::Current4To20 => "Fit residual as current",
         CalibrationKind::Rtd => "Propagated temperature residual",
@@ -2013,6 +2078,11 @@ fn write_analysis_plot(
             font-weight: 650;
             color: {text_color};
         }}
+        .plot-note {{
+            margin: -2px 0 8px;
+            font-size: 14px;
+            color: {text_color};
+        }}
     </style>
 </head>
 <body>
@@ -2021,6 +2091,7 @@ fn write_analysis_plot(
     <div id="time-overlay" class="plot"></div>
     <div id="relative-error" class="plot"></div>
     <h2 class="plot-heading">{voltage_fit_label_html}</h2>
+    {cold_junction_label_html}
     <div id="voltage-fit" class="plot"></div>
     <div id="voltage-fit-residual" class="plot"></div>
 </main>
@@ -2033,6 +2104,9 @@ const acceptedReference = {accepted_reference_display};
 const referenceStepTimeS = {reference_step_time_s};
 const referenceStepMA = {reference_step_ma};
 const errorPlotY = {error_plot_y};
+const errorAccuracyX = {error_accuracy_x};
+const errorAccuracyY = {error_accuracy_y};
+const errorYAxisRange = {error_y_axis_range};
 const acceptedShapes = {accepted_shapes};
 const fitMeasuredX = {fit_measured_x};
 const fitExpectedY = {fit_expected_y};
@@ -2116,6 +2190,17 @@ Plotly.newPlot("time-overlay", [
 
 Plotly.newPlot("relative-error", [
     {{
+        x: errorAccuracyX,
+        y: errorAccuracyY,
+        mode: "lines",
+        type: "scatter",
+        fill: "toself",
+        name: {error_accuracy_label},
+        line: {{ width: 0, color: accuracyFillColor }},
+        fillcolor: accuracyFillColor,
+        hoverinfo: "skip"
+    }},
+    {{
         x: acceptedReference,
         y: errorPlotY,
         type: "box",
@@ -2137,7 +2222,7 @@ Plotly.newPlot("relative-error", [
 ], themedLayout({{
     title: {{ text: {error_plot_title} }},
     xaxis: {{ title: {{ text: {reference_axis_label}, standoff: 16 }}, automargin: true }},
-    yaxis: {{ title: {{ text: {error_axis_label}, standoff: 18 }}, automargin: true }},
+    yaxis: {{ title: {{ text: {error_axis_label}, standoff: 18 }}, range: errorYAxisRange, automargin: true }},
     boxmode: "group",
     margin: {{ l: 88, r: 24, t: 64, b: 78 }}
 }}), {{ responsive: true }});
@@ -2210,6 +2295,7 @@ Plotly.newPlot("voltage-fit-residual", [
 "##,
         title = html_escape(&title),
         voltage_fit_label_html = html_escape(&voltage_fit_label),
+        cold_junction_label_html = cold_junction_label_html,
         page_background = plot_theme.page_background(),
         text_color = plot_theme.text_color(),
         text_color_js = serde_json::to_string(plot_theme.text_color())
@@ -2242,6 +2328,14 @@ Plotly.newPlot("voltage-fit-residual", [
             .map_err(|e| format!("Failed to serialize plot reference-step data: {e}"))?,
         error_plot_y = serde_json::to_string(&error_plot_y)
             .map_err(|e| format!("Failed to serialize plot relative-error y data: {e}"))?,
+        error_accuracy_x = serde_json::to_string(&error_accuracy_x)
+            .map_err(|e| format!("Failed to serialize plot error accuracy x data: {e}"))?,
+        error_accuracy_y = serde_json::to_string(&error_accuracy_y)
+            .map_err(|e| format!("Failed to serialize plot error accuracy y data: {e}"))?,
+        error_y_axis_range = serde_json::to_string(&error_y_axis_range)
+            .map_err(|e| format!("Failed to serialize plot error y-axis range: {e}"))?,
+        error_accuracy_label = serde_json::to_string(capture.channel.error_accuracy_label())
+            .map_err(|e| format!("Failed to serialize error accuracy label: {e}"))?,
         accepted_shapes = serde_json::to_string(&accepted_shapes)
             .map_err(|e| format!("Failed to serialize plot accepted-region shapes: {e}"))?,
         residual_accuracy_x = serde_json::to_string(&residual_accuracy_x)
