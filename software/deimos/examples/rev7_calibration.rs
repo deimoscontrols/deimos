@@ -62,10 +62,7 @@ const TC_MIN_REFERENCE_K: f64 = ZERO_C_K - 210.0;
 const TC_MAX_REFERENCE_K: f64 = ZERO_C_K + 1300.0;
 const TC_STEP_K: f64 = 10.0;
 const TC_STEP_DETECTION_TOLERANCE_K: f64 = 5.0;
-const TC_HIGH_TEMP_THRESHOLD_K: f64 = ZERO_C_K + 100.0;
-const TC_HIGH_STEP_DETECTION_TOLERANCE_K: f64 = 20.0;
 const MIN_TC_STEP_DURATION_S: f64 = 0.5;
-const MIN_TC_HIGH_STEP_DURATION_S: f64 = 5.0;
 const TC_CAPTURE_SECONDS: u64 = 240;
 const VA710_TEMPERATURE_ACCURACY_K: f64 = 0.3;
 const VA710_COLD_JUNCTION_ACCURACY_K: f64 = 0.3;
@@ -194,16 +191,6 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => MIN_STEP_DURATION_S,
             CalibrationKind::Rtd => MIN_RTD_STEP_DURATION_S,
             CalibrationKind::Thermocouple => MIN_TC_STEP_DURATION_S,
-        }
-    }
-
-    fn min_step_duration_s_for_reference(self, reference_a: f64) -> f64 {
-        if matches!(self.kind, CalibrationKind::Thermocouple)
-            && reference_a > TC_HIGH_TEMP_THRESHOLD_K
-        {
-            MIN_TC_HIGH_STEP_DURATION_S
-        } else {
-            self.min_step_duration_s()
         }
     }
 
@@ -619,7 +606,7 @@ fn collect_all_channels(process_after_each_run: bool) -> Result<Vec<PathBuf>, St
         "RTD channels use manual holds stepping up from -200 C to +700 C, then back down from +700 C to -200 C during the recording. Each RTD channel records for {RTD_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
-        "Thermocouple channels use a VA710 simulator with manual holds during the recording. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
+        "Thermocouple channels use a VA710 simulator with manual holds stepping from -200 C to +1250 C during the recording. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
         "Monitor live channels with: cargo run -p deimos_console -- --config {CONSOLE_CONFIG_PATH}"
@@ -669,7 +656,7 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
         }
         CalibrationKind::Thermocouple => {
             println!(
-                "Ready the VA710 thermocouple simulator at the first reference temperature. During the {} second run, manually step through the reference temperatures with stable holds.",
+                "Ready the VA710 thermocouple simulator at -200 C. During the {} second run, manually step from -200 C to +1250 C with stable holds.",
                 channel.capture_seconds(),
             );
             println!(
@@ -1539,14 +1526,9 @@ fn nearest_thermocouple_reference_k(measured_k: f64) -> Option<f64> {
     }
 
     let reference_k = ZERO_C_K + ((measured_k - ZERO_C_K) / TC_STEP_K).round() * TC_STEP_K;
-    let tolerance_k = if reference_k > TC_HIGH_TEMP_THRESHOLD_K {
-        TC_HIGH_STEP_DETECTION_TOLERANCE_K
-    } else {
-        TC_STEP_DETECTION_TOLERANCE_K
-    };
 
     if (TC_MIN_REFERENCE_K..=TC_MAX_REFERENCE_K).contains(&reference_k)
-        && (measured_k - reference_k).abs() <= tolerance_k
+        && (measured_k - reference_k).abs() <= TC_STEP_DETECTION_TOLERANCE_K
     {
         Some(reference_k)
     } else {
@@ -1569,12 +1551,8 @@ fn no_segments_error(capture: &ChannelCapture) -> String {
             capture.channel.min_step_duration_s(),
         ),
         CalibrationKind::Thermocouple => format!(
-            "No stable thermocouple temperature holds found for {} using +/- {:.1} K tolerance below/equal 100 C, +/- {:.1} K tolerance above 100 C, {:.1} s minimum duration below/equal 100 C, and {:.1} s minimum duration above 100 C",
-            capture.channel.label,
-            TC_STEP_DETECTION_TOLERANCE_K,
-            TC_HIGH_STEP_DETECTION_TOLERANCE_K,
-            MIN_TC_STEP_DURATION_S,
-            MIN_TC_HIGH_STEP_DURATION_S,
+            "No stable thermocouple temperature holds found for {} using +/- {:.1} K tolerance and {:.1} s minimum duration",
+            capture.channel.label, TC_STEP_DETECTION_TOLERANCE_K, MIN_TC_STEP_DURATION_S,
         ),
     }
 }
@@ -1593,11 +1571,7 @@ fn push_step_segment(
     let start_time_s = capture.times_s[start_idx];
     let stop_time_s = capture.times_s[end_idx - 1];
     let duration_s = stop_time_s - start_time_s;
-    if duration_s
-        < capture
-            .channel
-            .min_step_duration_s_for_reference(reference_a)
-    {
+    if duration_s < capture.channel.min_step_duration_s() {
         return;
     }
 
