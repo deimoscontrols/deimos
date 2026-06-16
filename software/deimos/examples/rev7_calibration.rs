@@ -20,8 +20,8 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use deimos::{
     Controller, ControllerCtx, DataFrameDispatcher, LoopMethod, Overflow, Termination,
     calc::{
-        ktype_temperature_k_from_voltage_v_and_cold_junction_k,
-        pt100_resistance_ohm_from_temperature_k, pt100_temperature_k_from_resistance_ohm,
+        ktype_corrected_temp_k, pt100_resistance_ohm_from_temperature_k,
+        pt100_temperature_k_from_resistance_ohm,
     },
     dispatcher::{DataFrameHandle, ReportingDispatcher},
     math::{polyfit, polyval},
@@ -46,6 +46,7 @@ const MIN_STEP_DURATION_S: f64 = 2.5;
 const REFERENCE_RESISTOR_OHM: f64 = 75.0;
 const FLUKE_707_CURRENT_ACCURACY_A: f64 = REFERENCE_MAX_A * 0.015 / 100.0 + 2.0e-6;
 const VOLTAGE_FIT_ORDER: usize = 1;
+
 const ZERO_C_K: f64 = 273.15;
 const RTD_MIN_REFERENCE_K: f64 = ZERO_C_K - 200.0;
 const RTD_MAX_REFERENCE_K: f64 = ZERO_C_K + 800.0;
@@ -56,8 +57,9 @@ const RTD_CAPTURE_SECONDS: u64 = 240;
 const VA720_ACCURACY_K: f64 = 0.33;
 const RTD_REFERENCE_CURRENT_A: f64 = 250e-6;
 const RTD_FRONTEND_GAIN: f64 = 25.7;
-const TC_MIN_REFERENCE_K: f64 = ZERO_C_K - 50.0;
-const TC_MAX_REFERENCE_K: f64 = ZERO_C_K + 1300.0;
+
+const TC_MIN_REFERENCE_K: f64 = ZERO_C_K - 200.0;
+const TC_MAX_REFERENCE_K: f64 = ZERO_C_K + 1370.0;
 const TC_STEP_K: f64 = 10.0;
 const TC_STEP_DETECTION_TOLERANCE_K: f64 = 5.0;
 const MIN_TC_STEP_DURATION_S: f64 = 0.5;
@@ -883,12 +885,9 @@ fn extract_capture(
             .iter()
             .zip(board_cold_junction_temperature_k.iter())
             .map(|(&voltage_v, &board_temperature_k)| {
-                ktype_temperature_k_from_voltage_v_and_cold_junction_k(
-                    voltage_v,
-                    board_temperature_k + offset_k,
-                )
+                ktype_corrected_temp_k(voltage_v, board_temperature_k + offset_k)
             })
-            .collect::<Result<Vec<_>, String>>()?;
+            .collect::<Vec<_>>();
         Some(offset_k)
     } else {
         None
@@ -1143,21 +1142,27 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
                 record.signal_name
             ));
         }
-        if !record.time_s.is_finite() || !record.measured_a.is_finite() {
+        if !record.time_s.is_finite() {
             continue;
         }
         if last_time_s.is_some_and(|last| record.time_s <= last) {
             continue;
         }
 
-        timestamps_ns.push(record.timestamp_ns);
-        times_s.push(record.time_s);
-        measured_a.push(record.measured_a);
-        if matches!(channel.kind, CalibrationKind::Thermocouple) {
+        let measurement = if matches!(channel.kind, CalibrationKind::Thermocouple) {
             calibrator_cold_junction_temperature_k = calibrator_cold_junction_temperature_k
                 .or(record.calibrator_cold_junction_temperature_k);
-            board_cold_junction_offset_k =
-                board_cold_junction_offset_k.or(record.board_cold_junction_offset_k);
+            let offset_k = record
+                .board_cold_junction_offset_k
+                .or(board_cold_junction_offset_k)
+                .ok_or_else(|| {
+                    format!(
+                        "{} is missing board_cold_junction_offset_k for thermocouple signal '{}'",
+                        path.display(),
+                        channel.signal_name
+                    )
+                })?;
+            board_cold_junction_offset_k = Some(offset_k);
             let board_temperature_k = record.board_cold_junction_temperature_k.ok_or_else(|| {
                 format!(
                     "{} is missing board_cold_junction_temperature_k for thermocouple signal '{}'",
@@ -1172,9 +1177,26 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
                     channel.signal_name
                 )
             })?;
+            if !board_temperature_k.is_finite() || !voltage_v.is_finite() {
+                continue;
+            }
+            let measurement = ktype_corrected_temp_k(voltage_v, board_temperature_k + offset_k);
+            if !measurement.is_finite() {
+                continue;
+            }
             board_cold_junction_temperature_k.push(board_temperature_k);
             thermocouple_voltage_v.push(voltage_v);
-        }
+            measurement
+        } else {
+            if !record.measured_a.is_finite() {
+                continue;
+            }
+            record.measured_a
+        };
+
+        timestamps_ns.push(record.timestamp_ns);
+        times_s.push(record.time_s);
+        measured_a.push(measurement);
         last_time_s = Some(record.time_s);
     }
 
