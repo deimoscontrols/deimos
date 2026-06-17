@@ -2011,126 +2011,6 @@
 				)
 			)
 		)
-		(symbol "power:+2V5"
-			(power)
-			(pin_names
-				(offset 0)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "#PWR"
-				(at 0 -3.81 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Value" "+2V5"
-				(at 0 3.556 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Power symbol creates a global label with name \"+2V5\""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "power-flag"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "+2V5_0_1"
-				(polyline
-					(pts
-						(xy -0.762 1.27) (xy 0 2.54)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0 0) (xy 0 2.54)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0 2.54) (xy 0.762 1.27)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "+2V5_1_1"
-				(pin power_in line
-					(at 0 0 90)
-					(length 0) hide
-					(name "+2V5"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-		)
 		(symbol "power:+3V3"
 			(power)
 			(pin_numbers hide)
@@ -2467,6 +2347,12 @@
 				)
 			)
 		)
+	)
+	(junction
+		(at 185.674 258.572)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "0e27b788-ddd9-4712-8ec6-88a66b6e55e7")
 	)
 	(junction
 		(at 524.002 51.562)
@@ -3452,6 +3338,16 @@
 	)
 	(wire
 		(pts
+			(xy 183.134 258.572) (xy 185.674 258.572)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "82c094c9-5db8-498d-a943-b7d41769f59a")
+	)
+	(wire
+		(pts
 			(xy 266.954 58.674) (xy 266.954 45.72)
 		)
 		(stroke
@@ -4152,6 +4048,16 @@
 	)
 	(wire
 		(pts
+			(xy 183.134 261.112) (xy 183.134 258.572)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "debaff5c-29cb-4ba6-8d50-5f922d0b962b")
+	)
+	(wire
+		(pts
 			(xy 153.67 54.356) (xy 153.67 48.768)
 		)
 		(stroke
@@ -4578,7 +4484,7 @@
 		)
 		(uuid "47e6656e-0be5-460f-aa85-8e00218dbd7b")
 	)
-	(text "Pull-up to maintain\n1mA quiescent current"
+	(text "Pull-up to maintain\n>35uA quiescent current"
 		(exclude_from_sim no)
 		(at 197.104 255.524 0)
 		(effects
@@ -7126,78 +7032,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+2V5")
-		(at 183.134 261.112 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "6930f1ab-e874-4290-898e-f4054075b77e")
-		(property "Reference" "#PWR180"
-			(at 186.944 261.112 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+2V5"
-			(at 179.832 261.112 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" ""
-			(at 183.134 261.112 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 183.134 261.112 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 183.134 261.112 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "3f8e5c2b-41f0-416e-9290-9683259cda97")
-		)
-		(instances
-			(project "analog_i"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f"
-					(reference "#PWR180")
-					(unit 1)
-				)
-			)
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
-					(reference "#PWR1005")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:GND")
 		(at 371.602 46.228 0)
 		(unit 1)
@@ -8630,8 +8464,8 @@
 				(justify right)
 			)
 		)
-		(property "Value" "TL431DBZ"
-			(at 174.752 258.318 90)
+		(property "Value" "ATL431BQDBZR"
+			(at 168.148 258.318 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8668,7 +8502,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C23892"
+		(property "LCSC" "C97744"
 			(at 185.674 261.112 90)
 			(effects
 				(font
