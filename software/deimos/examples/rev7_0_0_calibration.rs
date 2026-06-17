@@ -1,10 +1,9 @@
 //! Rev7 DAQ calibration scaffold.
 //!
-//! This example starts with the rev7 4-20 mA inputs. For each channel, connect a
-//! Fluke 707 configured to auto-step through 0, 5, 10, 15, and 20 mA, press Enter
-//! to start recording, then run the stepping sequence during the recording. The
-//! example records 90 seconds, writes one calibration CSV per channel, then
-//! processes calibration CSVs by loading them back from disk.
+//! This example collects and postprocesses manually assisted rev7 calibration
+//! runs for 4-20 mA, RTD, thermocouple, and voltage inputs. It writes one
+//! calibration CSV per channel, then processes calibration CSVs by loading them
+//! back from disk.
 
 use std::{
     env,
@@ -13,7 +12,8 @@ use std::{
     net::Ipv4Addr,
     path::{Path, PathBuf},
     sync::atomic::Ordering,
-    time::{Duration, SystemTime},
+    thread::sleep,
+    time::{Duration, Instant, SystemTime},
 };
 
 use chrono::{DateTime, SecondsFormat, Utc};
@@ -43,6 +43,14 @@ const CAPTURE_SECONDS: u64 = 90;
 const REFERENCE_RESISTOR_OHM: f64 = 75.0;
 const FLUKE_707_CURRENT_ACCURACY_A: f64 = REFERENCE_MAX_A * 0.015 / 100.0 + 2.0e-6;
 const VOLTAGE_FIT_ORDER: usize = 1;
+const VOLTAGE_HOLD_COUNT: usize = 4;
+const VOLTAGE_HOLD_SECONDS: f64 = 5.0;
+const MIN_VOLTAGE_HOLD_DURATION_S: f64 = 2.0;
+const VOLTAGE_CAPTURE_SECONDS: u64 = 300;
+const VOLTAGE_0_2V5_MAX_V: f64 = 2.5;
+const VOLTAGE_0_15V_MAX_V: f64 = 15.0;
+const VOLTAGE_X26_MIN_V: f64 = -1.024 / 25.7;
+const VOLTAGE_X26_MAX_V: f64 = (VOLTAGE_0_2V5_MAX_V - 1.024) / 25.7;
 
 const ZERO_C_K: f64 = 273.15;
 const RTD_MIN_REFERENCE_K: f64 = ZERO_C_K - 200.0;
@@ -84,6 +92,7 @@ enum CalibrationKind {
     Current4To20,
     Rtd,
     Thermocouple,
+    Voltage,
 }
 
 const CURRENT_CHANNELS: [CalibrationChannel; 4] = [
@@ -158,12 +167,58 @@ const THERMOCOUPLE_CHANNELS: [CalibrationChannel; 2] = [
     },
 ];
 
+const VOLTAGE_CHANNELS: [CalibrationChannel; 6] = [
+    CalibrationChannel {
+        label: "0-2.5 V channel 0 (ain12)",
+        analog_input_name: "ain12",
+        signal_name: "p1_0_2V5_0.y",
+        slug: "0_2V5_0",
+        kind: CalibrationKind::Voltage,
+    },
+    CalibrationChannel {
+        label: "0-2.5 V channel 1 (ain15)",
+        analog_input_name: "ain15",
+        signal_name: "p1_0_2V5_1.y",
+        slug: "0_2V5_1",
+        kind: CalibrationKind::Voltage,
+    },
+    CalibrationChannel {
+        label: "0-15 V channel 0 (ain16)",
+        analog_input_name: "ain16",
+        signal_name: "p1_0_15V_0.y",
+        slug: "0_15V_0",
+        kind: CalibrationKind::Voltage,
+    },
+    CalibrationChannel {
+        label: "0-15 V channel 1 (ain17)",
+        analog_input_name: "ain17",
+        signal_name: "p1_0_15V_1.y",
+        slug: "0_15V_1",
+        kind: CalibrationKind::Voltage,
+    },
+    CalibrationChannel {
+        label: "x26 voltage channel 0 (ain18)",
+        analog_input_name: "ain18",
+        signal_name: "p1_x26_0.y",
+        slug: "x26_0",
+        kind: CalibrationKind::Voltage,
+    },
+    CalibrationChannel {
+        label: "x26 voltage channel 1 (ain19)",
+        analog_input_name: "ain19",
+        signal_name: "p1_x26_1.y",
+        slug: "x26_1",
+        kind: CalibrationKind::Voltage,
+    },
+];
+
 impl CalibrationChannel {
     fn capture_seconds(self) -> u64 {
         match self.kind {
             CalibrationKind::Current4To20 => CAPTURE_SECONDS,
             CalibrationKind::Rtd => RTD_CAPTURE_SECONDS,
             CalibrationKind::Thermocouple => TC_CAPTURE_SECONDS,
+            CalibrationKind::Voltage => VOLTAGE_CAPTURE_SECONDS,
         }
     }
 
@@ -172,6 +227,7 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => "V",
             CalibrationKind::Rtd => "V",
             CalibrationKind::Thermocouple => "V",
+            CalibrationKind::Voltage => "V",
         }
     }
 
@@ -180,6 +236,7 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => "Voltage fit",
             CalibrationKind::Rtd => "Voltage fit",
             CalibrationKind::Thermocouple => "Thermocouple voltage fit",
+            CalibrationKind::Voltage => "Voltage fit",
         }
     }
 
@@ -188,6 +245,7 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => MIN_STEP_DURATION_S,
             CalibrationKind::Rtd => MIN_RTD_STEP_DURATION_S,
             CalibrationKind::Thermocouple => MIN_TC_STEP_DURATION_S,
+            CalibrationKind::Voltage => MIN_VOLTAGE_HOLD_DURATION_S,
         }
     }
 
@@ -196,6 +254,7 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => 1e3,
             CalibrationKind::Rtd => 1.0,
             CalibrationKind::Thermocouple => 1.0,
+            CalibrationKind::Voltage => 1.0,
         }
     }
 
@@ -204,6 +263,7 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => "Current (mA)",
             CalibrationKind::Rtd => "Temperature (K)",
             CalibrationKind::Thermocouple => "Adjusted temperature (K)",
+            CalibrationKind::Voltage => "Voltage (V)",
         }
     }
 
@@ -212,6 +272,7 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => "Reference current (mA)",
             CalibrationKind::Rtd => "Reference temperature (K)",
             CalibrationKind::Thermocouple => "Reference temperature (K)",
+            CalibrationKind::Voltage => "Reference voltage (V)",
         }
     }
 
@@ -220,6 +281,7 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => "Current error vs reference",
             CalibrationKind::Rtd => "Temperature error vs reference",
             CalibrationKind::Thermocouple => "Thermocouple temperature error vs reference",
+            CalibrationKind::Voltage => "Voltage error vs reference",
         }
     }
 
@@ -228,6 +290,7 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => "Error (mA)",
             CalibrationKind::Rtd => "Error (K)",
             CalibrationKind::Thermocouple => "Error (K)",
+            CalibrationKind::Voltage => "Error (V)",
         }
     }
 
@@ -240,6 +303,7 @@ impl CalibrationChannel {
                     + VA710_COLD_JUNCTION_ACCURACY_K
                     + VA710_NEAR_ROOM_VOLTAGE_ACCURACY_K
             }
+            CalibrationKind::Voltage => 0.0,
         }
     }
 
@@ -248,6 +312,7 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => "Fluke 707 accuracy range",
             CalibrationKind::Rtd => "VA720 accuracy range",
             CalibrationKind::Thermocouple => "VA710 approximate accuracy range",
+            CalibrationKind::Voltage => "Reference meter accuracy not specified",
         }
     }
 
@@ -256,6 +321,7 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => "Expected voltage vs measured voltage",
             CalibrationKind::Rtd => "Corrected RTD voltage vs measured voltage",
             CalibrationKind::Thermocouple => "Corrected thermocouple voltage vs measured voltage",
+            CalibrationKind::Voltage => "Expected voltage vs measured voltage",
         }
     }
 
@@ -264,6 +330,7 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => "Measured voltage (V)",
             CalibrationKind::Rtd => "Measured RTD voltage (V)",
             CalibrationKind::Thermocouple => "Measured thermocouple voltage (V)",
+            CalibrationKind::Voltage => "Measured voltage (V)",
         }
     }
 
@@ -272,6 +339,7 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => "Expected voltage (V)",
             CalibrationKind::Rtd => "Corrected RTD voltage (V)",
             CalibrationKind::Thermocouple => "Corrected thermocouple voltage (V)",
+            CalibrationKind::Voltage => "Expected voltage (V)",
         }
     }
 
@@ -282,6 +350,7 @@ impl CalibrationChannel {
             CalibrationKind::Thermocouple => {
                 "Residual temperature error after voltage fit propagation"
             }
+            CalibrationKind::Voltage => "Residual after voltage fit",
         }
     }
 
@@ -290,6 +359,7 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => "Estimated current residual (uA)",
             CalibrationKind::Rtd => "Temperature residual (K)",
             CalibrationKind::Thermocouple => "Temperature residual (K)",
+            CalibrationKind::Voltage => "Voltage residual (V)",
         }
     }
 
@@ -306,6 +376,7 @@ impl CalibrationChannel {
                     + VA710_COLD_JUNCTION_ACCURACY_K
                     + VA710_NEAR_ROOM_VOLTAGE_ACCURACY_K
             }
+            CalibrationKind::Voltage => 0.0,
         }
     }
 
@@ -314,6 +385,16 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => "Fluke 707 accuracy range",
             CalibrationKind::Rtd => "VA720 accuracy range",
             CalibrationKind::Thermocouple => "VA710 approximate accuracy range",
+            CalibrationKind::Voltage => "Reference meter accuracy not specified",
+        }
+    }
+
+    fn voltage_reference_range_v(self) -> Option<(f64, f64)> {
+        match self.slug {
+            "0_2V5_0" | "0_2V5_1" => Some((0.0, VOLTAGE_0_2V5_MAX_V)),
+            "0_15V_0" | "0_15V_1" => Some((0.0, VOLTAGE_0_15V_MAX_V)),
+            "x26_0" | "x26_1" => Some((VOLTAGE_X26_MIN_V, VOLTAGE_X26_MAX_V)),
+            _ => None,
         }
     }
 
@@ -335,6 +416,7 @@ fn all_calibration_channels() -> impl Iterator<Item = CalibrationChannel> {
         .into_iter()
         .chain(RTD_CHANNELS)
         .chain(THERMOCOUPLE_CHANNELS)
+        .chain(VOLTAGE_CHANNELS)
 }
 
 #[derive(Debug)]
@@ -345,10 +427,18 @@ struct ChannelCapture {
     timestamps_ns: Vec<i64>,
     times_s: Vec<f64>,
     measured_a: Vec<f64>,
+    reference_a: Vec<Option<f64>>,
     calibrator_cold_junction_temperature_k: Option<f64>,
     board_cold_junction_temperature_k: Vec<f64>,
     board_cold_junction_offset_k: Option<f64>,
     thermocouple_voltage_v: Vec<f64>,
+}
+
+#[derive(Debug, Clone)]
+struct ManualReferenceWindow {
+    reference_a: f64,
+    start_time_s: f64,
+    stop_time_s: f64,
 }
 
 #[derive(Debug)]
@@ -409,6 +499,8 @@ struct CalibrationRecord {
     timestamp_ns: i64,
     time_s: f64,
     measured_a: f64,
+    #[serde(default)]
+    reference_a: Option<f64>,
     #[serde(default)]
     calibrator_cold_junction_temperature_k: Option<f64>,
     #[serde(default)]
@@ -644,6 +736,9 @@ fn collect_all_channels(process_after_each_run: bool) -> Result<Vec<PathBuf>, St
         "Thermocouple channels use a VA710 simulator with manual holds stepping from -200 C to +1250 C and back down to -200 C during the recording. Target 50 K increments below 100 C and 100 K increments above 100 C. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
+        "Voltage channels use a signal generator measured by the Fluke 707. For each voltage channel, the procedure prompts for {VOLTAGE_HOLD_COUNT} evenly spaced target holds; enter the Fluke voltage once the signal is stable."
+    );
+    println!(
         "Monitor live channels with: cargo run -p deimos_console -- --config {CONSOLE_CONFIG_PATH}"
     );
     println!(
@@ -718,6 +813,14 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
                 ),
             });
         }
+        CalibrationKind::Voltage => {
+            let (min_v, max_v) = channel
+                .voltage_reference_range_v()
+                .ok_or_else(|| format!("Missing voltage reference range for {}", channel.label))?;
+            println!(
+                "Connect the signal generator to this input and measure it with the Fluke 707. This run will prompt for {VOLTAGE_HOLD_COUNT} target holds from {min_v:.6} V to {max_v:.6} V."
+            );
+        }
     }
     println!("Press Enter to start this run, or type s then Enter to skip it.");
     let line = read_operator_line()?;
@@ -770,15 +873,21 @@ fn run_channel_capture(
     controller.add_dispatcher("reporting", reporting);
 
     let mut run_handle = controller.run_nonblocking(None, None, true)?;
-    println!(
-        "Recording {} for up to {} seconds. Perform the calibration stepping now. Press Enter to stop this run early.",
-        channel.label,
-        channel.capture_seconds(),
-    );
-    let mut line = String::new();
-    stdin()
-        .read_line(&mut line)
-        .map_err(|e| format!("Failed to read early-stop prompt: {e}"))?;
+    let run_start = Instant::now();
+    let manual_reference_windows = if matches!(channel.kind, CalibrationKind::Voltage) {
+        collect_voltage_reference_windows(channel, run_start)?
+    } else {
+        println!(
+            "Recording {} for up to {} seconds. Perform the calibration stepping now. Press Enter to stop this run early.",
+            channel.label,
+            channel.capture_seconds(),
+        );
+        let mut line = String::new();
+        stdin()
+            .read_line(&mut line)
+            .map_err(|e| format!("Failed to read early-stop prompt: {e}"))?;
+        Vec::new()
+    };
     if run_handle.is_running() {
         run_handle.stop();
     }
@@ -799,7 +908,55 @@ fn run_channel_capture(
         op_dir,
         df_handle,
         calibrator_cold_junction_temperature_k,
+        manual_reference_windows,
     )
+}
+
+fn collect_voltage_reference_windows(
+    channel: CalibrationChannel,
+    run_start: Instant,
+) -> Result<Vec<ManualReferenceWindow>, String> {
+    let (min_v, max_v) = channel
+        .voltage_reference_range_v()
+        .ok_or_else(|| format!("Missing voltage reference range for {}", channel.label))?;
+    let mut windows = Vec::with_capacity(VOLTAGE_HOLD_COUNT);
+
+    for hold_idx in 0..VOLTAGE_HOLD_COUNT {
+        let frac = hold_idx as f64 / (VOLTAGE_HOLD_COUNT.saturating_sub(1) as f64);
+        let target_v = min_v + frac * (max_v - min_v);
+        println!(
+            "Hold {}/{} for {}: tune the signal generator to about {:.6} V. When stable, enter the Fluke 707 measured voltage in V and press Enter.",
+            hold_idx + 1,
+            VOLTAGE_HOLD_COUNT,
+            channel.label,
+            target_v,
+        );
+        let line = read_operator_line()?;
+        let reference_a = line.trim().parse::<f64>().map_err(|e| {
+            format!(
+                "Expected Fluke voltage in V for {}, got '{}': {e}",
+                channel.label,
+                line.trim()
+            )
+        })?;
+        let start_time_s = run_start.elapsed().as_secs_f64();
+        println!(
+            "Recording hold {}/{} for {:.1} s at reference {:.9} V.",
+            hold_idx + 1,
+            VOLTAGE_HOLD_COUNT,
+            VOLTAGE_HOLD_SECONDS,
+            reference_a,
+        );
+        sleep(Duration::from_secs_f64(VOLTAGE_HOLD_SECONDS));
+        let stop_time_s = run_start.elapsed().as_secs_f64();
+        windows.push(ManualReferenceWindow {
+            reference_a,
+            start_time_s,
+            stop_time_s,
+        });
+    }
+
+    Ok(windows)
 }
 
 fn controller_context(
@@ -824,6 +981,7 @@ fn extract_capture(
     op_dir: PathBuf,
     df_handle: DataFrameHandle,
     calibrator_cold_junction_temperature_k: Option<f64>,
+    manual_reference_windows: Vec<ManualReferenceWindow>,
 ) -> Result<ChannelCapture, String> {
     let timestamps = df_handle.timestamp()?;
     let columns = df_handle.columns()?;
@@ -862,6 +1020,7 @@ fn extract_capture(
     let mut timestamps_ns = Vec::with_capacity(timestamps.len());
     let mut times_s = Vec::with_capacity(timestamps.len());
     let mut measured_a = Vec::with_capacity(timestamps.len());
+    let mut reference_a = Vec::with_capacity(timestamps.len());
     let mut board_cold_junction_temperature_k = Vec::with_capacity(timestamps.len());
     let mut thermocouple_voltage_v = Vec::with_capacity(timestamps.len());
     let mut last_time_s = None;
@@ -887,6 +1046,12 @@ fn extract_capture(
         timestamps_ns.push(timestamp);
         times_s.push(time_s);
         measured_a.push(measurement);
+        reference_a.push(
+            manual_reference_windows
+                .iter()
+                .find(|window| time_s >= window.start_time_s && time_s <= window.stop_time_s)
+                .map(|window| window.reference_a),
+        );
         if let Some(board_cold_junction_k) = board_cold_junction_k {
             board_cold_junction_temperature_k.push(board_cold_junction_k);
         }
@@ -943,6 +1108,7 @@ fn extract_capture(
         timestamps_ns,
         times_s,
         measured_a,
+        reference_a,
         calibrator_cold_junction_temperature_k,
         board_cold_junction_temperature_k,
         board_cold_junction_offset_k,
@@ -975,6 +1141,7 @@ fn write_calibration_data(capture: &ChannelCapture) -> Result<PathBuf, String> {
                 timestamp_ns,
                 time_s,
                 measured_a,
+                reference_a: capture.reference_a.get(idx).copied().flatten(),
                 calibrator_cold_junction_temperature_k: capture
                     .calibrator_cold_junction_temperature_k,
                 board_cold_junction_temperature_k: capture
@@ -1076,6 +1243,7 @@ fn process_calibration_files(paths: &[PathBuf], summary_dir: &Path) -> Result<()
             CalibrationKind::Current4To20 => (1e6, "uA"),
             CalibrationKind::Rtd => (1.0, "K"),
             CalibrationKind::Thermocouple => (1.0, "K"),
+            CalibrationKind::Voltage => (1.0, "V"),
         };
         summary_records.push(CalibrationSummaryRecord {
             source: path.display().to_string(),
@@ -1163,6 +1331,7 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
     let mut timestamps_ns = Vec::with_capacity(records.len());
     let mut times_s = Vec::with_capacity(records.len());
     let mut measured_a = Vec::with_capacity(records.len());
+    let mut reference_a = Vec::with_capacity(records.len());
     let mut board_cold_junction_temperature_k = Vec::with_capacity(records.len());
     let mut thermocouple_voltage_v = Vec::with_capacity(records.len());
     let mut calibrator_cold_junction_temperature_k = None;
@@ -1240,6 +1409,7 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
         timestamps_ns.push(record.timestamp_ns);
         times_s.push(record.time_s);
         measured_a.push(measurement);
+        reference_a.push(record.reference_a);
         last_time_s = Some(record.time_s);
     }
 
@@ -1258,6 +1428,7 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
         timestamps_ns,
         times_s,
         measured_a,
+        reference_a,
         calibrator_cold_junction_temperature_k,
         board_cold_junction_temperature_k,
         board_cold_junction_offset_k,
@@ -1308,6 +1479,7 @@ fn fit_expected_value(
         CalibrationKind::Current4To20 => fit_current_voltage(samples),
         CalibrationKind::Rtd => fit_rtd_voltage_from_temperature_error(samples),
         CalibrationKind::Thermocouple => fit_thermocouple_voltage(samples),
+        CalibrationKind::Voltage => fit_voltage(samples),
     }
 }
 
@@ -1320,6 +1492,23 @@ fn fit_current_voltage(samples: &[ErrorSample]) -> Result<VoltageFit, String> {
                 expected_voltage_v(sample.reference_a),
             )
         })
+        .collect::<Vec<_>>();
+    let (coefficients, r2, residuals) = fit_linear_points(&points)?;
+
+    Ok(VoltageFit {
+        coefficients,
+        r2,
+        measured_x: points.iter().map(|(x, _)| *x).collect(),
+        expected_y: points.iter().map(|(_, y)| *y).collect(),
+        residuals,
+        temperature_error_fit: None,
+    })
+}
+
+fn fit_voltage(samples: &[ErrorSample]) -> Result<VoltageFit, String> {
+    let points = samples
+        .iter()
+        .map(|sample| (sample.measured_a, sample.reference_a))
         .collect::<Vec<_>>();
     let (coefficients, r2, residuals) = fit_linear_points(&points)?;
 
@@ -1495,6 +1684,10 @@ fn normalized_fit_value(x: f64, coefficients: &[f64], center: f64, scale: f64) -
 }
 
 fn detect_step_segments(capture: &ChannelCapture) -> Result<Vec<StepSegment>, String> {
+    if matches!(capture.channel.kind, CalibrationKind::Voltage) {
+        return manual_reference_segments(capture);
+    }
+
     let mut segments = Vec::new();
     let mut active_reference = None;
     let mut active_start_idx = 0;
@@ -1536,7 +1729,40 @@ fn nearest_step_reference(measured: f64, kind: CalibrationKind) -> Option<f64> {
             .filter(|reference_a| (measured - *reference_a).abs() <= STEP_DETECTION_TOLERANCE_A),
         CalibrationKind::Rtd => nearest_rtd_reference_k(measured),
         CalibrationKind::Thermocouple => nearest_thermocouple_reference_k(measured),
+        CalibrationKind::Voltage => None,
     }
+}
+
+fn manual_reference_segments(capture: &ChannelCapture) -> Result<Vec<StepSegment>, String> {
+    let mut segments = Vec::new();
+    let mut active_reference = None;
+    let mut active_start_idx = 0;
+
+    for (idx, &reference) in capture.reference_a.iter().enumerate() {
+        if reference != active_reference {
+            if let Some(reference_a) = active_reference {
+                push_step_segment(capture, reference_a, active_start_idx, idx, &mut segments);
+            }
+            active_reference = reference;
+            active_start_idx = idx;
+        }
+    }
+
+    if let Some(reference_a) = active_reference {
+        push_step_segment(
+            capture,
+            reference_a,
+            active_start_idx,
+            capture.reference_a.len(),
+            &mut segments,
+        );
+    }
+
+    if segments.is_empty() {
+        return Err(no_segments_error(capture));
+    }
+
+    Ok(segments)
 }
 
 fn nearest_rtd_reference_k(measured_k: f64) -> Option<f64> {
@@ -1588,6 +1814,10 @@ fn no_segments_error(capture: &ChannelCapture) -> String {
         CalibrationKind::Thermocouple => format!(
             "No stable thermocouple temperature holds found for {} using +/- {:.1} K tolerance and {:.1} s minimum duration",
             capture.channel.label, TC_STEP_DETECTION_TOLERANCE_K, MIN_TC_STEP_DURATION_S,
+        ),
+        CalibrationKind::Voltage => format!(
+            "No manual voltage reference holds found for {}. The CSV must contain reference_a values from the voltage hold prompts.",
+            capture.channel.label,
         ),
     }
 }
@@ -1758,13 +1988,14 @@ fn write_calibration_json_record(
             CalibrationKind::Current4To20 => Some(REFERENCE_RESISTOR_OHM),
             CalibrationKind::Rtd => None,
             CalibrationKind::Thermocouple => None,
+            CalibrationKind::Voltage => None,
         },
         rtd_reference_current_a: match capture.channel.kind {
-            CalibrationKind::Current4To20 => None,
+            CalibrationKind::Current4To20 | CalibrationKind::Voltage => None,
             CalibrationKind::Rtd | CalibrationKind::Thermocouple => Some(RTD_REFERENCE_CURRENT_A),
         },
         rtd_frontend_gain: match capture.channel.kind {
-            CalibrationKind::Current4To20 => None,
+            CalibrationKind::Current4To20 | CalibrationKind::Voltage => None,
             CalibrationKind::Rtd | CalibrationKind::Thermocouple => Some(RTD_FRONTEND_GAIN),
         },
         temperature_error_fit: analysis.voltage_fit.temperature_error_fit.clone(),
@@ -1868,6 +2099,7 @@ fn write_analysis_plot(
             CalibrationKind::Current4To20 => sample.error_a * 1e3,
             CalibrationKind::Rtd => sample.error_a,
             CalibrationKind::Thermocouple => sample.error_a,
+            CalibrationKind::Voltage => sample.error_a,
         })
         .collect::<Vec<_>>();
     let error_accuracy_limit = capture.channel.error_accuracy_limit();
@@ -1903,7 +2135,7 @@ fn write_analysis_plot(
         .iter()
         .map(|error| error.abs())
         .fold(0.0, f64::max);
-    let error_y_limit = (2.0 * error_accuracy_limit).max(max_abs_error);
+    let error_y_limit = (2.0 * error_accuracy_limit).max(max_abs_error).max(1e-12);
     let error_y_axis_range = vec![-error_y_limit, error_y_limit];
     let fit_measured_x = analysis.voltage_fit.measured_x.clone();
     let fit_expected_y = analysis.voltage_fit.expected_y.clone();
@@ -1931,6 +2163,7 @@ fn write_analysis_plot(
             CalibrationKind::Current4To20 => residual / REFERENCE_RESISTOR_OHM * 1e6,
             CalibrationKind::Rtd => *residual,
             CalibrationKind::Thermocouple => *residual,
+            CalibrationKind::Voltage => *residual,
         })
         .collect::<Vec<_>>();
     let fit_residual_reference = analysis
@@ -1952,6 +2185,7 @@ fn write_analysis_plot(
         CalibrationKind::Current4To20 => "Fit residual as current",
         CalibrationKind::Rtd => "Propagated temperature residual",
         CalibrationKind::Thermocouple => "Propagated temperature residual",
+        CalibrationKind::Voltage => "Voltage fit residual",
     };
 
     let mut reference_step_time_s = Vec::new();
@@ -2020,7 +2254,9 @@ fn write_analysis_plot(
         .iter()
         .map(|residual| residual.abs())
         .fold(0.0, f64::max);
-    let residual_y_limit = (2.0 * residual_accuracy_limit).max(max_abs_residual);
+    let residual_y_limit = (2.0 * residual_accuracy_limit)
+        .max(max_abs_residual)
+        .max(1e-12);
     let residual_y_axis_range = vec![-residual_y_limit, residual_y_limit];
 
     let title = format!(

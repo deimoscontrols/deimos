@@ -32,3 +32,14 @@ channels = [
     "p1_tc_1.temperature_K",
     "p1_board_rtd_filtered.y",
 ]
+
+[[panels]]
+title = "Rev7 Voltage Inputs"
+channels = [
+    "p1_0_2V5_0.y",
+    "p1_0_2V5_1.y",
+    "p1_0_15V_0.y",
+    "p1_0_15V_1.y",
+    "p1_x26_0.y",
+    "p1_x26_1.y",
+]
