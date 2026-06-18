@@ -42,6 +42,8 @@ const MIN_STEP_DURATION_S: f64 = 2.5;
 const CAPTURE_SECONDS: u64 = 90;
 const REFERENCE_RESISTOR_OHM: f64 = 75.0;
 const FLUKE_707_CURRENT_ACCURACY_A: f64 = REFERENCE_MAX_A * 0.015 / 100.0 + 2.0e-6;
+const FLUKE_707_VOLTAGE_ACCURACY_READING_FRAC: f64 = 0.015 / 100.0;
+const FLUKE_707_VOLTAGE_ACCURACY_V: f64 = 2.0e-3;
 const VOLTAGE_FIT_ORDER: usize = 1;
 const VOLTAGE_HOLD_COUNT: usize = 4;
 const VOLTAGE_HOLD_SECONDS: f64 = 5.0;
@@ -307,12 +309,19 @@ impl CalibrationChannel {
         }
     }
 
+    fn error_accuracy_limit_at_reference(self, reference: f64) -> f64 {
+        match self.kind {
+            CalibrationKind::Voltage => fluke_707_voltage_accuracy_v(reference),
+            _ => self.error_accuracy_limit(),
+        }
+    }
+
     fn error_accuracy_label(self) -> &'static str {
         match self.kind {
             CalibrationKind::Current4To20 => "Fluke 707 accuracy range",
             CalibrationKind::Rtd => "VA720 accuracy range",
             CalibrationKind::Thermocouple => "VA710 approximate accuracy range",
-            CalibrationKind::Voltage => "Reference meter accuracy not specified",
+            CalibrationKind::Voltage => "Fluke 707 voltage accuracy range",
         }
     }
 
@@ -380,12 +389,19 @@ impl CalibrationChannel {
         }
     }
 
+    fn residual_accuracy_limit_at_reference(self, reference: f64) -> f64 {
+        match self.kind {
+            CalibrationKind::Voltage => fluke_707_voltage_accuracy_v(reference),
+            _ => self.residual_accuracy_limit(),
+        }
+    }
+
     fn residual_accuracy_label(self) -> &'static str {
         match self.kind {
             CalibrationKind::Current4To20 => "Fluke 707 accuracy range",
             CalibrationKind::Rtd => "VA720 accuracy range",
             CalibrationKind::Thermocouple => "VA710 approximate accuracy range",
-            CalibrationKind::Voltage => "Reference meter accuracy not specified",
+            CalibrationKind::Voltage => "Fluke 707 voltage accuracy range",
         }
     }
 
@@ -1907,6 +1923,46 @@ fn rtd_temperature_from_voltage_v(voltage_v: f64) -> f64 {
     pt100_temp_k(resistance_ohm)
 }
 
+fn fluke_707_voltage_accuracy_v(reading_v: f64) -> f64 {
+    FLUKE_707_VOLTAGE_ACCURACY_READING_FRAC * reading_v.abs() + FLUKE_707_VOLTAGE_ACCURACY_V
+}
+
+fn accuracy_band_xy(
+    min_reference: f64,
+    max_reference: f64,
+    accuracy_limit: impl Fn(f64) -> f64,
+) -> (Vec<f64>, Vec<f64>) {
+    const POINTS: usize = 64;
+    let count = if min_reference == max_reference {
+        2
+    } else {
+        POINTS
+    };
+    let mut upper = Vec::with_capacity(count);
+    for idx in 0..count {
+        let frac = idx as f64 / (count - 1) as f64;
+        let reference = min_reference + frac * (max_reference - min_reference);
+        upper.push((reference, accuracy_limit(reference)));
+    }
+
+    let mut x = Vec::with_capacity(2 * count + 1);
+    let mut y = Vec::with_capacity(2 * count + 1);
+    for &(reference, limit) in &upper {
+        x.push(reference);
+        y.push(limit);
+    }
+    for &(reference, limit) in upper.iter().rev() {
+        x.push(reference);
+        y.push(-limit);
+    }
+    if let Some(&(reference, limit)) = upper.first() {
+        x.push(reference);
+        y.push(limit);
+    }
+
+    (x, y)
+}
+
 fn write_error_samples(
     capture: &ChannelCapture,
     analysis: &ChannelAnalysis,
@@ -2102,7 +2158,6 @@ fn write_analysis_plot(
             CalibrationKind::Voltage => sample.error_a,
         })
         .collect::<Vec<_>>();
-    let error_accuracy_limit = capture.channel.error_accuracy_limit();
     let min_error_reference = accepted_reference_display
         .iter()
         .copied()
@@ -2117,25 +2172,19 @@ fn write_analysis_plot(
     } else {
         (min_error_reference, max_error_reference)
     };
-    let error_accuracy_x = vec![
-        min_error_reference,
-        max_error_reference,
-        max_error_reference,
-        min_error_reference,
-        min_error_reference,
-    ];
-    let error_accuracy_y = vec![
-        -error_accuracy_limit,
-        -error_accuracy_limit,
-        error_accuracy_limit,
-        error_accuracy_limit,
-        -error_accuracy_limit,
-    ];
+    let (error_accuracy_x, error_accuracy_y) =
+        accuracy_band_xy(min_error_reference, max_error_reference, |reference| {
+            capture.channel.error_accuracy_limit_at_reference(reference)
+        });
     let max_abs_error = error_plot_y
         .iter()
         .map(|error| error.abs())
         .fold(0.0, f64::max);
-    let error_y_limit = (2.0 * error_accuracy_limit).max(max_abs_error).max(1e-12);
+    let max_abs_error_accuracy = error_accuracy_y
+        .iter()
+        .map(|accuracy| accuracy.abs())
+        .fold(0.0, f64::max);
+    let error_y_limit = (2.0 * max_abs_error_accuracy).max(max_abs_error).max(1e-12);
     let error_y_axis_range = vec![-error_y_limit, error_y_limit];
     let fit_measured_x = analysis.voltage_fit.measured_x.clone();
     let fit_expected_y = analysis.voltage_fit.expected_y.clone();
@@ -2217,7 +2266,6 @@ fn write_analysis_plot(
             })
         })
         .collect::<Vec<_>>();
-    let residual_accuracy_limit = capture.channel.residual_accuracy_limit();
     let min_residual_reference = fit_residual_reference
         .iter()
         .copied()
@@ -2236,25 +2284,24 @@ fn write_analysis_plot(
         } else {
             (min_residual_reference, max_residual_reference)
         };
-    let residual_accuracy_x = vec![
+    let (residual_accuracy_x, residual_accuracy_y) = accuracy_band_xy(
         min_residual_reference,
         max_residual_reference,
-        max_residual_reference,
-        min_residual_reference,
-        min_residual_reference,
-    ];
-    let residual_accuracy_y = vec![
-        -residual_accuracy_limit,
-        -residual_accuracy_limit,
-        residual_accuracy_limit,
-        residual_accuracy_limit,
-        -residual_accuracy_limit,
-    ];
+        |reference| {
+            capture
+                .channel
+                .residual_accuracy_limit_at_reference(reference)
+        },
+    );
     let max_abs_residual = fit_residual_y
         .iter()
         .map(|residual| residual.abs())
         .fold(0.0, f64::max);
-    let residual_y_limit = (2.0 * residual_accuracy_limit)
+    let max_abs_residual_accuracy = residual_accuracy_y
+        .iter()
+        .map(|accuracy| accuracy.abs())
+        .fold(0.0, f64::max);
+    let residual_y_limit = (2.0 * max_abs_residual_accuracy)
         .max(max_abs_residual)
         .max(1e-12);
     let residual_y_axis_range = vec![-residual_y_limit, residual_y_limit];
