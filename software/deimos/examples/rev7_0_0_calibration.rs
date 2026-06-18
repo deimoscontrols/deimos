@@ -1462,7 +1462,7 @@ fn analyze_capture(capture: &ChannelCapture) -> Result<ChannelAnalysis, String> 
             capture.channel.label
         ));
     }
-    let voltage_fit = fit_expected_value(&samples, capture.channel.kind)?;
+    let voltage_fit = fit_expected_value(&samples, &segments, capture.channel.kind)?;
 
     let mean_error_a =
         samples.iter().map(|sample| sample.error_a).sum::<f64>() / samples.len() as f64;
@@ -1489,13 +1489,14 @@ fn analyze_capture(capture: &ChannelCapture) -> Result<ChannelAnalysis, String> 
 
 fn fit_expected_value(
     samples: &[ErrorSample],
+    segments: &[StepSegment],
     kind: CalibrationKind,
 ) -> Result<VoltageFit, String> {
     match kind {
         CalibrationKind::Current4To20 => fit_current_voltage(samples),
         CalibrationKind::Rtd => fit_rtd_voltage_from_temperature_error(samples),
         CalibrationKind::Thermocouple => fit_thermocouple_voltage(samples),
-        CalibrationKind::Voltage => fit_voltage(samples),
+        CalibrationKind::Voltage => fit_voltage(samples, segments),
     }
 }
 
@@ -1521,11 +1522,16 @@ fn fit_current_voltage(samples: &[ErrorSample]) -> Result<VoltageFit, String> {
     })
 }
 
-fn fit_voltage(samples: &[ErrorSample]) -> Result<VoltageFit, String> {
+fn fit_voltage(samples: &[ErrorSample], segments: &[StepSegment]) -> Result<VoltageFit, String> {
     let points = samples
         .iter()
         .map(|sample| (sample.measured_a, sample.reference_a))
         .collect::<Vec<_>>();
+
+    if voltage_hold_means_within_calibrator_accuracy(samples, segments) {
+        return Ok(identity_voltage_fit(&points));
+    }
+
     let (coefficients, r2, residuals) = fit_linear_points(&points)?;
 
     Ok(VoltageFit {
@@ -1536,6 +1542,82 @@ fn fit_voltage(samples: &[ErrorSample]) -> Result<VoltageFit, String> {
         residuals,
         temperature_error_fit: None,
     })
+}
+
+fn voltage_hold_means_within_calibrator_accuracy(
+    samples: &[ErrorSample],
+    segments: &[StepSegment],
+) -> bool {
+    let mut sample_offset = 0;
+
+    for segment in segments {
+        let sample_count = segment.accept_end_idx - segment.accept_start_idx;
+        let Some(hold_samples) = samples.get(sample_offset..sample_offset + sample_count) else {
+            return false;
+        };
+        sample_offset += sample_count;
+
+        if hold_samples.is_empty() {
+            return false;
+        }
+
+        let mean_measured_v = hold_samples
+            .iter()
+            .map(|sample| sample.measured_a)
+            .sum::<f64>()
+            / hold_samples.len() as f64;
+        let accuracy_v = fluke_707_voltage_accuracy_v(segment.reference_a);
+
+        if (mean_measured_v - segment.reference_a).abs() > accuracy_v {
+            return false;
+        }
+    }
+
+    sample_offset == samples.len()
+}
+
+fn identity_voltage_fit(points: &[(f64, f64)]) -> VoltageFit {
+    let residuals = points
+        .iter()
+        .map(|(measured_v, reference_v)| reference_v - measured_v)
+        .collect::<Vec<_>>();
+    let r2 = r2_for_residuals(
+        points.iter().map(|(_, reference_v)| *reference_v),
+        &residuals,
+    );
+
+    VoltageFit {
+        coefficients: vec![0.0, 1.0],
+        r2,
+        measured_x: points.iter().map(|(x, _)| *x).collect(),
+        expected_y: points.iter().map(|(_, y)| *y).collect(),
+        residuals,
+        temperature_error_fit: None,
+    }
+}
+
+fn r2_for_residuals(expected_values: impl Iterator<Item = f64>, residuals: &[f64]) -> f64 {
+    let expected = expected_values.collect::<Vec<_>>();
+    let mean_expected = expected.iter().sum::<f64>() / expected.len() as f64;
+    let ss_residual = residuals
+        .iter()
+        .map(|residual| residual * residual)
+        .sum::<f64>();
+    let ss_total = expected
+        .iter()
+        .map(|expected| {
+            let delta = expected - mean_expected;
+            delta * delta
+        })
+        .sum::<f64>();
+
+    if ss_total > 0.0 {
+        1.0 - ss_residual / ss_total
+    } else if ss_residual == 0.0 {
+        1.0
+    } else {
+        0.0
+    }
 }
 
 fn fit_rtd_voltage_from_temperature_error(samples: &[ErrorSample]) -> Result<VoltageFit, String> {
