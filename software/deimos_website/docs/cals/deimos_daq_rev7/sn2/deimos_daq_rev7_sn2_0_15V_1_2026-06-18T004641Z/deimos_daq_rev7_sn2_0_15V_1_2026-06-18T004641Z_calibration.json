@@ -1,0 +1,17 @@
+{
+  "model": "deimos_daq_rev7",
+  "serial_number": 2,
+  "channel": "ain17",
+  "signal_name": "p1_0_15V_1.y",
+  "datestamp_utc": "2026-06-18T005536Z",
+  "polynomial_order": 1,
+  "polynomial_coefficients": [
+    -0.0029201469471953345,
+    1.0003731568401837
+  ],
+  "r2": 0.999999760869773,
+  "input_units": "V",
+  "output_units": "V",
+  "accepted_sample_count": 1000,
+  "detected_step_count": 4
+}
