@@ -151,14 +151,12 @@ impl Controller {
         self.orchestrator.add_calc(name, calc);
     }
 
-    /// Add multiple calcs
+    /// Add multiple calcs.
     ///
-    /// # Panics
+    /// # Errors
     /// * If, for any calc to add, a calc with this name already exists
-    pub fn add_calcs(&mut self, mut calcs: BTreeMap<String, Box<dyn Calc>>) {
-        while let Some((name, calc)) = calcs.pop_first() {
-            self.orchestrator.add_calc(&name, calc);
-        }
+    pub fn add_calcs(&mut self, calcs: BTreeMap<String, Box<dyn Calc>>) -> Result<(), String> {
+        self.orchestrator.add_calcs(calcs)
     }
 
     /// Remove all calcs and peripheral input sources
@@ -167,16 +165,17 @@ impl Controller {
     }
 
     /// Register a hardware module
-    pub fn add_peripheral(&mut self, name: &str, p: Box<dyn Peripheral>) {
-        assert!(
-            !self.peripherals.contains_key(name),
-            "Peripheral name is duplicated"
-        );
+    pub fn add_peripheral(&mut self, name: &str, p: Box<dyn Peripheral>) -> Result<(), String> {
+        if self.peripherals.contains_key(name) {
+            return Err(format!("Peripheral name `{name}` is duplicated"));
+        }
+
         // Add the standard set of calcs that come with this peripheral, if any
-        self.orchestrator
-            .add_calcs(p.standard_calcs(name.to_owned()));
+        let calcs = p.standard_calcs(name, "")?;
+        self.orchestrator.add_calcs(calcs)?;
         // Register the peripheral
         self.peripherals.insert(name.to_owned(), p);
+        Ok(())
     }
 
     /// Replace a peripheral with a hootl wrapper and start its driver.

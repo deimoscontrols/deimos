@@ -58,7 +58,9 @@ fn main() {
     );
 
     // Register a DeimosDaqRev7 peripheral (serial 1).
-    controller.add_peripheral("p1", Box::new(DeimosDaqRev7 { serial_number: 1 }));
+    controller
+        .add_peripheral("p1", Box::new(DeimosDaqRev7 { serial_number: 1 }))
+        .unwrap();
 
     // Attach a CSV dispatcher to record output rows.
     let csv_dispatcher = CsvDispatcher::new(50, deimos::Overflow::Wrap);

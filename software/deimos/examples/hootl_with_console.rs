@@ -149,7 +149,9 @@ fn main() {
         "hootl_chan",
         Box::new(ThreadChannelSocket::new("hootl_chan")),
     );
-    controller.add_peripheral("p1", Box::new(DeimosDaqRev7 { serial_number: 1 }));
+    controller
+        .add_peripheral("p1", Box::new(DeimosDaqRev7 { serial_number: 1 }))
+        .unwrap();
 
     // Add a unit-labeled calc: scale p1.ain0 by 0.001 and annotate the output
     // as volts.  The reporting dispatcher will include "V" in the Schema packet,

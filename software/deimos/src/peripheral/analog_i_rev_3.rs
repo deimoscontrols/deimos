@@ -106,7 +106,15 @@ impl Peripheral for AnalogIRev3 {
 
     /// Get a standard set of calcs that convert the raw outputs
     /// into a useable format.
-    fn standard_calcs(&self, name: String) -> BTreeMap<String, Box<dyn Calc>> {
+    fn standard_calcs(
+        &self,
+        name: &str,
+        cals: &str,
+    ) -> Result<BTreeMap<String, Box<dyn Calc>>, String> {
+        if !cals.is_empty() {
+            return Err(format!("{} does not support calibration data", self.kind()));
+        }
+
         let mut calcs: BTreeMap<String, Box<dyn Calc>> = BTreeMap::new();
 
         {
@@ -193,6 +201,6 @@ impl Peripheral for AnalogIRev3 {
                 calcs.insert(temperature_calc_name, temperature_calc);
             }
         }
-        calcs
+        Ok(calcs)
     }
 }

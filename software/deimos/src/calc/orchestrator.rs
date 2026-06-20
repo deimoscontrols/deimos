@@ -271,14 +271,22 @@ impl CalcOrchestrator {
         self.calcs.insert(name, calc);
     }
 
-    /// Add multiple calcs
+    /// Add multiple calcs.
     ///
-    /// # Panics
+    /// # Errors
     /// * If, for any calc to add, a calc with this name already exists
-    pub fn add_calcs(&mut self, mut calcs: BTreeMap<String, Box<dyn Calc>>) {
-        while let Some((name, calc)) = calcs.pop_first() {
-            self.add_calc(&name, calc);
+    pub fn add_calcs(&mut self, mut calcs: BTreeMap<String, Box<dyn Calc>>) -> Result<(), String> {
+        for name in calcs.keys() {
+            if self.calcs.contains_key(name) {
+                return Err(format!("A calc named `{name}` already exists."));
+            }
         }
+
+        while let Some((name, calc)) = calcs.pop_first() {
+            self.calcs.insert(name, calc);
+        }
+
+        Ok(())
     }
 
     /// Remove all calcs and peripheral input sources

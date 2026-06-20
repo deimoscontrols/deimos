@@ -870,7 +870,7 @@ fn run_channel_capture(
     controller.add_peripheral(
         PERIPHERAL_NAME,
         Box::new(DeimosDaqRev7 { serial_number: sn }),
-    );
+    )?;
 
     let (df_dispatcher, _df_handle) = DataFrameDispatcher::new(DATAFRAME_MB, Overflow::Wrap, None);
     let df_handle = df_dispatcher.handle();

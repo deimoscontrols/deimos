@@ -317,8 +317,9 @@ impl Controller {
     }
 
     fn add_peripheral(&mut self, name: &str, p: Box<dyn Peripheral>) -> PyResult<()> {
-        self.ctrl()?.add_peripheral(name, p);
-        Ok(())
+        self.ctrl()?
+            .add_peripheral(name, p)
+            .map_err(|e| BackendErr::InvalidPeripheral { msg: e }.into())
     }
 
     #[pyo3(signature=(peripheral_name, transport, end_epoch_ns=None))]
