@@ -163,6 +163,12 @@ pub trait Peripheral: Send + Sync + Debug {
     fn slug(&self) -> String {
         format!("{}/{}", self.kind(), self.id().serial_number)
     }
+
+    /// Default (identity) calibration data for use during calibration procedures
+    /// before real values have been produced.
+    fn default_cals(&self) -> String {
+        "".to_string()
+    }
 }
 
 /// Parse a binding response to the corresponding peripheral type
