@@ -135,14 +135,33 @@ pub trait Peripheral: Send + Sync + Debug {
         }
     }
 
-    /// Get a standard set of calcs that convert the raw outputs into a useable format
-    fn standard_calcs(&self, name: String) -> BTreeMap<String, Box<dyn Calc>>;
+    /// Get a standard set of calcs that convert the raw outputs into a useable format.
+    /// If provided, `cals` should be the json-serialized calibration artifact
+    /// for this peripheral.
+    ///
+    /// # Errors
+    ///
+    /// * On failure to parse provided calibration data
+    fn standard_calcs(
+        &self,
+        name: &str,
+        cals: &str,
+    ) -> Result<BTreeMap<String, Box<dyn Calc>>, String>;
 
-    /// Get the type name, which is guaranteed to be unique among implementations of the trait
-    /// because of the use of a global vtable for serialization, and guaranteed not to include
-    /// non-'static lifetimes due to trait bounds.
+    /// The type name.
+    ///
+    /// This is usable as a lookup key because it is guaranteed
+    /// to be unique among implementations of the trait due to the use of a global
+    /// vtable for serialization, and guaranteed not to include non-'static lifetimes
+    /// due to trait bounds.
     fn kind(&self) -> String {
-        type_name::<Self>().split(":").last().unwrap().into()
+        let t = type_name::<Self>().split(":").last().unwrap_or("Unknown");
+        t.to_string()
+    }
+
+    /// Route slug for peripheral-related data like calibrations.
+    fn slug(&self) -> String {
+        format!("{}/{}", self.kind(), self.id().serial_number)
     }
 }
 
