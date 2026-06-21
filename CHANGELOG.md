@@ -6,13 +6,16 @@ This update adds calibration procedures for the Rev7 and makes some
 supporting improvements.
 
 * deimos
-    * Add `rev7_calibration` example
+    * Add Rev7 calibration procedure
+    * Add calibration record structs
     * Remove initial calc evaluation before entering control loop
         * No longer needed, since we now wait until all peripherals have responded to start calcs
-        * Removing this fixes software-side filter initialization
+        * Removing this makes software-side filter initialization instant on first cycle
     * Add supporting functions to thermocouple and RTD calc modules
     * !Update `Calc::standard_calcs` signature to include calibration json data
     * !Update `peripheral::PluginFn` closure signature to take `PeripheralId` instead of `BindingOutput`
+    * Add `replay` module and `Controller::replay()` to support re-running the latest calc graph over already-collected raw data
+    * Add calibration-related fields on `controller::Context`
 
 ## 2026-06-08 0.17.0
 

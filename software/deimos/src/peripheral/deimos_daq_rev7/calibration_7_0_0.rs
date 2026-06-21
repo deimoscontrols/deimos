@@ -22,7 +22,7 @@ use crate::{
     calc::{ktype_corrected_temp_k, ktype_voltage_v, pt100_resistance_ohm, pt100_temp_k},
     dispatcher::{ReportingDispatcher, load_csv},
     math::{polyfit, polyval},
-    peripheral::{Peripheral, calibration::CalRecordCore},
+    peripheral::calibration::CalRecordCore,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use deimos_shared::peripherals::deimos_daq_rev7::MODEL_NUMBER;
@@ -881,9 +881,10 @@ fn run_channel_capture(
 
     let mut controller =
         Controller::new(controller_context(op_name.clone(), op_dir.clone(), channel));
-    let peripheral = DeimosDaqRev7 { serial_number: sn };
-    let default_cals = peripheral.default_cals()?;
-    controller.add_peripheral_with_cals(PERIPHERAL_NAME, Box::new(peripheral), &default_cals)?;
+    controller.add_peripheral(
+        PERIPHERAL_NAME,
+        Box::new(DeimosDaqRev7 { serial_number: sn }),
+    )?;
 
     let raw_csv = CsvDispatcher::new(CSV_REPLAY_MB, Overflow::Error).with_op_name_suffix("raw");
     controller.add_dispatcher("raw_csv", raw_csv);
@@ -998,6 +999,7 @@ fn controller_context(
     ctx.op_dir = op_dir;
     ctx.dt_ns = (1e9_f64 / RATE_HZ).round() as u32;
     ctx.loop_method = LoopMethod::Performant;
+    ctx.use_no_calibrations = true;
     ctx.termination_criteria = Some(Termination::Timeout(Duration::from_secs(
         channel.capture_seconds(),
     )));
@@ -1168,13 +1170,15 @@ fn replay_calibration_run(raw_path: &Path) -> Result<PathBuf, String> {
     ctx.op_dir = op_dir.clone();
     ctx.dt_ns = (1e9_f64 / RATE_HZ).round() as u32;
     ctx.loop_method = LoopMethod::Performant;
+    ctx.use_no_calibrations = true;
 
     let mut controller = Controller::new(ctx);
-    let peripheral = DeimosDaqRev7 {
-        serial_number: metadata.serial_number,
-    };
-    let default_cals = peripheral.default_cals()?;
-    controller.add_peripheral_with_cals(PERIPHERAL_NAME, Box::new(peripheral), &default_cals)?;
+    controller.add_peripheral(
+        PERIPHERAL_NAME,
+        Box::new(DeimosDaqRev7 {
+            serial_number: metadata.serial_number,
+        }),
+    )?;
 
     let replay_csv =
         CsvDispatcher::new(CSV_REPLAY_MB, Overflow::Error).with_op_name_suffix("replay");

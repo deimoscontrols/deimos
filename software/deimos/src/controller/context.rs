@@ -224,6 +224,15 @@ pub struct ControllerCtx {
     /// require explicit calibration records should set this to false.
     #[serde(default = "calibration_allow_missing_default")]
     pub calibration_allow_missing: bool,
+
+    /// Whether peripherals should ignore discovered calibration records.
+    ///
+    /// When true, the controller always passes `Peripheral::default_cals()` to
+    /// `standard_calcs()`. This is useful for calibration procedures that need
+    /// to generate a new calibration record even when an older one exists in a
+    /// local or remote store.
+    #[serde(default)]
+    pub use_no_calibrations: bool,
 }
 
 impl ControllerCtx {
@@ -279,6 +288,7 @@ impl Default for ControllerCtx {
             calibration_offline_only: false,
             calibration_local_sources: Vec::new(),
             calibration_allow_missing: calibration_allow_missing_default(),
+            use_no_calibrations: false,
         }
     }
 }

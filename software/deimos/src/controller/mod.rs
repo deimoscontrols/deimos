@@ -178,58 +178,47 @@ impl Controller {
         // Resolve the calibration artifact before initializing standard calcs
         // because the peripheral owns how its calibration record is applied.
         let slug = p.slug();
-        let cals = match query_cals(
-            &slug,
-            &self.ctx.calibration_local_sources,
-            self.ctx.calibration_offline_only,
-        )? {
-            Some(cals) => {
-                info!(
-                    peripheral = name,
-                    slug, "Using discovered calibration record for peripheral."
-                );
-                cals
-            }
-            None if self.ctx.calibration_allow_missing => {
-                info!(
-                    peripheral = name,
-                    slug, "No calibration record found; using peripheral default calibration."
-                );
-                p.default_cals()?
-            }
-            None => {
-                warn!(
-                    peripheral = name,
-                    slug, "No calibration record found and missing calibrations are not allowed."
-                );
-                return Err(format!(
-                    "No calibration record found for peripheral `{name}` with slug `{slug}`"
-                ));
+        let cals = if self.ctx.use_no_calibrations {
+            info!(
+                peripheral = name,
+                slug, "Calibration lookup disabled; using peripheral default calibration."
+            );
+            p.default_cals()?
+        } else {
+            match query_cals(
+                &slug,
+                &self.ctx.calibration_local_sources,
+                self.ctx.calibration_offline_only,
+            )? {
+                Some(cals) => {
+                    info!(
+                        peripheral = name,
+                        slug, "Using discovered calibration record for peripheral."
+                    );
+                    cals
+                }
+                None if self.ctx.calibration_allow_missing => {
+                    info!(
+                        peripheral = name,
+                        slug, "No calibration record found; using peripheral default calibration."
+                    );
+                    p.default_cals()?
+                }
+                None => {
+                    warn!(
+                        peripheral = name,
+                        slug,
+                        "No calibration record found and missing calibrations are not allowed."
+                    );
+                    return Err(format!(
+                        "No calibration record found for peripheral `{name}` with slug `{slug}`"
+                    ));
+                }
             }
         };
 
-        self.add_peripheral_with_cals(name, p, &cals)
-    }
-
-    /// Register a peripheral using an explicit calibration JSON payload.
-    ///
-    /// This is used by calibration procedures that must build standard calcs
-    /// with identity/default cals while producing a new calibration record.
-    pub(crate) fn add_peripheral_with_cals(
-        &mut self,
-        name: &str,
-        p: Box<dyn Peripheral>,
-        cals: &str,
-    ) -> Result<(), String> {
-        // This helper is crate-internal so calibration procedures can force a
-        // known calibration artifact while the public path keeps using
-        // ControllerCtx-driven calibration discovery.
-        if self.peripherals.contains_key(name) {
-            return Err(format!("Peripheral name `{name}` is duplicated"));
-        }
-
         // Add the standard set of calcs that come with this peripheral, if any.
-        let calcs = p.standard_calcs(name, cals)?;
+        let calcs = p.standard_calcs(name, &cals)?;
         self.orchestrator.add_calcs(calcs)?;
         // Register the peripheral
         self.peripherals.insert(name.to_owned(), p);
