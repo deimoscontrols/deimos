@@ -1,6 +1,5 @@
 //! Storage and retrieval of calibration records.
 
-use super::PeripheralId;
 use crate::fmt_time;
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;

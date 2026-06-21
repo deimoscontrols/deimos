@@ -1,0 +1,18 @@
+{
+  "model": "deimos_daq_rev7",
+  "serial_number": 2,
+  "channel": "ain3",
+  "signal_name": "p1_4_20_mA_0_A.y",
+  "datestamp_utc": "2026-06-21T125103Z",
+  "reference_resistor_ohm": 75.0,
+  "polynomial_order": 1,
+  "polynomial_coefficients": [
+    -0.02021753382414726,
+    1.0033628041251623
+  ],
+  "r2": 0.9999999608780837,
+  "input_units": "V",
+  "output_units": "V",
+  "accepted_sample_count": 1976,
+  "detected_step_count": 8
+}

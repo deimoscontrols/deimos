@@ -24,7 +24,7 @@ use crate::{
     peripheral::calibration::CalRecordCore,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
-use deimos_shared::peripherals::{PeripheralId, deimos_daq_rev7::MODEL_NUMBER};
+use deimos_shared::peripherals::deimos_daq_rev7::MODEL_NUMBER;
 
 use super::{CalRecord, DeimosDaqRev7, LinearCal};
 use serde::{Deserialize, Serialize};

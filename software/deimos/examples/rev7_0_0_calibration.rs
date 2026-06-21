@@ -8,7 +8,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use deimos::peripheral::deimos_daq_rev7::calibration_7_0_0::run_procedure;
+use deimos::peripheral::{
+    DeimosDaqRev7, Peripheral, deimos_daq_rev7::calibration_7_0_0::run_procedure,
+};
 
 const DEFAULT_SERIAL_NUMBER: u64 = 2;
 
@@ -88,9 +90,11 @@ impl Mode {
 }
 
 fn default_calibration_dir(sn: u64) -> PathBuf {
+    let peripheral = DeimosDaqRev7 { serial_number: sn };
+
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../deimos_website/docs/cals")
-        .join(format!("sn{sn}"))
+        .join(peripheral.slug())
 }
 
 fn usage() -> String {
