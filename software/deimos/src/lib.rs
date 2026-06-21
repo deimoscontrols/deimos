@@ -61,3 +61,8 @@ macro_rules! py_json_methods {
         }
     };
 }
+
+/// Fixed-width ISO-8601 UTC timestamp with zero-padded sub-second nanoseconds and Z-suffix
+pub fn fmt_time(time: SystemTime) -> String {
+    DateTime::<Utc>::from(time).to_rfc3339_opts(chrono::SecondsFormat::Nanos, true)
+}

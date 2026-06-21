@@ -30,7 +30,56 @@ pub use deimos_daq_rev7::DeimosDaqRev7;
 pub mod hootl;
 pub use hootl::{HootlDriver, HootlPeripheral, HootlRunHandle, HootlTransport};
 
+pub mod calibration;
+
 pub use deimos_shared::peripherals::PeripheralId;
+
+/// Parse a binding response to the corresponding peripheral type
+/// based on its model number. If needed, a map of plugins can be provided
+/// to provide initialization of custom peripherals.
+pub fn parse_binding(
+    msg: &BindingOutput,
+    plugins: &Option<PluginMap>,
+) -> Result<Box<dyn Peripheral>, String> {
+    let m = msg.peripheral_id.model_number;
+
+    // First, check if a plugin matches the input
+    if let Some(plugins) = plugins {
+        // We have plugins, but is this model in the map?
+        if let Some(f) = plugins.get(&m) {
+            return Ok(f(&msg.peripheral_id));
+        }
+    }
+
+    // If we didn't find a plugin for this model, try the existing ones
+    match m {
+        model_numbers::ANALOG_I_REV_2_MODEL_NUMBER => Ok(Box::new(AnalogIRev2 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
+        model_numbers::ANALOG_I_REV_3_MODEL_NUMBER => Ok(Box::new(AnalogIRev3 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
+        model_numbers::ANALOG_I_REV_4_MODEL_NUMBER => Ok(Box::new(AnalogIRev4 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
+        model_numbers::DEIMOS_DAQ_REV_5_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev5 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
+        model_numbers::DEIMOS_DAQ_REV_6_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev6 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
+        model_numbers::DEIMOS_DAQ_REV_7_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev7 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
+        _ => Err(format!("Unrecognized model number {m}").to_owned()),
+    }
+}
 
 /// Generate Python bindings and JSON helpers for peripherals.
 #[macro_export]
@@ -168,52 +217,5 @@ pub trait Peripheral: Send + Sync + Debug {
     /// before real values have been produced.
     fn default_cals(&self) -> String {
         "".to_string()
-    }
-}
-
-/// Parse a binding response to the corresponding peripheral type
-/// based on its model number. If needed, a map of plugins can be provided
-/// to provide initialization of custom peripherals.
-pub fn parse_binding(
-    msg: &BindingOutput,
-    plugins: &Option<PluginMap>,
-) -> Result<Box<dyn Peripheral>, String> {
-    let m = msg.peripheral_id.model_number;
-
-    // First, check if a plugin matches the input
-    if let Some(plugins) = plugins {
-        // We have plugins, but is this model in the map?
-        if let Some(f) = plugins.get(&m) {
-            return Ok(f(&msg.peripheral_id));
-        }
-    }
-
-    // If we didn't find a plugin for this model, try the existing ones
-    match m {
-        model_numbers::ANALOG_I_REV_2_MODEL_NUMBER => Ok(Box::new(AnalogIRev2 {
-            serial_number: msg.peripheral_id.serial_number,
-        })),
-
-        model_numbers::ANALOG_I_REV_3_MODEL_NUMBER => Ok(Box::new(AnalogIRev3 {
-            serial_number: msg.peripheral_id.serial_number,
-        })),
-
-        model_numbers::ANALOG_I_REV_4_MODEL_NUMBER => Ok(Box::new(AnalogIRev4 {
-            serial_number: msg.peripheral_id.serial_number,
-        })),
-
-        model_numbers::DEIMOS_DAQ_REV_5_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev5 {
-            serial_number: msg.peripheral_id.serial_number,
-        })),
-
-        model_numbers::DEIMOS_DAQ_REV_6_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev6 {
-            serial_number: msg.peripheral_id.serial_number,
-        })),
-
-        model_numbers::DEIMOS_DAQ_REV_7_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev7 {
-            serial_number: msg.peripheral_id.serial_number,
-        })),
-
-        _ => Err(format!("Unrecognized model number {m}").to_owned()),
     }
 }

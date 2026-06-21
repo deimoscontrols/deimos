@@ -1,4 +1,4 @@
-use super::Peripheral;
+use super::{Peripheral, calibration::CalRecordCore};
 use crate::calc::{Affine, Butter2, Calc, InverseAffine, RtdPt100, TcKtype};
 use deimos_shared::OperatingMetrics;
 use deimos_shared::peripherals::{PeripheralId, deimos_daq_rev7::*};
@@ -12,6 +12,18 @@ use pyo3::prelude::*;
 use crate::py_peripheral_methods;
 
 pub mod calibration_7_0_0;
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct LinearCal {
+    slope: f64,
+    offset: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CalRecord {
+    pub core: CalRecordCore,
+    pub voltage_cals: [LinearCal; 18],
+}
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[cfg_attr(feature = "python", pyclass)]
