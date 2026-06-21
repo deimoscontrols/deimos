@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026-06-15 0.17.1
+## 2026-06-15 0.18.0
 
 This update adds calibration procedures for the Rev7 and makes some
 supporting improvements.
@@ -11,6 +11,8 @@ supporting improvements.
         * No longer needed, since we now wait until all peripherals have responded to start calcs
         * Removing this fixes software-side filter initialization
     * Add supporting functions to thermocouple and RTD calc modules
+    * !Update `Calc::standard_calcs` signature to include calibration json data
+    * !Update `peripheral::PluginFn` closure signature to take `PeripheralId` instead of `BindingOutput`
 
 ## 2026-06-08 0.17.0
 

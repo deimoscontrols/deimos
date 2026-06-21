@@ -54,7 +54,7 @@ macro_rules! py_peripheral_methods {
 /// Plugin system for handling custom device models
 /// Takes the model number and serial number from a bind result
 /// and initializes a Peripheral representation.
-pub type PluginFn = dyn Fn(&BindingOutput) -> Box<dyn Peripheral> + Send + Sync;
+pub type PluginFn = dyn Fn(&PeripheralId) -> Box<dyn Peripheral> + Send + Sync;
 
 /// Map of model numbers to initialization functions so that the controller can find
 /// the approriate initialization function.
@@ -184,7 +184,7 @@ pub fn parse_binding(
     if let Some(plugins) = plugins {
         // We have plugins, but is this model in the map?
         if let Some(f) = plugins.get(&m) {
-            return Ok(f(msg));
+            return Ok(f(&msg.peripheral_id));
         }
     }
 

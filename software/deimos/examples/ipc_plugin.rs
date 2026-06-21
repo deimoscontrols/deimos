@@ -70,9 +70,9 @@ fn main() {
 
     // Register the mockup as a plugin
     let mut pmap: PluginMap = BTreeMap::new();
-    pmap.insert(EXPERIMENTAL_MODEL_NUMBER, &|b| {
+    pmap.insert(EXPERIMENTAL_MODEL_NUMBER, &|id| {
         Box::new(IpcMockup {
-            serial_number: b.peripheral_id.serial_number,
+            serial_number: id.serial_number,
         })
     });
     let plugins = Some(pmap);
