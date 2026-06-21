@@ -215,7 +215,7 @@ pub trait Peripheral: Send + Sync + Debug {
 
     /// Default (identity) calibration data for use during calibration procedures
     /// before real values have been produced.
-    fn default_cals(&self) -> String {
-        "".to_string()
+    fn default_cals(&self) -> Result<String, String> {
+        Ok("".to_string())
     }
 }

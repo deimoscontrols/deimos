@@ -202,6 +202,28 @@ pub struct ControllerCtx {
     /// to an empty `Vec` and are re-populated by the assembly pass.
     #[serde(default)]
     pub channel_units: Vec<Option<String>>,
+
+    /// Whether calibration lookup should be restricted to local stores.
+    ///
+    /// When true, the controller will not attempt to retrieve calibration
+    /// records from `deimoscontrols.com`.
+    #[serde(default)]
+    pub calibration_offline_only: bool,
+
+    /// Additional local calibration stores to search after the default user cache.
+    ///
+    /// Each path is treated as the root of a calibration tree, so a peripheral
+    /// with slug `kind/sn` is looked up at `<path>/kind/sn/cal.json`.
+    #[serde(default)]
+    pub calibration_local_sources: Vec<PathBuf>,
+
+    /// Whether missing calibration records should fall back to peripheral defaults.
+    ///
+    /// This defaults to true to preserve the historical behavior where standard
+    /// calcs were built with an empty calibration string. Applications that
+    /// require explicit calibration records should set this to false.
+    #[serde(default = "calibration_allow_missing_default")]
+    pub calibration_allow_missing: bool,
 }
 
 impl ControllerCtx {
@@ -224,6 +246,10 @@ impl ControllerCtx {
         let channel = writer.entry(channel_name.to_owned()).or_default();
         channel.sink_endpoint()
     }
+}
+
+fn calibration_allow_missing_default() -> bool {
+    true
 }
 
 impl Default for ControllerCtx {
@@ -250,6 +276,9 @@ impl Default for ControllerCtx {
             manual_inputs: manual_inputs_default(),
             enable_manual_inputs: true,
             channel_units: Vec::new(),
+            calibration_offline_only: false,
+            calibration_local_sources: Vec::new(),
+            calibration_allow_missing: calibration_allow_missing_default(),
         }
     }
 }

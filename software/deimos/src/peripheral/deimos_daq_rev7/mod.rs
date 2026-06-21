@@ -28,7 +28,7 @@ impl Default for LinearCal {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct CalRecord {
     pub core: CalRecordCore,
     pub voltage_cals: [LinearCal; 18],
@@ -308,5 +308,15 @@ impl Peripheral for DeimosDaqRev7 {
         }
 
         Ok(calcs)
+    }
+
+    fn default_cals(&self) -> Result<String, String> {
+        serde_json::to_string(&CalRecord::default()).map_err(|e| {
+            format!(
+                "Failed to serialize default cals for {}: {}",
+                self.kind(),
+                e,
+            )
+        })
     }
 }

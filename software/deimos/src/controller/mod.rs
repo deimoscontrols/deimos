@@ -19,7 +19,10 @@ use crate::{
     SOCKET_BUFFER_LEN,
     calc::Calc,
     logging,
-    peripheral::{HootlRunHandle, HootlTransport, Peripheral, PluginMap, parse_binding},
+    peripheral::{
+        HootlRunHandle, HootlTransport, Peripheral, PluginMap, calibration::query_cals,
+        parse_binding,
+    },
 };
 use deimos_numerics::embedded::fixed::MedianFilter;
 use deimos_shared::states::*;
@@ -170,8 +173,41 @@ impl Controller {
             return Err(format!("Peripheral name `{name}` is duplicated"));
         }
 
-        // Add the standard set of calcs that come with this peripheral, if any
-        let calcs = p.standard_calcs(name, "")?;
+        // Resolve the calibration artifact before initializing standard calcs
+        // because the peripheral owns how its calibration record is applied.
+        let slug = p.slug();
+        let cals = match query_cals(
+            &slug,
+            &self.ctx.calibration_local_sources,
+            self.ctx.calibration_offline_only,
+        )? {
+            Some(cals) => {
+                info!(
+                    peripheral = name,
+                    slug, "Using discovered calibration record for peripheral."
+                );
+                cals
+            }
+            None if self.ctx.calibration_allow_missing => {
+                info!(
+                    peripheral = name,
+                    slug, "No calibration record found; using peripheral default calibration."
+                );
+                p.default_cals()?
+            }
+            None => {
+                warn!(
+                    peripheral = name,
+                    slug, "No calibration record found and missing calibrations are not allowed."
+                );
+                return Err(format!(
+                    "No calibration record found for peripheral `{name}` with slug `{slug}`"
+                ));
+            }
+        };
+
+        // Add the standard set of calcs that come with this peripheral, if any.
+        let calcs = p.standard_calcs(name, &cals)?;
         self.orchestrator.add_calcs(calcs)?;
         // Register the peripheral
         self.peripherals.insert(name.to_owned(), p);
