@@ -36,10 +36,10 @@ channels = [
 [[panels]]
 title = "Rev7 Voltage Inputs"
 channels = [
-    "p1_0_2V5_0.y",
-    "p1_0_2V5_1.y",
-    "p1_0_15V_0.y",
-    "p1_0_15V_1.y",
-    "p1_x26_0.y",
-    "p1_x26_1.y",
+    "p1_0_2V5_0_sense_V.y",
+    "p1_0_2V5_1_sense_V.y",
+    "p1_0_15V_0_sense_V.y",
+    "p1_0_15V_1_sense_V.y",
+    "p1_x26_0_sense_V.y",
+    "p1_x26_1_sense_V.y",
 ]

@@ -34,6 +34,38 @@ pub struct CalRecord {
     pub voltage_cals: [LinearCal; 18],
 }
 
+const CURRENT_REFERENCE_RESISTOR_OHM: f64 = 75.0;
+const RTD_REFERENCE_CURRENT_A: f64 = 250e-6;
+const RTD_FRONTEND_GAIN: f64 = 25.7;
+const TC_FRONTEND_GAIN: f64 = 25.7;
+const TC_FRONTEND_OFFSET_V: f64 = 1.024;
+
+fn adc_cal_index_for_ain(ain_index: usize) -> Result<usize, String> {
+    match ain_index {
+        0..=12 => Ok(ain_index),
+        15..=19 => Ok(ain_index - 2),
+        _ => Err(format!(
+            "Analog input ain{ain_index} does not have a rev7 calibration slot"
+        )),
+    }
+}
+
+fn voltage_cal_for_ain(cal_record: &CalRecord, ain_index: usize) -> Result<&LinearCal, String> {
+    let cal_index = adc_cal_index_for_ain(ain_index)?;
+    cal_record
+        .voltage_cals
+        .get(cal_index)
+        .ok_or_else(|| format!("Calibration slot {cal_index} missing for ain{ain_index}"))
+}
+
+fn calibrated_sense_voltage(
+    input_name: String,
+    cal: &LinearCal,
+    save_outputs: bool,
+) -> Box<dyn Calc> {
+    Affine::new(input_name, cal.slope, cal.offset, save_outputs)
+}
+
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[cfg_attr(feature = "python", pyclass)]
 pub struct DeimosDaqRev7 {
@@ -174,9 +206,12 @@ impl Peripheral for DeimosDaqRev7 {
         name: &str,
         cals: &str,
     ) -> Result<BTreeMap<String, Box<dyn Calc>>, String> {
-        if !cals.is_empty() {
-            return Err(format!("{} does not support calibration data", self.kind()));
-        }
+        let cal_record = if cals.trim().is_empty() {
+            CalRecord::default()
+        } else {
+            serde_json::from_str::<CalRecord>(cals)
+                .map_err(|e| format!("Failed to parse {} calibration data: {e}", self.kind()))?
+        };
 
         let mut calcs: BTreeMap<String, Box<dyn Calc>> = BTreeMap::new();
 
@@ -194,14 +229,26 @@ impl Peripheral for DeimosDaqRev7 {
         // Cold junction RTD is also board temp
         {
             let i = 2;
-            let input_name = format!("{name}.ain{i}");
+            let raw_sense_voltage_calc_name = format!("{name}_board_rtd_sense_V_raw");
+            let sense_voltage_calc_name = format!("{name}_board_rtd_sense_V");
             let resistance_calc_name = format!("{name}_board_rtd_ohm");
             let temperature_calc_name: String = format!("{name}_board_rtd");
-            // v_sensed = 250e-6 amps * r_sensed * 25.7
-            // => r_sensed = v_sensed / (250e-6 * 25.7)
-            let slope = 250e-6 * 25.7;
-            let resistance_calc = InverseAffine::new(input_name, slope, 0.0, true);
+            let raw_sense_voltage_calc =
+                InverseAffine::new(format!("{name}.ain{i}"), RTD_FRONTEND_GAIN, 0.0, false);
+            let sense_voltage_calc = calibrated_sense_voltage(
+                format!("{raw_sense_voltage_calc_name}.y"),
+                voltage_cal_for_ain(&cal_record, i)?,
+                false,
+            );
+            let resistance_calc = InverseAffine::new(
+                format!("{sense_voltage_calc_name}.y"),
+                RTD_REFERENCE_CURRENT_A,
+                0.0,
+                true,
+            );
             let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
+            calcs.insert(raw_sense_voltage_calc_name, raw_sense_voltage_calc);
+            calcs.insert(sense_voltage_calc_name, sense_voltage_calc);
             calcs.insert(resistance_calc_name, resistance_calc);
             calcs.insert(temperature_calc_name.clone(), temperature_calc);
 
@@ -219,24 +266,49 @@ impl Peripheral for DeimosDaqRev7 {
         // 4-20mA channels use a 75 ohm reference resistor and G=1 amp
         {
             for (n, i) in milliamp_4_20_range.enumerate() {
-                let input_name = format!("{name}.ain{i}");
+                let sense_voltage_calc_name = format!("{name}_4_20_mA_{n}_sense_V");
                 let calc_name = format!("{name}_4_20_mA_{n}_A");
-                let slope = 75.0; // [V/A] due to 75 ohm resistor
-                calcs.insert(calc_name, InverseAffine::new(input_name, slope, 0.0, true));
+                let sense_voltage_calc = calibrated_sense_voltage(
+                    format!("{name}.ain{i}"),
+                    voltage_cal_for_ain(&cal_record, i)?,
+                    false,
+                );
+                calcs.insert(sense_voltage_calc_name.clone(), sense_voltage_calc);
+                calcs.insert(
+                    calc_name,
+                    InverseAffine::new(
+                        format!("{sense_voltage_calc_name}.y"),
+                        CURRENT_REFERENCE_RESISTOR_OHM,
+                        0.0,
+                        true,
+                    ),
+                );
             }
         }
 
         // Resistance sensors use a 250uA reference current and gain of 25.7
         {
             for (n, i) in rtd_range.enumerate() {
-                let input_name = format!("{name}.ain{i}");
+                let raw_sense_voltage_calc_name = format!("{name}_rtd_{n}_sense_V_raw");
+                let sense_voltage_calc_name = format!("{name}_rtd_{n}_sense_V");
                 let resistance_calc_name = format!("{name}_ohm_{n}");
                 let temperature_calc_name = format!("{name}_rtd_{n}");
-                // v_sensed = 250e-6 amps * r_sensed * 25.7
-                // => r_sensed = v_sensed / (250e-6 * 25.7)
-                let slope = 250e-6 * 25.7;
-                let resistance_calc = InverseAffine::new(input_name, slope, 0.0, true);
+                let raw_sense_voltage_calc =
+                    InverseAffine::new(format!("{name}.ain{i}"), RTD_FRONTEND_GAIN, 0.0, false);
+                let sense_voltage_calc = calibrated_sense_voltage(
+                    format!("{raw_sense_voltage_calc_name}.y"),
+                    voltage_cal_for_ain(&cal_record, i)?,
+                    false,
+                );
+                let resistance_calc = InverseAffine::new(
+                    format!("{sense_voltage_calc_name}.y"),
+                    RTD_REFERENCE_CURRENT_A,
+                    0.0,
+                    true,
+                );
                 let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
+                calcs.insert(raw_sense_voltage_calc_name, raw_sense_voltage_calc);
+                calcs.insert(sense_voltage_calc_name, sense_voltage_calc);
                 calcs.insert(resistance_calc_name, resistance_calc);
                 calcs.insert(temperature_calc_name, temperature_calc);
             }
@@ -246,64 +318,118 @@ impl Peripheral for DeimosDaqRev7 {
         // to allow measuring temperatures below 0C
         {
             for (n, i) in tc_range.enumerate() {
-                let slope = 25.7;
-                let offset = 1.024;
-
-                let input_name = format!("{name}.ain{i}");
-                let voltage_calc_name = format!("{name}_tc_{n}_V");
+                let raw_sense_voltage_calc_name = format!("{name}_tc_{n}_sense_V_raw");
+                let sense_voltage_calc_name = format!("{name}_tc_{n}_sense_V");
                 let temperature_calc_name = format!("{name}_tc_{n}");
 
-                let voltage_calc = InverseAffine::new(input_name, slope, offset, true);
+                let raw_sense_voltage_calc = InverseAffine::new(
+                    format!("{name}.ain{i}"),
+                    TC_FRONTEND_GAIN,
+                    TC_FRONTEND_OFFSET_V,
+                    false,
+                );
+                let sense_voltage_calc = calibrated_sense_voltage(
+                    format!("{raw_sense_voltage_calc_name}.y"),
+                    voltage_cal_for_ain(&cal_record, i)?,
+                    true,
+                );
                 let temperature_calc = TcKtype::new(
-                    format!("{voltage_calc_name}.y"),
+                    format!("{sense_voltage_calc_name}.y"),
                     format!("{name}_board_rtd_filtered.y"),
                     true,
                 );
-                calcs.insert(voltage_calc_name, voltage_calc);
+                calcs.insert(raw_sense_voltage_calc_name, raw_sense_voltage_calc);
+                calcs.insert(sense_voltage_calc_name, sense_voltage_calc);
                 calcs.insert(temperature_calc_name, temperature_calc);
             }
         }
 
         // Variety of raw voltages with different gains
         {
-            let input_name = format!("{name}.ain12");
-            let voltage_calc_name = format!("{name}_0_2V5_0");
-            let voltage_calc = Affine::new(input_name, 1.0, 0.0, true);
+            let i = 12;
+            let voltage_calc_name = format!("{name}_0_2V5_0_sense_V");
+            let voltage_calc = calibrated_sense_voltage(
+                format!("{name}.ain{i}"),
+                voltage_cal_for_ain(&cal_record, i)?,
+                true,
+            );
             calcs.insert(voltage_calc_name, voltage_calc);
         }
 
         {
-            let input_name = format!("{name}.ain15");
-            let voltage_calc_name = format!("{name}_0_2V5_1");
-            let voltage_calc = Affine::new(input_name, 1.0, 0.0, true);
+            let i = 15;
+            let voltage_calc_name = format!("{name}_0_2V5_1_sense_V");
+            let voltage_calc = calibrated_sense_voltage(
+                format!("{name}.ain{i}"),
+                voltage_cal_for_ain(&cal_record, i)?,
+                true,
+            );
             calcs.insert(voltage_calc_name, voltage_calc);
         }
 
         {
-            let input_name = format!("{name}.ain16");
-            let voltage_calc_name = format!("{name}_0_15V_0");
-            let voltage_calc = Affine::new(input_name, 6.0, 0.0, true);
+            let i = 16;
+            let raw_sense_voltage_calc_name = format!("{name}_0_15V_0_sense_V_raw");
+            let voltage_calc_name = format!("{name}_0_15V_0_sense_V");
+            let raw_sense_voltage_calc = Affine::new(format!("{name}.ain{i}"), 6.0, 0.0, false);
+            let voltage_calc = calibrated_sense_voltage(
+                format!("{raw_sense_voltage_calc_name}.y"),
+                voltage_cal_for_ain(&cal_record, i)?,
+                true,
+            );
+            calcs.insert(raw_sense_voltage_calc_name, raw_sense_voltage_calc);
             calcs.insert(voltage_calc_name, voltage_calc);
         }
 
         {
-            let input_name = format!("{name}.ain17");
-            let voltage_calc_name = format!("{name}_0_15V_1");
-            let voltage_calc = Affine::new(input_name, 6.0, 0.0, true);
+            let i = 17;
+            let raw_sense_voltage_calc_name = format!("{name}_0_15V_1_sense_V_raw");
+            let voltage_calc_name = format!("{name}_0_15V_1_sense_V");
+            let raw_sense_voltage_calc = Affine::new(format!("{name}.ain{i}"), 6.0, 0.0, false);
+            let voltage_calc = calibrated_sense_voltage(
+                format!("{raw_sense_voltage_calc_name}.y"),
+                voltage_cal_for_ain(&cal_record, i)?,
+                true,
+            );
+            calcs.insert(raw_sense_voltage_calc_name, raw_sense_voltage_calc);
             calcs.insert(voltage_calc_name, voltage_calc);
         }
 
         {
-            let input_name = format!("{name}.ain18");
-            let voltage_calc_name = format!("{name}_x26_0");
-            let voltage_calc = InverseAffine::new(input_name, 25.7, 1.024, true);
+            let i = 18;
+            let raw_sense_voltage_calc_name = format!("{name}_x26_0_sense_V_raw");
+            let voltage_calc_name = format!("{name}_x26_0_sense_V");
+            let raw_sense_voltage_calc = InverseAffine::new(
+                format!("{name}.ain{i}"),
+                TC_FRONTEND_GAIN,
+                TC_FRONTEND_OFFSET_V,
+                false,
+            );
+            let voltage_calc = calibrated_sense_voltage(
+                format!("{raw_sense_voltage_calc_name}.y"),
+                voltage_cal_for_ain(&cal_record, i)?,
+                true,
+            );
+            calcs.insert(raw_sense_voltage_calc_name, raw_sense_voltage_calc);
             calcs.insert(voltage_calc_name, voltage_calc);
         }
 
         {
-            let input_name = format!("{name}.ain19");
-            let voltage_calc_name = format!("{name}_x26_1");
-            let voltage_calc = InverseAffine::new(input_name, 25.7, 1.024, true);
+            let i = 19;
+            let raw_sense_voltage_calc_name = format!("{name}_x26_1_sense_V_raw");
+            let voltage_calc_name = format!("{name}_x26_1_sense_V");
+            let raw_sense_voltage_calc = InverseAffine::new(
+                format!("{name}.ain{i}"),
+                TC_FRONTEND_GAIN,
+                TC_FRONTEND_OFFSET_V,
+                false,
+            );
+            let voltage_calc = calibrated_sense_voltage(
+                format!("{raw_sense_voltage_calc_name}.y"),
+                voltage_cal_for_ain(&cal_record, i)?,
+                true,
+            );
+            calcs.insert(raw_sense_voltage_calc_name, raw_sense_voltage_calc);
             calcs.insert(voltage_calc_name, voltage_calc);
         }
 

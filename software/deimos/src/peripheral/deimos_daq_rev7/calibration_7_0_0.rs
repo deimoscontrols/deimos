@@ -176,42 +176,42 @@ const VOLTAGE_CHANNELS: [CalibrationChannel; 6] = [
     CalibrationChannel {
         label: "0-2.5 V channel 0 (ain12)",
         analog_input_name: "ain12",
-        signal_name: "p1_0_2V5_0.y",
+        signal_name: "p1_0_2V5_0_sense_V.y",
         slug: "0_2V5_0",
         kind: CalibrationKind::Voltage,
     },
     CalibrationChannel {
         label: "0-2.5 V channel 1 (ain15)",
         analog_input_name: "ain15",
-        signal_name: "p1_0_2V5_1.y",
+        signal_name: "p1_0_2V5_1_sense_V.y",
         slug: "0_2V5_1",
         kind: CalibrationKind::Voltage,
     },
     CalibrationChannel {
         label: "0-15 V channel 0 (ain16)",
         analog_input_name: "ain16",
-        signal_name: "p1_0_15V_0.y",
+        signal_name: "p1_0_15V_0_sense_V.y",
         slug: "0_15V_0",
         kind: CalibrationKind::Voltage,
     },
     CalibrationChannel {
         label: "0-15 V channel 1 (ain17)",
         analog_input_name: "ain17",
-        signal_name: "p1_0_15V_1.y",
+        signal_name: "p1_0_15V_1_sense_V.y",
         slug: "0_15V_1",
         kind: CalibrationKind::Voltage,
     },
     CalibrationChannel {
         label: "x26 voltage channel 0 (ain18)",
         analog_input_name: "ain18",
-        signal_name: "p1_x26_0.y",
+        signal_name: "p1_x26_0_sense_V.y",
         slug: "x26_0",
         kind: CalibrationKind::Voltage,
     },
     CalibrationChannel {
         label: "x26 voltage channel 1 (ain19)",
         analog_input_name: "ain19",
-        signal_name: "p1_x26_1.y",
+        signal_name: "p1_x26_1_sense_V.y",
         slug: "x26_1",
         kind: CalibrationKind::Voltage,
     },
@@ -419,8 +419,8 @@ impl CalibrationChannel {
 
     fn tc_voltage_signal_name(self) -> Option<&'static str> {
         match self.slug {
-            "tc_0" => Some("p1_tc_0_V.y"),
-            "tc_1" => Some("p1_tc_1_V.y"),
+            "tc_0" => Some("p1_tc_0_sense_V.y"),
+            "tc_1" => Some("p1_tc_1_sense_V.y"),
             _ => None,
         }
     }
@@ -1542,7 +1542,7 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
                 record.serial_number
             ));
         }
-        if record.signal_name != channel.signal_name {
+        if !signal_name_matches_channel(channel, &record.signal_name) {
             return Err(format!(
                 "{} contains mixed signals: '{}' and '{}'",
                 path.display(),
@@ -2178,11 +2178,11 @@ fn expected_voltage_v(reference_a: f64) -> f64 {
 }
 
 fn rtd_voltage_from_temperature_k(temperature_k: f64) -> f64 {
-    pt100_resistance_ohm(temperature_k) * RTD_REFERENCE_CURRENT_A * RTD_FRONTEND_GAIN
+    pt100_resistance_ohm(temperature_k) * RTD_REFERENCE_CURRENT_A
 }
 
 fn rtd_temperature_from_voltage_v(voltage_v: f64) -> f64 {
-    let resistance_ohm = voltage_v / (RTD_REFERENCE_CURRENT_A * RTD_FRONTEND_GAIN);
+    let resistance_ohm = voltage_v / RTD_REFERENCE_CURRENT_A;
     pt100_temp_k(resistance_ohm)
 }
 
@@ -2917,7 +2917,23 @@ fn utc_datestamp() -> String {
 }
 
 fn channel_for_signal_name(signal_name: &str) -> Option<CalibrationChannel> {
-    all_calibration_channels().find(|channel| channel.signal_name == signal_name)
+    all_calibration_channels().find(|&channel| signal_name_matches_channel(channel, signal_name))
+}
+
+fn signal_name_matches_channel(channel: CalibrationChannel, signal_name: &str) -> bool {
+    channel.signal_name == signal_name || legacy_signal_names(channel).contains(&signal_name)
+}
+
+fn legacy_signal_names(channel: CalibrationChannel) -> &'static [&'static str] {
+    match channel.slug {
+        "0_2V5_0" => &["p1_0_2V5_0.y"],
+        "0_2V5_1" => &["p1_0_2V5_1.y"],
+        "0_15V_0" => &["p1_0_15V_0.y"],
+        "0_15V_1" => &["p1_0_15V_1.y"],
+        "x26_0" => &["p1_x26_0.y"],
+        "x26_1" => &["p1_x26_1.y"],
+        _ => &[],
+    }
 }
 
 fn html_escape(s: &str) -> String {
