@@ -6,9 +6,7 @@ use std::{
     time::SystemTime,
 };
 
-use chrono::{DateTime, Utc};
-
-use crate::{dispatcher::Dispatcher, peripheral::Peripheral};
+use crate::{dispatcher::Dispatcher, dispatcher::load_csv, peripheral::Peripheral};
 
 /// One replayed controller cycle.
 ///
@@ -40,8 +38,7 @@ pub trait ReplaySource {
 ///
 /// The CSV must contain `timestamp` and `time` columns plus one column for each
 /// raw peripheral output, named as `<peripheral>.<output>`, for example
-/// `p1.ain0`. Files written by [`crate::CsvDispatcher`] have this shape when
-/// raw peripheral output dispatch is enabled in the controller graph.
+/// `p1.ain0`.
 pub struct CsvReplaySource {
     path: PathBuf,
     rows: VecDeque<ReplayCycle>,
@@ -89,59 +86,20 @@ fn read_csv_replay_rows(
     path: &Path,
     peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
 ) -> Result<VecDeque<ReplayCycle>, String> {
-    // Use the csv crate rather than ad hoc splitting so quoted fields and
-    // future CSV formatting changes are handled consistently.
-    let mut reader = csv::ReaderBuilder::new()
-        .has_headers(true)
-        .from_path(path)
-        .map_err(|e| format!("Failed to open replay CSV {}: {e}", path.display()))?;
-
-    // Clone the header record because `reader.records()` needs mutable access
-    // to the same reader later.
-    let headers = reader
-        .headers()
-        .map_err(|e| {
-            format!(
-                "Failed to read replay CSV header from {}: {e}",
-                path.display()
-            )
-        })?
-        .clone();
-
-    // Resolve all fixed column positions before reading rows so missing raw
-    // peripheral columns fail once, up front.
-    let timestamp_idx = column_index(&headers, "timestamp")?;
-    let time_idx = column_index(&headers, "time")?;
-    let peripheral_columns = peripheral_output_columns(&headers, peripherals)?;
+    // Load the generic dispatcher CSV first; required raw peripheral columns
+    // are checked against the loaded channel list below.
+    let csv = load_csv(path)?;
+    let peripheral_columns = peripheral_output_columns(csv.channel_names(), peripherals)?;
 
     let mut rows = VecDeque::new();
-    for (row_idx, record) in reader.records().enumerate() {
-        // Keep row indices in errors; they are zero-based data row indices, not
-        // including the header.
-        let record = record.map_err(|e| format!("Failed to read replay CSV row {row_idx}: {e}"))?;
-        let timestamp = parse_timestamp(
-            record
-                .get(timestamp_idx)
-                .ok_or_else(|| format!("Replay CSV row {row_idx} is missing timestamp"))?,
-            row_idx,
-        )?;
-        let time = parse_time(
-            record
-                .get(time_idx)
-                .ok_or_else(|| format!("Replay CSV row {row_idx} is missing time"))?,
-            row_idx,
-        )?;
-
+    for row in csv.rows() {
         // Reconstruct each peripheral's raw output vector in the exact order
         // expected by `Peripheral::parse_operating_roundtrip`.
         let mut peripheral_outputs = BTreeMap::new();
         for (peripheral_name, column_indices) in &peripheral_columns {
             let mut outputs = Vec::with_capacity(column_indices.len());
             for &column_idx in column_indices {
-                let value = record.get(column_idx).ok_or_else(|| {
-                    format!("Replay CSV row {row_idx} is missing column {column_idx}")
-                })?;
-                outputs.push(parse_f64(value, row_idx, &headers[column_idx])?);
+                outputs.push(row.channel_values[column_idx]);
             }
             peripheral_outputs.insert(peripheral_name.clone(), outputs);
         }
@@ -149,8 +107,8 @@ fn read_csv_replay_rows(
         // Store eagerly for the first implementation. This keeps the replay
         // trait simple; a streaming CSV source can be added later if needed.
         rows.push_back(ReplayCycle {
-            time,
-            timestamp,
+            time: row.time,
+            timestamp: row.timestamp,
             peripheral_outputs,
         });
     }
@@ -158,19 +116,9 @@ fn read_csv_replay_rows(
     Ok(rows)
 }
 
-/// Find the index of one required CSV column.
-fn column_index(headers: &csv::StringRecord, name: &str) -> Result<usize, String> {
-    // Column names are matched exactly because replay depends on unambiguous
-    // controller field names such as `p1.ain0`.
-    headers
-        .iter()
-        .position(|header| header == name)
-        .ok_or_else(|| format!("Replay CSV is missing required column `{name}`"))
-}
-
 /// Map each peripheral's output vector order to source CSV column indices.
 fn peripheral_output_columns(
-    headers: &csv::StringRecord,
+    channel_names: &[String],
     peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
 ) -> Result<BTreeMap<String, Vec<usize>>, String> {
     // BTreeMap iteration preserves the same deterministic peripheral order used
@@ -178,45 +126,24 @@ fn peripheral_output_columns(
     let mut columns = BTreeMap::new();
 
     for (peripheral_name, peripheral) in peripherals {
-        // Keep column indices in peripheral output order so replay can copy the
-        // resulting vector directly into the orchestrator's output slice.
+        // Keep column indices in peripheral output order so replay can rebuild
+        // the exact output slice expected by the orchestrator.
         let mut peripheral_columns = Vec::new();
         for output_name in peripheral.output_names() {
             let field_name = format!("{peripheral_name}.{output_name}");
-            peripheral_columns.push(column_index(headers, &field_name)?);
+            peripheral_columns.push(
+                channel_names
+                    .iter()
+                    .position(|channel_name| channel_name == &field_name)
+                    .ok_or_else(|| {
+                        format!("Replay CSV is missing required raw output `{field_name}`")
+                    })?,
+            );
         }
         columns.insert(peripheral_name.clone(), peripheral_columns);
     }
 
     Ok(columns)
-}
-
-/// Parse a nanosecond timestamp from CSV text.
-fn parse_timestamp(value: &str, row_idx: usize) -> Result<i64, String> {
-    // Dispatcher CSV timestamps are controller-relative nanoseconds.
-    value
-        .trim()
-        .parse::<i64>()
-        .map_err(|e| format!("Invalid replay timestamp on row {row_idx}: {e}"))
-}
-
-/// Parse an RFC3339 wall-clock timestamp from CSV text.
-fn parse_time(value: &str, row_idx: usize) -> Result<SystemTime, String> {
-    // Dispatcher CSV wall time is fixed-width RFC3339 UTC; parsing accepts any
-    // RFC3339 offset and normalizes to `SystemTime`.
-    DateTime::parse_from_rfc3339(value.trim())
-        .map(|time| DateTime::<Utc>::from(time).into())
-        .map_err(|e| format!("Invalid replay wall-clock time on row {row_idx}: {e}"))
-}
-
-/// Parse a channel value from CSV text.
-fn parse_f64(value: &str, row_idx: usize, column_name: &str) -> Result<f64, String> {
-    // Preserve Rust float parsing semantics, including NaN/inf if a dispatcher
-    // emitted them.
-    value
-        .trim()
-        .parse::<f64>()
-        .map_err(|e| format!("Invalid replay value for `{column_name}` on row {row_idx}: {e}"))
 }
 
 /// Initialize replay dispatchers using the orchestrator's normal dispatch channels.

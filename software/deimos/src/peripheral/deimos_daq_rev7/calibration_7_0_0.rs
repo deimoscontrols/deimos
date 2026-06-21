@@ -17,11 +17,12 @@ use std::{
 };
 
 use crate::{
-    Controller, ControllerCtx, DataFrameDispatcher, LoopMethod, Overflow, Termination,
+    ChannelFilter, Controller, ControllerCtx, CsvDispatcher, CsvReplaySource, Dispatcher,
+    LoopMethod, Overflow, Termination,
     calc::{ktype_corrected_temp_k, ktype_voltage_v, pt100_resistance_ohm, pt100_temp_k},
-    dispatcher::{DataFrameHandle, ReportingDispatcher},
+    dispatcher::{ReportingDispatcher, load_csv},
     math::{polyfit, polyval},
-    peripheral::calibration::CalRecordCore,
+    peripheral::{Peripheral, calibration::CalRecordCore},
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use deimos_shared::peripherals::deimos_daq_rev7::MODEL_NUMBER;
@@ -34,7 +35,6 @@ const PROCEDURE_NAME: &str = "deimos_daq_rev7_calibration_7_0_0";
 const PROCEDURE_VERSION: u16 = 1;
 const PERIPHERAL_NAME: &str = "p1";
 const RATE_HZ: f64 = 100.0;
-const DATAFRAME_MB: usize = 64;
 const REPORTING_MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(239, 255, 0, 1);
 const REPORTING_MULTICAST_PORT: u16 = 29573;
 const REPORTING_SCHEMA_PERIOD: Duration = Duration::from_secs(2);
@@ -81,7 +81,10 @@ const VA710_NEAR_ROOM_VOLTAGE_ACCURACY_K: f64 = 0.25;
 const BOARD_COLD_JUNCTION_SIGNAL_NAME: &str = "p1_board_rtd_filtered.y";
 
 const CONSOLE_CONFIG_PATH: &str = "software/deimos/examples/rev7_calibration_console.toml";
-const CALIBRATION_DATA_SUFFIX: &str = "_calibration_data.csv";
+const RAW_RUN_SUFFIX: &str = "_raw.csv";
+const REPLAY_DATA_SUFFIX: &str = "_replay.csv";
+const RUN_METADATA_SUFFIX: &str = "_metadata.json";
+const CSV_REPLAY_MB: usize = 64;
 
 #[derive(Clone, Copy, Debug)]
 struct CalibrationChannel {
@@ -444,7 +447,6 @@ struct ChannelCapture {
     channel: CalibrationChannel,
     op_name: String,
     op_dir: PathBuf,
-    timestamps_ns: Vec<i64>,
     times_s: Vec<f64>,
     measured_a: Vec<f64>,
     reference_a: Vec<Option<f64>>,
@@ -454,11 +456,21 @@ struct ChannelCapture {
     thermocouple_voltage_v: Vec<f64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct ManualReferenceWindow {
     reference_a: f64,
     start_time_s: f64,
     stop_time_s: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CalibrationRunMetadata {
+    model: String,
+    serial_number: u64,
+    channel: String,
+    signal_name: String,
+    calibrator_cold_junction_temperature_k: Option<f64>,
+    manual_reference_windows: Vec<ManualReferenceWindow>,
 }
 
 #[derive(Debug)]
@@ -508,27 +520,6 @@ struct NormalizedLinearFit {
     r2: f64,
     x_center: f64,
     x_scale: f64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct CalibrationRecord {
-    model: String,
-    serial_number: u64,
-    channel: String,
-    signal_name: String,
-    timestamp_ns: i64,
-    time_s: f64,
-    measured_a: f64,
-    #[serde(default)]
-    reference_a: Option<f64>,
-    #[serde(default)]
-    calibrator_cold_junction_temperature_k: Option<f64>,
-    #[serde(default)]
-    board_cold_junction_temperature_k: Option<f64>,
-    #[serde(default)]
-    board_cold_junction_offset_k: Option<f64>,
-    #[serde(default)]
-    thermocouple_voltage_v: Option<f64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -716,14 +707,14 @@ pub fn run_procedure(
             create_dir_all(dst).map_err(|e| format!("Failed to create {}: {e}", dst.display()))?;
             let paths = collect_all_channels(sn, dst, true)?;
             println!(
-                "Collected and processed {} calibration data files.",
+                "Collected and processed {} raw calibration run files.",
                 paths.len()
             );
         }
         (true, false) => {
             create_dir_all(dst).map_err(|e| format!("Failed to create {}: {e}", dst.display()))?;
             let paths = collect_all_channels(sn, dst, false)?;
-            println!("Collected {} calibration data files.", paths.len());
+            println!("Collected {} raw calibration run files.", paths.len());
             for path in paths {
                 println!("  {}", path.display());
             }
@@ -775,19 +766,26 @@ fn collect_all_channels(
             println!("Skipped {}.", channel.label);
             continue;
         };
-        let capture = run_channel_capture(
+        let raw_path = run_channel_capture(
             sn,
             output_root,
             channel,
             calibrator_cold_junction_temperature_k,
         )?;
-        let summary_dir = capture.op_dir.clone();
-        let path = write_calibration_data(&capture)?;
-        println!("Saved {}", path.display());
+        let summary_dir = raw_path
+            .parent()
+            .ok_or_else(|| {
+                format!(
+                    "Unable to determine parent folder for {}",
+                    raw_path.display()
+                )
+            })?
+            .to_path_buf();
+        println!("Saved raw run {}", raw_path.display());
         if process_after_each_run {
-            process_calibration_files(sn, std::slice::from_ref(&path), &summary_dir, false)?;
+            process_calibration_files(sn, std::slice::from_ref(&raw_path), &summary_dir, false)?;
         }
-        paths.push(path);
+        paths.push(raw_path);
     }
 
     if process_after_each_run && !paths.is_empty() {
@@ -876,21 +874,19 @@ fn run_channel_capture(
     output_root: &Path,
     channel: CalibrationChannel,
     calibrator_cold_junction_temperature_k: Option<f64>,
-) -> Result<ChannelCapture, String> {
+) -> Result<PathBuf, String> {
     let op_name = op_name_for_channel(sn, channel)?;
     let op_dir = output_root.join(&op_name);
     create_dir_all(&op_dir).map_err(|e| format!("Failed to create {}: {e}", op_dir.display()))?;
 
     let mut controller =
         Controller::new(controller_context(op_name.clone(), op_dir.clone(), channel));
-    controller.add_peripheral(
-        PERIPHERAL_NAME,
-        Box::new(DeimosDaqRev7 { serial_number: sn }),
-    )?;
+    let peripheral = DeimosDaqRev7 { serial_number: sn };
+    let default_cals = peripheral.default_cals()?;
+    controller.add_peripheral_with_cals(PERIPHERAL_NAME, Box::new(peripheral), &default_cals)?;
 
-    let (df_dispatcher, _df_handle) = DataFrameDispatcher::new(DATAFRAME_MB, Overflow::Wrap, None);
-    let df_handle = df_dispatcher.handle();
-    controller.add_dispatcher("dataframe", df_dispatcher);
+    let raw_csv = CsvDispatcher::new(CSV_REPLAY_MB, Overflow::Error).with_op_name_suffix("raw");
+    controller.add_dispatcher("raw_csv", raw_csv);
 
     let reporting = ReportingDispatcher::new(
         REPORTING_MULTICAST_GROUP,
@@ -931,15 +927,18 @@ fn run_channel_capture(
         );
     }
 
-    extract_capture(
-        sn,
-        channel,
-        op_name,
-        op_dir,
-        df_handle,
+    let metadata = CalibrationRunMetadata {
+        model: MODEL_NAME.to_owned(),
+        serial_number: sn,
+        channel: channel.slug.to_owned(),
+        signal_name: channel.signal_name.to_owned(),
         calibrator_cold_junction_temperature_k,
         manual_reference_windows,
-    )
+    };
+    let metadata_path = metadata_path_for_op(&op_dir, &op_name);
+    write_run_metadata(&metadata_path, &metadata)?;
+
+    Ok(raw_csv_path_for_op(&op_dir, &op_name))
 }
 
 fn collect_voltage_reference_windows(
@@ -1005,192 +1004,80 @@ fn controller_context(
     ctx
 }
 
-fn extract_capture(
-    serial_number: u64,
-    channel: CalibrationChannel,
-    op_name: String,
-    op_dir: PathBuf,
-    df_handle: DataFrameHandle,
-    calibrator_cold_junction_temperature_k: Option<f64>,
-    manual_reference_windows: Vec<ManualReferenceWindow>,
-) -> Result<ChannelCapture, String> {
-    let timestamps = df_handle.timestamp()?;
-    let columns = df_handle.columns()?;
-    let measurements = columns.get(channel.signal_name).ok_or_else(|| {
-        let mut available = columns.keys().cloned().collect::<Vec<_>>();
-        available.sort();
-        format!(
-            "Signal '{}' was not found in dataframe columns: {available:?}",
-            channel.signal_name
-        )
-    })?;
-    let thermocouple_voltage = match channel.tc_voltage_signal_name() {
-        Some(signal_name) => Some(columns.get(signal_name).ok_or_else(|| {
-            let mut available = columns.keys().cloned().collect::<Vec<_>>();
-            available.sort();
-            format!("Signal '{signal_name}' was not found in dataframe columns: {available:?}")
-        })?),
-        None => None,
-    };
-    let board_cold_junction_temperature = if matches!(channel.kind, CalibrationKind::Thermocouple) {
-        Some(columns.get(BOARD_COLD_JUNCTION_SIGNAL_NAME).ok_or_else(|| {
-                let mut available = columns.keys().cloned().collect::<Vec<_>>();
-                available.sort();
-                format!(
-                    "Signal '{BOARD_COLD_JUNCTION_SIGNAL_NAME}' was not found in dataframe columns: {available:?}"
-                )
-            })?)
-    } else {
-        None
-    };
-
-    let first_timestamp = *timestamps
-        .first()
-        .ok_or_else(|| format!("No samples were captured for {}", channel.label))?;
-
-    let mut timestamps_ns = Vec::with_capacity(timestamps.len());
-    let mut times_s = Vec::with_capacity(timestamps.len());
-    let mut measured_a = Vec::with_capacity(timestamps.len());
-    let mut reference_a = Vec::with_capacity(timestamps.len());
-    let mut board_cold_junction_temperature_k = Vec::with_capacity(timestamps.len());
-    let mut thermocouple_voltage_v = Vec::with_capacity(timestamps.len());
-    let mut last_time_s = None;
-
-    for (idx, (&timestamp, &measurement)) in timestamps.iter().zip(measurements.iter()).enumerate()
-    {
-        let time_s = (timestamp - first_timestamp) as f64 * 1e-9;
-        let board_cold_junction_k = board_cold_junction_temperature.map(|column| column[idx]);
-        let thermocouple_voltage_v_sample = thermocouple_voltage.map(|column| column[idx]);
-
-        if !time_s.is_finite() || !measurement.is_finite() {
-            continue;
-        }
-        if board_cold_junction_k.is_some_and(|value| !value.is_finite())
-            || thermocouple_voltage_v_sample.is_some_and(|value| !value.is_finite())
-        {
-            continue;
-        }
-        if last_time_s.is_some_and(|last| time_s <= last) {
-            continue;
-        }
-
-        timestamps_ns.push(timestamp);
-        times_s.push(time_s);
-        measured_a.push(measurement);
-        reference_a.push(
-            manual_reference_windows
-                .iter()
-                .find(|window| time_s >= window.start_time_s && time_s <= window.stop_time_s)
-                .map(|window| window.reference_a),
-        );
-        if let Some(board_cold_junction_k) = board_cold_junction_k {
-            board_cold_junction_temperature_k.push(board_cold_junction_k);
-        }
-        if let Some(thermocouple_voltage_v_sample) = thermocouple_voltage_v_sample {
-            thermocouple_voltage_v.push(thermocouple_voltage_v_sample);
-        }
-        last_time_s = Some(time_s);
-    }
-
-    if times_s.len() < 2 {
-        return Err(format!(
-            "Need at least two finite monotonic samples for {}, got {}",
-            channel.label,
-            times_s.len()
-        ));
-    }
-    let board_cold_junction_offset_k = if matches!(channel.kind, CalibrationKind::Thermocouple) {
-        let calibrator_cold_junction_temperature_k = calibrator_cold_junction_temperature_k
-            .ok_or_else(|| {
-                format!(
-                    "Missing VA710 cold-junction temperature for {}",
-                    channel.label
-                )
-            })?;
-        if board_cold_junction_temperature_k.len() != measured_a.len()
-            || thermocouple_voltage_v.len() != measured_a.len()
-        {
-            return Err(format!(
-                "Thermocouple capture for {} is missing voltage or board cold-junction samples",
-                channel.label
-            ));
-        }
-        let mean_board_cold_junction_temperature_k =
-            board_cold_junction_temperature_k.iter().sum::<f64>()
-                / board_cold_junction_temperature_k.len() as f64;
-        let offset_k =
-            calibrator_cold_junction_temperature_k - mean_board_cold_junction_temperature_k;
-        measured_a = thermocouple_voltage_v
-            .iter()
-            .zip(board_cold_junction_temperature_k.iter())
-            .map(|(&voltage_v, &board_temperature_k)| {
-                ktype_corrected_temp_k(voltage_v, board_temperature_k + offset_k)
-            })
-            .collect::<Vec<_>>();
-        Some(offset_k)
-    } else {
-        None
-    };
-
-    Ok(ChannelCapture {
-        serial_number,
-        channel,
-        op_name,
-        op_dir,
-        timestamps_ns,
-        times_s,
-        measured_a,
-        reference_a,
-        calibrator_cold_junction_temperature_k,
-        board_cold_junction_temperature_k,
-        board_cold_junction_offset_k,
-        thermocouple_voltage_v,
-    })
+/// Path where the live run's full dispatcher CSV is written.
+fn raw_csv_path_for_op(op_dir: &Path, op_name: &str) -> PathBuf {
+    op_dir.join(format!("{op_name}{RAW_RUN_SUFFIX}"))
 }
 
-fn write_calibration_data(capture: &ChannelCapture) -> Result<PathBuf, String> {
-    let path = capture
-        .op_dir
-        .join(format!("{}{}", capture.op_name, CALIBRATION_DATA_SUFFIX));
-    let mut writer = csv::WriterBuilder::new()
-        .has_headers(true)
-        .from_path(&path)
-        .map_err(|e| format!("Failed to create {}: {e}", path.display()))?;
+/// Path where the filtered replay CSV is written.
+fn replay_csv_path_for_op(op_dir: &Path, op_name: &str) -> PathBuf {
+    op_dir.join(format!("{op_name}{REPLAY_DATA_SUFFIX}"))
+}
 
-    for (idx, ((&timestamp_ns, &time_s), &measured_a)) in capture
-        .timestamps_ns
-        .iter()
-        .zip(capture.times_s.iter())
-        .zip(capture.measured_a.iter())
-        .enumerate()
-    {
-        writer
-            .serialize(CalibrationRecord {
-                model: MODEL_NAME.to_owned(),
-                serial_number: capture.serial_number,
-                channel: capture.channel.slug.to_owned(),
-                signal_name: capture.channel.signal_name.to_owned(),
-                timestamp_ns,
-                time_s,
-                measured_a,
-                reference_a: capture.reference_a.get(idx).copied().flatten(),
-                calibrator_cold_junction_temperature_k: capture
-                    .calibrator_cold_junction_temperature_k,
-                board_cold_junction_temperature_k: capture
-                    .board_cold_junction_temperature_k
-                    .get(idx)
-                    .copied(),
-                board_cold_junction_offset_k: capture.board_cold_junction_offset_k,
-                thermocouple_voltage_v: capture.thermocouple_voltage_v.get(idx).copied(),
-            })
-            .map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
+/// Path where operator-entered calibration metadata is written.
+fn metadata_path_for_op(op_dir: &Path, op_name: &str) -> PathBuf {
+    op_dir.join(format!("{op_name}{RUN_METADATA_SUFFIX}"))
+}
+
+/// Locate the metadata sidecar for a raw run CSV.
+fn metadata_path_for_raw_path(raw_path: &Path) -> Result<PathBuf, String> {
+    let op_dir = raw_path.parent().ok_or_else(|| {
+        format!(
+            "Unable to determine parent folder for {}",
+            raw_path.display()
+        )
+    })?;
+    let op_name = op_name_from_path(raw_path, RAW_RUN_SUFFIX)?;
+    Ok(metadata_path_for_op(op_dir, &op_name))
+}
+
+/// Locate the metadata sidecar for a filtered replay CSV.
+fn metadata_path_for_replay_path(replay_path: &Path) -> Result<PathBuf, String> {
+    let op_dir = replay_path.parent().ok_or_else(|| {
+        format!(
+            "Unable to determine parent folder for {}",
+            replay_path.display()
+        )
+    })?;
+    let op_name = op_name_from_path(replay_path, REPLAY_DATA_SUFFIX)?;
+    Ok(metadata_path_for_op(op_dir, &op_name))
+}
+
+/// Recover the operation name from a generated file path.
+fn op_name_from_path(path: &Path, suffix: &str) -> Result<String, String> {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .and_then(|name| name.strip_suffix(suffix))
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| {
+            format!(
+                "{} does not end with expected suffix {suffix}",
+                path.display()
+            )
+        })
+}
+
+/// Write operator-entered metadata needed to interpret replayed samples.
+fn write_run_metadata(path: &Path, metadata: &CalibrationRunMetadata) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(metadata)
+        .map_err(|e| format!("Failed to serialize run metadata: {e}"))?;
+    fs::write(path, json).map_err(|e| format!("Failed to write {}: {e}", path.display()))
+}
+
+/// Read and validate operator-entered metadata for a calibration run.
+fn read_run_metadata(path: &Path) -> Result<CalibrationRunMetadata, String> {
+    let json =
+        fs::read_to_string(path).map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
+    let metadata = serde_json::from_str::<CalibrationRunMetadata>(&json)
+        .map_err(|e| format!("Failed to parse {}: {e}", path.display()))?;
+    if metadata.model != MODEL_NAME {
+        return Err(format!(
+            "{} has model '{}', expected '{MODEL_NAME}'",
+            path.display(),
+            metadata.model
+        ));
     }
-
-    writer
-        .flush()
-        .map_err(|e| format!("Failed to flush {}: {e}", path.display()))?;
-
-    Ok(path)
+    Ok(metadata)
 }
 
 fn discover_calibration_data(path: &Path) -> Result<Vec<PathBuf>, String> {
@@ -1201,7 +1088,7 @@ fn discover_calibration_data(path: &Path) -> Result<Vec<PathBuf>, String> {
             paths.push(path.to_path_buf());
         } else {
             return Err(format!(
-                "{} is not a calibration data CSV ending in {CALIBRATION_DATA_SUFFIX}",
+                "{} is not a raw calibration run CSV ending in {RAW_RUN_SUFFIX}",
                 path.display()
             ));
         }
@@ -1214,7 +1101,7 @@ fn discover_calibration_data(path: &Path) -> Result<Vec<PathBuf>, String> {
     paths.sort();
     if paths.is_empty() {
         return Err(format!(
-            "No calibration data CSV files ending in {CALIBRATION_DATA_SUFFIX} found under {}",
+            "No raw calibration run CSV files ending in {RAW_RUN_SUFFIX} found under {}",
             path.display()
         ));
     }
@@ -1245,7 +1132,7 @@ fn discover_calibration_data_recursive(
 fn is_calibration_data_file(path: &Path) -> bool {
     path.file_name()
         .and_then(|name| name.to_str())
-        .is_some_and(|name| name.ends_with(CALIBRATION_DATA_SUFFIX))
+        .is_some_and(|name| name.ends_with(RAW_RUN_SUFFIX))
 }
 
 fn summary_dir_for_process_path(path: &Path) -> Result<&Path, String> {
@@ -1255,6 +1142,61 @@ fn summary_dir_for_process_path(path: &Path) -> Result<&Path, String> {
     } else {
         Ok(path)
     }
+}
+
+/// Replay one raw calibration run and write the filtered replay CSV.
+fn replay_calibration_run(raw_path: &Path) -> Result<PathBuf, String> {
+    let metadata_path = metadata_path_for_raw_path(raw_path)?;
+    let metadata = read_run_metadata(&metadata_path)?;
+    let channel = channel_for_slug(&metadata.channel)
+        .ok_or_else(|| format!("Unknown calibration channel '{}'", metadata.channel))?;
+    let op_dir = raw_path
+        .parent()
+        .ok_or_else(|| {
+            format!(
+                "Unable to determine parent folder for {}",
+                raw_path.display()
+            )
+        })?
+        .to_path_buf();
+    let op_name = op_name_from_path(raw_path, RAW_RUN_SUFFIX)?;
+
+    let mut ctx = ControllerCtx::default();
+    // Replay writes into the same operation directory using the original
+    // operation name, but with the replay CSV suffix.
+    ctx.op_name = op_name.clone();
+    ctx.op_dir = op_dir.clone();
+    ctx.dt_ns = (1e9_f64 / RATE_HZ).round() as u32;
+    ctx.loop_method = LoopMethod::Performant;
+
+    let mut controller = Controller::new(ctx);
+    let peripheral = DeimosDaqRev7 {
+        serial_number: metadata.serial_number,
+    };
+    let default_cals = peripheral.default_cals()?;
+    controller.add_peripheral_with_cals(PERIPHERAL_NAME, Box::new(peripheral), &default_cals)?;
+
+    let replay_csv =
+        CsvDispatcher::new(CSV_REPLAY_MB, Overflow::Error).with_op_name_suffix("replay");
+    // Keep the replay artifact small and stable by emitting only the columns
+    // consumed by calibration analysis.
+    let filtered_replay = ChannelFilter::new(replay_csv, replay_channel_names(channel));
+    let mut dispatchers: BTreeMap<String, Box<dyn Dispatcher>> = BTreeMap::new();
+    dispatchers.insert("replay_csv".to_owned(), filtered_replay);
+
+    controller.replay(CsvReplaySource::new(raw_path), dispatchers)?;
+
+    Ok(replay_csv_path_for_op(&op_dir, &op_name))
+}
+
+/// Columns from the replayed calc graph that are required for analysis.
+fn replay_channel_names(channel: CalibrationChannel) -> Vec<String> {
+    let mut channels = vec![channel.signal_name.to_owned()];
+    if let Some(signal_name) = channel.tc_voltage_signal_name() {
+        channels.push(signal_name.to_owned());
+        channels.push(BOARD_COLD_JUNCTION_SIGNAL_NAME.to_owned());
+    }
+    channels
 }
 
 fn process_calibration_files(
@@ -1271,11 +1213,12 @@ fn process_calibration_files(
     let mut full_cal_inputs = Vec::new();
 
     for path in paths {
-        let capture = read_calibration_data(path)?;
+        let replay_path = replay_calibration_run(path)?;
+        let capture = read_calibration_data(&replay_path)?;
         if capture.serial_number != sn {
             return Err(format!(
                 "{} has serial number {}, expected {sn}",
-                path.display(),
+                replay_path.display(),
                 capture.serial_number
             ));
         }
@@ -1292,7 +1235,7 @@ fn process_calibration_files(
             CalibrationKind::Voltage => (1.0, "V"),
         };
         summary_records.push(CalibrationSummaryRecord {
-            source: path.display().to_string(),
+            source: replay_path.display().to_string(),
             channel_label: capture.channel.label.to_owned(),
             channel: capture.channel.analog_input_name.to_owned(),
             signal_name: capture.channel.calibration_signal_name().to_owned(),
@@ -1322,6 +1265,7 @@ fn process_calibration_files(
             analysis.max_abs_error_a * error_scale,
         );
         println!("  source {}", path.display());
+        println!("  replay {}", replay_path.display());
         println!("  wrote {}", samples_path.display());
         println!("  wrote {}", plot_paths.light.display());
         println!("  wrote {}", plot_paths.dark.display());
@@ -1488,125 +1432,108 @@ fn adc_index_for_channel(channel: CalibrationChannel) -> Result<usize, String> {
     }
 }
 
+/// Build a channel capture from a filtered replay CSV and its metadata sidecar.
 fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
-    let mut reader = csv::ReaderBuilder::new()
-        .has_headers(true)
-        .from_path(path)
-        .map_err(|e| format!("Failed to open {}: {e}", path.display()))?;
-    let mut records = Vec::new();
-
-    for record in reader.deserialize::<CalibrationRecord>() {
-        records.push(record.map_err(|e| format!("Failed to read {}: {e}", path.display()))?);
+    let replay_csv = load_csv(path)?;
+    // The replay CSV only contains time and channel values; operator-entered
+    // reference windows and cold-junction values live in the sidecar.
+    let metadata = read_run_metadata(&metadata_path_for_replay_path(path)?)?;
+    let channel = channel_for_slug(&metadata.channel)
+        .ok_or_else(|| format!("Unknown calibration channel '{}'", metadata.channel))?;
+    if metadata.signal_name != channel.signal_name {
+        return Err(format!(
+            "{} metadata has signal '{}', expected '{}'",
+            path.display(),
+            metadata.signal_name,
+            channel.signal_name
+        ));
     }
-
-    let first = records
-        .first()
-        .ok_or_else(|| format!("No calibration records found in {}", path.display()))?;
-    let serial_number = first.serial_number;
-    let channel = channel_for_signal_name(&first.signal_name)
-        .ok_or_else(|| format!("Unknown calibration signal '{}'", first.signal_name))?;
     let op_dir = path
         .parent()
         .ok_or_else(|| format!("Unable to determine parent folder for {}", path.display()))?
         .to_path_buf();
-    let op_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .and_then(|name| name.strip_suffix(CALIBRATION_DATA_SUFFIX))
-        .unwrap_or("rev7_calibration")
-        .to_owned();
+    let op_name = op_name_from_path(path, REPLAY_DATA_SUFFIX)?;
+    let measurement_idx = replay_csv.required_channel_indices([channel.signal_name])?[0];
+    let tc_voltage_idx = channel
+        .tc_voltage_signal_name()
+        .map(|signal_name| {
+            replay_csv
+                .required_channel_indices([signal_name])
+                .map(|idx| idx[0])
+        })
+        .transpose()?;
+    let board_cold_junction_idx = if matches!(channel.kind, CalibrationKind::Thermocouple) {
+        Some(replay_csv.required_channel_indices([BOARD_COLD_JUNCTION_SIGNAL_NAME])?[0])
+    } else {
+        None
+    };
 
-    let mut timestamps_ns = Vec::with_capacity(records.len());
-    let mut times_s = Vec::with_capacity(records.len());
-    let mut measured_a = Vec::with_capacity(records.len());
-    let mut reference_a = Vec::with_capacity(records.len());
-    let mut board_cold_junction_temperature_k = Vec::with_capacity(records.len());
-    let mut thermocouple_voltage_v = Vec::with_capacity(records.len());
-    let mut calibrator_cold_junction_temperature_k = None;
-    let mut board_cold_junction_offset_k = None;
+    let mut raw_timestamps_ns = Vec::new();
+    let mut raw_measurements = Vec::new();
+    let mut raw_board_cold_junction_temperature_k = Vec::new();
+    let mut raw_thermocouple_voltage_v = Vec::new();
+
+    for row in replay_csv.rows() {
+        let timestamp_ns = row.timestamp;
+        let measurement = row.channel_values[measurement_idx];
+        if !measurement.is_finite() {
+            continue;
+        }
+
+        if let Some(board_idx) = board_cold_junction_idx {
+            // Thermocouple analysis applies the operator-entered cold-junction
+            // correction after replay so the replay itself stays generic.
+            let board_temperature_k = row.channel_values[board_idx];
+            let voltage_idx = tc_voltage_idx.ok_or_else(|| {
+                format!("Missing thermocouple voltage channel for {}", channel.label)
+            })?;
+            let thermocouple_voltage = row.channel_values[voltage_idx];
+            if !board_temperature_k.is_finite() || !thermocouple_voltage.is_finite() {
+                continue;
+            }
+            raw_board_cold_junction_temperature_k.push(board_temperature_k);
+            raw_thermocouple_voltage_v.push(thermocouple_voltage);
+        }
+
+        raw_timestamps_ns.push(timestamp_ns);
+        raw_measurements.push(measurement);
+    }
+
+    let first_timestamp = *raw_timestamps_ns
+        .first()
+        .ok_or_else(|| format!("No finite replay samples found in {}", path.display()))?;
+    let mut times_s = Vec::with_capacity(raw_timestamps_ns.len());
+    let mut measured_a = Vec::with_capacity(raw_timestamps_ns.len());
+    let mut reference_a = Vec::with_capacity(raw_timestamps_ns.len());
+    let mut board_cold_junction_temperature_k = Vec::with_capacity(raw_timestamps_ns.len());
+    let mut thermocouple_voltage_v = Vec::with_capacity(raw_timestamps_ns.len());
     let mut last_time_s = None;
 
-    for record in records {
-        if record.model != MODEL_NAME {
-            return Err(format!(
-                "{} has model '{}', expected '{MODEL_NAME}'",
-                path.display(),
-                record.model
-            ));
-        }
-        if record.serial_number != serial_number {
-            return Err(format!(
-                "{} contains mixed serial numbers: {} and {}",
-                path.display(),
-                serial_number,
-                record.serial_number
-            ));
-        }
-        if !signal_name_matches_channel(channel, &record.signal_name) {
-            return Err(format!(
-                "{} contains mixed signals: '{}' and '{}'",
-                path.display(),
-                channel.signal_name,
-                record.signal_name
-            ));
-        }
-        if !record.time_s.is_finite() {
+    for (idx, (&timestamp_ns, &measurement)) in raw_timestamps_ns
+        .iter()
+        .zip(raw_measurements.iter())
+        .enumerate()
+    {
+        let time_s = (timestamp_ns - first_timestamp) as f64 * 1e-9;
+        if !time_s.is_finite() || last_time_s.is_some_and(|last| time_s <= last) {
             continue;
         }
-        if last_time_s.is_some_and(|last| record.time_s <= last) {
-            continue;
-        }
-
-        let measurement = if matches!(channel.kind, CalibrationKind::Thermocouple) {
-            calibrator_cold_junction_temperature_k = calibrator_cold_junction_temperature_k
-                .or(record.calibrator_cold_junction_temperature_k);
-            let offset_k = record
-                .board_cold_junction_offset_k
-                .or(board_cold_junction_offset_k)
-                .ok_or_else(|| {
-                    format!(
-                        "{} is missing board_cold_junction_offset_k for thermocouple signal '{}'",
-                        path.display(),
-                        channel.signal_name
-                    )
-                })?;
-            board_cold_junction_offset_k = Some(offset_k);
-            let board_temperature_k = record.board_cold_junction_temperature_k.ok_or_else(|| {
-                format!(
-                    "{} is missing board_cold_junction_temperature_k for thermocouple signal '{}'",
-                    path.display(),
-                    channel.signal_name
-                )
-            })?;
-            let voltage_v = record.thermocouple_voltage_v.ok_or_else(|| {
-                format!(
-                    "{} is missing thermocouple_voltage_v for thermocouple signal '{}'",
-                    path.display(),
-                    channel.signal_name
-                )
-            })?;
-            if !board_temperature_k.is_finite() || !voltage_v.is_finite() {
-                continue;
-            }
-            let measurement = ktype_corrected_temp_k(voltage_v, board_temperature_k + offset_k);
-            if !measurement.is_finite() {
-                continue;
-            }
-            board_cold_junction_temperature_k.push(board_temperature_k);
-            thermocouple_voltage_v.push(voltage_v);
-            measurement
-        } else {
-            if !record.measured_a.is_finite() {
-                continue;
-            }
-            record.measured_a
-        };
-
-        timestamps_ns.push(record.timestamp_ns);
-        times_s.push(record.time_s);
+        times_s.push(time_s);
         measured_a.push(measurement);
-        reference_a.push(record.reference_a);
-        last_time_s = Some(record.time_s);
+        // Voltage calibration has manually entered reference windows; stepped
+        // current/RTD/TC references are detected later from the measured data.
+        reference_a.push(
+            metadata
+                .manual_reference_windows
+                .iter()
+                .find(|window| time_s >= window.start_time_s && time_s <= window.stop_time_s)
+                .map(|window| window.reference_a),
+        );
+        if matches!(channel.kind, CalibrationKind::Thermocouple) {
+            board_cold_junction_temperature_k.push(raw_board_cold_junction_temperature_k[idx]);
+            thermocouple_voltage_v.push(raw_thermocouple_voltage_v[idx]);
+        }
+        last_time_s = Some(time_s);
     }
 
     if times_s.len() < 2 {
@@ -1616,17 +1543,52 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
             times_s.len()
         ));
     }
+    let board_cold_junction_offset_k = if matches!(channel.kind, CalibrationKind::Thermocouple) {
+        // Recompute the cold-junction correction from replayed board RTD data,
+        // then use the thermocouple voltage and corrected junction temperature
+        // as the measured temperature for hold detection and fitting.
+        let calibrator_cold_junction_temperature_k = metadata
+            .calibrator_cold_junction_temperature_k
+            .ok_or_else(|| {
+                format!(
+                    "Missing VA710 cold-junction temperature for {}",
+                    channel.label
+                )
+            })?;
+        if board_cold_junction_temperature_k.len() != measured_a.len()
+            || thermocouple_voltage_v.len() != measured_a.len()
+        {
+            return Err(format!(
+                "Thermocouple replay for {} is missing voltage or board cold-junction samples",
+                channel.label
+            ));
+        }
+        let mean_board_cold_junction_temperature_k =
+            board_cold_junction_temperature_k.iter().sum::<f64>()
+                / board_cold_junction_temperature_k.len() as f64;
+        let offset_k =
+            calibrator_cold_junction_temperature_k - mean_board_cold_junction_temperature_k;
+        measured_a = thermocouple_voltage_v
+            .iter()
+            .zip(board_cold_junction_temperature_k.iter())
+            .map(|(&voltage_v, &board_temperature_k)| {
+                ktype_corrected_temp_k(voltage_v, board_temperature_k + offset_k)
+            })
+            .collect::<Vec<_>>();
+        Some(offset_k)
+    } else {
+        None
+    };
 
     Ok(ChannelCapture {
-        serial_number,
+        serial_number: metadata.serial_number,
         channel,
         op_name,
         op_dir,
-        timestamps_ns,
         times_s,
         measured_a,
         reference_a,
-        calibrator_cold_junction_temperature_k,
+        calibrator_cold_junction_temperature_k: metadata.calibrator_cold_junction_temperature_k,
         board_cold_junction_temperature_k,
         board_cold_junction_offset_k,
         thermocouple_voltage_v,
@@ -2916,24 +2878,8 @@ fn utc_datestamp() -> String {
         .replace(':', "")
 }
 
-fn channel_for_signal_name(signal_name: &str) -> Option<CalibrationChannel> {
-    all_calibration_channels().find(|&channel| signal_name_matches_channel(channel, signal_name))
-}
-
-fn signal_name_matches_channel(channel: CalibrationChannel, signal_name: &str) -> bool {
-    channel.signal_name == signal_name || legacy_signal_names(channel).contains(&signal_name)
-}
-
-fn legacy_signal_names(channel: CalibrationChannel) -> &'static [&'static str] {
-    match channel.slug {
-        "0_2V5_0" => &["p1_0_2V5_0.y"],
-        "0_2V5_1" => &["p1_0_2V5_1.y"],
-        "0_15V_0" => &["p1_0_15V_0.y"],
-        "0_15V_1" => &["p1_0_15V_1.y"],
-        "x26_0" => &["p1_x26_0.y"],
-        "x26_1" => &["p1_x26_1.y"],
-        _ => &[],
-    }
+fn channel_for_slug(slug: &str) -> Option<CalibrationChannel> {
+    all_calibration_channels().find(|channel| channel.slug == slug)
 }
 
 fn html_escape(s: &str) -> String {

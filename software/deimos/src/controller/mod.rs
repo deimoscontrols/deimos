@@ -208,8 +208,28 @@ impl Controller {
             }
         };
 
+        self.add_peripheral_with_cals(name, p, &cals)
+    }
+
+    /// Register a peripheral using an explicit calibration JSON payload.
+    ///
+    /// This is used by calibration procedures that must build standard calcs
+    /// with identity/default cals while producing a new calibration record.
+    pub(crate) fn add_peripheral_with_cals(
+        &mut self,
+        name: &str,
+        p: Box<dyn Peripheral>,
+        cals: &str,
+    ) -> Result<(), String> {
+        // This helper is crate-internal so calibration procedures can force a
+        // known calibration artifact while the public path keeps using
+        // ControllerCtx-driven calibration discovery.
+        if self.peripherals.contains_key(name) {
+            return Err(format!("Peripheral name `{name}` is duplicated"));
+        }
+
         // Add the standard set of calcs that come with this peripheral, if any.
-        let calcs = p.standard_calcs(name, &cals)?;
+        let calcs = p.standard_calcs(name, cals)?;
         self.orchestrator.add_calcs(calcs)?;
         // Register the peripheral
         self.peripherals.insert(name.to_owned(), p);

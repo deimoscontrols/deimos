@@ -16,8 +16,8 @@ pub use decimation::DecimationDispatcher;
 mod low_pass;
 pub use low_pass::LowPassDispatcher;
 
-mod csv;
-pub use csv::CsvDispatcher;
+pub mod csv;
+pub use csv::{CsvDispatcher, LoadedCsv, LoadedCsvRow, load_csv};
 
 mod reporting;
 pub use reporting::{ReportingDispatcher, ReportingMessage};
