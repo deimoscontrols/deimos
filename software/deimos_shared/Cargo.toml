@@ -13,7 +13,7 @@ readme = "./README.md"
 
 [dependencies]
 byte_struct = "0.9.0"
-deimos_numerics = { path = "../deimos_numerics", version = "0.17.1", default-features = false, optional = true }
+deimos_numerics = { path = "../deimos_numerics", version = "0.18.0", default-features = false, optional = true }
 
 [dev-dependencies]
 plotly = { version = "0.14.1", features = ["static_export_default"] }

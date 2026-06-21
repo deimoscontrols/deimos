@@ -6,6 +6,7 @@
 //! back from disk.
 
 use std::{
+    collections::BTreeMap,
     fs::{self, File, create_dir_all},
     io::{BufWriter, Write, stdin},
     net::Ipv4Addr,
@@ -20,13 +21,17 @@ use crate::{
     calc::{ktype_corrected_temp_k, ktype_voltage_v, pt100_resistance_ohm, pt100_temp_k},
     dispatcher::{DataFrameHandle, ReportingDispatcher},
     math::{polyfit, polyval},
+    peripheral::calibration::CalRecordCore,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
+use deimos_shared::peripherals::{PeripheralId, deimos_daq_rev7::MODEL_NUMBER};
 
-use super::DeimosDaqRev7;
+use super::{CalRecord, DeimosDaqRev7, LinearCal};
 use serde::{Deserialize, Serialize};
 
 const MODEL_NAME: &str = "deimos_daq_rev7";
+const PROCEDURE_NAME: &str = "deimos_daq_rev7_calibration_7_0_0";
+const PROCEDURE_VERSION: u16 = 1;
 const PERIPHERAL_NAME: &str = "p1";
 const RATE_HZ: f64 = 100.0;
 const DATAFRAME_MB: usize = 64;
@@ -609,6 +614,13 @@ struct PlotPaths {
     dark: PathBuf,
 }
 
+#[derive(Debug)]
+struct FullCalChannelInput {
+    channel: CalibrationChannel,
+    linear_cal: LinearCal,
+    cold_junction_rtd_voltage_offset_v: Option<f64>,
+}
+
 #[derive(Clone, Copy)]
 enum PlotTheme {
     Light,
@@ -718,7 +730,7 @@ pub fn run_procedure(
         }
         (false, true) => {
             let paths = discover_calibration_data(dst)?;
-            process_calibration_files(sn, &paths, summary_dir_for_process_path(dst)?)?;
+            process_calibration_files(sn, &paths, summary_dir_for_process_path(dst)?, true)?;
         }
         (false, false) => {
             return Err("At least one of collect or process must be true.".to_owned());
@@ -773,9 +785,13 @@ fn collect_all_channels(
         let path = write_calibration_data(&capture)?;
         println!("Saved {}", path.display());
         if process_after_each_run {
-            process_calibration_files(sn, std::slice::from_ref(&path), &summary_dir)?;
+            process_calibration_files(sn, std::slice::from_ref(&path), &summary_dir, false)?;
         }
         paths.push(path);
+    }
+
+    if process_after_each_run && !paths.is_empty() {
+        process_calibration_files(sn, &paths, output_root, true)?;
     }
 
     Ok(paths)
@@ -1241,12 +1257,18 @@ fn summary_dir_for_process_path(path: &Path) -> Result<&Path, String> {
     }
 }
 
-fn process_calibration_files(sn: u64, paths: &[PathBuf], summary_dir: &Path) -> Result<(), String> {
+fn process_calibration_files(
+    sn: u64,
+    paths: &[PathBuf],
+    summary_dir: &Path,
+    require_full_record: bool,
+) -> Result<(), String> {
     create_dir_all(summary_dir)
         .map_err(|e| format!("Failed to create {}: {e}", summary_dir.display()))?;
     let datestamp_utc = utc_datestamp();
     let summary_path = summary_dir.join(format!("rev7_calibration_summary_{datestamp_utc}.json"));
     let mut summary_records = Vec::new();
+    let mut full_cal_inputs = Vec::new();
 
     for path in paths {
         let capture = read_calibration_data(path)?;
@@ -1261,6 +1283,7 @@ fn process_calibration_files(sn: u64, paths: &[PathBuf], summary_dir: &Path) -> 
         let samples_path = write_error_samples(&capture, &analysis)?;
         let plot_paths = write_analysis_plots(&capture, &analysis)?;
         let record_path = write_calibration_json_record(&capture, &analysis)?;
+        full_cal_inputs.push(full_cal_channel_input(&capture, &analysis)?);
 
         let (error_scale, error_units) = match capture.channel.kind {
             CalibrationKind::Current4To20 => (1e6, "uA"),
@@ -1317,11 +1340,152 @@ fn process_calibration_files(sn: u64, paths: &[PathBuf], summary_dir: &Path) -> 
         .map_err(|e| format!("Failed to write {}: {e}", summary_path.display()))?;
 
     println!("Summary written to {}", summary_path.display());
+    if require_full_record {
+        let cal_record_path = write_full_cal_record(sn, &full_cal_inputs, summary_dir)?;
+        println!(
+            "Full calibration record written to {}",
+            cal_record_path.display()
+        );
+    }
     println!(
         "Calibration polynomial records and light/dark plots were written next to each source file."
     );
 
     Ok(())
+}
+
+fn full_cal_channel_input(
+    capture: &ChannelCapture,
+    analysis: &ChannelAnalysis,
+) -> Result<FullCalChannelInput, String> {
+    Ok(FullCalChannelInput {
+        channel: capture.channel,
+        linear_cal: linear_cal_from_fit(&analysis.voltage_fit)?,
+        cold_junction_rtd_voltage_offset_v: if matches!(
+            capture.channel.kind,
+            CalibrationKind::Thermocouple
+        ) {
+            Some(
+                thermocouple_cold_junction_json_record(capture)?.cold_junction_rtd_voltage_offset_v,
+            )
+        } else {
+            None
+        },
+    })
+}
+
+fn linear_cal_from_fit(fit: &VoltageFit) -> Result<LinearCal, String> {
+    if fit.coefficients.len() != 2 {
+        return Err(format!(
+            "Expected linear calibration fit with 2 coefficients, got {}",
+            fit.coefficients.len()
+        ));
+    }
+
+    Ok(LinearCal {
+        offset: fit.coefficients[0],
+        slope: fit.coefficients[1],
+    })
+}
+
+fn write_full_cal_record(
+    sn: u64,
+    inputs: &[FullCalChannelInput],
+    summary_dir: &Path,
+) -> Result<PathBuf, String> {
+    let mut inputs_by_slug = BTreeMap::new();
+    for input in inputs {
+        if inputs_by_slug.insert(input.channel.slug, input).is_some() {
+            return Err(format!(
+                "Multiple calibration data files were provided for {}",
+                input.channel.label
+            ));
+        }
+    }
+
+    let missing = all_calibration_channels()
+        .filter(|channel| !inputs_by_slug.contains_key(channel.slug))
+        .map(|channel| channel.label)
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        return Err(format!(
+            "Cannot write full rev7 calibration record because data is missing for: {}",
+            missing.join(", ")
+        ));
+    }
+
+    let mut voltage_cals: [LinearCal; 18] = std::array::from_fn(|_| LinearCal::default());
+    for input in inputs_by_slug.values() {
+        let index = adc_index_for_channel(input.channel)?;
+        voltage_cals[index] = LinearCal {
+            slope: input.linear_cal.slope,
+            offset: input.linear_cal.offset,
+        };
+    }
+
+    let cold_junction_offsets_v = inputs_by_slug
+        .values()
+        .filter_map(|input| input.cold_junction_rtd_voltage_offset_v)
+        .collect::<Vec<_>>();
+    if cold_junction_offsets_v.is_empty() {
+        return Err(
+            "Cannot write full rev7 calibration record without thermocouple cold-junction data"
+                .to_owned(),
+        );
+    }
+    let board_temperature_offset_v =
+        cold_junction_offsets_v.iter().sum::<f64>() / cold_junction_offsets_v.len() as f64;
+    voltage_cals[2] = LinearCal {
+        slope: 1.0,
+        offset: board_temperature_offset_v,
+    };
+
+    let record = CalRecord {
+        core: CalRecordCore::new(
+            MODEL_NAME,
+            MODEL_NUMBER,
+            sn,
+            PROCEDURE_NAME,
+            PROCEDURE_VERSION,
+            Vec::new(),
+        ),
+        voltage_cals,
+    };
+
+    let path = summary_dir.join("cal.json");
+    let json = serde_json::to_string_pretty(&record)
+        .map_err(|e| format!("Failed to serialize full calibration record: {e}"))?;
+    fs::write(&path, json).map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
+
+    Ok(path)
+}
+
+fn adc_index_for_channel(channel: CalibrationChannel) -> Result<usize, String> {
+    let analog_input_index = channel
+        .analog_input_name
+        .strip_prefix("ain")
+        .ok_or_else(|| {
+            format!(
+                "Unexpected analog input name '{}' for {}",
+                channel.analog_input_name, channel.label
+            )
+        })?
+        .parse::<usize>()
+        .map_err(|e| {
+            format!(
+                "Unexpected analog input name '{}' for {}: {e}",
+                channel.analog_input_name, channel.label
+            )
+        })?;
+
+    match analog_input_index {
+        0..=12 => Ok(analog_input_index),
+        15..=19 => Ok(analog_input_index - 2),
+        _ => Err(format!(
+            "{} uses unsupported rev7 analog input {}",
+            channel.label, channel.analog_input_name
+        )),
+    }
 }
 
 fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {

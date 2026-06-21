@@ -7,6 +7,7 @@ use std::time::SystemTime;
 
 pub const CURRENT_CAL_SCHEMA_VERSION: u16 = 1;
 
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Calibrator {
     pub make: String,
     pub model: String,
@@ -18,7 +19,8 @@ pub struct Calibrator {
 pub struct CalRecordCore {
     pub schema_version: u16,
     pub peripheral_kind: String,
-    pub peripheral_id: PeripheralId,
+    pub model_number: u64,
+    pub serial_number: u64,
     pub procedure: String,
     pub procedure_version: u16,
     pub generated_at_utc: String,
@@ -28,7 +30,8 @@ pub struct CalRecordCore {
 impl CalRecordCore {
     pub fn new(
         peripheral_kind: impl Into<String>,
-        peripheral_id: PeripheralId,
+        model_number: u64,
+        serial_number: u64,
         procedure: impl Into<String>,
         procedure_version: u16,
         calibrators: Vec<Calibrator>,
@@ -36,7 +39,8 @@ impl CalRecordCore {
         Self {
             schema_version: CURRENT_CAL_SCHEMA_VERSION,
             peripheral_kind: peripheral_kind.into(),
-            peripheral_id,
+            model_number,
+            serial_number,
             procedure: procedure.into(),
             procedure_version,
             generated_at_utc: fmt_time(SystemTime::now()),
