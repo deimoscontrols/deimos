@@ -19,6 +19,15 @@ pub struct LinearCal {
     offset: f64,
 }
 
+impl Default for LinearCal {
+    fn default() -> Self {
+        Self {
+            slope: 1.0,
+            offset: 0.0,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CalRecord {
     pub core: CalRecordCore,
