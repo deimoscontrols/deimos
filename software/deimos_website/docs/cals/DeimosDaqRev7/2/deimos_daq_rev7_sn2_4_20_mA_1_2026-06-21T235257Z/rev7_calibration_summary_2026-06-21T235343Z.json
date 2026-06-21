@@ -1,0 +1,30 @@
+{
+  "model": "deimos_daq_rev7",
+  "serial_number": 2,
+  "datestamp_utc": "2026-06-21T235343Z",
+  "records": [
+    {
+      "source": "/home/jlogan/git/deimos/software/deimos/../deimos_website/docs/cals/DeimosDaqRev7/2/deimos_daq_rev7_sn2_4_20_mA_1_2026-06-21T235257Z/deimos_daq_rev7_sn2_4_20_mA_1_2026-06-21T235257Z_replay.csv",
+      "channel_label": "4-20 mA channel 1 (ain4)",
+      "channel": "ain4",
+      "signal_name": "p1_4_20_mA_1_A.y",
+      "detected_step_count": 9,
+      "accepted_sample_count": 2239,
+      "error_units": "uA",
+      "rmse": 230.22934108998712,
+      "mean_error": -229.29283395549285,
+      "max_abs_error": 271.4552730321884,
+      "polynomial_coefficients": [
+        -0.019942318745397425,
+        1.0035784242284043
+      ],
+      "r2": 0.9999998923506117,
+      "input_units": "V",
+      "output_units": "V",
+      "samples_path": "/home/jlogan/git/deimos/software/deimos/../deimos_website/docs/cals/DeimosDaqRev7/2/deimos_daq_rev7_sn2_4_20_mA_1_2026-06-21T235257Z/deimos_daq_rev7_sn2_4_20_mA_1_2026-06-21T235257Z_error_samples.csv",
+      "plot_light_path": "/home/jlogan/git/deimos/software/deimos/../deimos_website/docs/cals/DeimosDaqRev7/2/deimos_daq_rev7_sn2_4_20_mA_1_2026-06-21T235257Z/deimos_daq_rev7_sn2_4_20_mA_1_2026-06-21T235257Z_plots_light.html",
+      "plot_dark_path": "/home/jlogan/git/deimos/software/deimos/../deimos_website/docs/cals/DeimosDaqRev7/2/deimos_daq_rev7_sn2_4_20_mA_1_2026-06-21T235257Z/deimos_daq_rev7_sn2_4_20_mA_1_2026-06-21T235257Z_plots_dark.html",
+      "calibration_record_path": "/home/jlogan/git/deimos/software/deimos/../deimos_website/docs/cals/DeimosDaqRev7/2/deimos_daq_rev7_sn2_4_20_mA_1_2026-06-21T235257Z/deimos_daq_rev7_sn2_4_20_mA_1_2026-06-21T235257Z_calibration.json"
+    }
+  ]
+}

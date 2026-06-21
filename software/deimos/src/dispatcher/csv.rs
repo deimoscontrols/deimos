@@ -299,8 +299,11 @@ impl Dispatcher for CsvDispatcher {
         channel_names: &[String],
         core_assignment: usize,
     ) -> Result<(), String> {
-        // Shut down any existing workers by dropping their tx handle
-        self.worker = None;
+        // Finish any existing worker before reinitializing so callers never
+        // see a stale writer racing with the new output file.
+        if let Some(worker) = self.worker.take() {
+            worker.terminate()?;
+        }
 
         // Assemble header row
         let header = csv_header(channel_names);
@@ -343,20 +346,25 @@ impl Dispatcher for CsvDispatcher {
     }
 
     fn terminate(&mut self) -> Result<(), String> {
-        // Drop worker handle, closing thread channel,
-        // which will indicate to the detached worker that it should
-        // finish storing its buffered data and shut down.
-        self.worker = None;
-        Ok(())
+        // Close the channel and wait for the writer thread to drain queued
+        // rows, flush its buffer, and trim the preallocated file. Callers may
+        // immediately read the CSV after `terminate` returns.
+        if let Some(worker) = self.worker.take() {
+            worker.terminate()
+        } else {
+            Ok(())
+        }
     }
 }
 
+/// Handle for the background CSV writer thread.
 struct WorkerHandle {
     pub tx: Sender<(SystemTime, i64, Vec<f64>)>,
-    _thread: JoinHandle<()>,
+    thread: JoinHandle<()>,
 }
 
 impl WorkerHandle {
+    /// Spawn a background writer for one CSV output stream.
     fn new(
         path: PathBuf,
         header: String,
@@ -375,7 +383,7 @@ impl WorkerHandle {
         let mut file_size = header_len;
         let mut shard_number: u64 = 0;
 
-        let _thread = Builder::new()
+        let thread = Builder::new()
             .name("csv-dispatcher".to_string())
             .spawn(move || {
                 // Bind to assigned core, and set priority only if the core is not shared with
@@ -462,9 +470,33 @@ impl WorkerHandle {
                     thread::yield_now();
                 }
             })
-            .expect("Failed to spawn CSV dispatcher thread");
+            .map_err(|e| format!("Failed to spawn CSV dispatcher thread: {e}"))?;
 
-        Ok(Self { tx, _thread })
+        Ok(Self { tx, thread })
+    }
+
+    /// Shut down the writer and wait until the CSV file is fully finalized.
+    fn terminate(self) -> Result<(), String> {
+        // Dropping the final sender lets the worker drain any queued rows and
+        // then exit through the channel-disconnected branch.
+        drop(self.tx);
+
+        self.thread.join().map_err(|payload| {
+            format!("CSV dispatcher worker panicked: {}", panic_message(payload))
+        })
+    }
+}
+
+/// Convert a thread panic payload into a readable error string.
+fn panic_message(payload: Box<dyn std::any::Any + Send + 'static>) -> String {
+    // Rust panic payloads are commonly `&str` or `String`; keep a fallback for
+    // custom payloads.
+    if let Some(message) = payload.downcast_ref::<&str>() {
+        (*message).to_owned()
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else {
+        "unknown panic payload".to_owned()
     }
 }
 
@@ -483,4 +515,71 @@ fn new_file(path: &PathBuf, header: &str, total_size: usize) -> Result<BufWriter
         .write_all(header.as_bytes())
         .map_err(|e| format!("{e}"))?;
     Ok(writer)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CsvDispatcher, load_csv};
+    use crate::controller::context::ControllerCtx;
+    use crate::dispatcher::{Dispatcher, Overflow};
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{Duration, UNIX_EPOCH};
+
+    static NEXT_TMP_DIR_ID: AtomicU64 = AtomicU64::new(0);
+
+    /// Build a unique temporary output directory without adding a test-only dependency.
+    fn unique_temp_dir() -> PathBuf {
+        // Include the process id and a monotonic counter so parallel test runs
+        // do not collide under the shared system temp directory.
+        let id = NEXT_TMP_DIR_ID.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir().join(format!(
+            "deimos_csv_dispatcher_{}_{}",
+            std::process::id(),
+            id
+        ))
+    }
+
+    #[test]
+    fn terminate_finalizes_csv_before_returning() {
+        let dir = unique_temp_dir();
+        fs::create_dir_all(&dir).expect("create CSV test output dir");
+
+        let mut ctx = ControllerCtx {
+            op_name: "cal_run".to_owned(),
+            op_dir: dir.clone(),
+            ..ControllerCtx::default()
+        };
+        // Keep the test independent of whatever default control timing is used
+        // elsewhere in the controller context.
+        ctx.dt_ns = 10_000_000;
+
+        let channel_names = vec!["ain3".to_owned()];
+        let mut dispatcher = CsvDispatcher::new(1, Overflow::Error);
+        dispatcher
+            .init(&ctx, &channel_names, 0)
+            .expect("initialize CSV dispatcher");
+
+        for idx in 0..1_000_i64 {
+            // Queue enough rows that the worker has real buffered work to drain
+            // during termination.
+            dispatcher
+                .consume(
+                    UNIX_EPOCH + Duration::from_millis(idx as u64),
+                    idx,
+                    vec![idx as f64],
+                )
+                .expect("queue CSV row");
+        }
+
+        dispatcher.terminate().expect("terminate CSV dispatcher");
+
+        let csv_path = dir.join("cal_run.csv");
+        let loaded = load_csv(&csv_path).expect("load finalized CSV");
+        assert_eq!(loaded.channel_names(), channel_names.as_slice());
+        assert_eq!(loaded.rows().len(), 1_000);
+
+        fs::remove_dir_all(dir).expect("remove CSV test output dir");
+    }
 }

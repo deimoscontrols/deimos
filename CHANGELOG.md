@@ -16,6 +16,8 @@ supporting improvements.
     * !Update `peripheral::PluginFn` closure signature to take `PeripheralId` instead of `BindingOutput`
     * Add `replay` module and `Controller::replay()` to support re-running the latest calc graph over already-collected raw data
     * Add calibration-related fields on `controller::Context`
+    * Update `CsvDispatcher` to join the thread synchronously during terminate
+        * Ensures that data will be present on disk if used immediately after the run; otherwise, the dispatcher thread may still be busy flushing its buffer to disk
 
 ## 2026-06-08 0.17.0
 

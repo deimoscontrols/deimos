@@ -741,7 +741,7 @@ fn collect_all_channels(
         "4-20 mA channels use a Fluke 707 auto-step through 0, 5, 10, 15, and 20 mA during the recording. Each current channel records for {CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
-        "RTD channels use manual holds stepping up from -200 C to +700 C, then back down from +700 C to -200 C during the recording. Each RTD channel records for {RTD_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
+        "RTD channels use manual holds stepping up from -200 C to +700 C in 50 C steps, then back down from +700 C to -200 C during the recording. Each RTD channel records for {RTD_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
         "Thermocouple channels use a VA710 simulator with manual holds stepping from -200 C to +1250 C and back down to -200 C during the recording. Target 50 K increments below 100 C and 100 K increments above 100 C. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
@@ -807,7 +807,7 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
         }
         CalibrationKind::Rtd => {
             println!(
-                "Ready the RTD calibrator at -200 C. Press Enter to start recording, then manually step up to +700 C and back down to -200 C during the {} second run with about 5 s holds every 100 K.",
+                "Ready the RTD calibrator at -200 C. Press Enter to start recording, then manually step up to +700 C in 50 C steps and back down to -200 C during the {} second run with about 5 s holds at each step.",
                 channel.capture_seconds(),
             );
         }
