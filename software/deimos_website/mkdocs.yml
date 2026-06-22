@@ -47,6 +47,7 @@ theme:
     - navigation.tabs.sticky
     - navigation.footer
     - search.suggest
+    - navigation.indexes
 
 extra_css:
   - stylesheets/extra.css
@@ -94,6 +95,7 @@ plugins:
       redirect_maps:
         api/api-rust.md: https://docs.rs/deimos
   - awesome-pages
+  - pagetree
 
 nav:
   - Home: index.md
