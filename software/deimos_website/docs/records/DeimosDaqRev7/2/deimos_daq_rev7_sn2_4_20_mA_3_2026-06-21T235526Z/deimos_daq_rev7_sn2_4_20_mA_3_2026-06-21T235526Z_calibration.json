@@ -3,7 +3,7 @@
   "serial_number": 2,
   "channel": "ain6",
   "signal_name": "p1_4_20_mA_3_A.y",
-  "datestamp_utc": "2026-06-22T003548Z",
+  "datestamp_utc": "2026-06-22T224053Z",
   "reference_resistor_ohm": 75.0,
   "polynomial_order": 1,
   "polynomial_coefficients": [

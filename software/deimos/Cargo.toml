@@ -46,6 +46,7 @@ typetag = "^0.2"
 serde_json = { version = "^1", features = ["preserve_order"] }
 csv = "^1.4.0"
 postcard = { version = "1", features = ["alloc"] }
+zip = "^8"
 
 # Timescale DB / Postgres interface
 postgres = "^0.19.10"

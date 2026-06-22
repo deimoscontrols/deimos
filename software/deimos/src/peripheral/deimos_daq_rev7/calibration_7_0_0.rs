@@ -8,10 +8,10 @@
 use std::{
     collections::BTreeMap,
     fs::{self, File, create_dir_all},
-    io::{BufWriter, Write, stdin},
+    io::{BufWriter, Write, copy, stdin},
     net::Ipv4Addr,
     path::{Path, PathBuf},
-    sync::atomic::Ordering,
+    sync::atomic::{AtomicU64, Ordering},
     thread::sleep,
     time::{Duration, Instant, SystemTime},
 };
@@ -29,6 +29,7 @@ use deimos_shared::peripherals::deimos_daq_rev7::MODEL_NUMBER;
 
 use super::{CalRecord, DeimosDaqRev7, LinearCal};
 use serde::{Deserialize, Serialize};
+use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 const MODEL_NAME: &str = "deimos_daq_rev7";
 const PROCEDURE_NAME: &str = "deimos_daq_rev7_calibration_7_0_0";
@@ -82,9 +83,12 @@ const BOARD_COLD_JUNCTION_SIGNAL_NAME: &str = "p1_board_rtd_filtered.y";
 
 const CONSOLE_CONFIG_PATH: &str = "software/deimos/examples/rev7_calibration_console.toml";
 const RAW_RUN_SUFFIX: &str = "_raw.csv";
+const RAW_RUN_ZIP_SUFFIX: &str = "_raw.csv.zip";
 const REPLAY_DATA_SUFFIX: &str = "_replay.csv";
 const RUN_METADATA_SUFFIX: &str = "_metadata.json";
 const CSV_REPLAY_MB: usize = 64;
+
+static NEXT_TEMP_RAW_CSV_ID: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone, Copy, Debug)]
 struct CalibrationChannel {
@@ -938,8 +942,9 @@ fn run_channel_capture(
     };
     let metadata_path = metadata_path_for_op(&op_dir, &op_name);
     write_run_metadata(&metadata_path, &metadata)?;
+    let raw_zip_path = zip_raw_csv(&raw_csv_path_for_op(&op_dir, &op_name))?;
 
-    Ok(raw_csv_path_for_op(&op_dir, &op_name))
+    Ok(raw_zip_path)
 }
 
 fn collect_voltage_reference_windows(
@@ -1011,6 +1016,11 @@ fn raw_csv_path_for_op(op_dir: &Path, op_name: &str) -> PathBuf {
     op_dir.join(format!("{op_name}{RAW_RUN_SUFFIX}"))
 }
 
+/// Path where the compressed raw dispatcher CSV is written.
+fn raw_zip_path_for_op(op_dir: &Path, op_name: &str) -> PathBuf {
+    op_dir.join(format!("{op_name}{RAW_RUN_ZIP_SUFFIX}"))
+}
+
 /// Path where the filtered replay CSV is written.
 fn replay_csv_path_for_op(op_dir: &Path, op_name: &str) -> PathBuf {
     op_dir.join(format!("{op_name}{REPLAY_DATA_SUFFIX}"))
@@ -1029,7 +1039,7 @@ fn metadata_path_for_raw_path(raw_path: &Path) -> Result<PathBuf, String> {
             raw_path.display()
         )
     })?;
-    let op_name = op_name_from_path(raw_path, RAW_RUN_SUFFIX)?;
+    let op_name = raw_op_name_from_path(raw_path)?;
     Ok(metadata_path_for_op(op_dir, &op_name))
 }
 
@@ -1057,6 +1067,141 @@ fn op_name_from_path(path: &Path, suffix: &str) -> Result<String, String> {
                 path.display()
             )
         })
+}
+
+/// Recover the operation name from either compressed or legacy raw data.
+fn raw_op_name_from_path(path: &Path) -> Result<String, String> {
+    op_name_from_path(path, RAW_RUN_ZIP_SUFFIX).or_else(|_| op_name_from_path(path, RAW_RUN_SUFFIX))
+}
+
+/// Compress a finalized raw CSV and remove the uncompressed copy.
+fn zip_raw_csv(raw_path: &Path) -> Result<PathBuf, String> {
+    let op_dir = raw_path.parent().ok_or_else(|| {
+        format!(
+            "Unable to determine parent folder for {}",
+            raw_path.display()
+        )
+    })?;
+    let op_name = op_name_from_path(raw_path, RAW_RUN_SUFFIX)?;
+    let zip_path = raw_zip_path_for_op(op_dir, &op_name);
+    let csv_name = raw_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| format!("Unable to determine file name for {}", raw_path.display()))?;
+
+    let mut csv = File::open(raw_path)
+        .map_err(|e| format!("Failed to open raw CSV {}: {e}", raw_path.display()))?;
+    let zip_file = File::create(&zip_path)
+        .map_err(|e| format!("Failed to create raw CSV zip {}: {e}", zip_path.display()))?;
+    let mut zip = ZipWriter::new(zip_file);
+    let options = SimpleFileOptions::default()
+        .compression_method(CompressionMethod::Deflated)
+        .compression_level(Some(9));
+
+    zip.start_file(csv_name, options)
+        .map_err(|e| format!("Failed to start raw CSV zip entry {csv_name}: {e}"))?;
+    copy(&mut csv, &mut zip).map_err(|e| {
+        format!(
+            "Failed to compress raw CSV {} into {}: {e}",
+            raw_path.display(),
+            zip_path.display()
+        )
+    })?;
+    zip.finish()
+        .map_err(|e| format!("Failed to finish raw CSV zip {}: {e}", zip_path.display()))?;
+
+    fs::remove_file(raw_path).map_err(|e| {
+        format!(
+            "Failed to remove uncompressed raw CSV {}: {e}",
+            raw_path.display()
+        )
+    })?;
+
+    Ok(zip_path)
+}
+
+/// A decompressed raw CSV staged in the system temp directory for replay.
+struct TempRawCsv {
+    path: PathBuf,
+    dir: PathBuf,
+}
+
+impl TempRawCsv {
+    /// Path to the staged CSV.
+    fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Drop for TempRawCsv {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.dir);
+    }
+}
+
+/// Either a direct raw CSV path or a temporary CSV extracted from a zip archive.
+enum PreparedRawCsv {
+    Direct(PathBuf),
+    Temporary(TempRawCsv),
+}
+
+impl PreparedRawCsv {
+    /// Path that can be passed to the CSV replay loader.
+    fn path(&self) -> &Path {
+        match self {
+            Self::Direct(path) => path,
+            Self::Temporary(temp) => temp.path(),
+        }
+    }
+}
+
+/// Prepare raw data for replay, decompressing zipped captures on demand.
+fn prepare_raw_csv_for_replay(raw_path: &Path) -> Result<PreparedRawCsv, String> {
+    if !is_zipped_raw_data_file(raw_path) {
+        return Ok(PreparedRawCsv::Direct(raw_path.to_path_buf()));
+    }
+
+    let op_name = raw_op_name_from_path(raw_path)?;
+    let expected_entry_name = format!("{op_name}{RAW_RUN_SUFFIX}");
+    let temp_dir = unique_temp_raw_csv_dir();
+    create_dir_all(&temp_dir).map_err(|e| {
+        format!(
+            "Failed to create temp raw CSV dir {}: {e}",
+            temp_dir.display()
+        )
+    })?;
+    let temp_path = temp_dir.join(&expected_entry_name);
+
+    let zip_file = File::open(raw_path)
+        .map_err(|e| format!("Failed to open raw CSV zip {}: {e}", raw_path.display()))?;
+    let mut archive = ZipArchive::new(zip_file)
+        .map_err(|e| format!("Failed to read raw CSV zip {}: {e}", raw_path.display()))?;
+    let mut zipped_csv = archive.by_name(&expected_entry_name).map_err(|e| {
+        format!(
+            "Failed to find raw CSV entry {expected_entry_name} in {}: {e}",
+            raw_path.display()
+        )
+    })?;
+    let mut temp_csv = File::create(&temp_path)
+        .map_err(|e| format!("Failed to create temp raw CSV {}: {e}", temp_path.display()))?;
+    copy(&mut zipped_csv, &mut temp_csv).map_err(|e| {
+        format!(
+            "Failed to decompress raw CSV {} to {}: {e}",
+            raw_path.display(),
+            temp_path.display()
+        )
+    })?;
+
+    Ok(PreparedRawCsv::Temporary(TempRawCsv {
+        path: temp_path,
+        dir: temp_dir,
+    }))
+}
+
+/// Generate a unique temp directory for staging one raw replay CSV.
+fn unique_temp_raw_csv_dir() -> PathBuf {
+    let id = NEXT_TEMP_RAW_CSV_ID.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!("deimos_rev7_raw_csv_{}_{}", std::process::id(), id))
 }
 
 /// Write operator-entered metadata needed to interpret replayed samples.
@@ -1090,7 +1235,7 @@ fn discover_calibration_data(path: &Path) -> Result<Vec<PathBuf>, String> {
             paths.push(path.to_path_buf());
         } else {
             return Err(format!(
-                "{} is not a raw calibration run CSV ending in {RAW_RUN_SUFFIX}",
+                "{} is not a raw calibration run ending in {RAW_RUN_SUFFIX} or {RAW_RUN_ZIP_SUFFIX}",
                 path.display()
             ));
         }
@@ -1103,7 +1248,7 @@ fn discover_calibration_data(path: &Path) -> Result<Vec<PathBuf>, String> {
     paths.sort();
     if paths.is_empty() {
         return Err(format!(
-            "No raw calibration run CSV files ending in {RAW_RUN_SUFFIX} found under {}",
+            "No raw calibration run files ending in {RAW_RUN_SUFFIX} or {RAW_RUN_ZIP_SUFFIX} found under {}",
             path.display()
         ));
     }
@@ -1134,7 +1279,14 @@ fn discover_calibration_data_recursive(
 fn is_calibration_data_file(path: &Path) -> bool {
     path.file_name()
         .and_then(|name| name.to_str())
-        .is_some_and(|name| name.ends_with(RAW_RUN_SUFFIX))
+        .is_some_and(|name| name.ends_with(RAW_RUN_SUFFIX) || name.ends_with(RAW_RUN_ZIP_SUFFIX))
+}
+
+/// Check whether a path is a zipped raw calibration capture.
+fn is_zipped_raw_data_file(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.ends_with(RAW_RUN_ZIP_SUFFIX))
 }
 
 fn summary_dir_for_process_path(path: &Path) -> Result<&Path, String> {
@@ -1161,7 +1313,7 @@ fn replay_calibration_run(raw_path: &Path) -> Result<PathBuf, String> {
             )
         })?
         .to_path_buf();
-    let op_name = op_name_from_path(raw_path, RAW_RUN_SUFFIX)?;
+    let op_name = raw_op_name_from_path(raw_path)?;
 
     let mut ctx = ControllerCtx::default();
     // Replay writes into the same operation directory using the original
@@ -1188,7 +1340,8 @@ fn replay_calibration_run(raw_path: &Path) -> Result<PathBuf, String> {
     let mut dispatchers: BTreeMap<String, Box<dyn Dispatcher>> = BTreeMap::new();
     dispatchers.insert("replay_csv".to_owned(), filtered_replay);
 
-    controller.replay(CsvReplaySource::new(raw_path), dispatchers)?;
+    let prepared_raw_csv = prepare_raw_csv_for_replay(raw_path)?;
+    controller.replay(CsvReplaySource::new(prepared_raw_csv.path()), dispatchers)?;
 
     Ok(replay_csv_path_for_op(&op_dir, &op_name))
 }
@@ -2950,4 +3103,38 @@ fn html_escape(s: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn zipped_raw_csv_round_trips_through_temp_replay_file() {
+        let dir = unique_temp_raw_csv_dir();
+        create_dir_all(&dir).expect("create test directory");
+        let op_name = "deimos_daq_rev7_sn2_4_20_mA_0_test";
+        let raw_path = raw_csv_path_for_op(&dir, op_name);
+        let raw_csv =
+            "timestamp,time,p1.ain0\n+0000000000000000000,2026-06-22T00:00:00.000000000Z,1.0\n";
+        fs::write(&raw_path, raw_csv).expect("write raw CSV");
+
+        let zip_path = zip_raw_csv(&raw_path).expect("zip raw CSV");
+        assert!(zip_path.exists());
+        assert!(!raw_path.exists());
+        assert!(is_calibration_data_file(&zip_path));
+        assert_eq!(raw_op_name_from_path(&zip_path).unwrap(), op_name);
+
+        let prepared = prepare_raw_csv_for_replay(&zip_path).expect("prepare zipped raw CSV");
+        let staged_path = prepared.path().to_path_buf();
+        assert_eq!(
+            fs::read_to_string(&staged_path).expect("read staged raw CSV"),
+            raw_csv
+        );
+
+        drop(prepared);
+        assert!(!staged_path.exists());
+
+        fs::remove_dir_all(dir).expect("remove test directory");
+    }
 }
