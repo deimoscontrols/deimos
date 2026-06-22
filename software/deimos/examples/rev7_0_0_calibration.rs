@@ -93,7 +93,7 @@ fn default_calibration_dir(sn: u64) -> PathBuf {
     let peripheral = DeimosDaqRev7 { serial_number: sn };
 
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../deimos_website/docs/cals")
+        .join("../deimos_website/docs/records")
         .join(peripheral.slug())
 }
 

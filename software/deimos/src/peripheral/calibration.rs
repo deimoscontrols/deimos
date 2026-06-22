@@ -15,8 +15,8 @@ use tracing::{debug, info, warn};
 /// Peripheral-specific payloads may have their own independent schema versions.
 pub const CURRENT_CAL_SCHEMA_VERSION: u16 = 1;
 const CAL_FILE_NAME: &str = "cal.json";
-const DEFAULT_CAL_STORE_RELATIVE_PATH: &str = ".deimos/cals";
-const DEIMOS_CONTROLS_CAL_BASE_URL: &str = "https://deimoscontrols.com/cals";
+const DEFAULT_RECORD_STORE_RELATIVE_PATH: &str = ".deimos/records";
+const DEIMOS_CONTROLS_RECORD_BASE_URL: &str = "https://deimoscontrols.com/records";
 const MAX_CAL_JSON_BYTES: u64 = 5 * 1024 * 1024;
 const CAL_QUERY_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -88,9 +88,9 @@ impl CalRecordCore {
 ///
 /// Lookup order is:
 ///
-/// 1. The default local cache at `~/.deimos/cals/<slug>/cal.json`.
+/// 1. The default local cache at `~/.deimos/records/<slug>/cal.json`.
 /// 2. Each caller-provided local source at `<source>/<slug>/cal.json`.
-/// 3. `https://deimoscontrols.com/cals/<slug>/cal.json`, unless `offline_only`
+/// 3. `https://deimoscontrols.com/records/<slug>/cal.json`, unless `offline_only`
 ///    is set.
 ///
 /// A calibration fetched from `deimoscontrols.com` is written back into the
@@ -216,15 +216,15 @@ fn validate_cal_slug(slug: &str) -> Result<Vec<&str>, String> {
     Ok(segments)
 }
 
-/// Return the default user-local calibration cache root.
+/// Return the default user-local unit record cache root.
 ///
-/// The path is `~/.deimos/cals` when a home directory can be inferred from
+/// The path is `~/.deimos/records` when a home directory can be inferred from
 /// `HOME`. If `HOME` is unavailable, callers can still use explicit local
 /// sources or remote lookup.
 fn default_cal_store() -> Option<PathBuf> {
     env::var_os("HOME")
         .map(PathBuf::from)
-        .map(|home| home.join(DEFAULT_CAL_STORE_RELATIVE_PATH))
+        .map(|home| home.join(DEFAULT_RECORD_STORE_RELATIVE_PATH))
 }
 
 /// Construct `<root>/<slug>/cal.json` from a validated slug.
@@ -264,11 +264,11 @@ fn try_read_local_cal(root: &Path, slug_segments: &[&str]) -> Result<Option<Stri
 /// This function intentionally accepts validated slug segments, not a caller
 /// supplied URL. Redirects are disabled and the body size is bounded so the
 /// calibration lookup remains a narrow, deterministic HTTP GET for
-/// `https://deimoscontrols.com/cals/<slug>/cal.json`.
+/// `https://deimoscontrols.com/records/<slug>/cal.json`.
 fn fetch_deimos_controls_cal(slug_segments: &[&str]) -> Result<Option<String>, String> {
     let url = format!(
         "{}/{}/{}",
-        DEIMOS_CONTROLS_CAL_BASE_URL,
+        DEIMOS_CONTROLS_RECORD_BASE_URL,
         slug_segments.join("/"),
         CAL_FILE_NAME
     );
