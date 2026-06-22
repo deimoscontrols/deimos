@@ -2,13 +2,13 @@
 //!
 //! This module collects and postprocesses manually assisted rev7 calibration
 //! runs for 4-20 mA, RTD, thermocouple, and voltage inputs. It writes one
-//! calibration CSV per channel, then processes calibration CSVs by loading them
-//! back from disk.
+//! raw capture per channel, replays it through the standard calc pipeline, then
+//! processes the replayed channel data into plots and calibration records.
 
 use std::{
     collections::BTreeMap,
     fs::{self, File, create_dir_all},
-    io::{BufWriter, Write, copy, stdin},
+    io::{copy, stdin},
     net::Ipv4Addr,
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
@@ -479,7 +479,6 @@ struct CalibrationRunMetadata {
 
 #[derive(Debug)]
 struct ErrorSample {
-    time_s: f64,
     reference_a: f64,
     measured_a: f64,
     error_a: f64,
@@ -598,7 +597,6 @@ struct CalibrationSummaryRecord {
     temperature_error_fit: Option<NormalizedLinearFit>,
     input_units: String,
     output_units: String,
-    samples_path: String,
     plot_light_path: String,
     plot_dark_path: String,
     calibration_record_path: String,
@@ -1380,7 +1378,6 @@ fn process_calibration_files(
             ));
         }
         let analysis = analyze_capture(&capture)?;
-        let samples_path = write_error_samples(&capture, &analysis)?;
         let plot_paths = write_analysis_plots(&capture, &analysis)?;
         let record_path = write_calibration_json_record(&capture, &analysis)?;
         full_cal_inputs.push(full_cal_channel_input(&capture, &analysis)?);
@@ -1407,7 +1404,6 @@ fn process_calibration_files(
             temperature_error_fit: analysis.voltage_fit.temperature_error_fit.clone(),
             input_units: capture.channel.fit_units().to_owned(),
             output_units: capture.channel.fit_units().to_owned(),
-            samples_path: samples_path.display().to_string(),
             plot_light_path: plot_paths.light.display().to_string(),
             plot_dark_path: plot_paths.dark.display().to_string(),
             calibration_record_path: record_path.display().to_string(),
@@ -1423,7 +1419,6 @@ fn process_calibration_files(
         );
         println!("  source {}", path.display());
         println!("  replay {}", replay_path.display());
-        println!("  wrote {}", samples_path.display());
         println!("  wrote {}", plot_paths.light.display());
         println!("  wrote {}", plot_paths.dark.display());
         println!("  wrote {}", record_path.display());
@@ -2334,7 +2329,6 @@ fn accepted_error_samples(capture: &ChannelCapture, segments: &[StepSegment]) ->
                 .zip(capture.board_cold_junction_offset_k)
                 .map(|(board_temperature_k, offset_k)| board_temperature_k + offset_k);
             samples.push(ErrorSample {
-                time_s: capture.times_s[idx],
                 reference_a: segment.reference_a,
                 measured_a,
                 error_a: segment.reference_a - measured_a,
@@ -2402,31 +2396,6 @@ fn accuracy_band_xy(
     }
 
     (x, y)
-}
-
-fn write_error_samples(
-    capture: &ChannelCapture,
-    analysis: &ChannelAnalysis,
-) -> Result<PathBuf, String> {
-    let path = capture
-        .op_dir
-        .join(format!("{}_error_samples.csv", capture.op_name));
-    let mut writer = BufWriter::new(
-        File::create(&path).map_err(|e| format!("Failed to create {}: {e}", path.display()))?,
-    );
-    writeln!(writer, "time_s,reference_a,measured_a,error_a")
-        .map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
-
-    for sample in &analysis.samples {
-        writeln!(
-            writer,
-            "{:.9},{:.12},{:.12},{:.12}",
-            sample.time_s, sample.reference_a, sample.measured_a, sample.error_a
-        )
-        .map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
-    }
-
-    Ok(path)
 }
 
 fn thermocouple_cold_junction_json_record(

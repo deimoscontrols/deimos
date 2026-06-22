@@ -15,7 +15,7 @@
       "mean_error": -0.23862261852079683,
       "max_abs_error": 1.404756534773128,
       "polynomial_coefficients": [
-        -6.5397236049665585e-6,
+        -0.0000065397236049665585,
         0.9996790688952525
       ],
       "r2": 0.9999999995835408,
@@ -30,7 +30,6 @@
       },
       "input_units": "V",
       "output_units": "V",
-      "samples_path": "/home/jlogan/git/deimos/software/deimos/../deimos_website/docs/records/DeimosDaqRev7/2/deimos_daq_rev7_sn2_rtd_2_2026-06-21T231757Z/deimos_daq_rev7_sn2_rtd_2_2026-06-21T231757Z_error_samples.csv",
       "plot_light_path": "/home/jlogan/git/deimos/software/deimos/../deimos_website/docs/records/DeimosDaqRev7/2/deimos_daq_rev7_sn2_rtd_2_2026-06-21T231757Z/deimos_daq_rev7_sn2_rtd_2_2026-06-21T231757Z_plots_light.html",
       "plot_dark_path": "/home/jlogan/git/deimos/software/deimos/../deimos_website/docs/records/DeimosDaqRev7/2/deimos_daq_rev7_sn2_rtd_2_2026-06-21T231757Z/deimos_daq_rev7_sn2_rtd_2_2026-06-21T231757Z_plots_dark.html",
       "calibration_record_path": "/home/jlogan/git/deimos/software/deimos/../deimos_website/docs/records/DeimosDaqRev7/2/deimos_daq_rev7_sn2_rtd_2_2026-06-21T231757Z/deimos_daq_rev7_sn2_rtd_2_2026-06-21T231757Z_calibration.json"
