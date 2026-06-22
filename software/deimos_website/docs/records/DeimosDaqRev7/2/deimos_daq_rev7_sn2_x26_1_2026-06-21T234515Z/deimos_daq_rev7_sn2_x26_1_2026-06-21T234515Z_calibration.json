@@ -3,7 +3,7 @@
   "serial_number": 2,
   "channel": "ain19",
   "signal_name": "p1_x26_1_sense_V.y",
-  "datestamp_utc": "2026-06-21T235657Z",
+  "datestamp_utc": "2026-06-22T003549Z",
   "polynomial_order": 1,
   "polynomial_coefficients": [
     0.0,

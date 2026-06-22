@@ -22,7 +22,7 @@ use crate::{
     calc::{ktype_corrected_temp_k, ktype_voltage_v, pt100_resistance_ohm, pt100_temp_k},
     dispatcher::{ReportingDispatcher, load_csv},
     math::{polyfit, polyval},
-    peripheral::calibration::CalRecordCore,
+    peripheral::{Peripheral, calibration::CalRecordCore},
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use deimos_shared::peripherals::deimos_daq_rev7::MODEL_NUMBER;
@@ -1290,10 +1290,13 @@ fn process_calibration_files(
     println!("Summary written to {}", summary_path.display());
     if require_full_record {
         let cal_record_path = write_full_cal_record(sn, &full_cal_inputs, summary_dir)?;
+        let index_path =
+            write_calibration_index(sn, summary_dir, &cal_record_path, &summary.records)?;
         println!(
             "Full calibration record written to {}",
             cal_record_path.display()
         );
+        println!("Calibration index written to {}", index_path.display());
     }
     println!(
         "Calibration polynomial records and light/dark plots were written next to each source file."
@@ -1406,6 +1409,62 @@ fn write_full_cal_record(
     fs::write(&path, json).map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
 
     Ok(path)
+}
+
+/// Write the MkDocs landing page for one unit's records folder.
+fn write_calibration_index(
+    sn: u64,
+    summary_dir: &Path,
+    cal_record_path: &Path,
+    records: &[CalibrationSummaryRecord],
+) -> Result<PathBuf, String> {
+    // MkDocs serves `index.md` as the directory page for the unit's records
+    // folder, while still exposing `cal.json` and plot HTML as static assets.
+    let path = summary_dir.join("index.md");
+    let cal_record_link = relative_markdown_path(summary_dir, cal_record_path);
+    let peripheral_kind = DeimosDaqRev7 { serial_number: sn }.kind();
+
+    let mut markdown = String::new();
+    markdown.push_str(&format!("# {peripheral_kind} SN {sn} Records\n\n"));
+    markdown.push_str("## Calibration Record\n\n");
+    markdown.push_str(&format!("- [Calibration JSON](<{cal_record_link}>)\n\n"));
+
+    markdown.push_str("## Calibration Reports\n\n");
+    markdown.push_str("| Instrument | Channel | Report |\n");
+    markdown.push_str("| --- | --- | --- |\n");
+    for record in records {
+        let dark_plot_link = relative_markdown_path(summary_dir, Path::new(&record.plot_dark_path));
+        let light_plot_link =
+            relative_markdown_path(summary_dir, Path::new(&record.plot_light_path));
+        markdown.push_str(&format!(
+            "| {} | `{}` | [Dark](<{dark_plot_link}>) / [Light](<{light_plot_link}>) |\n",
+            markdown_table_cell(&record.channel_label),
+            markdown_table_cell(&record.channel),
+        ));
+    }
+
+    fs::write(&path, markdown).map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
+
+    Ok(path)
+}
+
+/// Format a path as a Markdown link target relative to a root directory.
+fn relative_markdown_path(root: &Path, path: &Path) -> String {
+    // All generated artifacts should normally live under `root`; fall back to
+    // the original path so unexpected layouts still produce a useful link.
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
+/// Escape text used inside a Markdown table cell.
+fn markdown_table_cell(text: &str) -> String {
+    // Only table-breaking characters need escaping here because link targets
+    // are generated separately.
+    text.replace('\\', "\\\\")
+        .replace('|', "\\|")
+        .replace('\n', " ")
 }
 
 fn adc_index_for_channel(channel: CalibrationChannel) -> Result<usize, String> {

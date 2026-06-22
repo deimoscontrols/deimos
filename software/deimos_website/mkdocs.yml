@@ -93,10 +93,14 @@ plugins:
   - redirects:
       redirect_maps:
         api/api-rust.md: https://docs.rs/deimos
+  - awesome-pages
 
 nav:
   - Home: index.md
   - Products: products/index.md
+  - Records:
+        - records/index.md
+        - '... | records/**/index.md'
   - System: system.md
   - Contact: contact.md
   - Use-Cases:
