@@ -87,6 +87,7 @@ const RAW_RUN_ZIP_SUFFIX: &str = "_raw.csv.zip";
 const REPLAY_DATA_SUFFIX: &str = "_replay.csv";
 const RUN_METADATA_SUFFIX: &str = "_metadata.json";
 const CSV_REPLAY_MB: usize = 64;
+const REPORT_MAX_WIDTH: &str = "40rem";
 
 static NEXT_TEMP_RAW_CSV_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -2525,6 +2526,10 @@ fn cold_junction_label(capture: &ChannelCapture) -> Result<Option<String>, Strin
     }
 }
 
+fn report_line_html(text: &str) -> String {
+    html_escape(text).replace(", ", ",<br>")
+}
+
 fn write_analysis_plots(
     capture: &ChannelCapture,
     analysis: &ChannelAnalysis,
@@ -2635,7 +2640,7 @@ fn write_analysis_plot(
     {
         format!(
             r#"<p class="plot-note">{}</p>"#,
-            html_escape(&cold_junction_label)
+            report_line_html(&cold_junction_label)
         )
     } else {
         String::new()
@@ -2736,7 +2741,7 @@ fn write_analysis_plot(
         }}
         main {{
             box-sizing: border-box;
-            width: min(1280px, 100vw);
+            width: min({report_max_width}, 100vw);
             margin: 0 auto;
             padding: 20px;
         }}
@@ -2793,7 +2798,6 @@ const residualAccuracyY = {residual_accuracy_y};
 const residualYAxisRange = {residual_y_axis_range};
 const fitResidualReference = {fit_residual_reference};
 const fitResidualY = {fit_residual_y};
-const voltageFitLabel = {voltage_fit_label};
 const textColor = {text_color_js};
 const traceColor = {trace_color};
 const plotBackground = {plot_background};
@@ -2805,7 +2809,14 @@ const baseLayout = {{
     paper_bgcolor: plotBackground,
     plot_bgcolor: plotBackground,
     font: {{ color: textColor }},
-    legend: {{ font: {{ color: textColor }} }}
+    legend: {{
+        font: {{ color: textColor }},
+        orientation: "h",
+        x: 0,
+        xanchor: "left",
+        y: 1.02,
+        yanchor: "bottom"
+    }}
 }};
 
 function themedLayout(layout) {{
@@ -2852,7 +2863,7 @@ Plotly.newPlot("time-overlay", [
     xaxis: {{ title: {{ text: "Time (s)", standoff: 16 }}, automargin: true }},
     yaxis: {{ title: {{ text: {value_axis_label}, standoff: 18 }}, automargin: true }},
     shapes: acceptedShapes,
-    margin: {{ l: 88, r: 24, t: 64, b: 78 }}
+    margin: {{ l: 88, r: 24, t: 72, b: 78 }}
 }}), {{ responsive: true }});
 
 Plotly.newPlot("relative-error", [
@@ -2891,7 +2902,7 @@ Plotly.newPlot("relative-error", [
     xaxis: {{ title: {{ text: {reference_axis_label}, standoff: 16 }}, automargin: true }},
     yaxis: {{ title: {{ text: {error_axis_label}, standoff: 18 }}, range: errorYAxisRange, automargin: true }},
     boxmode: "group",
-    margin: {{ l: 88, r: 24, t: 64, b: 78 }}
+    margin: {{ l: 88, r: 24, t: 72, b: 78 }}
 }}), {{ responsive: true }});
 
 Plotly.newPlot("voltage-fit", [
@@ -2915,7 +2926,7 @@ Plotly.newPlot("voltage-fit", [
     title: {{ text: {fit_plot_title} }},
     xaxis: {{ title: {{ text: {fit_x_axis_label}, standoff: 16 }}, automargin: true }},
     yaxis: {{ title: {{ text: {fit_y_axis_label}, standoff: 18 }}, automargin: true }},
-    margin: {{ l: 88, r: 24, t: 100, b: 78 }}
+    margin: {{ l: 88, r: 24, t: 72, b: 78 }}
 }}), {{ responsive: true }});
 
 Plotly.newPlot("voltage-fit-residual", [
@@ -2954,17 +2965,18 @@ Plotly.newPlot("voltage-fit-residual", [
     xaxis: {{ title: {{ text: {residual_x_axis_label}, standoff: 16 }}, automargin: true }},
     yaxis: {{ title: {{ text: {residual_axis_label}, standoff: 18 }}, range: residualYAxisRange, automargin: true }},
     boxmode: "group",
-    margin: {{ l: 88, r: 24, t: 64, b: 78 }}
+    margin: {{ l: 88, r: 24, t: 72, b: 78 }}
 }}), {{ responsive: true }});
 </script>
 </body>
 </html>
 "##,
         title = html_escape(&title),
-        voltage_fit_label_html = html_escape(&voltage_fit_label),
+        voltage_fit_label_html = report_line_html(&voltage_fit_label),
         cold_junction_label_html = cold_junction_label_html,
         page_background = plot_theme.page_background(),
         text_color = plot_theme.text_color(),
+        report_max_width = REPORT_MAX_WIDTH,
         text_color_js = serde_json::to_string(plot_theme.text_color())
             .map_err(|e| format!("Failed to serialize plot text color: {e}"))?,
         trace_color = serde_json::to_string(plot_theme.trace_color())
@@ -3021,8 +3033,6 @@ Plotly.newPlot("voltage-fit-residual", [
             .map_err(|e| format!("Failed to serialize plot fit residual x data: {e}"))?,
         fit_residual_y = serde_json::to_string(&fit_residual_y)
             .map_err(|e| format!("Failed to serialize plot fit residual current data: {e}"))?,
-        voltage_fit_label = serde_json::to_string(&voltage_fit_label)
-            .map_err(|e| format!("Failed to serialize voltage-fit label: {e}"))?,
         residual_trace_name = serde_json::to_string(residual_trace_name)
             .map_err(|e| format!("Failed to serialize residual trace name: {e}"))?,
         error_plot_title = serde_json::to_string(capture.channel.error_plot_title())

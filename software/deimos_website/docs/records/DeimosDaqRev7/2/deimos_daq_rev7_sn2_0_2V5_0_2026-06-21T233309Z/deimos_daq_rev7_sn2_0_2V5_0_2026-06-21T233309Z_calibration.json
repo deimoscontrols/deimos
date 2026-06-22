@@ -3,7 +3,7 @@
   "serial_number": 2,
   "channel": "ain12",
   "signal_name": "p1_0_2V5_0_sense_V.y",
-  "datestamp_utc": "2026-06-22T224052Z",
+  "datestamp_utc": "2026-06-22T232702Z",
   "polynomial_order": 1,
   "polynomial_coefficients": [
     0.0,

@@ -1,7 +1,7 @@
 {
   "model": "deimos_daq_rev7",
   "serial_number": 2,
-  "datestamp_utc": "2026-06-22T224051Z",
+  "datestamp_utc": "2026-06-22T232701Z",
   "records": [
     {
       "source": "/home/jlogan/git/deimos/software/deimos/../deimos_website/docs/records/DeimosDaqRev7/2/deimos_daq_rev7_sn2_0_15V_0_2026-06-21T233755Z/deimos_daq_rev7_sn2_0_15V_0_2026-06-21T233755Z_replay.csv",
@@ -253,7 +253,7 @@
       "mean_error": -0.23862261852079683,
       "max_abs_error": 1.404756534773128,
       "polynomial_coefficients": [
-        -0.0000065397236049665585,
+        -6.5397236049665585e-6,
         0.9996790688952525
       ],
       "r2": 0.9999999995835408,
@@ -306,7 +306,7 @@
       "mean_error": 0.0008708290655292118,
       "max_abs_error": 1.7346615373892007,
       "polynomial_coefficients": [
-        -0.0000012575033927344608,
+        -1.2575033927344608e-6,
         1.0000847441299592
       ],
       "r2": 0.9999997264523282,

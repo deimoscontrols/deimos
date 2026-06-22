@@ -3,7 +3,7 @@
   "serial_number": 2,
   "channel": "ain11",
   "signal_name": "p1_tc_1_sense_V.y",
-  "datestamp_utc": "2026-06-22T224055Z",
+  "datestamp_utc": "2026-06-22T232705Z",
   "rtd_reference_current_a": 0.00025,
   "rtd_frontend_gain": 25.7,
   "polynomial_order": 1,
