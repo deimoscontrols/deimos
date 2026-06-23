@@ -2,22 +2,33 @@
 
 ## 2026-06-15 0.18.0
 
-This update adds calibration procedures for the Rev7 and makes some
-supporting improvements.
+This update adds calibration procedures for the Rev7 and wires
+calibration handling into the controller, calc orchestrator,
+and peripheral trait. It also adds and ultra-lightweight, open-access
+calibration database as part of the static site, populated with the
+first set of calibrations.
 
 * deimos
-    * Add Rev7 calibration procedure
+    * Add Rev 7.0.0 calibration procedure
     * Add calibration record structs
     * Remove initial calc evaluation before entering control loop
         * No longer needed, since we now wait until all peripherals have responded to start calcs
         * Removing this makes software-side filter initialization instant on first cycle
     * Add supporting functions to thermocouple and RTD calc modules
+    * !Replace calc::tc_ktype lookup tables with ITS-90 polynomial fits
+        * This update includes a change in handling of cold-junction temperature: the 1D inverse fit is now used to calculate the expected cold-junction voltage, which is then subtracted from the sensed voltage before using the forward fit to calculate the hot-junction temperature
+        * This produces better match against the calibrator below -40C, where the tabulated cold-junction error goes toward zero.
+    * !Update rev7 standard calcs to add conversion from ADC voltage to sensed voltage as a discrete step, and calibration application as another step
     * !Update `Calc::standard_calcs` signature to include calibration json data
     * !Update `peripheral::PluginFn` closure signature to take `PeripheralId` instead of `BindingOutput`
+    * !Add calibration-related methods to Peripheral trait
     * Add `replay` module and `Controller::replay()` to support re-running the latest calc graph over already-collected raw data
     * Add calibration-related fields on `controller::Context`
     * Update `CsvDispatcher` to join the thread synchronously during terminate
         * Ensures that data will be present on disk if used immediately after the run; otherwise, the dispatcher thread may still be busy flushing its buffer to disk
+* deimos_website
+    * Add awesome-pages and pagetree plugins
+    * Add records/ route and store calibration data and reports there
 
 ## 2026-06-08 0.17.0
 

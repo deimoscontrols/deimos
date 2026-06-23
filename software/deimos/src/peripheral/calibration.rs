@@ -103,8 +103,10 @@ impl CalRecordCore {
 /// # Errors
 ///
 /// Returns an error if the slug is invalid, if a local file exists but cannot be
-/// read, if the remote query fails with an unexpected response, or if a fetched
-/// calibration cannot be cached locally.
+/// read, if the remote query receives an unexpected response, or if a fetched
+/// calibration cannot be cached locally. Remote transport failures like DNS
+/// errors or timeouts are treated as misses so callers that allow missing
+/// calibrations can fall back to defaults while offline.
 pub fn query_cals<P: AsRef<Path>>(
     slug: &str,
     local_sources: &[P],
@@ -154,15 +156,25 @@ pub fn query_cals<P: AsRef<Path>>(
 
     // Remote lookup is deliberately fixed to deimoscontrols.com for now. That
     // keeps this helper from becoming a general-purpose URL fetcher.
-    let cals = match fetch_deimos_controls_cal(&slug_segments)? {
-        Some(cals) => cals,
-        None => {
+    let remote_result = fetch_deimos_controls_cal(&slug_segments);
+    let cals = match remote_result {
+        Ok(Some(cals)) => cals,
+        Ok(None) => {
             info!(
                 slug,
                 "Calibration record was not found at deimoscontrols.com."
             );
             return Ok(None);
         }
+        Err(err) if err.is_transport_failure => {
+            warn!(
+                slug,
+                error = %err.message,
+                "Calibration record could not be queried from deimoscontrols.com; treating remote lookup as missing."
+            );
+            return Ok(None);
+        }
+        Err(err) => return Err(err.message),
     };
     info!(slug, "Fetched calibration record from deimoscontrols.com.");
 
@@ -265,7 +277,7 @@ fn try_read_local_cal(root: &Path, slug_segments: &[&str]) -> Result<Option<Stri
 /// supplied URL. Redirects are disabled and the body size is bounded so the
 /// calibration lookup remains a narrow, deterministic HTTP GET for
 /// `https://deimoscontrols.com/records/<slug>/cal.json`.
-fn fetch_deimos_controls_cal(slug_segments: &[&str]) -> Result<Option<String>, String> {
+fn fetch_deimos_controls_cal(slug_segments: &[&str]) -> Result<Option<String>, RemoteCalError> {
     let url = format!(
         "{}/{}/{}",
         DEIMOS_CONTROLS_RECORD_BASE_URL,
@@ -278,11 +290,14 @@ fn fetch_deimos_controls_cal(slug_segments: &[&str]) -> Result<Option<String>, S
         .timeout(CAL_QUERY_TIMEOUT)
         .redirect(reqwest::redirect::Policy::none())
         .build()
-        .map_err(|err| format!("Failed to build calibration HTTP client: {err}"))?;
-    let response = client
-        .get(&url)
-        .send()
-        .map_err(|err| format!("Failed to fetch calibration record from {url}: {err}"))?;
+        .map_err(|err| {
+            RemoteCalError::unexpected(format!("Failed to build calibration HTTP client: {err}"))
+        })?;
+    let response = client.get(&url).send().map_err(|err| {
+        RemoteCalError::transport(format!(
+            "Failed to fetch calibration record from {url}: {err}"
+        ))
+    })?;
     debug!(url, status = %response.status(), "Received calibration query response.");
 
     // A missing remote cal is a normal miss, not a hard failure. Other
@@ -292,41 +307,73 @@ fn fetch_deimos_controls_cal(slug_segments: &[&str]) -> Result<Option<String>, S
         return Ok(None);
     }
     if !response.status().is_success() {
-        return Err(format!(
+        return Err(RemoteCalError::unexpected(format!(
             "Failed to fetch calibration record from {url}: HTTP {}",
             response.status()
-        ));
+        )));
     }
     // Honor Content-Length when available so obviously oversized responses are
     // rejected before allocating/reading the body.
     if let Some(content_length) = response.content_length()
         && content_length > MAX_CAL_JSON_BYTES
     {
-        return Err(format!(
+        return Err(RemoteCalError::unexpected(format!(
             "Calibration record from {url} is too large: {content_length} bytes"
-        ));
+        )));
     }
 
     // Also enforce the size limit while reading in case the server did not
     // provide a Content-Length header.
     let mut body = Vec::new();
     let mut reader = response.take(MAX_CAL_JSON_BYTES + 1);
-    reader
-        .read_to_end(&mut body)
-        .map_err(|err| format!("Failed to read calibration record from {url}: {err}"))?;
+    reader.read_to_end(&mut body).map_err(|err| {
+        RemoteCalError::transport(format!(
+            "Failed to read calibration record from {url}: {err}"
+        ))
+    })?;
     if body.len() as u64 > MAX_CAL_JSON_BYTES {
-        return Err(format!(
+        return Err(RemoteCalError::unexpected(format!(
             "Calibration record from {url} exceeds {} bytes",
             MAX_CAL_JSON_BYTES
-        ));
+        )));
     }
 
     // Calibration records are JSON text. Returning UTF-8 text instead of raw
     // bytes keeps parsing responsibility with the caller while still rejecting
     // invalid text at the query boundary.
-    String::from_utf8(body)
-        .map(Some)
-        .map_err(|err| format!("Calibration record from {url} was not valid UTF-8: {err}"))
+    String::from_utf8(body).map(Some).map_err(|err| {
+        RemoteCalError::unexpected(format!(
+            "Calibration record from {url} was not valid UTF-8: {err}"
+        ))
+    })
+}
+
+/// Error returned by the fixed public calibration endpoint lookup.
+///
+/// Network transport failures are separated from semantic response errors so
+/// offline controller startup can fall back to default calibrations without also
+/// hiding malformed or unexpectedly large remote records.
+struct RemoteCalError {
+    message: String,
+    is_transport_failure: bool,
+}
+
+impl RemoteCalError {
+    /// Build an error for DNS, timeout, connection, or response-body I/O failures.
+    fn transport(message: String) -> Self {
+        Self {
+            message,
+            is_transport_failure: true,
+        }
+    }
+
+    /// Build an error for a remote response that was reached but unusable.
+    fn unexpected(message: String) -> Self {
+        Self {
+            message,
+            is_transport_failure: false,
+        }
+    }
 }
 
 /// Write a fetched calibration record into a local cache root.
