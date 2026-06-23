@@ -29,6 +29,8 @@ first set of calibrations.
 * deimos_website
     * Add awesome-pages and pagetree plugins
     * Add records/ route and store calibration data and reports there
+* deimos_shared
+    * Update rev7_bode to export html to website & remove brittle SVG export
 
 ## 2026-06-08 0.17.0
 
