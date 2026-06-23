@@ -49,28 +49,28 @@ pub fn ktype_voltage_v(temperature_k: f64) -> f64 {
 }
 
 pub fn ktype_temp_k(voltage_v: f64) -> f64 {
-    TEMPERATURE_INTERPOLATOR.interp_one([voltage_v]).unwrap()
+    ITS90_INVERSE_INTERPOLATOR.interp_one([voltage_v]).unwrap()
 }
 
 const ZERO_C_K: f64 = 273.15;
 const LINEARIZE_EXTRAPOLATION: bool = true;
 
-/// Shared interpolator for the calc-direction K-type conversion.
+/// Shared ITS-90 inverse interpolator for the calc-direction K-type conversion.
 ///
 /// The NIST inverse polynomial only covers down to about -200 C. This table is sampled
 /// from the broader NIST temperature-to-voltage polynomial so the calc can use the
 /// full low-temperature range of the forward fit.
-static TEMPERATURE_INTERPOLATOR: Lazy<MulticubicRectilinear<'static, f64, 1>> = Lazy::new(|| {
+static ITS90_INVERSE_INTERPOLATOR: Lazy<MulticubicRectilinear<'static, f64, 1>> = Lazy::new(|| {
     MulticubicRectilinear::<'_, f64, 1>::new(
-        &*INVERSE_VOLTAGE_GRID,
-        INVERSE_TEMPERATURE_K.as_slice(),
+        &*ITS90_INVERSE_VOLTAGE_GRID,
+        ITS90_INVERSE_TEMPERATURE_K.as_slice(),
         LINEARIZE_EXTRAPOLATION,
     )
     .unwrap()
 });
 
 /// Temperatures sampled more densely where the K-type curve has stronger curvature.
-static INVERSE_TEMPERATURE_K: Lazy<Vec<f64>> = Lazy::new(|| {
+static ITS90_INVERSE_TEMPERATURE_K: Lazy<Vec<f64>> = Lazy::new(|| {
     let mut temperatures_k = Vec::new();
 
     // The low-temperature curve changes shape quickly near the lower end of the
@@ -100,16 +100,16 @@ static INVERSE_TEMPERATURE_K: Lazy<Vec<f64>> = Lazy::new(|| {
 });
 
 /// Voltages corresponding to the sampled temperature grid.
-static INVERSE_VOLTAGE_V: Lazy<Vec<f64>> = Lazy::new(|| {
-    INVERSE_TEMPERATURE_K
+static ITS90_INVERSE_VOLTAGE_V: Lazy<Vec<f64>> = Lazy::new(|| {
+    ITS90_INVERSE_TEMPERATURE_K
         .iter()
         .map(|&temperature_k| ktype_voltage_v(temperature_k))
         .collect()
 });
 
 /// Rectilinear voltage grid wrapper borrowed by the interpolator.
-static INVERSE_VOLTAGE_GRID: Lazy<[&'static [f64]; 1]> =
-    Lazy::new(|| [INVERSE_VOLTAGE_V.as_slice()]);
+static ITS90_INVERSE_VOLTAGE_GRID: Lazy<[&'static [f64]; 1]> =
+    Lazy::new(|| [ITS90_INVERSE_VOLTAGE_V.as_slice()]);
 
 const FORWARD_NEGATIVE_C_TO_MV: [f64; 11] = [
     0.000000000000E+00,
@@ -245,7 +245,7 @@ impl Calc for TcKtype {
 
         // Call the interpolator once during init so the first controller cycle does not
         // pay the lazy initialization cost.
-        TEMPERATURE_INTERPOLATOR.interp_one([0.0]).unwrap();
+        ITS90_INVERSE_INTERPOLATOR.interp_one([0.0]).unwrap();
         Ok(())
     }
 

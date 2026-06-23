@@ -132,10 +132,10 @@ Plotly.newPlot(
     </div>
 </main>
 <script>
-const forwardInput = {forward_input};
 const forwardTempC = {forward_temperature_c};
+const forwardOutput = {forward_output};
+const inverseInput = {inverse_input};
 const inverseTempC = {inverse_temperature_c};
-const inverseOutput = {inverse_output};
 const sensitivityTempC = {sensitivity_temperature_c};
 const sensitivity = {sensitivity};
 
@@ -177,15 +177,15 @@ function lineTrace(x, y) {{
 
 Plotly.newPlot(
     "forward",
-    [lineTrace(forwardInput, forwardTempC)],
-    layout("{forward_title}", "{forward_x_title}", "Temperature (C)"),
+    [lineTrace(forwardTempC, forwardOutput)],
+    layout("{forward_title}", "Temperature (C)", "{forward_y_title}"),
     config,
 );
 
 Plotly.newPlot(
     "inverse",
-    [lineTrace(inverseTempC, inverseOutput)],
-    layout("{inverse_title}", "Temperature (C)", "{inverse_y_title}"),
+    [lineTrace(inverseInput, inverseTempC)],
+    layout("{inverse_title}", "{inverse_x_title}", "Temperature (C)"),
     config,
 );
 
@@ -213,16 +213,16 @@ Plotly.newPlot(
         grid_color = theme.grid_color,
         zero_line_color = theme.zero_line_color,
         trace_color = theme.trace_color,
-        forward_input = to_json(&sensor.lookup.forward_input)?,
         forward_temperature_c = to_json(&sensor.lookup.forward_temperature_c)?,
+        forward_output = to_json(&sensor.lookup.forward_output)?,
+        inverse_input = to_json(&sensor.lookup.inverse_input)?,
         inverse_temperature_c = to_json(&sensor.lookup.inverse_temperature_c)?,
-        inverse_output = to_json(&sensor.lookup.inverse_output)?,
         sensitivity_temperature_c = to_json(&sensor.lookup.sensitivity.x)?,
         sensitivity = to_json(&sensor.lookup.sensitivity.y)?,
         forward_title = sensor.forward_title,
-        forward_x_title = sensor.forward_x_title,
+        forward_y_title = sensor.forward_y_title,
         inverse_title = sensor.inverse_title,
-        inverse_y_title = sensor.inverse_y_title,
+        inverse_x_title = sensor.inverse_x_title,
         sensitivity_title = sensor.lookup.sensitivity.title,
         sensitivity_x_title = sensor.lookup.sensitivity.x_title,
         sensitivity_y_title = sensor.lookup.sensitivity.y_title,
@@ -239,9 +239,9 @@ fn sensor_reports() -> Vec<SensorReport> {
             page_title: "K-type Thermocouple Lookup",
             description: "K-type thermocouple curves from ITS-90 polynomial fits.",
             forward_title: "K-type Thermocouple Forward Lookup",
-            forward_x_title: "Voltage (mV)",
+            forward_y_title: "Voltage (mV)",
             inverse_title: "K-type Thermocouple Inverse Lookup",
-            inverse_y_title: "Voltage (mV)",
+            inverse_x_title: "Voltage (mV)",
             lookup: thermocouple_lookup_data(),
         },
         SensorReport {
@@ -249,9 +249,9 @@ fn sensor_reports() -> Vec<SensorReport> {
             page_title: "Pt100 RTD Lookup",
             description: "Pt100 RTD lookups based on DIN-43-760 tables.",
             forward_title: "Pt100 RTD Forward Lookup",
-            forward_x_title: "Resistance (ohm)",
+            forward_y_title: "Resistance (ohm)",
             inverse_title: "Pt100 RTD Inverse Lookup",
-            inverse_y_title: "Resistance (ohm)",
+            inverse_x_title: "Resistance (ohm)",
             lookup: rtd_lookup_data(),
         },
     ]
@@ -306,9 +306,9 @@ struct SensorReport {
     page_title: &'static str,
     description: &'static str,
     forward_title: &'static str,
-    forward_x_title: &'static str,
+    forward_y_title: &'static str,
     inverse_title: &'static str,
-    inverse_y_title: &'static str,
+    inverse_x_title: &'static str,
     lookup: LookupData,
 }
 
@@ -329,10 +329,10 @@ struct Theme {
 
 /// Hold sampled points for a forward lookup and its inverse lookup.
 struct LookupData {
-    forward_input: Vec<f64>,
     forward_temperature_c: Vec<f64>,
+    forward_output: Vec<f64>,
+    inverse_input: Vec<f64>,
     inverse_temperature_c: Vec<f64>,
-    inverse_output: Vec<f64>,
     sensitivity: ExtraPlotData,
     inverse_error: Option<ExtraPlotData>,
 }
@@ -348,33 +348,33 @@ struct ExtraPlotData {
 
 /// Sample the K-type thermocouple forward and inverse conversion functions.
 fn thermocouple_lookup_data() -> LookupData {
-    let inverse_temperature_c = inclusive_range(TC_FORWARD_MIN_C, TC_MAX_C, TC_TEMP_STEP_C);
-    let inverse_output = inverse_temperature_c
+    let forward_temperature_c = inclusive_range(TC_FORWARD_MIN_C, TC_MAX_C, TC_TEMP_STEP_C);
+    let forward_output = forward_temperature_c
         .iter()
         .map(|temperature_c| 1000.0 * ktype_voltage_v(temperature_c + ZERO_C_K))
         .collect::<Vec<_>>();
 
     let min_voltage_mv = 1000.0 * ktype_voltage_v(TC_FORWARD_MIN_C + ZERO_C_K);
     let max_voltage_mv = 1000.0 * ktype_voltage_v(TC_MAX_C + ZERO_C_K);
-    let forward_input = inclusive_range(min_voltage_mv, max_voltage_mv, TC_VOLTAGE_STEP_MV);
-    let forward_temperature_c = forward_input
+    let inverse_input = inclusive_range(min_voltage_mv, max_voltage_mv, TC_VOLTAGE_STEP_MV);
+    let inverse_temperature_c = inverse_input
         .iter()
         .map(|voltage_mv| ktype_temp_k(voltage_mv / 1000.0) - ZERO_C_K)
         .collect::<Vec<_>>();
-    let inverse_error_y = inverse_temperature_c
+    let inverse_error_y = forward_temperature_c
         .iter()
-        .zip(inverse_output.iter())
+        .zip(forward_output.iter())
         .map(|(&temperature_c, &voltage_mv)| {
             ktype_temp_k(voltage_mv / 1000.0) - ZERO_C_K - temperature_c
         })
         .collect();
-    let sensitivity = sensitivity_from_inverse_curve(&inverse_temperature_c, &inverse_output);
+    let sensitivity = sensitivity_from_forward_curve(&forward_temperature_c, &forward_output);
 
     LookupData {
-        forward_input,
         forward_temperature_c,
+        forward_output,
+        inverse_input,
         inverse_temperature_c,
-        inverse_output,
         sensitivity: ExtraPlotData {
             title: "K-type Thermocouple Sensitivity",
             x_title: "Temperature (C)",
@@ -394,30 +394,30 @@ fn thermocouple_lookup_data() -> LookupData {
 
 /// Sample the Pt100 RTD forward and inverse conversion functions.
 fn rtd_lookup_data() -> LookupData {
-    let inverse_temperature_c = inclusive_range(RTD_MIN_C, RTD_MAX_C, RTD_TEMP_STEP_C);
-    let inverse_output = inverse_temperature_c
+    let forward_temperature_c = inclusive_range(RTD_MIN_C, RTD_MAX_C, RTD_TEMP_STEP_C);
+    let forward_output = forward_temperature_c
         .iter()
         .map(|temperature_c| pt100_resistance_ohm(temperature_c + ZERO_C_K))
         .collect::<Vec<_>>();
 
-    let min_resistance_ohm = inverse_output[0];
-    let max_resistance_ohm = *inverse_output.last().unwrap();
-    let forward_input = inclusive_range(
+    let min_resistance_ohm = forward_output[0];
+    let max_resistance_ohm = *forward_output.last().unwrap();
+    let inverse_input = inclusive_range(
         min_resistance_ohm,
         max_resistance_ohm,
         RTD_RESISTANCE_STEP_OHM,
     );
-    let forward_temperature_c = forward_input
+    let inverse_temperature_c = inverse_input
         .iter()
         .map(|resistance_ohm| pt100_temp_k(*resistance_ohm) - ZERO_C_K)
         .collect();
-    let sensitivity = sensitivity_from_inverse_curve(&inverse_temperature_c, &inverse_output);
+    let sensitivity = sensitivity_from_forward_curve(&forward_temperature_c, &forward_output);
 
     LookupData {
-        forward_input,
         forward_temperature_c,
+        forward_output,
+        inverse_input,
         inverse_temperature_c,
-        inverse_output,
         sensitivity: ExtraPlotData {
             title: "Pt100 RTD Sensitivity",
             x_title: "Temperature (C)",
@@ -429,8 +429,8 @@ fn rtd_lookup_data() -> LookupData {
     }
 }
 
-/// Estimate calc-direction sensitivity from the inverse electrical-output curve.
-fn sensitivity_from_inverse_curve(temperature_c: &[f64], output: &[f64]) -> Vec<f64> {
+/// Estimate calc-direction sensitivity from the forward electrical-output curve.
+fn sensitivity_from_forward_curve(temperature_c: &[f64], output: &[f64]) -> Vec<f64> {
     (0..temperature_c.len())
         .map(|idx| {
             let (low, high) = if idx == 0 {
