@@ -1,0 +1,8 @@
+{
+  "model": "deimos_daq_rev7",
+  "serial_number": 1,
+  "channel": "tc_1",
+  "signal_name": "p1_tc_1.temperature_K",
+  "calibrator_cold_junction_temperature_k": 296.95,
+  "manual_reference_windows": []
+}

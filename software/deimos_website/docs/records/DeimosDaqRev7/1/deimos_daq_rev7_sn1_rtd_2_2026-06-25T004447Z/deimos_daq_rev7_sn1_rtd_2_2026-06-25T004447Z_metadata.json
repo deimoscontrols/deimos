@@ -1,0 +1,8 @@
+{
+  "model": "deimos_daq_rev7",
+  "serial_number": 1,
+  "channel": "rtd_2",
+  "signal_name": "p1_rtd_2.temperature_K",
+  "calibrator_cold_junction_temperature_k": null,
+  "manual_reference_windows": []
+}
