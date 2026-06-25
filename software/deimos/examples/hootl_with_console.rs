@@ -91,6 +91,8 @@ use deimos::{
     peripheral::{DeimosDaqRev7, HootlTransport},
 };
 
+mod common;
+
 /// Multicast group used by the reporting dispatcher.
 const MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(239, 255, 0, 1);
 
@@ -137,6 +139,7 @@ fn main() {
     std::fs::create_dir_all(&op_dir).expect("Failed to create temp op_dir");
 
     let mut ctx = ControllerCtx::default();
+    common::add_website_record_store(&mut ctx);
     ctx.op_name = "hootl_with_console".to_string();
     ctx.op_dir = op_dir;
     ctx.dt_ns = (1e9_f64 / RATE_HZ).ceil() as u32;

@@ -42,12 +42,15 @@ use deimos::{
 
 use tracing::info;
 
+mod common;
+
 fn main() {
     // Clear sockets
     let _ = std::fs::remove_dir_all("./sock");
 
     // Start building up controller settings
     let mut ctx = ControllerCtx::default();
+    common::add_website_record_store(&mut ctx);
     ctx.op_name = "ipc_example".to_string();
 
     // Set control rate

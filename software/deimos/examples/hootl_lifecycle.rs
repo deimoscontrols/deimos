@@ -28,6 +28,8 @@ use deimos::{
     peripheral::{DeimosDaqRev7, HootlTransport},
 };
 
+mod common;
+
 fn main() {
     // Ensure RUST_LOG is set so lifecycle stage logs are visible.
     if std::env::var("RUST_LOG").is_err() {
@@ -42,6 +44,7 @@ fn main() {
     // Configure a 20 Hz controller that terminates after 3 seconds.
     let rate_hz = 20.0;
     let mut ctx = ControllerCtx::default();
+    common::add_website_record_store(&mut ctx);
     ctx.op_name = "hootl_lifecycle".to_string();
     ctx.op_dir = op_dir;
     ctx.dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
