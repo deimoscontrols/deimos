@@ -1,25 +1,14 @@
-# DAQ Modules
-
-All Deimos DAQs use unencrypted wired ethernet LAN for communication, and are assigned MAC addresses in the locally-administered block.
-
-This means that untrusted individuals and unrelated hardware should not be given access to the control network.
-
-For more details about networking and security, see the [system details](../system.md).
-
-Multiple DAQ modules can be connected to the same control program; time-synchronization between multiple modules is a first-class
-feature, requires no additional network hardware, and typically achieves sub-microsecond average synchronization within a few seconds of the start of an operation. See the [control program examples](https://github.com/deimoscontrols/deimos/tree/main/software/deimos/examples) for reference programs using several DAQs simultaneously.
-
-## Deimos DAQ
+# Deimos DAQ
 
 ![image](../assets/analog_i_rev4.png)
 
-The **Deimos DAQ** is our flagship DAQ unit, boasting a set of 22 input channels and 6 output channels,
+The Deimos DAQ boasts a set of 22 input channels and 6 output channels,
 all available together and operated simultaneously on every cycle.
 
 Fully open-source, the **Deimos DAQ*'s design files, firmware, and control program can all be
 found under permissive licenses in the [Deimos project repository](https://github.com/deimoscontrols/deimos).
 
-### :material-graph-outline:{ .lg .middle } Overview
+## :material-graph-outline:{ .lg .middle } Overview
 
 | Feature | Performance |
 |---------|-------------|
@@ -28,19 +17,19 @@ found under permissive licenses in the [Deimos project repository](https://githu
 | Multi-Unit Time Sync | ~1 microsecond (100ns typ.) |
 | Voltage Reference | 0.02% accuracy, 2.5V |
 | ADCs | 16-bit SAR, self-calibrating |
-| Internal Samplerate | 20kHz burst-scanning w/ synthetic simultaneous sampling |
+| Internal Samplerate | 33kHz burst-scanning w/ synthetic simultaneous sampling |
 | Onboard Filtering | Active analog filters, digital Butterworth IIR anti-aliasing filter & Lagrange polynomial fractional-delay FIR sample synchronization filter |
 | Supply Voltage | 24V DC |
 
-### :material-controller-classic:{ .lg .middle } Outputs
+## :material-controller-classic:{ .lg .middle } Outputs
 
 | Kind | Range | Resolution | Notes |
 |------|-------|------------|-------|
-| :material-square-wave: 4x PWM/GPIO  | 1Hz-400kHz | 16-bit | 3.3V logic. Each channel has independent frequency and pulse width. |
+| :material-square-wave: 4x PWM  | 1Hz-100kHz | 16-bit | 3.3V logic. Each channel has independent frequency and pulse width. 40 ohm term. |
 | :material-square-wave: 4x GPIO  |  | 1-bit | 3.3V logic. Switched once per cycle on request. |
 | :material-sine-wave: 2x DAC (Voltage) | 0-2.5V | 12-bit | Accuracy linked directly to voltage reference (0.02%) |
 
-### :material-ear-hearing:{ .lg .middle } Inputs
+## :material-ear-hearing:{ .lg .middle } Inputs
 
 | Kind | Range | Accuracy | Resolution | Notes |
 |------|-------|----------|------------|-------|
@@ -55,3 +44,14 @@ found under permissive licenses in the [Deimos project repository](https://githu
 | :material-square-wave: 1x Pulse Counter | 400Hz-1MHz | N/A | 1 | 64-bit accumulator |
 | :material-square-wave: 1x Encoder | | N/A | | Signed 64-bit accumulator, forward/backward counting. |
 | :material-thermometer: Diagnostics | ||| Bus current, bus voltage, and cold-junction temperature |
+
+## :material-hub-outline:{ .lg .middle } Connectivity
+
+All Deimos DAQs use unencrypted wired ethernet LAN for communication, and are assigned MAC addresses in the locally-administered block.
+
+This means that untrusted individuals and unrelated hardware should not be given access to the control network.
+
+For more details about networking and security, see the [system details](../system.md).
+
+Multiple DAQ modules can be connected to the same control program; time-synchronization between multiple modules is a first-class
+feature, requires no additional network hardware, and typically achieves sub-microsecond average synchronization within a few seconds of the start of an operation. See the [control program examples](https://github.com/deimoscontrols/deimos/tree/main/software/deimos/examples) for reference programs using several DAQs simultaneously.

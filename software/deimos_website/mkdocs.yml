@@ -99,7 +99,7 @@ plugins:
 
 nav:
   - Home: index.md
-  - Products: products/index.md
+  - Deimos DAQ: products/deimos_daq.md
   - Records:
         - records/index.md
         - '... | records/**/index.md'
