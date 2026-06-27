@@ -99,10 +99,10 @@ plugins:
 
 nav:
   - Home: index.md
-  - Deimos DAQ: products/deimos_daq.md
-  - Records:
-        - records/index.md
-        - '... | records/**/index.md'
+  - Deimos DAQ: 
+    - Overview: products/deimos_daq.md
+    - Specs: products/specs.md
+    - Frontends: products/frontends.md
   - System: system.md
   - Contact: contact.md
   - Use-Cases:
@@ -112,3 +112,6 @@ nav:
   # - Blog: blog/index.md
   - Python API: api/api-python.md
   - Rust API: api/api-rust.md
+  - Records:
+        - records/index.md
+        - '... | records/**/index.md'

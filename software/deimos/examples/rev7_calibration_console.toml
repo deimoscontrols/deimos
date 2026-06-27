@@ -7,6 +7,7 @@ port = 29573
 window_seconds = 90.0
 staleness_threshold_secs = 3.0
 forensic_log_path = "/tmp/deimos-rev7-calibration-console.csv"
+columns = 2
 
 [[panels]]
 title = "Rev7 4-20 mA Inputs"
@@ -34,12 +35,22 @@ channels = [
 ]
 
 [[panels]]
-title = "Rev7 Voltage Inputs"
+title = "Rev7 0-2.5 V Inputs"
 channels = [
     "p1_0_2V5_0_sense_V.y",
     "p1_0_2V5_1_sense_V.y",
+]
+
+[[panels]]
+title = "Rev7 0-15 V Inputs"
+channels = [
     "p1_0_15V_0_sense_V.y",
     "p1_0_15V_1_sense_V.y",
+]
+
+[[panels]]
+title = "Rev7 26x Voltage Inputs"
+channels = [
     "p1_x26_0_sense_V.y",
     "p1_x26_1_sense_V.y",
 ]

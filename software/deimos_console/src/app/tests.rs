@@ -12,6 +12,7 @@ fn test_config(staleness_threshold_secs: f64) -> DeimosConsoleConfig {
         tail_keep_secs: 0.5,
         recovery_settle_secs: 2.0,
         panels: Vec::new(),
+        columns: 1,
         forensic_log_path: None,
     }
 }
@@ -733,6 +734,7 @@ fn render_snapshot_captures_per_panel_points_for_lock_free_render() {
     assert!(snapshot.frozen);
     assert_eq!(snapshot.frozen_xmax, Some(0.5));
     assert_eq!(snapshot.window_seconds, app.config.window_seconds);
+    assert_eq!(snapshot.columns, 1);
     assert_eq!(snapshot.panels.len(), 1);
 
     let panel = &snapshot.panels[0];
@@ -743,6 +745,26 @@ fn render_snapshot_captures_per_panel_points_for_lock_free_render() {
     let (ch_name, points) = &panel.series[0];
     assert_eq!(ch_name, "a");
     assert_eq!(points, &[[0.0, 1.0], [0.5, 2.0]]);
+}
+
+#[test]
+fn render_snapshot_captures_panel_column_count() {
+    let mut app = test_app(2.0);
+    app.config.columns = 2;
+
+    let snapshot = app.build_render_snapshot();
+
+    assert_eq!(snapshot.columns, 2);
+}
+
+#[test]
+fn render_snapshot_clamps_zero_columns_to_one() {
+    let mut app = test_app(2.0);
+    app.config.columns = 0;
+
+    let snapshot = app.build_render_snapshot();
+
+    assert_eq!(snapshot.columns, 1);
 }
 
 /// The processor thread MUST keep draining the receiver channel while the UI thread is

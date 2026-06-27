@@ -55,9 +55,9 @@
 //! bar shows connection health (fresh / stale / no-schema-yet) and a dropped-frame
 //! counter.
 //!
-//! The `voltage.y` channel is listed in the "Currents and Voltages" panel of the
-//! sample config; its axis is labeled `V` because the `Affine` calc declares that
-//! unit via `with_output_unit("V")`.
+//! The sample config shows the Rev7 current, temperature, and voltage channels in
+//! a two-column layout. The additional `voltage.y` channel declares unit `V` via
+//! `with_output_unit("V")` and can be added to any voltage panel while experimenting.
 //!
 //! ## Channels produced
 //!
@@ -71,7 +71,7 @@
 //!
 //! The viewer config is at `software/deimos_console/examples/console.toml`.  It
 //! points at the same multicast group and port (`239.255.0.1:29573`) and defines
-//! two panels.  Edit the `[[panels]]` entries to watch different channels.
+//! the panel layout.  Edit the `[[panels]]` entries to watch different channels.
 //!
 //! ## Forensic log
 //!

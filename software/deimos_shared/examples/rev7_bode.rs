@@ -50,7 +50,6 @@ struct FrontendGroup {
 struct Theme {
     suffix: &'static str,
     color_scheme: &'static str,
-    body_background: &'static str,
     paper_background: &'static str,
     plot_background: &'static str,
     foreground: &'static str,
@@ -164,8 +163,9 @@ fn parse_args() -> Result<PathBuf, Box<dyn Error>> {
     }
 
     if matches!(args.get(1).map(String::as_str), Some("dark" | "light")) {
-        return Err("theme arguments are no longer used; dark and light variants are both exported"
-            .into());
+        return Err(
+            "theme arguments are no longer used; dark and light variants are both exported".into(),
+        );
     }
 
     Ok(args
@@ -183,7 +183,6 @@ fn themes() -> [Theme; 2] {
         Theme {
             suffix: "light",
             color_scheme: "light",
-            body_background: "radial-gradient(circle at top left, rgba(130, 50, 186, 0.16), transparent 32%), linear-gradient(180deg, #ffffff 0%, #f6f7fb 100%)",
             paper_background: "#ffffff",
             plot_background: "#ffffff",
             foreground: "#171922",
@@ -193,7 +192,6 @@ fn themes() -> [Theme; 2] {
         Theme {
             suffix: "dark",
             color_scheme: "dark",
-            body_background: "radial-gradient(circle at top left, rgba(172, 55, 255, 0.24), transparent 30%), linear-gradient(180deg, #242833 0%, #1e2129 100%)",
             paper_background: "#2b2f3a",
             plot_background: "#2b2f3a",
             foreground: "#f2f0f6",
@@ -363,7 +361,6 @@ fn write_interactive_html(
     let max_idx = variants.len().saturating_sub(1);
     let default_label = format_frequency(default_variant.reporting_rate_hz);
     let foreground = theme.foreground;
-    let body_background = theme.body_background;
     let paper_background = theme.paper_background;
     let border = theme.border;
 
@@ -512,7 +509,7 @@ fn write_interactive_html(
 </html>
 "#,
         border = border,
-        body_background = body_background,
+        body_background = paper_background,
         color_scheme = theme.color_scheme,
         default_label = default_label,
         default_reporting_rate_idx = default_reporting_rate_idx,

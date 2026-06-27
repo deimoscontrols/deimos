@@ -28,6 +28,7 @@ The config file is TOML. All fields except `multicast_group` and `port` are opti
 | `tail_keep_secs` | float | `0.5` | Seconds of pre-stall context retained in each per-channel ring buffer when a stall fires (the rest is evicted so the live window is restored within one repaint) |
 | `recovery_settle_secs` | float | `2.0` | Seconds the connection-health indicator stays in `Recovering` after a stall clears, so an operator notices the discontinuity even on a brief glance |
 | `forensic_log_path` | path | none | If set, a per-session CSV is written here; rotates at 64 MiB |
+| `columns` | integer | `1` | Number of columns used to lay out display panels |
 | `panels` | array of `{title, channels}` | `[]` | Display panels; each renders the named channels as overlaid traces |
 
 ### Per-second telemetry tick
@@ -78,13 +79,38 @@ port = 29573
 # Outbound interface for multicast reception. Comment out to use the OS default.
 # interface = "192.168.1.10"
 
-[[panels]]
-title = "Temperatures"
-channels = ["rtd0_temperature_K", "tc0_temperature_K"]
+columns = 2
 
 [[panels]]
-title = "Currents and Voltages"
-channels = ["shunt0_A", "bus0_V"]
+title = "4-20 mA Currents"
+channels = [
+    "p1_4_20_mA_0_A.y",
+    "p1_4_20_mA_1_A.y",
+    "p1_4_20_mA_2_A.y",
+    "p1_4_20_mA_3_A.y",
+]
+
+[[panels]]
+title = "RTD Temperatures"
+channels = [
+    "p1_rtd_0.temperature_K",
+    "p1_rtd_1.temperature_K",
+    "p1_rtd_2.temperature_K",
+]
+
+[[panels]]
+title = "Thermocouple Temperatures"
+channels = [
+    "p1_tc_0.temperature_K",
+    "p1_tc_1.temperature_K",
+]
+
+[[panels]]
+title = "0-2.5 V Inputs"
+channels = [
+    "p1_0_2V5_0_sense_V.y",
+    "p1_0_2V5_1_sense_V.y",
+]
 ```
 
 A full example lives at [`examples/console.toml`](examples/console.toml).

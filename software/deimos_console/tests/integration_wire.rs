@@ -53,6 +53,7 @@ fn make_config() -> DeimosConsoleConfig {
         tail_keep_secs: 0.5,
         recovery_settle_secs: 2.0,
         panels: vec![],
+        columns: 1,
         forensic_log_path: None,
     }
 }
@@ -260,6 +261,7 @@ fn late_joiner_receives_schema_within_reemit_window() {
         tail_keep_secs: 0.5,
         recovery_settle_secs: 2.0,
         panels: vec![],
+        columns: 1,
         forensic_log_path: None,
     };
     let (rx, _handle, _counters) = receiver::spawn(&config).expect("receiver::spawn");
@@ -337,6 +339,7 @@ fn config_for(group: Ipv4Addr, port: u16) -> DeimosConsoleConfig {
         tail_keep_secs: 0.5,
         recovery_settle_secs: 2.0,
         panels: vec![],
+        columns: 1,
         forensic_log_path: None,
     }
 }
