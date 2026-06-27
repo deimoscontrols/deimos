@@ -7,7 +7,11 @@
     "procedure": "deimos_daq_rev7_calibration_7_0_0",
     "procedure_version": 1,
     "generated_at_utc": "2026-06-27T13:11:56.061418603Z",
-    "calibrators": []
+    "calibrators": [
+      "Fluke_707-6696371",
+      "Thermoworks_VA710-62405013031",
+      "Thermoworks_VA720-62405013048"
+    ]
   },
   "voltage_cals": [
     {
