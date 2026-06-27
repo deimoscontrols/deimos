@@ -6,7 +6,7 @@
     "serial_number": 2,
     "procedure": "deimos_daq_rev7_calibration_7_0_0",
     "procedure_version": 1,
-    "generated_at_utc": "2026-06-22T23:27:05.523369185Z",
+    "generated_at_utc": "2026-06-27T13:11:56.061418603Z",
     "calibrators": []
   },
   "voltage_cals": [

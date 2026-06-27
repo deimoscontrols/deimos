@@ -3,7 +3,7 @@
   "serial_number": 1,
   "channel": "ain8",
   "signal_name": "p1_rtd_1.temperature_K",
-  "datestamp_utc": "2026-06-25T015852Z",
+  "datestamp_utc": "2026-06-27T130545Z",
   "rtd_reference_current_a": 0.00025,
   "rtd_frontend_gain": 25.7,
   "temperature_error_fit": {

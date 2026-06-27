@@ -1,7 +1,7 @@
 {
   "model": "deimos_daq_rev7",
   "serial_number": 1,
-  "datestamp_utc": "2026-06-25T015850Z",
+  "datestamp_utc": "2026-06-27T130543Z",
   "records": [
     {
       "source": "/home/jlogan/git/deimos/software/deimos/../deimos_website/docs/records/DeimosDaqRev7/1/deimos_daq_rev7_sn1_0_15V_0_2026-06-25T014626Z/deimos_daq_rev7_sn1_0_15V_0_2026-06-25T014626Z_replay.csv",

@@ -329,10 +329,10 @@ impl CalibrationChannel {
 
     fn error_accuracy_label(self) -> &'static str {
         match self.kind {
-            CalibrationKind::Current4To20 => "Fluke 707 accuracy range",
-            CalibrationKind::Rtd => "VA720 accuracy range",
-            CalibrationKind::Thermocouple => "VA710 approximate accuracy range",
-            CalibrationKind::Voltage => "Fluke 707 voltage accuracy range",
+            CalibrationKind::Current4To20 => "Fluke 707 accuracy",
+            CalibrationKind::Rtd => "VA720 accuracy",
+            CalibrationKind::Thermocouple => "VA710 approximate accuracy",
+            CalibrationKind::Voltage => "Fluke 707 voltage accuracy",
         }
     }
 
@@ -409,10 +409,10 @@ impl CalibrationChannel {
 
     fn residual_accuracy_label(self) -> &'static str {
         match self.kind {
-            CalibrationKind::Current4To20 => "Fluke 707 accuracy range",
-            CalibrationKind::Rtd => "VA720 accuracy range",
-            CalibrationKind::Thermocouple => "VA710 approximate accuracy range",
-            CalibrationKind::Voltage => "Fluke 707 voltage accuracy range",
+            CalibrationKind::Current4To20 => "Fluke 707 accuracy",
+            CalibrationKind::Rtd => "VA720 accuracy",
+            CalibrationKind::Thermocouple => "VA710 approximate accuracy",
+            CalibrationKind::Voltage => "Fluke 707 voltage accuracy",
         }
     }
 
@@ -516,6 +516,14 @@ struct VoltageFit {
     expected_y: Vec<f64>,
     residuals: Vec<f64>,
     temperature_error_fit: Option<NormalizedLinearFit>,
+}
+
+#[derive(Debug)]
+struct PlotMeanUncertainty {
+    mean_x: Vec<f64>,
+    mean_y: Vec<f64>,
+    uncertainty_x: Vec<f64>,
+    uncertainty_y: Vec<f64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -2399,6 +2407,60 @@ fn accuracy_band_xy(
     (x, y)
 }
 
+fn plot_mean_uncertainty(reference: &[f64], values: &[f64]) -> PlotMeanUncertainty {
+    let mut groups: Vec<(f64, Vec<f64>)> = Vec::new();
+    for (&x, &y) in reference.iter().zip(values) {
+        if let Some((_, group_values)) = groups
+            .iter_mut()
+            .find(|(group_x, _)| same_reference_level(*group_x, x))
+        {
+            group_values.push(y);
+        } else {
+            groups.push((x, vec![y]));
+        }
+    }
+
+    let mut mean_x = Vec::with_capacity(groups.len());
+    let mut mean_y = Vec::with_capacity(groups.len());
+    let mut uncertainty_x = Vec::with_capacity(groups.len() * 2);
+    let mut uncertainty_y = Vec::with_capacity(groups.len() * 2);
+    for (x, group_values) in groups {
+        let n = group_values.len();
+        let mean = group_values.iter().sum::<f64>() / n as f64;
+        let uncertainty = if n > 1 {
+            let variance = group_values
+                .iter()
+                .map(|value| {
+                    let centered = value - mean;
+                    centered * centered
+                })
+                .sum::<f64>()
+                / (n - 1) as f64;
+            3.0 * variance.sqrt() / ((n - 1) as f64).sqrt()
+        } else {
+            0.0
+        };
+
+        mean_x.push(x);
+        mean_y.push(mean);
+        uncertainty_x.push(x);
+        uncertainty_y.push(mean + uncertainty);
+        uncertainty_x.push(x);
+        uncertainty_y.push(mean - uncertainty);
+    }
+
+    PlotMeanUncertainty {
+        mean_x,
+        mean_y,
+        uncertainty_x,
+        uncertainty_y,
+    }
+}
+
+fn same_reference_level(a: f64, b: f64) -> bool {
+    (a - b).abs() <= f64::EPSILON * a.abs().max(b.abs()).max(1.0)
+}
+
 fn thermocouple_cold_junction_json_record(
     capture: &ChannelCapture,
 ) -> Result<ThermocoupleColdJunctionJsonRecord, String> {
@@ -2573,6 +2635,7 @@ fn write_analysis_plot(
             CalibrationKind::Voltage => sample.error_a,
         })
         .collect::<Vec<_>>();
+    let error_mean_uncertainty = plot_mean_uncertainty(&accepted_reference_display, &error_plot_y);
     let min_error_reference = accepted_reference_display
         .iter()
         .copied()
@@ -2593,6 +2656,7 @@ fn write_analysis_plot(
         });
     let max_abs_error = error_plot_y
         .iter()
+        .chain(error_mean_uncertainty.uncertainty_y.iter())
         .map(|error| error.abs())
         .fold(0.0, f64::max);
     let max_abs_error_accuracy = error_accuracy_y
@@ -2635,6 +2699,7 @@ fn write_analysis_plot(
         .iter()
         .map(|sample| sample.reference_a * display_scale)
         .collect::<Vec<_>>();
+    let residual_mean_uncertainty = plot_mean_uncertainty(&fit_residual_reference, &fit_residual_y);
     let voltage_fit_label = fit_label(capture.channel, &analysis.voltage_fit);
     let cold_junction_label_html = if let Some(cold_junction_label) = cold_junction_label(capture)?
     {
@@ -2647,8 +2712,8 @@ fn write_analysis_plot(
     };
     let residual_trace_name = match capture.channel.kind {
         CalibrationKind::Current4To20 => "Fit residual as current",
-        CalibrationKind::Rtd => "Propagated temperature residual",
-        CalibrationKind::Thermocouple => "Propagated temperature residual",
+        CalibrationKind::Rtd => "Temperature residual",
+        CalibrationKind::Thermocouple => "Temperature residual",
         CalibrationKind::Voltage => "Voltage fit residual",
     };
 
@@ -2710,6 +2775,7 @@ fn write_analysis_plot(
     );
     let max_abs_residual = fit_residual_y
         .iter()
+        .chain(residual_mean_uncertainty.uncertainty_y.iter())
         .map(|residual| residual.abs())
         .fold(0.0, f64::max);
     let max_abs_residual_accuracy = residual_accuracy_y
@@ -2785,6 +2851,10 @@ const acceptedReference = {accepted_reference_display};
 const referenceStepTimeS = {reference_step_time_s};
 const referenceStepMA = {reference_step_ma};
 const errorPlotY = {error_plot_y};
+const errorMeanX = {error_mean_x};
+const errorMeanY = {error_mean_y};
+const errorUncertaintyX = {error_uncertainty_x};
+const errorUncertaintyY = {error_uncertainty_y};
 const errorAccuracyX = {error_accuracy_x};
 const errorAccuracyY = {error_accuracy_y};
 const errorYAxisRange = {error_y_axis_range};
@@ -2798,8 +2868,13 @@ const residualAccuracyY = {residual_accuracy_y};
 const residualYAxisRange = {residual_y_axis_range};
 const fitResidualReference = {fit_residual_reference};
 const fitResidualY = {fit_residual_y};
+const residualMeanX = {residual_mean_x};
+const residualMeanY = {residual_mean_y};
+const residualUncertaintyX = {residual_uncertainty_x};
+const residualUncertaintyY = {residual_uncertainty_y};
 const textColor = {text_color_js};
 const traceColor = {trace_color};
+const statisticColor = "#2f80ed";
 const plotBackground = {plot_background};
 const gridColor = {grid_color};
 const boxFillColor = {box_fill_color};
@@ -2883,6 +2958,7 @@ Plotly.newPlot("relative-error", [
         y: errorPlotY,
         type: "box",
         name: "Error distribution",
+        showlegend: false,
         boxpoints: false,
         boxmean: "sd",
         line: {{ width: 2, color: traceColor }},
@@ -2894,15 +2970,32 @@ Plotly.newPlot("relative-error", [
         y: errorPlotY,
         mode: "markers",
         type: "scatter",
-        name: "Accepted samples",
-        marker: {{ size: 4, color: traceColor }}
+        name: "Samples",
+        opacity: 0.5,
+        marker: {{ symbol: "line-ew", size: 8, color: traceColor, line: {{ width: 1, color: traceColor }} }}
+    }},
+    {{
+        x: errorMeanX,
+        y: errorMeanY,
+        mode: "markers",
+        type: "scatter",
+        name: "Mean",
+        marker: {{ symbol: "diamond", size: 9, color: statisticColor }}
+    }},
+    {{
+        x: errorUncertaintyX,
+        y: errorUncertaintyY,
+        mode: "markers",
+        type: "scatter",
+        name: "3σ u<sub>μ</sub>",
+        marker: {{ symbol: "line-ew", size: 16, color: statisticColor, line: {{ width: 2, color: statisticColor }} }}
     }}
 ], themedLayout({{
-    title: {{ text: {error_plot_title} }},
+    title: {{ text: {error_plot_title}, y: 1.12, yanchor: "bottom" }},
     xaxis: {{ title: {{ text: {reference_axis_label}, standoff: 16 }}, automargin: true }},
     yaxis: {{ title: {{ text: {error_axis_label}, standoff: 18 }}, range: errorYAxisRange, automargin: true }},
     boxmode: "group",
-    margin: {{ l: 88, r: 24, t: 72, b: 78 }}
+    margin: {{ l: 88, r: 24, t: 112, b: 78 }}
 }}), {{ responsive: true }});
 
 Plotly.newPlot("voltage-fit", [
@@ -2946,6 +3039,7 @@ Plotly.newPlot("voltage-fit-residual", [
         y: fitResidualY,
         type: "box",
         name: "Residual distribution",
+        showlegend: false,
         boxpoints: false,
         boxmean: "sd",
         line: {{ width: 2, color: traceColor }},
@@ -2958,14 +3052,31 @@ Plotly.newPlot("voltage-fit-residual", [
         mode: "markers",
         type: "scatter",
         name: {residual_trace_name},
-        marker: {{ size: 5, color: traceColor }}
+        opacity: 0.5,
+        marker: {{ symbol: "line-ew", size: 8, color: traceColor, line: {{ width: 1, color: traceColor }} }}
+    }},
+    {{
+        x: residualMeanX,
+        y: residualMeanY,
+        mode: "markers",
+        type: "scatter",
+        name: "Mean",
+        marker: {{ symbol: "diamond", size: 9, color: statisticColor }}
+    }},
+    {{
+        x: residualUncertaintyX,
+        y: residualUncertaintyY,
+        mode: "markers",
+        type: "scatter",
+        name: "3σ u<sub>μ</sub>",
+        marker: {{ symbol: "line-ew", size: 16, color: statisticColor, line: {{ width: 2, color: statisticColor }} }}
     }}
 ], themedLayout({{
-    title: {{ text: {residual_plot_title} }},
+    title: {{ text: {residual_plot_title}, y: 1.12, yanchor: "bottom" }},
     xaxis: {{ title: {{ text: {residual_x_axis_label}, standoff: 16 }}, automargin: true }},
     yaxis: {{ title: {{ text: {residual_axis_label}, standoff: 18 }}, range: residualYAxisRange, automargin: true }},
     boxmode: "group",
-    margin: {{ l: 88, r: 24, t: 72, b: 78 }}
+    margin: {{ l: 88, r: 24, t: 112, b: 78 }}
 }}), {{ responsive: true }});
 </script>
 </body>
@@ -3003,6 +3114,14 @@ Plotly.newPlot("voltage-fit-residual", [
             .map_err(|e| format!("Failed to serialize plot reference-step data: {e}"))?,
         error_plot_y = serde_json::to_string(&error_plot_y)
             .map_err(|e| format!("Failed to serialize plot relative-error y data: {e}"))?,
+        error_mean_x = serde_json::to_string(&error_mean_uncertainty.mean_x)
+            .map_err(|e| format!("Failed to serialize plot error mean x data: {e}"))?,
+        error_mean_y = serde_json::to_string(&error_mean_uncertainty.mean_y)
+            .map_err(|e| format!("Failed to serialize plot error mean y data: {e}"))?,
+        error_uncertainty_x = serde_json::to_string(&error_mean_uncertainty.uncertainty_x)
+            .map_err(|e| format!("Failed to serialize plot error uncertainty x data: {e}"))?,
+        error_uncertainty_y = serde_json::to_string(&error_mean_uncertainty.uncertainty_y)
+            .map_err(|e| format!("Failed to serialize plot error uncertainty y data: {e}"))?,
         error_accuracy_x = serde_json::to_string(&error_accuracy_x)
             .map_err(|e| format!("Failed to serialize plot error accuracy x data: {e}"))?,
         error_accuracy_y = serde_json::to_string(&error_accuracy_y)
@@ -3033,6 +3152,14 @@ Plotly.newPlot("voltage-fit-residual", [
             .map_err(|e| format!("Failed to serialize plot fit residual x data: {e}"))?,
         fit_residual_y = serde_json::to_string(&fit_residual_y)
             .map_err(|e| format!("Failed to serialize plot fit residual current data: {e}"))?,
+        residual_mean_x = serde_json::to_string(&residual_mean_uncertainty.mean_x)
+            .map_err(|e| format!("Failed to serialize plot residual mean x data: {e}"))?,
+        residual_mean_y = serde_json::to_string(&residual_mean_uncertainty.mean_y)
+            .map_err(|e| format!("Failed to serialize plot residual mean y data: {e}"))?,
+        residual_uncertainty_x = serde_json::to_string(&residual_mean_uncertainty.uncertainty_x)
+            .map_err(|e| format!("Failed to serialize plot residual uncertainty x data: {e}"))?,
+        residual_uncertainty_y = serde_json::to_string(&residual_mean_uncertainty.uncertainty_y)
+            .map_err(|e| format!("Failed to serialize plot residual uncertainty y data: {e}"))?,
         residual_trace_name = serde_json::to_string(residual_trace_name)
             .map_err(|e| format!("Failed to serialize residual trace name: {e}"))?,
         error_plot_title = serde_json::to_string(capture.channel.error_plot_title())
