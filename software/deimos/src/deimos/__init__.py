@@ -1,4 +1,5 @@
 from importlib.metadata import PackageNotFoundError, version
+import sys
 
 from .deimos import (
     calc,
@@ -6,11 +7,18 @@ from .deimos import (
     peripheral,
     socket,
     Controller,
+    RunHandle,
+    Snapshot,
     Overflow,
     Termination,
     LossOfContactPolicy,
     LoopMethod,
 )
+
+sys.modules[__name__ + ".calc"] = calc
+sys.modules[__name__ + ".dispatcher"] = dispatcher
+sys.modules[__name__ + ".peripheral"] = peripheral
+sys.modules[__name__ + ".socket"] = socket
 
 try:
     __version__ = version("deimos-daq")
@@ -23,6 +31,8 @@ __all__ = [
     "peripheral",
     "socket",
     "Controller",
+    "RunHandle",
+    "Snapshot",
     "Overflow",
     "Termination",
     "LossOfContactPolicy",
