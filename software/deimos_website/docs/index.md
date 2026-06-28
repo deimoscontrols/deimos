@@ -8,7 +8,7 @@ hide:
 
 <section class="home-hero">
   <div class="home-hero__intro">
-    <p class="home-hero__eyebrow">Ethernet DAQ and control hardware</p>
+    <p class="home-hero__eyebrow">Open-Source Ethernet DAQ and Control Hardware</p>
     <h2>Accuracy, Speed, Control.<br><b><i>Pick three.</i></b></h2>
     <p class="home-hero__lede">
       Deimos DAQ integrates measurement and real-time controls
