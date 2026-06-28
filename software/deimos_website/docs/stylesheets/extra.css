@@ -238,6 +238,11 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
 
     .home-hero__intro {
         min-height: 0;
+        order: 2;
+    }
+
+    .home-cta {
+        order: 1;
     }
 
     .home-feature-grid,
