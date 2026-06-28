@@ -235,6 +235,63 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
     object-fit: contain;
 }
 
+.zoomable-image {
+    cursor: zoom-in;
+}
+
+.zoomable-image:focus-visible {
+    outline: 2px solid var(--deimos-teal);
+    outline-offset: 4px;
+}
+
+.image-zoom-dialog {
+    max-width: 96vw;
+    max-height: 96vh;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.image-zoom-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.84);
+}
+
+.image-zoom-dialog img {
+    display: block;
+    max-width: 96vw;
+    max-height: 96vh;
+    border-radius: 8px;
+    background: #2b2f3a;
+    object-fit: contain;
+}
+
+.image-zoom-dialog__close {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid var(--deimos-panel-border);
+    border-radius: 50%;
+    background: #2b2f3a;
+    color: var(--md-default-fg-color);
+    cursor: pointer;
+    font: inherit;
+    font-size: 1.7rem;
+    line-height: 1;
+}
+
+.image-zoom-dialog__close:focus-visible {
+    outline: 2px solid var(--deimos-teal);
+    outline-offset: 3px;
+}
+
+.product-splash-image {
+    display: block;
+    width: 100%;
+    border-radius: 8px;
+}
+
 @media (max-width: 58rem) {
     .home-hero,
     .home-section--split {

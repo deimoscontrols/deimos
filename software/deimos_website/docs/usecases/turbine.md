@@ -1,3 +1,8 @@
+---
+hide:
+- toc
+---
+
 # Use-Case: Turbine Engine R&D
 
 In this example, two Deimos Analog I units provide simultaneous remote monitoring and actuation for both the fluid supply
@@ -7,7 +12,7 @@ The **broad set of inputs and outputs** of each DAQ support measurement of tempe
 along with PWM and voltage outputs in a single module that is **simple, inexpensive, and alleviates configuration burden**
 compared to conventional fragmented backplane systems.
 
-![image](../assets/usecase_turbine.svg)
+![Turbine engine R&D use-case diagram](../assets/usecase_turbine.svg){ .zoomable-image }
 
 This allows respecting a generous minimum safe distance between three mutually-incompatible areas
 

@@ -36,7 +36,7 @@ hide:
   </div>
 
   <aside class="home-cta" aria-labelledby="home-cta-title">
-    <img src="assets/DSC02285.jpg" alt="Deimos DAQ hardware" class="home-cta__image">
+    <img src="assets/DSC02285.jpg" alt="Deimos DAQ hardware" class="home-cta__image zoomable-image">
     <div class="home-cta__body">
       <p class="home-cta__eyebrow">Pre-launch updates</p>
       <h2 id="home-cta-title">Follow development and availability.</h2>
@@ -101,7 +101,7 @@ hide:
     </p>
     <a class="md-button" href="products/frontends/">Explore Frontends</a>
   </div>
-  <img src="assets/sk_3kHz.svg" alt="Sallen-Key filter schematic">
+  <img src="assets/sk_3kHz.svg" alt="Sallen-Key filter schematic" class="zoomable-image">
 </section>
 
 <section class="home-section">
@@ -109,15 +109,15 @@ hide:
   <div class="home-use-cases">
     <a class="home-use-case" href="usecases/turbine/">
       <span>Fluid Systems</span>
-      <img src="assets/usecase_turbine.svg" alt="">
+      <img src="assets/usecase_turbine.svg" alt="Fluid systems use-case diagram" class="zoomable-image">
     </a>
     <a class="home-use-case" href="usecases/motor/">
       <span>Electric Motors</span>
-      <img src="assets/usecase_motor.svg" alt="">
+      <img src="assets/usecase_motor.svg" alt="Electric motors use-case diagram" class="zoomable-image">
     </a>
     <a class="home-use-case" href="usecases/plating/">
       <span>Chemical Processing</span>
-      <img src="assets/usecase_processing.svg" alt="">
+      <img src="assets/usecase_processing.svg" alt="Chemical processing use-case diagram" class="zoomable-image">
     </a>
   </div>
 </section>

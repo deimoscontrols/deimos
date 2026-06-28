@@ -51,6 +51,7 @@ extra_css:
 
 extra_javascript:
   - javascripts/contact-form.js
+  - javascripts/image-zoom.js
 
 markdown_extensions:
   - pymdownx.highlight:
