@@ -33,7 +33,7 @@ pub use dispatcher::DataFrameDispatcher;
 pub use dispatcher::TimescaleDbDispatcher;
 pub use peripheral::{HootlDriver, HootlPeripheral, HootlRunHandle, HootlTransport};
 
-/// [bytes] Fixed maximum size of socket packets.
+/// \[bytes\] Fixed maximum size of socket packets.
 pub const SOCKET_BUFFER_LEN: usize = 1522;
 
 #[cfg(feature = "python")]

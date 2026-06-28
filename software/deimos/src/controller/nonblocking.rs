@@ -140,14 +140,14 @@ pub struct Snapshot {
     /// Cycle-end UTC system time in RFC3339 format with nanoseconds.
     pub system_time: String,
 
-    /// [ns] Cycle-end time in nanoseconds since the start of run.
+    /// \[ns\] Cycle-end time in nanoseconds since the start of run.
     pub timestamp: i64,
 
     /// Map of the latest readings from all peripherals and calcs.
     pub values: HashMap<String, f64>,
 }
 
-/// A handle to a [Controller] running via [Controller::run_nonblocking] that allows
+/// A handle to a [`super::Controller`] running via [`super::Controller::run_nonblocking`] that allows
 /// reading and writing values from outside the control program during operation
 /// and signaling the controller to shut down.
 ///

@@ -3,7 +3,7 @@
 use levenberg_marquardt::{LeastSquaresProblem, LevenbergMarquardt};
 use nalgebra::{DMatrix, DVector, Dyn, storage::Owned};
 
-/// Evaluate a polynomial with coeffs ordered by increasing order (c[0] + [c1]*x + ...)
+/// Evaluate a polynomial with coeffs ordered by increasing order (`c[0] + c[1] * x + ...`).
 #[inline]
 pub fn polyval(x: f64, c: &[f64]) -> f64 {
     // Horner's Method for efficient polynomial evaluation using one multiply-add
