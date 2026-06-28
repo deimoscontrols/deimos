@@ -69,7 +69,7 @@ hide:
     </div>
   </aside>
 </section>
-
+<!-- 
 <section class="home-section">
   <h2>[Write a heading for what Deimos DAQ helps people do.]</h2>
   <div class="home-feature-grid">
@@ -116,4 +116,4 @@ hide:
       <img src="assets/usecase_processing.svg" alt="">
     </a>
   </div>
-</section>
+</section> -->
