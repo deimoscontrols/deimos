@@ -24,5 +24,5 @@ found under permissive licenses in the [Deimos project repository](https://githu
 | Voltage Reference | 0.02% accuracy, 2.5V, ultra-low thermal sensitivity. |
 | ADCs | 16-bit SAR, self-calibrating on every bootup. |
 | Internal Samplerate | 33kHz burst-scanning w/ synthetic simultaneous sampling. |
-| Onboard Filtering | Every analog channel has:<br>- Active analog filter<br>- Digital Butterworth IIR anti-aliasing filter<br>- Lagrange polynomial fractional-delay FIR sample synchronization filter |
-| Supply Voltage | 24V DC |
+| Onboard Filtering | Every analog channel has:<br>- Active analog filter.<br>- Digital anti-aliasing filter.<br>- Digital sample synchronization filter. |
+| Power Supply | 24V DC 1A |

@@ -6,8 +6,6 @@ hide:
 
 # Deimos DAQ - Frontend Dynamics
 
-## :material-chart-bell-curve:{ .lg .middle } Analog Frontend Response
-
   <iframe
     class="bode-plot"
     src="../../assets/rev7_bode_100hz_frontend_dark.html"
