@@ -98,7 +98,7 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
 }
 
 .home-hero__facts dt {
-    color: var(--deimos-muted);
+    color: var(--deimos-teal);
     font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -126,7 +126,7 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
     padding: clamp(1rem, 3vw, 1.4rem);
 }
 
-.home-cta p {
+.home-cta p:not(.home-cta__eyebrow) {
     color: var(--md-default-fg-color);
 }
 
@@ -183,6 +183,11 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
 
 .home-feature h3 {
     margin-top: 0;
+    color: var(--deimos-teal);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .home-feature p,

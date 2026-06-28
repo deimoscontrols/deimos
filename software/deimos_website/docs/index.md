@@ -39,9 +39,10 @@ hide:
     <img src="assets/DSC02285.jpg" alt="Deimos DAQ hardware" class="home-cta__image">
     <div class="home-cta__body">
       <p class="home-cta__eyebrow">Pre-launch updates</p>
-      <h2 id="home-cta-title">[Write the mailing list call-to-action.]</h2>
+      <h2 id="home-cta-title">Follow development and availability.</h2>
       <p>
-        [Write a short sentence about what subscribers will receive and how often.]
+        Sign up for monthly development updates and be the first to hear when
+        units are in-stock and ready to ship!
       </p>
       <form
         class="home-signup"
