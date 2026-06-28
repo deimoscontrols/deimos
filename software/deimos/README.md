@@ -184,18 +184,20 @@ The rev7 firmware's IPv4 address manager follows this state machine:
 stateDiagram-v2
     direction LR
 
-    [*] --> Unconfigured
+    classDef a stroke-width:2px
 
-    Unconfigured --> TentativeFallback: Claim next MAC-derived<br>static address candidate
-    Unconfigured --> ActiveDhcp: DHCP configured
+    [*] --> Unconfigured:::a
 
-    TentativeFallback --> ActiveFallback: No ARP conflict
-    TentativeFallback --> Unconfigured: ARP conflict
-    TentativeFallback --> ActiveDhcp: DHCP configured
+    Unconfigured --> TentativeFallback:::a : Claim next MAC-derived<br>static address candidate
+    Unconfigured --> ActiveDhcp:::a : DHCP configured
 
-    ActiveFallback --> ActiveDhcp: DHCP configured
+    TentativeFallback --> ActiveFallback:::a : No ARP conflict
+    TentativeFallback --> Unconfigured:::a : ARP conflict
+    TentativeFallback --> ActiveDhcp:::a : DHCP configured
 
-    ActiveDhcp --> Unconfigured: DHCP deconfigured
+    ActiveFallback --> ActiveDhcp:::a : DHCP configured
+
+    ActiveDhcp:::a --> Unconfigured: DHCP deconfigured
 ```
 
 To connect directly without a router,
