@@ -4,12 +4,12 @@ hide:
   - navigation
 ---
 
-# Deimos DAQ
+# 
 
 <section class="home-hero">
   <div class="home-hero__intro">
     <p class="home-hero__eyebrow">Ethernet DAQ and control hardware</p>
-    <h2>[Write the short landing-page promise for Deimos DAQ.]</h2>
+    <h2>Accuracy, Speed, Control:<br><i>pick three.</i></h2>
     <p class="home-hero__lede">
       [Write one or two sentences explaining what the product is, who it is for,
       and why it is different from generic lab I/O.]
@@ -72,12 +72,12 @@ hide:
   <h2>[Write a heading for what Deimos DAQ helps people do.]</h2>
   <div class="home-feature-grid">
     <article class="home-feature">
-      <h3>Controls</h3>
-      <p>[Write a short explanation of the control side of the product.]</p>
-    </article>
-    <article class="home-feature">
       <h3>Data Acquisition</h3>
       <p>[Write a short explanation of the measurement side of the product.]</p>
+    </article>
+    <article class="home-feature">
+      <h3>Controls</h3>
+      <p>[Write a short explanation of the control side of the product.]</p>
     </article>
     <article class="home-feature">
       <h3>Open Source</h3>
