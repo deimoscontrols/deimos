@@ -389,49 +389,26 @@ fn write_interactive_html(
         .rev7-shell {{
             box-sizing: border-box;
             display: flex;
+            flex-wrap: nowrap;
             gap: 6px;
             width: 100%;
             max-width: {report_max_width};
             min-height: {height}px;
             margin: 0 auto;
-            padding: 0 1rem;
+            padding: 0 clamp(0.25rem, 2vw, 1rem);
             background: {paper_background};
             border-left: 1px solid {border};
             border-right: 1px solid {border};
         }}
 
-        @media (max-width: 42rem) {{
-            .rev7-shell {{
-                flex-direction: column;
-                min-height: 0;
-            }}
-
-            .rev7-slider-panel {{
-                flex: 0 0 auto;
-                min-height: 0;
-            }}
-
-            .rev7-slider-label {{
-                writing-mode: horizontal-tb;
-                transform: none;
-            }}
-
-            #reporting-rate-slider {{
-                width: 100%;
-                height: 28px;
-                writing-mode: horizontal-tb;
-                direction: ltr;
-            }}
-        }}
-
         .rev7-slider-panel {{
             box-sizing: border-box;
             display: flex;
-            flex: 0 0 84px;
+            flex: 0 0 clamp(58px, 13vw, 84px);
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 12px;
+            gap: clamp(8px, 2vw, 12px);
             min-height: {height}px;
             color: {foreground};
             font-size: 12px;
@@ -454,7 +431,7 @@ fn write_interactive_html(
         }}
 
         #reporting-rate-value {{
-            min-width: 64px;
+            min-width: 58px;
             text-align: center;
             font-variant-numeric: tabular-nums;
         }}
