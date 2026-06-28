@@ -42,7 +42,8 @@ hide:
       <h2 id="home-cta-title">Follow development and availability.</h2>
       <p>
         Sign up for monthly development updates and be the first to hear when
-        units are in-stock and ready to ship!
+        units are in-stock and ready to ship!<br><br>
+        Interested in beta-testing? Reach out via the <a href="contact/">contact page</a>!
       </p>
       <form
         class="home-signup"
