@@ -11,8 +11,9 @@ hide:
     <p class="home-hero__eyebrow">Ethernet DAQ and control hardware</p>
     <h2>Accuracy, Speed, Control:<br><i>pick three.</i></h2>
     <p class="home-hero__lede">
-      [Write one or two sentences explaining what the product is, who it is for,
-      and why it is different from generic lab I/O.]
+      Deimos DAQ integrates measurement and real-time controls
+      in a single ethernet-connected package for engineers and scientists
+      performing experiments on physical systems. 
     </p>
     <div class="home-hero__actions">
       <a class="md-button md-button--primary" href="products/deimos_daq/">View Product</a>

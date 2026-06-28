@@ -21,6 +21,7 @@ found under permissive licenses in the [Deimos project repository](https://githu
 | Comm. Medium | Ethernet. |
 | Cycle Rate | 5Hz - 5000Hz, round-trip control with full state reassertion. |
 | Multi-Unit Time Sync | ~1 microsecond (100ns typ.) |
+| Sample Jitter | 0.01% of Δt |
 | Voltage Reference | 0.02% accuracy, 2.5V, ultra-low thermal sensitivity. |
 | ADCs | 16-bit SAR, self-calibrating on every bootup. |
 | Internal Samplerate | 33kHz burst-scanning w/ synthetic simultaneous sampling. |
