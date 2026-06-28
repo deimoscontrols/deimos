@@ -20,20 +20,6 @@ const DEIMOS_CONTROLS_RECORD_BASE_URL: &str = "https://deimoscontrols.com/record
 const MAX_CAL_JSON_BYTES: u64 = 5 * 1024 * 1024;
 const CAL_QUERY_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// Instrument used to generate a calibration record.
-///
-/// Calibration procedures can include multiple instruments, for example a
-/// current source, voltage meter, RTD simulator, and thermocouple simulator.
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct Calibrator {
-    /// Instrument manufacturer.
-    pub make: String,
-    /// Instrument model number or model name.
-    pub model: String,
-    /// Instrument serial number.
-    pub serial: String,
-}
-
 /// Basic information to be included in all top-level calibration records.
 ///
 /// This core record is intended to be parseable for every calibration artifact,
@@ -54,8 +40,8 @@ pub struct CalRecordCore {
     pub procedure_version: u16,
     /// UTC timestamp when this record was generated.
     pub generated_at_utc: String,
-    /// Calibrators used by the procedure.
-    pub calibrators: Vec<Calibrator>,
+    /// Records-folder references for calibrators used by the procedure.
+    pub calibrators: Vec<String>,
 }
 
 impl CalRecordCore {
@@ -69,7 +55,7 @@ impl CalRecordCore {
         serial_number: u64,
         procedure: impl Into<String>,
         procedure_version: u16,
-        calibrators: Vec<Calibrator>,
+        calibrators: Vec<String>,
     ) -> Self {
         Self {
             schema_version: CURRENT_CAL_SCHEMA_VERSION,

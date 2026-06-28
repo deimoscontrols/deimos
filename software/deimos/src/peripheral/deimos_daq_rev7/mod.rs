@@ -446,3 +446,87 @@ impl Peripheral for DeimosDaqRev7 {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::peripheral::calibration::CalRecordCore;
+    use serde::Deserialize;
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+    };
+
+    #[derive(Deserialize)]
+    struct SharedCalRecord {
+        core: CalRecordCore,
+    }
+
+    #[test]
+    fn checked_in_calibration_records_deserialize_and_reference_existing_calibrators() {
+        let records_dir =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../deimos_website/docs/records");
+        let mut cal_paths = Vec::new();
+        collect_cal_json_paths(&records_dir, &mut cal_paths);
+        cal_paths.sort();
+
+        assert!(
+            !cal_paths.is_empty(),
+            "No cal.json records found under {}",
+            records_dir.display()
+        );
+
+        for cal_path in cal_paths {
+            let json = fs::read_to_string(&cal_path)
+                .unwrap_or_else(|e| panic!("Failed to read {}: {e}", cal_path.display()));
+            let shared_record =
+                serde_json::from_str::<SharedCalRecord>(&json).unwrap_or_else(|e| {
+                    panic!(
+                        "Failed to parse shared calibration fields in {}: {e}",
+                        cal_path.display()
+                    )
+                });
+
+            let core = if shared_record.core.peripheral_kind == "deimos_daq_rev7" {
+                serde_json::from_str::<CalRecord>(&json)
+                    .unwrap_or_else(|e| {
+                        panic!(
+                            "Failed to parse rev7 calibration in {}: {e}",
+                            cal_path.display()
+                        )
+                    })
+                    .core
+            } else {
+                shared_record.core
+            };
+
+            for calibrator in &core.calibrators {
+                let instrument_path = records_dir
+                    .join("instruments")
+                    .join(calibrator)
+                    .join("instrument.json");
+                assert!(
+                    instrument_path.is_file(),
+                    "{} references missing calibrator record {}",
+                    cal_path.display(),
+                    instrument_path.display()
+                );
+            }
+        }
+    }
+
+    fn collect_cal_json_paths(dir: &Path, cal_paths: &mut Vec<PathBuf>) {
+        for entry in
+            fs::read_dir(dir).unwrap_or_else(|e| panic!("Failed to read {}: {e}", dir.display()))
+        {
+            let path = entry
+                .unwrap_or_else(|e| panic!("Failed to read entry in {}: {e}", dir.display()))
+                .path();
+            if path.is_dir() {
+                collect_cal_json_paths(&path, cal_paths);
+            } else if path.file_name().is_some_and(|name| name == "cal.json") {
+                cal_paths.push(path);
+            }
+        }
+    }
+}
