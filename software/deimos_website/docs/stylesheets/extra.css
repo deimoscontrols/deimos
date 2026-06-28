@@ -191,7 +191,7 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
 }
 
 .home-feature p,
-.home-section p {
+.home-section p:not(.home-cta__eyebrow) {
     color: var(--md-default-fg-color);
 }
 

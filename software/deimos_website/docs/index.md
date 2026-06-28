@@ -9,7 +9,7 @@ hide:
 <section class="home-hero">
   <div class="home-hero__intro">
     <p class="home-hero__eyebrow">Ethernet DAQ and control hardware</p>
-    <h2>Accuracy, Speed, Control:<br><i>pick three.</i></h2>
+    <h2>Accuracy, Speed, Control.<br><b><i>Pick three.</i></b></h2>
     <p class="home-hero__lede">
       Deimos DAQ integrates measurement and real-time controls
       in a single ethernet-connected package for engineers and scientists
@@ -69,31 +69,35 @@ hide:
     </div>
   </aside>
 </section>
-<!-- 
+
+
 <section class="home-section">
-  <h2>[Write a heading for what Deimos DAQ helps people do.]</h2>
+  <!-- <h2>[Write a heading for what Deimos DAQ helps people do.]</h2> -->
   <div class="home-feature-grid">
     <article class="home-feature">
       <h3>Data Acquisition</h3>
-      <p>[Write a short explanation of the measurement side of the product.]</p>
+      <p>Integrated analog frontends make best-in-class data quality.</p>
     </article>
     <article class="home-feature">
       <h3>Controls</h3>
-      <p>[Write a short explanation of the control side of the product.]</p>
+      <p>Multi-module synchronized control, right out of the box.</p>
     </article>
     <article class="home-feature">
       <h3>Open Source</h3>
-      <p>[Write a short explanation of the hardware, firmware, and software openness.]</p>
+      <p>Full transparency from hardware to firmware to software.</p>
     </article>
   </div>
 </section>
 
 <section class="home-section home-section--split">
   <div>
-    <h2>[Write a heading for signal quality / sample path.]</h2>
+    <p class="home-cta__eyebrow">Data Quality</p>
     <p>
-      [Write a concise explanation of accuracy, filtering, timing, and why the
-      sample path matters.]
+      Meticulous signal processing threads the needle to eliminate noise while
+      retaining a tight control response.<br><br>
+      Every analog channel has an active analog anti-aliasing filter backed by a
+      digital filter pipeline that is automatically matched to your chosen samplerate.<br><br>
+      All filters and transfer functions are detailed in the specs and available as open-source software.
     </p>
     <a class="md-button" href="products/frontends/">Explore Frontends</a>
   </div>
@@ -101,7 +105,7 @@ hide:
 </section>
 
 <section class="home-section">
-  <h2>[Write a use-case section heading.]</h2>
+  <p class="home-cta__eyebrow">Measure everything, control anything</p>
   <div class="home-use-cases">
     <a class="home-use-case" href="usecases/turbine/">
       <span>Fluid Systems</span>
@@ -116,4 +120,4 @@ hide:
       <img src="assets/usecase_processing.svg" alt="">
     </a>
   </div>
-</section> -->
+</section>

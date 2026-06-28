@@ -31,7 +31,7 @@ In addition to the conditions shown above, any state may return to `Connecting` 
     * Hardfault, watchdog (stalled processor), and panic errors all cause a reboot into `Connecting`
     * There are no _known_ mechanisms for producing an internal error; this fallback exists to handle the unknowns
 
-### Streaming
+<!-- ### Streaming
 
 Streaming - sending more inputs from the DAQ to the controller than from the controller to the DAQ - is a common
 need for reading inputs at a higher rate in parts of a system with less need for active control.
@@ -39,7 +39,7 @@ need for reading inputs at a higher rate in parts of a system with less need for
 In the future, streaming behavior will be implemented entirely in the control program by simply setting a large value for
 the loss-of-contact missed packet limit and only transmitting every Nth control packet.
 
-Due to the robustness of the DAQ state machine, no modification to the firmware will be required to support streaming.
+Due to the robustness of the DAQ state machine, no modification to the firmware will be required to support streaming. -->
 
 ### State Behaviors
 
@@ -135,23 +135,23 @@ Each component of the system is defined in a Rust **Trait** object, allowing sea
 
 ## :material-account-hard-hat-outline:{ .lg } Safety & Reliability
 
-Deimos DAQs are built with an eye longevity, reliability, and best-effort protection of user hardware.
+Deimos DAQs are built with an eye to longevity, reliability, and best-effort protection of user hardware.
 Notable reliability features include
 
 * Ultra-lean firmware
-    * No operating system, dynamic memory allocation, threading, mutexes, or event-driven interrupts
-    * No over-the-air updates (or self-reprogramming capability of any kind)
-    * Only timer-driven interrupts w/ processor atomics for sharing resources
+    * No operating system, dynamic memory allocation, threading, mutexes, or event-driven interrupts.
+    * No over-the-air updates (or self-reprogramming capability of any kind).
+    * Only timer-driven interrupts w/ processor atomics for sharing resources.
 * Independent watchdog interrupt & well-defined hardfault behavior
     * In the unlikely case of an unexpected internal error, rather than freezing in a given output state,
     the DAQ will reboot and return to an idle state with outputs set to their default (low) values.
-    * Reboot will occur even if the processing state has frozen due to a fully separate watchdog
-* Input overvoltage protection & electrostatic discharge protection
+    * Reboot will occur even if the processing state has frozen due to a fully separate watchdog.
+* Input overvoltage protection & electrostatic discharge protection.
 * All long-life ceramic capacitors; no short-lived electrolytics!
-* Generous cycle timing margin (~85%)
-* Minimal use of memory-unsafe programming
-    * Firmware: memory-unsafe access only as strictly necessary for register access & memory-mapped I/O
-    * Software: zero memory-unsafe operations
+* Generous cycle timing margin (~85%).
+* Minimal use of memory-unsafe programming.
+    * Firmware: memory-unsafe access only as strictly necessary for register access & memory-mapped I/O.
+    * Software: zero memory-unsafe operations.
 
 With that said, the Deimos ecosystem is neither intended nor certified for safety-critical applications.
 
@@ -159,12 +159,13 @@ With that said, the Deimos ecosystem is neither intended nor certified for safet
 
 ## :material-router-network:{ .lg } Networking
 
-Deimos DAQs use wired ethernet for communication. No special networking gear is required,
-but the network must have a DHCP server present to assign IP addresses.
+Deimos DAQs use wired ethernet for communication. No special networking equipment is required.
 
-Any router will provide this,
-or, if there is a desire for a truly minimal configuration, the control server can be configured
-to do so, although this is outside the scope of Deimos software.
+All of the most common network configurations are supported:
+
+* Direct: Connect directly to a control computer's ethernet port.
+* Static: Self-assemble IP addresses on a static network without a router.
+* Dynamic: IP addresses assigned by a router/DHCP server.
 
 ----
 
