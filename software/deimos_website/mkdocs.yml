@@ -109,7 +109,12 @@ nav:
     - "Use-Case: Motor Control": usecases/motor.md
     - "Use-Case: Electroplating": usecases/plating.md
   # - Blog: blog/index.md
-  - Python API: api/api-python.md
+  - Python API:
+    - controller: api/api-python.md
+    - calc: api/python-calcs.md
+    - peripheral: api/python-peripherals.md
+    - socket: api/python-sockets.md
+    - dispatcher: api/python-dispatchers.md
   - Rust API: api/api-rust.md
   - Records:
         - records/index.md

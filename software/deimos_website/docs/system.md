@@ -84,6 +84,33 @@ The behaviors of each state are
 
 ----
 
+### DAQ Address State Machine
+
+DAQs can function on either statically-addressed or dynamically-addressed networks.
+This requires some logic to handle either self-assigning an address or using an
+address provided by a router/DHCP server.
+
+This logic is encapsulated in its own state machine that runs underneath the
+operational state machine.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    [*] --> Unconfigured
+
+    Unconfigured --> TentativeFallback: Claim next MAC-derived<br>static address candidate
+    Unconfigured --> ActiveDhcp: DHCP configured
+
+    TentativeFallback --> ActiveFallback: No ARP conflict
+    TentativeFallback --> Unconfigured: ARP conflict
+    TentativeFallback --> ActiveDhcp: DHCP configured
+
+    ActiveFallback --> ActiveDhcp: DHCP configured
+
+    ActiveDhcp --> Unconfigured: DHCP deconfigured
+```
+
 ## :fontawesome-solid-gears:{ .lg } Software Components
 
 The control system is fully defined in application software, and does not delegate any computation to DAQ modules.
