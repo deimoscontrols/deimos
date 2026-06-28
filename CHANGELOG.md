@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026-06-15 0.18.0
+## 2026-06-28 0.18.0
 
 This update adds calibration procedures for the Rev7 and wires
 calibration handling into the controller, calc orchestrator,
@@ -26,11 +26,18 @@ first set of calibrations.
     * Add calibration-related fields on `controller::Context`
     * Update `CsvDispatcher` to join the thread synchronously during terminate
         * Ensures that data will be present on disk if used immediately after the run; otherwise, the dispatcher thread may still be busy flushing its buffer to disk
+    * Update rustdoc theme
+    * Add more python type stubs and re-export DeimosDaqRev7 peripheral class
+    * Improve python docs
 * deimos_website
     * Add awesome-pages and pagetree plugins
     * Add records/ route and store calibration data and reports there
+    * Update style and content
 * deimos_shared
     * Update rev7_bode to export html to website & remove brittle SVG export
+    * Update rustdoc theme
+* deimos_numerics
+    * Update rustdoc theme
 
 ## 2026-06-08 0.17.0
 
