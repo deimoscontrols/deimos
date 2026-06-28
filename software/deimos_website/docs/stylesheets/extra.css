@@ -72,7 +72,7 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
 
 .home-hero__lede {
     max-width: 42rem;
-    color: var(--deimos-muted);
+    color: var(--md-default-fg-color);
     font-size: 1.05rem;
     line-height: 1.65;
 }
@@ -127,7 +127,7 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
 }
 
 .home-cta p {
-    color: var(--deimos-muted);
+    color: var(--md-default-fg-color);
 }
 
 .home-signup {
@@ -187,7 +187,7 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
 
 .home-feature p,
 .home-section p {
-    color: var(--deimos-muted);
+    color: var(--md-default-fg-color);
 }
 
 .home-section--split {
