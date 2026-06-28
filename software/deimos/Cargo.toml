@@ -16,6 +16,7 @@ crate-type = ["rlib", "cdylib"]
 
 [package.metadata."docs.rs"]
 all-features = true
+rustdoc-args = ["--extend-css", "docs/rustdoc.css", "--default-theme", "dark"]
 
 [dependencies]
 # Packet formats and math shared with hardware

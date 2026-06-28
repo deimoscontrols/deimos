@@ -11,6 +11,10 @@ readme = "./README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--extend-css", "docs/rustdoc.css", "--default-theme", "dark"]
+
 [dependencies]
 byte_struct = "0.9.0"
 deimos_numerics = { path = "../deimos_numerics", version = "0.18.0", default-features = false, optional = true }

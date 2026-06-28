@@ -1,3 +1,8 @@
+---
+hide:
+  - navigation
+---
+
 # Deimos System Overview
 
 ## :material-state-machine:{ .lg } DAQ State Machine

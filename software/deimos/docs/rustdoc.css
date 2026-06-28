@@ -1,0 +1,44 @@
+/* Lightweight Deimos colors for docs.rs/rustdoc output.
+   This intentionally avoids changing rustdoc geometry or component layout. */
+
+.dark {
+    --bg: #0f1218;
+    --fg: #f2f0f6;
+
+    --sidebar-bg: #11161d;
+    --sidebar-fg: #e2e0e8;
+    --sidebar-non-existant: #777280;
+    --sidebar-active: #3db6b2;
+    --sidebar-spacer: rgba(242, 240, 246, 0.12);
+    --sidebar-header-border-color: #3db6b2;
+
+    --scrollbar: #777280;
+    --icons: #a7a2b0;
+    --icons-hover: #f2f0f6;
+    --links: #3db6b2;
+    --inline-code-color: #d8b858;
+
+    --theme-popup-bg: #171b23;
+    --theme-popup-border: rgba(242, 240, 246, 0.16);
+    --theme-hover: rgba(255, 255, 255, 0.055);
+
+    --quote-bg: rgba(255, 255, 255, 0.035);
+    --quote-border: rgba(242, 240, 246, 0.14);
+    --warning-border: #d8b858;
+
+    --table-border-color: rgba(242, 240, 246, 0.14);
+    --table-header-bg: rgba(255, 255, 255, 0.07);
+    --table-alternate-bg: rgba(255, 255, 255, 0.035);
+
+    --searchbar-border-color: rgba(242, 240, 246, 0.2);
+    --searchbar-bg: #171b23;
+    --searchbar-fg: #f2f0f6;
+    --searchbar-shadow-color: rgba(61, 182, 178, 0.42);
+    --searchresults-header-fg: #a7a2b0;
+    --searchresults-border-color: rgba(242, 240, 246, 0.16);
+    --searchresults-li-bg: #171b23;
+    --search-mark-bg: rgba(216, 184, 88, 0.3);
+
+    --footnote-highlight: rgba(61, 182, 178, 0.24);
+    --overlay-bg: rgba(15, 18, 24, 0.72);
+}

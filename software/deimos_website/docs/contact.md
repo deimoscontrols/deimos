@@ -1,3 +1,9 @@
+---
+hide:
+  - toc
+  - navigation
+---
+
 # Contact
 
 Questions, comments, or suggestions? Use this form to send us a note!
