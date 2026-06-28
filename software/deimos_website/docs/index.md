@@ -30,7 +30,7 @@ hide:
       </div>
       <div>
         <dt>Outputs</dt>
-        <dd>6 channels</dd>
+        <dd>10 channels</dd>
       </div>
     </dl>
   </div>
