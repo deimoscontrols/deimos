@@ -53,6 +53,7 @@ class HootlRunHandle:
 
 class HootlPeripheral(_PeripheralBase):
     """Peripheral wrapper that emits mock outputs using driver-owned state."""
+
     ...
 
 class HootlDriver:

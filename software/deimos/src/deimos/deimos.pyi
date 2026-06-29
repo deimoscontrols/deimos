@@ -591,6 +591,7 @@ class _PeripheralModule(ModuleType):
         Note: attach this via Controller.attach_hootl_driver to keep the shared
         driver state intact; JSON roundtrips reset the link.
         """
+
         ...
 
     HootlTransport = HootlTransport
