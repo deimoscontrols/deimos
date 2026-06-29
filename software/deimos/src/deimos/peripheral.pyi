@@ -53,7 +53,7 @@ class HootlRunHandle:
 
 class HootlPeripheral(_PeripheralBase):
     """Peripheral wrapper that emits mock outputs using driver-owned state."""
-    def __init__(self, inner: PeripheralLike) -> None: ...
+    ...
 
 class HootlDriver:
     """A way to operate a hootl driver from outside the control program."""
