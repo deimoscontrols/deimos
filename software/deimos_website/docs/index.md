@@ -1,77 +1,124 @@
-# DAQs
-
-Deimos makes tools for having a conversation with the universe.
-
-The first Deimos DAQ unit is currently in pre-launch; to stay up-to-date on
-development status and availability, sign up for the mailing list below!
-
-<div class="grid cards" markdown>
-
--   :material-speaker-wireless:{ .lg .middle } __Controls__
-
-    ---
-
-    ### **Finding the Right Question**
-    
-    An experiment without controls only asks a single question - and it may not be the right one.
-
--   :material-ear-hearing:{ .lg .middle } __Data Acquisition__
-
-    ---
-
-    ### **Listening for an Answer**
-    
-    The experiment asks questions - data acquisition is how we listen for the response.
-
-</div>
-
+---
+hide:
+  - toc
+  - navigation
 ---
 
-<div class="grid cards" markdown>
+# 
 
--   ### What's in a sample?
+<section class="home-hero">
+  <div class="home-hero__intro">
+    <p class="home-hero__eyebrow">Open-Source Ethernet DAQ and Control Hardware</p>
+    <h2>Accuracy, Speed, Control.<br><b><i>Pick three.</i></b></h2>
+    <p class="home-hero__lede">
+      Deimos DAQ integrates measurement and real-time controls
+      in a single ethernet-connected package for engineers and scientists
+      performing experiments on physical systems. 
+    </p>
+    <div class="home-hero__actions">
+      <a class="md-button md-button--primary" href="products/deimos_daq/">View Product</a>
+      <a class="md-button" href="products/specs/">Read Specs</a>
+    </div>
+    <dl class="home-hero__facts">
+      <div>
+        <dt>Cycle rate</dt>
+        <dd>5 Hz - 5 kHz</dd>
+      </div>
+      <div>
+        <dt>Inputs</dt>
+        <dd>22 channels</dd>
+      </div>
+      <div>
+        <dt>Outputs</dt>
+        <dd>10 channels</dd>
+      </div>
+    </dl>
+  </div>
 
-    ---
+  <aside class="home-cta" aria-labelledby="home-cta-title">
+    <img src="assets/DSC02285.jpg" alt="Deimos DAQ hardware" class="home-cta__image zoomable-image">
+    <div class="home-cta__body">
+      <p class="home-cta__eyebrow">Pre-launch updates</p>
+      <h2 id="home-cta-title">Follow development and availability.</h2>
+      <p>
+        Sign up for monthly development updates and be the first to hear when
+        units are in-stock and ready to ship!<br><br>
+        Interested in beta-testing? Reach out via the <a href="contact/">contact page</a>!
+      </p>
+      <form
+        class="home-signup"
+        action="https://deimoscontrols.us13.list-manage.com/subscribe/post?u=d3f613c56803a4b84867251d4&amp;id=62e300351a&amp;f_id=005103e9f0"
+        method="post"
+        target="home-mailchimp-target"
+      >
+        <label for="home-signup-email">Email</label>
+        <div class="home-signup__row">
+          <input id="home-signup-email" type="email" name="EMAIL" autocomplete="email" required>
+          <button type="submit" class="md-button md-button--primary">Sign Up</button>
+        </div>
+        <input type="text" name="b_d3f613c56803a4b84867251d4_62e300351a" tabindex="-1" value="" hidden>
+      </form>
+      <iframe
+        id="home-mailchimp-target"
+        name="home-mailchimp-target"
+        title="Mailing list signup target"
+        hidden
+      ></iframe>
+      <a class="home-cta__crowd-supply md-button" href="https://www.crowdsupply.com/deimos-controls/deimos-daq" rel="noopener" target="_blank">
+        Follow on Crowd Supply
+      </a>
+    </div>
+  </aside>
+</section>
 
-    Deimos DAQs produce low-noise data with **scientific accuracy** and provide flexibility in **choice of data rate**.
 
-    To achieve this, a meticulous procedure is applied to every piece of information flowing through the system.
+<section class="home-section">
+  <!-- <h2>[Write a heading for what Deimos DAQ helps people do.]</h2> -->
+  <div class="home-feature-grid">
+    <article class="home-feature">
+      <h3>Data Acquisition</h3>
+      <p>Integrated analog frontends make best-in-class data quality.</p>
+    </article>
+    <article class="home-feature">
+      <h3>Controls</h3>
+      <p>Multi-module synchronized control, right out of the box.</p>
+    </article>
+    <article class="home-feature">
+      <h3>Open Source</h3>
+      <p>Full transparency from hardware to firmware to software.</p>
+    </article>
+  </div>
+</section>
 
--   ![image](assets/sk_3kHz.svg)
+<section class="home-section home-section--split">
+  <div>
+    <p class="home-cta__eyebrow">Data Quality</p>
+    <p>
+      Meticulous signal processing threads the needle to eliminate noise while
+      retaining a tight control response.<br><br>
+      Every analog channel has an active analog anti-aliasing filter backed by a
+      digital filter pipeline that is automatically matched to your chosen samplerate.<br><br>
+      All filters and transfer functions are detailed in the specs and available as open-source software.
+    </p>
+    <a class="md-button" href="products/frontends/">Explore Frontends</a>
+  </div>
+  <img src="assets/sk_3kHz.svg" alt="Sallen-Key filter schematic" class="zoomable-image">
+</section>
 
-
-</div>
-
----
-
-### Use-Cases
-
-<div class="grid cards" markdown>
-
--   __Fluid Systems__
-
-    ---
-
-    In addition to general-purpose fluid system development, Deimos DAQs are well-suited for applications requiring **physical separation** between **stored energy** and personnel or equipment.
-
-    [![image](assets/usecase_turbine.svg)](./usecases/turbine.md)
-
--   __Electric Motors__
-
-    ---
-
-    Early development of motor hardware, especially while **developing a control scheme** and **integrating laboratory equipment**, is a prime opportunity to benefit from the flexibility of Deimos DAQs.
-
-    [![image](assets/usecase_motor.svg)](./usecases/motor.md)
-
--   __Chemical Processing__
-
-    ---
-
-    Chemical and electrochemical processes such as plating, etching, electrolysis, and brewing stand to derive immense benefit
-    from Deimos DAQs' **smooth, coordinated controls** and **decision-quality monitoring data**.
-
-    [![image](assets/usecase_processing.svg)](./usecases/plating.md)
-
-</div>
-
+<section class="home-section">
+  <p class="home-cta__eyebrow">Measure everything, control anything</p>
+  <div class="home-use-cases">
+    <a class="home-use-case" href="usecases/turbine/">
+      <span>Fluid Systems</span>
+      <img src="assets/usecase_turbine.svg" alt="Fluid systems use-case diagram" class="zoomable-image">
+    </a>
+    <a class="home-use-case" href="usecases/motor/">
+      <span>Electric Motors</span>
+      <img src="assets/usecase_motor.svg" alt="Electric motors use-case diagram" class="zoomable-image">
+    </a>
+    <a class="home-use-case" href="usecases/plating/">
+      <span>Chemical Processing</span>
+      <img src="assets/usecase_processing.svg" alt="Chemical processing use-case diagram" class="zoomable-image">
+    </a>
+  </div>
+</section>

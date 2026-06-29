@@ -9,43 +9,174 @@
 //! the probe temperature or the connector temperature changing - so to separate the two,
 //! we need some estimate of the connector temperature so that we can adjust it out of the reading.
 //!
-//! Table values are interpolated on (modified) ITS-90 cold junction correction tables in order to invert the inputs,
-//! because the original tables map (cold_junction_temp, hot_junction_temp) => sensed_voltage, while the map
-//! needed in order to interpret a measurement is (cold_junction_temp, sensed_voltage) => hot_junction_temp.
-//! The original tables are modified to reflect the cold junction error at low temperature across 0C
-//! so that all the cold junction temperatures are >= 0, because in the original tables, all table
-//! values at hot junction temperature <0C also use a cold junction temperature <0C.
+//! The K-type thermocouple response is calculated with the NIST ITS-90 temperature-to-voltage
+//! polynomial and a sampled inverse interpolator. Cold-junction correction is applied by converting
+//! the cold-junction temperature to its equivalent thermocouple voltage, adding that to the sensed
+//! thermocouple voltage, and converting the corrected voltage back to a hot-junction temperature.
 //!
 //! ## References
 //!
 //! * [1] “ITS-90 Thermocouple Database, How to Use the Database.”
 //!   Accessed: May 19, 2024. [Online]. Available:
 //!   <https://srdata.nist.gov/its90/useofdatabase/use_of_database.html#Coefficients%20Tables>
-use once_cell::sync::Lazy;
+#![allow(dead_code)]
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
-use interpn::MulticubicRegular;
+use interpn::MulticubicRectilinear;
+use once_cell::sync::Lazy;
 
 use super::*;
+use crate::math::polyval;
 use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
 
-/// Cold-junction-correction interpolator shared between all instances of the calc.
+pub fn ktype_corrected_temp_k(sensed_voltage_v: f64, cold_junction_temperature_k: f64) -> f64 {
+    let cold_junction_voltage_v = ktype_voltage_v(cold_junction_temperature_k);
+    ktype_temp_k(sensed_voltage_v + cold_junction_voltage_v)
+}
+
+pub fn ktype_voltage_v(temperature_k: f64) -> f64 {
+    let temperature_c = temperature_k - ZERO_C_K;
+    let voltage_mv = if temperature_c < 0.0 {
+        polyval(temperature_c, &FORWARD_NEGATIVE_C_TO_MV)
+    } else {
+        polyval(temperature_c, &FORWARD_POSITIVE_C_TO_MV)
+            + FORWARD_EXP_A0 * (FORWARD_EXP_A1 * (temperature_c - FORWARD_EXP_A2).powi(2)).exp()
+    };
+
+    voltage_mv / 1000.0
+}
+
+pub fn ktype_temp_k(voltage_v: f64) -> f64 {
+    ITS90_INVERSE_INTERPOLATOR.interp_one([voltage_v]).unwrap()
+}
+
+const ZERO_C_K: f64 = 273.15;
+const LINEARIZE_EXTRAPOLATION: bool = true;
+
+/// Shared ITS-90 inverse interpolator for the calc-direction K-type conversion.
 ///
-/// This interpolator must be initialized on first access, because the
-/// interpolator's `new` function is not const, but we make sure to call it once during
-/// init so that it does not cause additional cycle delay during the first operating cycle.
-pub static INTERPOLATOR: Lazy<MulticubicRegular<'static, f64, 2>> = Lazy::new(|| {
-    MulticubicRegular::<'_, f64, 2>::new(
-        [SENSED_VOLTAGE_N, COLD_JUNCTION_N],
-        [SENSED_VOLTAGE_START_V, COLD_JUNCTION_TEMP_START_K],
-        [SENSED_VOLTAGE_STEP_V, COLD_JUNCTION_TEMP_STEP_K],
-        &HOT_JUNCTION_TEMP_K,
-        true,
+/// The NIST inverse polynomial only covers down to about -200 C. This table is sampled
+/// from the broader NIST temperature-to-voltage polynomial so the calc can use the
+/// full low-temperature range of the forward fit.
+static ITS90_INVERSE_INTERPOLATOR: Lazy<MulticubicRectilinear<'static, f64, 1>> = Lazy::new(|| {
+    MulticubicRectilinear::<'_, f64, 1>::new(
+        &*ITS90_INVERSE_VOLTAGE_GRID,
+        ITS90_INVERSE_TEMPERATURE_K.as_slice(),
+        LINEARIZE_EXTRAPOLATION,
     )
     .unwrap()
 });
+
+/// Temperatures sampled more densely where the K-type curve has stronger curvature.
+static ITS90_INVERSE_TEMPERATURE_K: Lazy<Vec<f64>> = Lazy::new(|| {
+    let mut temperatures_k = Vec::new();
+
+    // The low-temperature curve changes shape quickly near the lower end of the
+    // ITS-90 fit, so keep this region especially dense.
+    temperatures_k.extend((-270..=-200).map(|temperature_c| temperature_c as f64 + ZERO_C_K));
+
+    // Relax the spacing in stages as the curve becomes smoother.
+    temperatures_k.extend(
+        (-195..=-70)
+            .step_by(5)
+            .map(|temperature_c| temperature_c as f64 + ZERO_C_K),
+    );
+    temperatures_k.extend(
+        (-60..=270)
+            .step_by(10)
+            .map(|temperature_c| temperature_c as f64 + ZERO_C_K),
+    );
+
+    // The high-temperature region is comparatively smooth, so a coarser grid is enough.
+    temperatures_k.extend(
+        (290..=1370)
+            .step_by(20)
+            .map(|temperature_c| temperature_c as f64 + ZERO_C_K),
+    );
+
+    temperatures_k
+});
+
+/// Voltages corresponding to the sampled temperature grid.
+static ITS90_INVERSE_VOLTAGE_V: Lazy<Vec<f64>> = Lazy::new(|| {
+    ITS90_INVERSE_TEMPERATURE_K
+        .iter()
+        .map(|&temperature_k| ktype_voltage_v(temperature_k))
+        .collect()
+});
+
+/// Rectilinear voltage grid wrapper borrowed by the interpolator.
+static ITS90_INVERSE_VOLTAGE_GRID: Lazy<[&'static [f64]; 1]> =
+    Lazy::new(|| [ITS90_INVERSE_VOLTAGE_V.as_slice()]);
+
+const FORWARD_NEGATIVE_C_TO_MV: [f64; 11] = [
+    0.000000000000E+00,
+    0.394501280250E-01,
+    0.236223735980E-04,
+    -0.328589067840E-06,
+    -0.499048287770E-08,
+    -0.675090591730E-10,
+    -0.574103274280E-12,
+    -0.310888728940E-14,
+    -0.104516093650E-16,
+    -0.198892668780E-19,
+    -0.163226974860E-22,
+];
+
+const FORWARD_POSITIVE_C_TO_MV: [f64; 10] = [
+    -0.176004136860E-01,
+    0.389212049750E-01,
+    0.185587700320E-04,
+    -0.994575928740E-07,
+    0.318409457190E-09,
+    -0.560728448890E-12,
+    0.560750590590E-15,
+    -0.320207200030E-18,
+    0.971511471520E-22,
+    -0.121047212750E-25,
+];
+
+const FORWARD_EXP_A0: f64 = 0.118597600000E+00;
+const FORWARD_EXP_A1: f64 = -0.118343200000E-03;
+const FORWARD_EXP_A2: f64 = 0.126968600000E+03;
+
+const INVERSE_NEGATIVE_MV_TO_C: [f64; 10] = [
+    0.0000000E+00,
+    2.5173462E+01,
+    -1.1662878E+00,
+    -1.0833638E+00,
+    -8.9773540E-01,
+    -3.7342377E-01,
+    -8.6632643E-02,
+    -1.0450598E-02,
+    -5.1920577E-04,
+    0.0000000E+00,
+];
+
+const INVERSE_MID_MV_TO_C: [f64; 10] = [
+    0.000000E+00,
+    2.508355E+01,
+    7.860106E-02,
+    -2.503131E-01,
+    8.315270E-02,
+    -1.228034E-02,
+    9.804036E-04,
+    -4.413030E-05,
+    1.057734E-06,
+    -1.052755E-08,
+];
+
+const INVERSE_HIGH_MV_TO_C: [f64; 7] = [
+    -1.318058E+02,
+    4.830222E+01,
+    -1.646031E+00,
+    5.464731E-02,
+    -9.650715E-04,
+    8.802193E-06,
+    -3.110810E-08,
+];
 
 /// Calculate a K-type thermocouple's temperature reading in (K) from voltage,
 /// using the ITS-90 method for cold-junction correction.
@@ -112,8 +243,9 @@ impl Calc for TcKtype {
         self.input_indices = input_indices;
         self.output_index = output_range.clone().next().unwrap();
 
-        // Call the interpolator once to make sure it is initialized
-        INTERPOLATOR.interp_one([0.0, 0.0]).unwrap();
+        // Call the interpolator once during init so the first controller cycle does not
+        // pay the lazy initialization cost.
+        ITS90_INVERSE_INTERPOLATOR.interp_one([0.0]).unwrap();
         Ok(())
     }
 
@@ -127,11 +259,7 @@ impl Calc for TcKtype {
     fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
         let sensed_voltage = tape[self.input_indices[0]];
         let cold_junction_temp = tape[self.input_indices[1]];
-        // An error here would indicate that we have encountered an unrepresentable number during interpolation.
-        // As of writing, no method of producing an error here is known.
-        let y = INTERPOLATOR
-            .interp_one([sensed_voltage, cold_junction_temp])
-            .unwrap();
+        let y = ktype_corrected_temp_k(sensed_voltage, cold_junction_temp);
 
         tape[self.output_index] = y;
         Ok(())
@@ -174,17 +302,58 @@ impl Calc for TcKtype {
 #[cfg(test)]
 #[allow(clippy::items_after_test_module)]
 mod test {
-    use super::INTERPOLATOR;
+    use super::{ZERO_C_K, ktype_corrected_temp_k, ktype_temp_k, ktype_voltage_v};
 
     #[test]
-    fn test_interpolator() {
-        // Check the interpolator against a value from the table
-        // with cold junction temperature inverted relative to the table
-        let inp = [-3.18 / 1e3, -2.0 + 273.15];
-        let interped = INTERPOLATOR.interp_one(inp).unwrap();
-        let expected = -90.0 + 273.15;
-        let rel_err = (interped - expected) / expected;
-        assert!(rel_err.abs() < 1e-5);
+    fn forward_polynomial_matches_nist_table_points() {
+        let reference_points = [
+            (-200.0, -5.891e-3),
+            (0.0, 0.0),
+            (500.0, 20.644e-3),
+            (1000.0, 41.276e-3),
+        ];
+
+        for (temperature_c, expected_v) in reference_points {
+            let got_v = ktype_voltage_v(temperature_c + ZERO_C_K);
+            assert!(
+                (got_v - expected_v).abs() < 1.0e-6,
+                "temperature_c={temperature_c}, got_v={got_v}, expected_v={expected_v}"
+            );
+        }
+    }
+
+    #[test]
+    fn inverse_interpolator_matches_nist_table_points() {
+        let reference_points = [
+            (ktype_voltage_v(-270.0 + ZERO_C_K), -270.0),
+            (-5.891e-3, -200.0),
+            (0.0, 0.0),
+            (20.644e-3, 500.0),
+            (41.276e-3, 1000.0),
+            (ktype_voltage_v(1370.0 + ZERO_C_K), 1370.0),
+        ];
+
+        for (voltage_v, expected_c) in reference_points {
+            let got_k = ktype_temp_k(voltage_v);
+            let expected_k = expected_c + ZERO_C_K;
+            assert!(
+                (got_k - expected_k).abs() < 0.1,
+                "voltage_v={voltage_v}, got_k={got_k}, expected_k={expected_k}"
+            );
+        }
+    }
+
+    #[test]
+    fn helper_applies_cold_junction_correction() {
+        let hot_junction_k = 100.0 + ZERO_C_K;
+        let cold_junction_k = 20.0 + ZERO_C_K;
+        let hot_voltage_v = ktype_voltage_v(hot_junction_k);
+        let cold_voltage_v = ktype_voltage_v(cold_junction_k);
+        let sensed_voltage_v = hot_voltage_v - cold_voltage_v;
+
+        let got_k = ktype_corrected_temp_k(sensed_voltage_v, cold_junction_k);
+
+        assert!((got_k - hot_junction_k).abs() < 0.1);
     }
 }
 

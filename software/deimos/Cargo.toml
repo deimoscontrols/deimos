@@ -16,16 +16,20 @@ crate-type = ["rlib", "cdylib"]
 
 [package.metadata."docs.rs"]
 all-features = true
+rustdoc-args = ["--extend-css", "docs/rustdoc.css", "--default-theme", "dark"]
 
 [dependencies]
-# Packet formats shared with hardware
-deimos_shared = { path = "../deimos_shared", version = "0.17.0" }
+# Packet formats and math shared with hardware
+deimos_shared = { path = "../deimos_shared", version = "0.18.0" }
+deimos_numerics = { path = "../deimos_numerics", version = "0.18.0" }
 
 # Control loop
 chrono = { version = "^0.4.42", features = ["std"], default-features = false }  # timestamp formatting
 core_affinity = "^0.8.3"
-branches = { version = "^0.4.3", default-features = false }
-deimos_numerics = { path = "../deimos_numerics", version = "0.17.0" }
+branches = { version = "^0.4.4", default-features = false }
+socket2 = "^0.6.4"
+network-interface = "^2.0"
+reqwest = { version = "^0.12.28", default-features = false, features = ["blocking", "rustls-tls"] }
 
 # Calcs
 interpn = { version = "^0.11.0", default-features = false, features = ["fma"] }
@@ -43,8 +47,7 @@ typetag = "^0.2"
 serde_json = { version = "^1", features = ["preserve_order"] }
 csv = "^1.4.0"
 postcard = { version = "1", features = ["alloc"] }
-socket2 = "^0.5"
-network-interface = "^2.0"
+zip = "^8"
 
 # Timescale DB / Postgres interface
 postgres = "^0.19.10"
@@ -56,7 +59,7 @@ tracing-appender = "^0.2.3"
 tracing-subscriber = { version = "^0.3.20", features = ["fmt", "env-filter", "chrono"] }
 
 # Python bindings
-pyo3 = { version = "0.28.2", features = ["extension-module", "abi3-py311", "generate-import-lib"], optional = true }
+pyo3 = { version = "0.29.0", features = ["extension-module", "abi3-py311", "generate-import-lib"], optional = true }
 
 [features]
 # default = ["python"]  # For development

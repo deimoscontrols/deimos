@@ -30,7 +30,56 @@ pub use deimos_daq_rev7::DeimosDaqRev7;
 pub mod hootl;
 pub use hootl::{HootlDriver, HootlPeripheral, HootlRunHandle, HootlTransport};
 
+pub mod calibration;
+
 pub use deimos_shared::peripherals::PeripheralId;
+
+/// Parse a binding response to the corresponding peripheral type
+/// based on its model number. If needed, a map of plugins can be provided
+/// to provide initialization of custom peripherals.
+pub fn parse_binding(
+    msg: &BindingOutput,
+    plugins: &Option<PluginMap>,
+) -> Result<Box<dyn Peripheral>, String> {
+    let m = msg.peripheral_id.model_number;
+
+    // First, check if a plugin matches the input
+    if let Some(plugins) = plugins {
+        // We have plugins, but is this model in the map?
+        if let Some(f) = plugins.get(&m) {
+            return Ok(f(&msg.peripheral_id));
+        }
+    }
+
+    // If we didn't find a plugin for this model, try the existing ones
+    match m {
+        model_numbers::ANALOG_I_REV_2_MODEL_NUMBER => Ok(Box::new(AnalogIRev2 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
+        model_numbers::ANALOG_I_REV_3_MODEL_NUMBER => Ok(Box::new(AnalogIRev3 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
+        model_numbers::ANALOG_I_REV_4_MODEL_NUMBER => Ok(Box::new(AnalogIRev4 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
+        model_numbers::DEIMOS_DAQ_REV_5_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev5 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
+        model_numbers::DEIMOS_DAQ_REV_6_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev6 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
+        model_numbers::DEIMOS_DAQ_REV_7_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev7 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
+        _ => Err(format!("Unrecognized model number {m}").to_owned()),
+    }
+}
 
 /// Generate Python bindings and JSON helpers for peripherals.
 #[macro_export]
@@ -54,7 +103,7 @@ macro_rules! py_peripheral_methods {
 /// Plugin system for handling custom device models
 /// Takes the model number and serial number from a bind result
 /// and initializes a Peripheral representation.
-pub type PluginFn = dyn Fn(&BindingOutput) -> Box<dyn Peripheral> + Send + Sync;
+pub type PluginFn = dyn Fn(&PeripheralId) -> Box<dyn Peripheral> + Send + Sync;
 
 /// Map of model numbers to initialization functions so that the controller can find
 /// the approriate initialization function.
@@ -135,60 +184,38 @@ pub trait Peripheral: Send + Sync + Debug {
         }
     }
 
-    /// Get a standard set of calcs that convert the raw outputs into a useable format
-    fn standard_calcs(&self, name: String) -> BTreeMap<String, Box<dyn Calc>>;
+    /// Get a standard set of calcs that convert the raw outputs into a useable format.
+    /// If provided, `cals` should be the json-serialized calibration artifact
+    /// for this peripheral.
+    ///
+    /// # Errors
+    ///
+    /// * On failure to parse provided calibration data
+    fn standard_calcs(
+        &self,
+        name: &str,
+        cals: &str,
+    ) -> Result<BTreeMap<String, Box<dyn Calc>>, String>;
 
-    /// Get the type name, which is guaranteed to be unique among implementations of the trait
-    /// because of the use of a global vtable for serialization, and guaranteed not to include
-    /// non-'static lifetimes due to trait bounds.
+    /// The type name.
+    ///
+    /// This is usable as a lookup key because it is guaranteed
+    /// to be unique among implementations of the trait due to the use of a global
+    /// vtable for serialization, and guaranteed not to include non-'static lifetimes
+    /// due to trait bounds.
     fn kind(&self) -> String {
-        type_name::<Self>().split(":").last().unwrap().into()
-    }
-}
-
-/// Parse a binding response to the corresponding peripheral type
-/// based on its model number. If needed, a map of plugins can be provided
-/// to provide initialization of custom peripherals.
-pub fn parse_binding(
-    msg: &BindingOutput,
-    plugins: &Option<PluginMap>,
-) -> Result<Box<dyn Peripheral>, String> {
-    let m = msg.peripheral_id.model_number;
-
-    // First, check if a plugin matches the input
-    if let Some(plugins) = plugins {
-        // We have plugins, but is this model in the map?
-        if let Some(f) = plugins.get(&m) {
-            return Ok(f(msg));
-        }
+        let t = type_name::<Self>().split(":").last().unwrap_or("Unknown");
+        t.to_string()
     }
 
-    // If we didn't find a plugin for this model, try the existing ones
-    match m {
-        model_numbers::ANALOG_I_REV_2_MODEL_NUMBER => Ok(Box::new(AnalogIRev2 {
-            serial_number: msg.peripheral_id.serial_number,
-        })),
+    /// Route slug for peripheral-related data like calibrations.
+    fn slug(&self) -> String {
+        format!("{}/{}", self.kind(), self.id().serial_number)
+    }
 
-        model_numbers::ANALOG_I_REV_3_MODEL_NUMBER => Ok(Box::new(AnalogIRev3 {
-            serial_number: msg.peripheral_id.serial_number,
-        })),
-
-        model_numbers::ANALOG_I_REV_4_MODEL_NUMBER => Ok(Box::new(AnalogIRev4 {
-            serial_number: msg.peripheral_id.serial_number,
-        })),
-
-        model_numbers::DEIMOS_DAQ_REV_5_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev5 {
-            serial_number: msg.peripheral_id.serial_number,
-        })),
-
-        model_numbers::DEIMOS_DAQ_REV_6_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev6 {
-            serial_number: msg.peripheral_id.serial_number,
-        })),
-
-        model_numbers::DEIMOS_DAQ_REV_7_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev7 {
-            serial_number: msg.peripheral_id.serial_number,
-        })),
-
-        _ => Err(format!("Unrecognized model number {m}").to_owned()),
+    /// Default (identity) calibration data for use during calibration procedures
+    /// before real values have been produced.
+    fn default_cals(&self) -> Result<String, String> {
+        Ok("".to_string())
     }
 }

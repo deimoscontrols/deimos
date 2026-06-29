@@ -162,8 +162,12 @@ impl Peripheral for HootlPeripheral {
         metrics
     }
 
-    fn standard_calcs(&self, name: String) -> BTreeMap<String, Box<dyn Calc>> {
-        self.inner.standard_calcs(name)
+    fn standard_calcs(
+        &self,
+        name: &str,
+        cals: &str,
+    ) -> Result<BTreeMap<String, Box<dyn Calc>>, String> {
+        self.inner.standard_calcs(name, cals)
     }
 }
 

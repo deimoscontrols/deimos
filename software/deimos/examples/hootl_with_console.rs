@@ -55,9 +55,9 @@
 //! bar shows connection health (fresh / stale / no-schema-yet) and a dropped-frame
 //! counter.
 //!
-//! The `voltage.y` channel is listed in the "Currents and Voltages" panel of the
-//! sample config; its axis is labeled `V` because the `Affine` calc declares that
-//! unit via `with_output_unit("V")`.
+//! The sample config shows the Rev7 current, temperature, and voltage channels in
+//! a two-column layout. The additional `voltage.y` channel declares unit `V` via
+//! `with_output_unit("V")` and can be added to any voltage panel while experimenting.
 //!
 //! ## Channels produced
 //!
@@ -71,7 +71,7 @@
 //!
 //! The viewer config is at `software/deimos_console/examples/console.toml`.  It
 //! points at the same multicast group and port (`239.255.0.1:29573`) and defines
-//! two panels.  Edit the `[[panels]]` entries to watch different channels.
+//! the panel layout.  Edit the `[[panels]]` entries to watch different channels.
 //!
 //! ## Forensic log
 //!
@@ -90,6 +90,8 @@ use deimos::{
     dispatcher::{CsvDispatcher, ReportingDispatcher},
     peripheral::{DeimosDaqRev7, HootlTransport},
 };
+
+mod common;
 
 /// Multicast group used by the reporting dispatcher.
 const MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(239, 255, 0, 1);
@@ -137,6 +139,7 @@ fn main() {
     std::fs::create_dir_all(&op_dir).expect("Failed to create temp op_dir");
 
     let mut ctx = ControllerCtx::default();
+    common::add_website_record_store(&mut ctx);
     ctx.op_name = "hootl_with_console".to_string();
     ctx.op_dir = op_dir;
     ctx.dt_ns = (1e9_f64 / RATE_HZ).ceil() as u32;
@@ -149,7 +152,9 @@ fn main() {
         "hootl_chan",
         Box::new(ThreadChannelSocket::new("hootl_chan")),
     );
-    controller.add_peripheral("p1", Box::new(DeimosDaqRev7 { serial_number: 1 }));
+    controller
+        .add_peripheral("p1", Box::new(DeimosDaqRev7 { serial_number: 1 }))
+        .unwrap();
 
     // Add a unit-labeled calc: scale p1.ain0 by 0.001 and annotate the output
     // as volts.  The reporting dispatcher will include "V" in the Schema packet,

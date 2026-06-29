@@ -1,0 +1,23 @@
+{
+  "model": "deimos_daq_rev7",
+  "serial_number": 2,
+  "channel": "ain10",
+  "signal_name": "p1_tc_0_sense_V.y",
+  "datestamp_utc": "2026-06-27T131155Z",
+  "rtd_reference_current_a": 0.00025,
+  "rtd_frontend_gain": 25.7,
+  "polynomial_order": 1,
+  "polynomial_coefficients": [
+    -0.00003499170247659129,
+    0.9999621226810972
+  ],
+  "r2": 0.9999997359059641,
+  "input_units": "V",
+  "output_units": "V",
+  "accepted_sample_count": 11474,
+  "detected_step_count": 79,
+  "calibrator_cold_junction_temperature_k": 297.65,
+  "cold_junction_temperature_offset_k": -1.9316012496612984,
+  "cold_junction_rtd_voltage_offset_v": -0.0001870607797880046,
+  "board_cold_junction_offset_k": -1.9316012496612984
+}

@@ -32,10 +32,10 @@ pub use constant::Constant;
 pub use inverse_affine::InverseAffine;
 pub use pid::Pid;
 pub use polynomial::Polynomial;
-pub use rtd_pt100::RtdPt100;
+pub use rtd_pt100::{RtdPt100, pt100_resistance_ohm, pt100_temp_k};
 pub use sequence_machine::SequenceMachine;
 pub use sin::Sin;
-pub use tc_ktype::TcKtype;
+pub use tc_ktype::{TcKtype, ktype_corrected_temp_k, ktype_temp_k, ktype_voltage_v};
 
 use crate::ControllerCtx;
 

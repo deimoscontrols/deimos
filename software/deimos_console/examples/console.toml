@@ -19,10 +19,50 @@ port = 29573
 # Comment out to disable the log entirely.
 forensic_log_path = "/tmp/deimos-console.csv"
 
-[[panels]]
-title = "Voltage (unit-labeled)"
-channels = ["voltage.y"]
+# Display panels in two columns.
+columns = 2
 
 [[panels]]
-title = "Raw ADC Inputs"
-channels = ["p1.ain0", "p1.ain1", "p1.ain2", "p1.ain3"]
+title = "4-20 mA Currents"
+channels = [
+    "p1_4_20_mA_0_A.y",
+    "p1_4_20_mA_1_A.y",
+    "p1_4_20_mA_2_A.y",
+    "p1_4_20_mA_3_A.y",
+]
+
+[[panels]]
+title = "RTD Temperatures"
+channels = [
+    "p1_rtd_0.temperature_K",
+    "p1_rtd_1.temperature_K",
+    "p1_rtd_2.temperature_K",
+]
+
+[[panels]]
+title = "Thermocouple Temperatures"
+channels = [
+    "p1_tc_0.temperature_K",
+    "p1_tc_1.temperature_K",
+]
+
+[[panels]]
+title = "0-2.5 V Inputs"
+channels = [
+    "p1_0_2V5_0_sense_V.y",
+    "p1_0_2V5_1_sense_V.y",
+]
+
+[[panels]]
+title = "0-15 V Inputs"
+channels = [
+    "p1_0_15V_0_sense_V.y",
+    "p1_0_15V_1_sense_V.y",
+]
+
+[[panels]]
+title = "26x Voltage Inputs"
+channels = [
+    "p1_x26_0_sense_V.y",
+    "p1_x26_1_sense_V.y",
+]

@@ -1,9 +1,14 @@
+---
+hide:
+- toc
+---
+
 # Use-Case: Switched Motor Development
 
 This example shows a notional 3-phase switched motor control test assembly with a
 simplified externally-actuated high-side driver.
 
-![image](../assets/usecase_motor.svg)
+![Switched motor development use-case diagram](../assets/usecase_motor.svg){ .zoomable-image }
 
 In this arrangement, a single DAQ unit has adequate capability to measure and control both the test article
 and the supporting lab utilities. The test article, operator, and lab equipment would typically be

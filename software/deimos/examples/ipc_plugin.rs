@@ -42,12 +42,15 @@ use deimos::{
 
 use tracing::info;
 
+mod common;
+
 fn main() {
     // Clear sockets
     let _ = std::fs::remove_dir_all("./sock");
 
     // Start building up controller settings
     let mut ctx = ControllerCtx::default();
+    common::add_website_record_store(&mut ctx);
     ctx.op_name = "ipc_example".to_string();
 
     // Set control rate
@@ -70,9 +73,9 @@ fn main() {
 
     // Register the mockup as a plugin
     let mut pmap: PluginMap = BTreeMap::new();
-    pmap.insert(EXPERIMENTAL_MODEL_NUMBER, &|b| {
+    pmap.insert(EXPERIMENTAL_MODEL_NUMBER, &|id| {
         Box::new(IpcMockup {
-            serial_number: b.peripheral_id.serial_number,
+            serial_number: id.serial_number,
         })
     });
     let plugins = Some(pmap);
@@ -80,7 +83,7 @@ fn main() {
     // Tell the controller to expect the in-memory peripheral
     // and register it as a plugin
     let p = IpcMockup { serial_number: 0 };
-    controller.add_peripheral("mockup", Box::new(p));
+    controller.add_peripheral("mockup", Box::new(p)).unwrap();
 
     // Start the mockup driver on another thread,
     // setting a timer for it to terminate at a specific time
@@ -200,7 +203,15 @@ impl Peripheral for IpcMockup {
 
     /// Get a standard set of calcs that convert the raw outputs
     /// into a useable format.
-    fn standard_calcs(&self, _name: String) -> BTreeMap<String, Box<dyn Calc>> {
-        BTreeMap::new()
+    fn standard_calcs(
+        &self,
+        _name: &str,
+        cals: &str,
+    ) -> Result<BTreeMap<String, Box<dyn Calc>>, String> {
+        if !cals.is_empty() {
+            return Err(format!("{} does not support calibration data", self.kind()));
+        }
+
+        Ok(BTreeMap::new())
     }
 }

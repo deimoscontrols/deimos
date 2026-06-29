@@ -18,6 +18,8 @@ use deimos::calc::{Affine, Butter2, SequenceMachine};
 use deimos::*;
 use tracing::info;
 
+mod common;
+
 fn main() {
     // Set op name
     // None -> Let the controller set the name of the op automatically
@@ -43,6 +45,7 @@ fn main() {
 
     // Define idle controller
     let mut ctx = ControllerCtx::default();
+    common::add_website_record_store(&mut ctx);
     ctx.op_name = op_name;
     ctx.dt_ns = dt_ns;
     ctx.op_dir = op_dir.clone();
@@ -69,15 +72,29 @@ fn main() {
     info!("Scan found: {scanned_peripherals:?}\n");
 
     // Associate peripherals
-    controller.add_peripheral("p1", Box::new(AnalogIRev3 { serial_number: 1 }));
-    controller.add_peripheral("p2", Box::new(AnalogIRev3 { serial_number: 2 }));
-    controller.add_peripheral("p3", Box::new(AnalogIRev4 { serial_number: 1 }));
-    controller.add_peripheral("p4", Box::new(AnalogIRev4 { serial_number: 2 }));
-    controller.add_peripheral("p5", Box::new(AnalogIRev4 { serial_number: 3 }));
-    controller.add_peripheral("p6", Box::new(AnalogIRev4 { serial_number: 4 }));
+    controller
+        .add_peripheral("p1", Box::new(AnalogIRev3 { serial_number: 1 }))
+        .unwrap();
+    controller
+        .add_peripheral("p2", Box::new(AnalogIRev3 { serial_number: 2 }))
+        .unwrap();
+    controller
+        .add_peripheral("p3", Box::new(AnalogIRev4 { serial_number: 1 }))
+        .unwrap();
+    controller
+        .add_peripheral("p4", Box::new(AnalogIRev4 { serial_number: 2 }))
+        .unwrap();
+    controller
+        .add_peripheral("p5", Box::new(AnalogIRev4 { serial_number: 3 }))
+        .unwrap();
+    controller
+        .add_peripheral("p6", Box::new(AnalogIRev4 { serial_number: 4 }))
+        .unwrap();
     // controller.add_peripheral("p7", Box::new(AnalogIRev4 { serial_number: 5 }));
     // controller.add_peripheral("p8", Box::new(AnalogIRev4 { serial_number: 6 }));
-    controller.add_peripheral("p8", Box::new(DeimosDaqRev6 { serial_number: 5 }));
+    controller
+        .add_peripheral("p8", Box::new(DeimosDaqRev6 { serial_number: 5 }))
+        .unwrap();
 
     // Set up database dispatchers
     let timescale_dispatcher: Box<dyn Dispatcher> = TimescaleDbDispatcher::new(

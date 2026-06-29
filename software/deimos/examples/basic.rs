@@ -10,9 +10,12 @@ use crate::peripheral::DeimosDaqRev7;
 use controller::context::ControllerCtx;
 use deimos::*;
 
+mod common;
+
 fn main() {
     // Define idle controller
     let mut ctx = ControllerCtx::default();
+    common::add_website_record_store(&mut ctx);
     ctx.op_name = "basic_example".into();
     let rate_hz = 1000.0;
     ctx.dt_ns = (1e9_f64 / rate_hz).ceil() as u32;
@@ -21,7 +24,9 @@ fn main() {
     let mut controller = Controller::new(ctx);
 
     // Associate hardware peripherals
-    controller.add_peripheral("p1", Box::new(DeimosDaqRev7 { serial_number: 1 }));
+    controller
+        .add_peripheral("p1", Box::new(DeimosDaqRev7 { serial_number: 1 }))
+        .unwrap();
 
     // Set up data targets
     let csv_dispatcher: Box<dyn Dispatcher> = CsvDispatcher::new(50, dispatcher::Overflow::Wrap);

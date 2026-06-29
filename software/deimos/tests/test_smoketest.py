@@ -20,6 +20,7 @@ from deimos import (
 
 THREAD_CHANNEL1 = "hootl_thread1"
 THREAD_CHANNEL2 = "hootl_thread2"
+THREAD_CHANNEL3 = "hootl_thread3"
 UNIX_SOCKET = "ctrl"
 RATE_HZ = 20.0
 RUN_TIMEOUT_S = 10.0  # Accommodate slow CI runners (we don't actually run this long)
@@ -72,6 +73,7 @@ def _build_controller(
     ctrl.clear_sockets()
     ctrl.add_socket("thread1", socket.ThreadChannelSocket(THREAD_CHANNEL1))
     ctrl.add_socket("thread2", socket.ThreadChannelSocket(THREAD_CHANNEL2))
+    ctrl.add_socket("thread3", socket.ThreadChannelSocket(THREAD_CHANNEL3))
     if HAS_UNIX_SOCKET:
         ctrl.add_socket("unix", socket.UnixSocket(UNIX_SOCKET))
     ctrl.add_socket("udp", _loopback_udp_socket())
@@ -100,6 +102,7 @@ def _build_controller(
     specs = [
         ("analog_rev2", peripheral.AnalogIRev2, 1001, ("thread", THREAD_CHANNEL1)),
         ("analog_rev3", peripheral.AnalogIRev3, 1002, ("thread", THREAD_CHANNEL2)),
+        ("daq_rev7", peripheral.DeimosDaqRev7, 1006, ("thread", THREAD_CHANNEL3)),
     ]
     if HAS_UNIX_SOCKET:
         specs.extend(

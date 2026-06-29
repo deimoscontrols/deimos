@@ -1,4 +1,6 @@
 #![doc = include_str!("../README.md")]
+#![doc(html_favicon_url = "https://deimoscontrols.com/assets/logo_minimal.svg")]
+#![doc(html_logo_url = "https://deimoscontrols.com/assets/logo_light.svg")]
 #![allow(clippy::needless_range_loop)]
 
 pub mod calc;
@@ -9,8 +11,11 @@ pub mod math;
 pub mod peripheral;
 pub mod socket;
 
+use std::time::SystemTime;
+
+use chrono::{DateTime, Utc};
 pub use controller::{
-    Controller, RunHandle, Snapshot,
+    Controller, CsvReplaySource, ReplayCycle, ReplaySource, RunHandle, Snapshot,
     context::{ControllerCtx, LoopMethod, LossOfContactPolicy, Termination},
 };
 pub use dispatcher::{
@@ -28,7 +33,7 @@ pub use dispatcher::DataFrameDispatcher;
 pub use dispatcher::TimescaleDbDispatcher;
 pub use peripheral::{HootlDriver, HootlPeripheral, HootlRunHandle, HootlTransport};
 
-/// [bytes] Fixed maximum size of socket packets.
+/// \[bytes\] Fixed maximum size of socket packets.
 pub const SOCKET_BUFFER_LEN: usize = 1522;
 
 #[cfg(feature = "python")]
@@ -60,4 +65,9 @@ macro_rules! py_json_methods {
             }
         }
     };
+}
+
+/// Fixed-width ISO-8601 UTC timestamp with zero-padded sub-second nanoseconds and Z-suffix
+pub fn fmt_time(time: SystemTime) -> String {
+    DateTime::<Utc>::from(time).to_rfc3339_opts(chrono::SecondsFormat::Nanos, true)
 }

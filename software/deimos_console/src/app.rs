@@ -1090,6 +1090,7 @@ impl ConsoleState {
             frozen: self.frozen,
             frozen_xmax: self.frozen_xmax,
             window_seconds: self.config.window_seconds,
+            columns: self.config.columns.max(1),
             panels,
         }
     }
@@ -1097,10 +1098,41 @@ impl ConsoleState {
     /// Render the per-panel plots from a [`RenderSnapshot`]. Runs without the shared lock so a
     /// slow [`Plot::show`] on a heavily-populated panel cannot stall the buffer-processor thread.
     fn render_panels(ui: &mut egui::Ui, snapshot: &RenderSnapshot) {
-        for panel in &snapshot.panels {
+        let columns = snapshot.columns.max(1);
+        let gap = 8.0;
+        let total_gap = gap * (columns.saturating_sub(1) as f32);
+        let panel_width = ((ui.available_width() - total_gap) / columns as f32).max(180.0);
+        egui::Grid::new("deimos_console_panel_grid")
+            .num_columns(columns)
+            .spacing(egui::vec2(gap, 8.0))
+            .show(ui, |ui| {
+                for (idx, panel) in snapshot.panels.iter().enumerate() {
+                    Self::render_panel(ui, snapshot, panel, panel_width);
+                    if (idx + 1) % columns == 0 {
+                        ui.end_row();
+                    }
+                }
+            });
+
+        if snapshot.panels.is_empty() {
+            ui.label("No panels configured. Add [[panels]] entries to the config file.");
+        }
+    }
+
+    fn render_panel(
+        ui: &mut egui::Ui,
+        snapshot: &RenderSnapshot,
+        panel: &PanelSnapshot,
+        panel_width: f32,
+    ) {
+        ui.vertical(|ui| {
+            ui.set_width(panel_width);
             ui.label(egui::RichText::new(&panel.title).strong());
 
-            let mut plot = Plot::new(&panel.title).height(200.0).allow_scroll(false);
+            let mut plot = Plot::new(&panel.title)
+                .height(200.0)
+                .width(panel_width)
+                .allow_scroll(false);
 
             if let Some(ref unit) = panel.y_label {
                 plot = plot.y_axis_label(unit.clone());
@@ -1126,13 +1158,7 @@ impl ConsoleState {
                     plot_ui.line(line);
                 }
             });
-
-            ui.add_space(4.0);
-        }
-
-        if snapshot.panels.is_empty() {
-            ui.label("No panels configured. Add [[panels]] entries to the config file.");
-        }
+        });
     }
 }
 
@@ -1144,6 +1170,7 @@ struct RenderSnapshot {
     frozen: bool,
     frozen_xmax: Option<f64>,
     window_seconds: f64,
+    columns: usize,
     panels: Vec<PanelSnapshot>,
 }
 

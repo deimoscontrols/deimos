@@ -4,3 +4,5 @@ mkdocstrings == 0.27.0
 mkdocstrings-python == 1.12.2
 mkdocs-rss-plugin == 1.17.3
 mkdocs-redirects == 1.2.2
+mkdocs-awesome-pages-plugin==2.10.1
+mkdocs-pagetree-plugin==0.0.17

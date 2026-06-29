@@ -1,0 +1,29 @@
+{
+  "model": "deimos_daq_rev7",
+  "serial_number": 1,
+  "channel": "0_15V_0",
+  "signal_name": "p1_0_15V_0_sense_V.y",
+  "calibrator_cold_junction_temperature_k": null,
+  "manual_reference_windows": [
+    {
+      "reference_a": 0.0,
+      "start_time_s": 1.939175552,
+      "stop_time_s": 6.939250465
+    },
+    {
+      "reference_a": 3.0,
+      "start_time_s": 40.047719405,
+      "stop_time_s": 45.047797485
+    },
+    {
+      "reference_a": 7.0,
+      "start_time_s": 123.269799027,
+      "stop_time_s": 128.269879037
+    },
+    {
+      "reference_a": 9.915,
+      "start_time_s": 152.881542372,
+      "stop_time_s": 157.881623646
+    }
+  ]
+}

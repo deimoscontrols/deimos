@@ -19,6 +19,10 @@ fn default_recovery_settle_secs() -> f64 {
     2.0
 }
 
+fn default_columns() -> usize {
+    1
+}
+
 /// Top-level configuration for the Deimos operator console.
 #[derive(Debug, Deserialize)]
 pub struct DeimosConsoleConfig {
@@ -50,6 +54,9 @@ pub struct DeimosConsoleConfig {
     /// Panel definitions — each panel renders a set of channels.
     #[serde(default)]
     pub panels: Vec<PanelConfig>,
+    /// Number of display columns used for panels. Defaults to 1.
+    #[serde(default = "default_columns")]
+    pub columns: usize,
 
     /// If set, a forensic CSV log is written to this path for each session.
     ///

@@ -2,25 +2,22 @@ site_name: Deimos
 site_url: https://deimoscontrols.com
 repo_url: https://github.com/deimoscontrols/deimos
 repo_name: deimos
-copyright: Copyright &copy; 2025 Deimos Controls LLC
+copyright: Copyright &copy; 2026 Deimos Controls LLC
 
 extra:
   social:
     - icon: octicons/rss-16
       link: https://deimoscontrols.com/feed_rss_created.xml
     - icon: fontawesome/brands/mastodon
-      link: https://hachyderm.io/@ponderingpothos
+      link: https://hachyderm.io/@deimoscontrols
     - icon: fontawesome/brands/bluesky
-      link: https://bsky.app/profile/ponderingpothos.bsky.social
+      link: https://bsky.app/profile/deimoscontrols.bsky.social
     - icon: fontawesome/brands/github
       link: https://github.com/deimoscontrols/deimos
   consent:
     title: Cookie consent
     description: >-
-      We use cookies to recognize your repeated visits and preferences, as well
-      as to measure the effectiveness of our documentation and whether users
-      find what they're searching for. With your consent, you're helping us to
-      make our documentation better.
+      We use cookies to recognize repeated visits.
   analytics:
     provider: google
     property: G-P2P2LZGXE5
@@ -47,12 +44,14 @@ theme:
     - navigation.tabs.sticky
     - navigation.footer
     - search.suggest
+    - navigation.indexes
 
 extra_css:
   - stylesheets/extra.css
 
 extra_javascript:
   - javascripts/contact-form.js
+  - javascripts/image-zoom.js
 
 markdown_extensions:
   - pymdownx.highlight:
@@ -93,10 +92,16 @@ plugins:
   - redirects:
       redirect_maps:
         api/api-rust.md: https://docs.rs/deimos
+  - awesome-pages
+  - pagetree
 
 nav:
   - Home: index.md
-  - Products: products/index.md
+  - Deimos DAQ: 
+    - Overview: products/deimos_daq.md
+    - Specs: products/specs.md
+    - Frontends: products/frontends.md
+    - Calibration Reports: records/index.md
   - System: system.md
   - Contact: contact.md
   - Use-Cases:
@@ -104,5 +109,13 @@ nav:
     - "Use-Case: Motor Control": usecases/motor.md
     - "Use-Case: Electroplating": usecases/plating.md
   # - Blog: blog/index.md
-  - Python API: api/api-python.md
+  - Python API:
+    - controller: api/api-python.md
+    - calc: api/python-calcs.md
+    - peripheral: api/python-peripherals.md
+    - socket: api/python-sockets.md
+    - dispatcher: api/python-dispatchers.md
   - Rust API: api/api-rust.md
+  - Records:
+        - records/index.md
+        - '... | records/**/index.md'

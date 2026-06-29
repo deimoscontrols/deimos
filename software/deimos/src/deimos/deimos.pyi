@@ -582,13 +582,17 @@ class _PeripheralModule(ModuleType):
     class DeimosDaqRev6(_PeripheralBase):
         def __init__(self, serial_number: int) -> None: ...
 
+    class DeimosDaqRev7(_PeripheralBase):
+        def __init__(self, serial_number: int) -> None: ...
+
     class HootlPeripheral(_PeripheralBase):
         """Peripheral wrapper that emits mock outputs using driver-owned state.
 
         Note: attach this via Controller.attach_hootl_driver to keep the shared
         driver state intact; JSON roundtrips reset the link.
         """
-        def __init__(self, inner: PeripheralLike) -> None: ...
+
+        ...
 
     HootlTransport = HootlTransport
 

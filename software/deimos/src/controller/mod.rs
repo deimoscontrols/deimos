@@ -5,6 +5,7 @@ pub mod context;
 mod controller_state;
 mod nonblocking;
 mod peripheral_state;
+mod replay;
 mod timing;
 
 use serde::{Deserialize, Serialize};
@@ -19,7 +20,10 @@ use crate::{
     SOCKET_BUFFER_LEN,
     calc::Calc,
     logging,
-    peripheral::{HootlRunHandle, HootlTransport, Peripheral, PluginMap, parse_binding},
+    peripheral::{
+        HootlRunHandle, HootlTransport, Peripheral, PluginMap, calibration::query_cals,
+        parse_binding,
+    },
 };
 use deimos_numerics::embedded::fixed::MedianFilter;
 use deimos_shared::states::*;
@@ -35,6 +39,7 @@ use peripheral_state::ConnState;
 use timing::TimingPID;
 
 pub use nonblocking::{RunHandle, Snapshot};
+pub use replay::{CsvReplaySource, ReplayCycle, ReplaySource};
 
 use tracing::{debug, error, info, warn};
 
@@ -151,14 +156,12 @@ impl Controller {
         self.orchestrator.add_calc(name, calc);
     }
 
-    /// Add multiple calcs
+    /// Add multiple calcs.
     ///
-    /// # Panics
+    /// # Errors
     /// * If, for any calc to add, a calc with this name already exists
-    pub fn add_calcs(&mut self, mut calcs: BTreeMap<String, Box<dyn Calc>>) {
-        while let Some((name, calc)) = calcs.pop_first() {
-            self.orchestrator.add_calc(&name, calc);
-        }
+    pub fn add_calcs(&mut self, calcs: BTreeMap<String, Box<dyn Calc>>) -> Result<(), String> {
+        self.orchestrator.add_calcs(calcs)
     }
 
     /// Remove all calcs and peripheral input sources
@@ -167,16 +170,189 @@ impl Controller {
     }
 
     /// Register a hardware module
-    pub fn add_peripheral(&mut self, name: &str, p: Box<dyn Peripheral>) {
-        assert!(
-            !self.peripherals.contains_key(name),
-            "Peripheral name is duplicated"
-        );
-        // Add the standard set of calcs that come with this peripheral, if any
-        self.orchestrator
-            .add_calcs(p.standard_calcs(name.to_owned()));
+    pub fn add_peripheral(&mut self, name: &str, p: Box<dyn Peripheral>) -> Result<(), String> {
+        if self.peripherals.contains_key(name) {
+            return Err(format!("Peripheral name `{name}` is duplicated"));
+        }
+
+        // Resolve the calibration artifact before initializing standard calcs
+        // because the peripheral owns how its calibration record is applied.
+        let slug = p.slug();
+        let cals = if self.ctx.use_no_calibrations {
+            info!(
+                peripheral = name,
+                slug, "Calibration lookup disabled; using peripheral default calibration."
+            );
+            p.default_cals()?
+        } else {
+            match query_cals(
+                &slug,
+                &self.ctx.calibration_local_sources,
+                self.ctx.calibration_offline_only,
+            )? {
+                Some(cals) => {
+                    info!(
+                        peripheral = name,
+                        slug, "Using discovered calibration record for peripheral."
+                    );
+                    cals
+                }
+                None if self.ctx.calibration_allow_missing => {
+                    info!(
+                        peripheral = name,
+                        slug, "No calibration record found; using peripheral default calibration."
+                    );
+                    p.default_cals()?
+                }
+                None => {
+                    warn!(
+                        peripheral = name,
+                        slug,
+                        "No calibration record found and missing calibrations are not allowed."
+                    );
+                    return Err(format!(
+                        "No calibration record found for peripheral `{name}` with slug `{slug}`"
+                    ));
+                }
+            }
+        };
+
+        // Add the standard set of calcs that come with this peripheral, if any.
+        let calcs = p.standard_calcs(name, &cals)?;
+        self.orchestrator.add_calcs(calcs)?;
         // Register the peripheral
         self.peripherals.insert(name.to_owned(), p);
+        Ok(())
+    }
+
+    /// Replay captured raw peripheral outputs through the current calc graph.
+    ///
+    /// This is the offline counterpart to the normal hardware control loop. It
+    /// skips sockets, binding, timing control, and live peripheral metrics. Each
+    /// row from `source` injects raw peripheral outputs, runs the calc
+    /// orchestrator once, and sends the resulting dispatch fields to
+    /// `dispatchers`.
+    ///
+    /// The source must provide every output for every registered peripheral in
+    /// the same order as each peripheral's `output_names()`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the replay source cannot be initialized, if calc
+    /// graph initialization fails, if a source row is missing peripheral data,
+    /// or if any dispatcher fails to initialize, consume, or terminate.
+    pub fn replay<S: ReplaySource>(
+        &mut self,
+        mut source: S,
+        mut dispatchers: BTreeMap<String, Box<dyn Dispatcher>>,
+    ) -> Result<(), String> {
+        // Let the source inspect the registered peripherals and build whatever
+        // per-peripheral output mapping it needs before rows are requested.
+        source.init(&self.peripherals)?;
+
+        // Reuse the normal calc graph initialization so replay has the same
+        // tape layout and eval order as a hardware-backed controller run.
+        self.orchestrator
+            .init(self.ctx.clone(), &self.peripherals)
+            .map_err(|e| format!("Failed to initialize calc orchestrator for replay: {e}"))?;
+
+        // Replay dispatches the orchestrator's normal I/O channels, but does
+        // not synthesize controller or peripheral transport metrics.
+        let channel_names = self.orchestrator.get_dispatch_names();
+        let channel_units = self.orchestrator.get_dispatch_units();
+        replay::init_replay_dispatchers(
+            &mut self.ctx,
+            &mut dispatchers,
+            &channel_names,
+            channel_units,
+        )?;
+
+        let replay_result = (|| -> Result<(), String> {
+            // Reuse one row buffer to avoid reallocating for every replayed
+            // cycle; each dispatcher gets its own clone because dispatchers may
+            // retain or move the row.
+            let mut channel_values = Vec::with_capacity(channel_names.len());
+            loop {
+                // `None` is the source-level EOF marker.
+                let Some(cycle) = source.next_cycle()? else {
+                    return Ok(());
+                };
+
+                // Populate the peripheral output slices exactly as the live
+                // loop would after parsing each peripheral's response packet.
+                for (peripheral_name, peripheral) in &self.peripherals {
+                    let outputs = cycle.peripheral_outputs.get(peripheral_name).ok_or_else(
+                        || {
+                            format!(
+                                "Replay cycle is missing outputs for peripheral `{peripheral_name}`"
+                            )
+                        },
+                    )?;
+                    let expected_len = peripheral.output_names().len();
+                    if outputs.len() != expected_len {
+                        return Err(format!(
+                            "Replay cycle has {} outputs for peripheral `{peripheral_name}`, expected {expected_len}",
+                            outputs.len()
+                        ));
+                    }
+
+                    // Replay bypasses transport, so there are no meaningful
+                    // operating metrics to update here.
+                    self.orchestrator.consume_peripheral_outputs(
+                        peripheral_name,
+                        &mut |dst: &mut [f64]| {
+                            dst.copy_from_slice(outputs);
+                            OperatingMetrics::default()
+                        },
+                    );
+                }
+
+                // Evaluate the current calc graph once using the injected raw
+                // peripheral outputs, then collect its dispatch fields.
+                self.orchestrator.eval()?;
+                channel_values.clear();
+                self.orchestrator
+                    .provide_dispatcher_outputs(|vals| channel_values.extend(vals));
+
+                // Preserve the source timestamps so replayed output can align
+                // with the original capture.
+                for dispatcher in dispatchers.values_mut() {
+                    dispatcher.consume(cycle.time, cycle.timestamp, channel_values.clone())?;
+                }
+            }
+        })();
+
+        // Try to terminate everything even when replay row processing failed,
+        // so worker-backed dispatchers get a chance to flush and shut down.
+        let mut termination_errors = Vec::new();
+        if let Err(err) = self.orchestrator.terminate() {
+            termination_errors.push(format!("calc orchestrator: {err}"));
+        }
+        for (name, dispatcher) in dispatchers.iter_mut() {
+            if let Err(err) = dispatcher.terminate() {
+                termination_errors.push(format!("dispatcher `{name}`: {err}"));
+            }
+        }
+
+        // Prefer the primary replay error, but report cleanup failures too so
+        // callers do not miss partial output or flush failures.
+        if let Err(err) = replay_result {
+            if termination_errors.is_empty() {
+                Err(err)
+            } else {
+                Err(format!(
+                    "{err}; additionally failed to terminate replay cleanly: {}",
+                    termination_errors.join("; ")
+                ))
+            }
+        } else if termination_errors.is_empty() {
+            Ok(())
+        } else {
+            Err(format!(
+                "Failed to terminate replay cleanly: {}",
+                termination_errors.join("; ")
+            ))
+        }
     }
 
     /// Replace a peripheral with a hootl wrapper and start its driver.
@@ -820,9 +996,6 @@ impl Controller {
         self.orchestrator
             .init(self.ctx.clone(), &self.peripherals)
             .map_err(|e| format!("Failed to initialize calc orchestrator: {e}"))?;
-        self.orchestrator
-            .eval()
-            .map_err(|e| format!("Failed to evaluate calc orchestrator during init: {e}"))?;
 
         // Set up dispatcher(s)
         // FUTURE: send metrics to calcs so that they can be used as calc inputs

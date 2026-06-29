@@ -1,0 +1,28 @@
+{
+  "model": "deimos_daq_rev7",
+  "serial_number": 2,
+  "channel": "ain9",
+  "signal_name": "p1_rtd_2.temperature_K",
+  "datestamp_utc": "2026-06-27T131154Z",
+  "rtd_reference_current_a": 0.00025,
+  "rtd_frontend_gain": 25.7,
+  "temperature_error_fit": {
+    "coefficients": [
+      -0.23862261852079733,
+      -0.19004711312514308
+    ],
+    "r2": 0.12787376292531516,
+    "x_center": 498.277254857426,
+    "x_scale": 476.2775016773471
+  },
+  "polynomial_order": 1,
+  "polynomial_coefficients": [
+    -6.5397236049665585e-6,
+    0.9996790688952525
+  ],
+  "r2": 0.9999999995835408,
+  "input_units": "V",
+  "output_units": "V",
+  "accepted_sample_count": 6061,
+  "detected_step_count": 47
+}

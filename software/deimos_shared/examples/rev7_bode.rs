@@ -4,7 +4,6 @@ use std::{
     f64::consts::TAU,
     fs, io,
     path::{Path, PathBuf},
-    process::Command,
 };
 
 use deimos_numerics::control::lti::{
@@ -16,21 +15,20 @@ use deimos_shared::peripherals::deimos_daq_rev7::{
     adc_sampled_bode_data, ADC_FILTER_MAX_CUTOFF_RATIO, ADC_FILTER_ORDER, ADC_SAMPLE_RATE_HZ,
 };
 use plotly::{
-    common::{Anchor, DashType, Font, Line, Mode, Title, Visible},
-    layout::{Annotation, Axis, AxisRange, AxisType, Layout, Margin, Shape, ShapeLine, ShapeType},
-    plotly_static::StaticExporterBuilder,
-    prelude::ExporterSyncExt,
-    ImageFormat, Plot, Scatter,
+    common::{Anchor, DashType, Font, Line, Mode, Orientation, Title, Visible},
+    layout::{
+        Annotation, Axis, AxisRange, AxisType, Layout, Legend, Margin, Shape, ShapeLine, ShapeType,
+    },
+    Configuration, Plot, Scatter,
 };
 use serde_json::{json, Value};
 
-const WIDTH: usize = 1200;
-const HEIGHT: usize = 850;
+const HEIGHT: usize = 567;
 const MAGNITUDE_DOMAIN_START: f64 = 0.57;
 const MAGNITUDE_DOMAIN_END: f64 = 1.0;
 const PHASE_DOMAIN_START: f64 = 0.0;
 const PHASE_DOMAIN_END: f64 = 0.43;
-const PREVIEW_DIR: &str = "target/rev7_bode_preview";
+const REPORT_MAX_WIDTH: &str = "40rem";
 const FREQUENCY_POINTS: usize = 5_000;
 const TRACES_PER_VARIANT: usize = 6;
 const DEFAULT_REPORTING_RATE_HZ: f64 = 1_000.0;
@@ -41,8 +39,6 @@ const SALLEN_KEY_CAPACITANCE_F: f64 = 10.0e-9;
 const SALLEN_KEY_100HZ_RESISTANCE_OHMS: f64 = 100.0e3;
 const SALLEN_KEY_1KHZ_RESISTANCE_OHMS: f64 = 10.0e3;
 const SALLEN_KEY_3KHZ_RESISTANCE_OHMS: f64 = 3.3e3;
-const BROWSER_PATH_ENV: &str = "BROWSER_PATH";
-const WEBDRIVER_PATH_ENV: &str = "WEBDRIVER_PATH";
 
 struct FrontendGroup {
     name: &'static str,
@@ -52,9 +48,13 @@ struct FrontendGroup {
 }
 
 struct Theme {
+    suffix: &'static str,
+    color_scheme: &'static str,
+    paper_background: &'static str,
+    plot_background: &'static str,
     foreground: &'static str,
     grid: &'static str,
-    background: &'static str,
+    border: &'static str,
 }
 
 struct BodeTraces<'a> {
@@ -93,15 +93,8 @@ struct PlotVariant {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let (theme, output_dir) = parse_args()?;
-    let display_dir = output_dir
-        .is_none()
-        .then(|| env::current_dir().map(|current_dir| current_dir.join(PREVIEW_DIR)))
-        .transpose()?;
-    let html_dir = output_dir.as_ref().or(display_dir.as_ref());
-    if let Some(html_dir) = html_dir {
-        fs::create_dir_all(html_dir)?;
-    }
+    let output_dir = parse_args()?;
+    fs::create_dir_all(&output_dir)?;
 
     let sample_rate_hz = ADC_SAMPLE_RATE_HZ;
     let analog_angular_frequencies = logspace(1.0e1, 1.0e6, FREQUENCY_POINTS);
@@ -118,50 +111,33 @@ fn main() -> Result<(), Box<dyn Error>> {
     let analog_transfer_functions = adc_analog_frontend_transfer_functions()?;
     let fractional_delay_transfer_functions =
         adc_fractional_delay_transfer_functions(sample_rate_hz)?;
-    let mut exporter = if output_dir.is_some() {
-        configure_static_export_environment()?;
-        Some(
-            StaticExporterBuilder::default()
-                .webdriver_browser_caps(vec![
-                    "--headless=new".to_string(),
-                    "--no-sandbox".to_string(),
-                    "--disable-dev-shm-usage".to_string(),
-                    "--disable-gpu".to_string(),
-                    "--disable-gpu-sandbox".to_string(),
-                ])
-                .build()?,
-        )
-    } else {
-        None
-    };
     let default_reporting_rate_idx = reporting_rate_index(DEFAULT_REPORTING_RATE_HZ)?;
 
-    for group in frontend_groups() {
-        let variants = build_variants(
-            &theme,
-            &group,
-            sample_rate_hz,
-            &FrequencyGrid {
-                sampled_frequencies_hz: &sampled_frequencies_hz,
-                analog_angular_frequencies: &analog_angular_frequencies,
-                sampled_angular_frequencies: &sampled_angular_frequencies,
-            },
-            &FrontendTransferFunctions {
-                analog: &analog_transfer_functions[group.channel_idx],
-                fractional_delay: &fractional_delay_transfer_functions[group.channel_idx],
-            },
-        )?;
-        let plot = build_plot(
-            &theme,
-            &analog_frequencies_hz,
-            &sampled_frequencies_hz,
-            &variants,
-            default_reporting_rate_idx,
-        );
+    for theme in themes() {
+        for group in frontend_groups() {
+            let variants = build_variants(
+                &theme,
+                &group,
+                sample_rate_hz,
+                &FrequencyGrid {
+                    sampled_frequencies_hz: &sampled_frequencies_hz,
+                    analog_angular_frequencies: &analog_angular_frequencies,
+                    sampled_angular_frequencies: &sampled_angular_frequencies,
+                },
+                &FrontendTransferFunctions {
+                    analog: &analog_transfer_functions[group.channel_idx],
+                    fractional_delay: &fractional_delay_transfer_functions[group.channel_idx],
+                },
+            )?;
+            let plot = build_plot(
+                &theme,
+                &analog_frequencies_hz,
+                &sampled_frequencies_hz,
+                &variants,
+                default_reporting_rate_idx,
+            );
 
-        if let Some(output_dir) = &output_dir {
-            let html_path = output_dir.join(format!("{}.html", group.slug));
-            let svg_path = output_dir.join(format!("{}.svg", group.slug));
+            let html_path = output_dir.join(format!("{}_{}.html", group.slug, theme.suffix));
             write_interactive_html(
                 &plot,
                 &variants,
@@ -169,228 +145,60 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &html_path,
                 &theme,
             )?;
-            exporter
-                .as_mut()
-                .expect("exporter exists for save mode")
-                .write_image(&plot, &svg_path, ImageFormat::SVG, WIDTH, HEIGHT, 1.0)?;
             println!("wrote {}", html_path.display());
-            println!("wrote {}", svg_path.display());
-        } else {
-            let html_dir = display_dir.as_ref().expect("display directory exists");
-            let html_path = html_dir.join(format!("{}.html", group.slug));
-            write_interactive_html(
-                &plot,
-                &variants,
-                default_reporting_rate_idx,
-                &html_path,
-                &theme,
-            )?;
-            open_in_default_browser(&html_path)?;
-            println!("opened {}", html_path.display());
         }
     }
 
-    if let Some(exporter) = &mut exporter {
-        exporter.close();
-    }
     Ok(())
 }
 
-fn parse_args() -> Result<(Theme, Option<PathBuf>), Box<dyn Error>> {
+fn parse_args() -> Result<PathBuf, Box<dyn Error>> {
     let args = env::args().collect::<Vec<_>>();
-    if !(2..=3).contains(&args.len()) {
+    if args.len() > 2 {
         return Err(format!(
-            "usage: {} <dark|light> [output-dir]",
+            "usage: {} [output-dir]",
             args.first().map(String::as_str).unwrap_or("rev7_bode")
         )
         .into());
     }
 
-    let theme = match args[1].as_str() {
-        "dark" => Theme {
-            foreground: "#ffffff",
-            grid: "rgba(255,255,255,0.22)",
-            background: "#1e2129",
-        },
-        "light" => Theme {
-            foreground: "#000000",
-            grid: "rgba(0,0,0,0.18)",
-            background: "rgba(0,0,0,0)",
-        },
-        other => {
-            return Err(format!("unknown theme {other:?}; expected \"dark\" or \"light\"").into())
-        }
-    };
+    if matches!(args.get(1).map(String::as_str), Some("dark" | "light")) {
+        return Err(
+            "theme arguments are no longer used; dark and light variants are both exported".into(),
+        );
+    }
 
-    Ok((theme, args.get(2).map(|path| Path::new(path).to_path_buf())))
+    Ok(args
+        .get(1)
+        .map(|path| Path::new(path).to_path_buf())
+        .unwrap_or_else(default_output_dir))
 }
 
-fn configure_static_export_environment() -> Result<(), Box<dyn Error>> {
-    match configured_env_path(BROWSER_PATH_ENV)? {
-        Some(path) => println!("using {BROWSER_PATH_ENV}={}", path.display()),
-        None => {
-            let browser_path = find_chromium_browser().ok_or_else(|| {
-                format!(
-                    "could not find Chrome/Chromium for Plotly SVG export; set {BROWSER_PATH_ENV} \
-                     to a Chrome or Chromium executable"
-                )
-            })?;
-            env::set_var(BROWSER_PATH_ENV, &browser_path);
-            println!(
-                "using discovered {BROWSER_PATH_ENV}={}",
-                browser_path.display()
-            );
-        }
-    }
-
-    if configured_env_path(WEBDRIVER_PATH_ENV)?.is_none() {
-        if let Some(webdriver_path) = find_chromedriver() {
-            env::set_var(WEBDRIVER_PATH_ENV, &webdriver_path);
-            println!(
-                "using discovered {WEBDRIVER_PATH_ENV}={}",
-                webdriver_path.display()
-            );
-        } else {
-            eprintln!(
-                "warning: no chromedriver found on PATH or in ~/.local/bin; if export fails, \
-                 rebuild with {BROWSER_PATH_ENV} set so plotly_static can download a matching \
-                 driver, or set {WEBDRIVER_PATH_ENV} explicitly"
-            );
-        }
-    }
-
-    Ok(())
+fn default_output_dir() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../deimos_website/docs/assets")
 }
 
-fn configured_env_path(name: &str) -> Result<Option<PathBuf>, Box<dyn Error>> {
-    let Some(value) = env::var_os(name) else {
-        return Ok(None);
-    };
-    if value.is_empty() {
-        return Ok(None);
-    }
-    let path = PathBuf::from(value);
-    if path.exists() {
-        Ok(Some(path))
-    } else {
-        Err(format!("{name} points to a missing path: {}", path.display()).into())
-    }
-}
-
-fn find_chromium_browser() -> Option<PathBuf> {
+fn themes() -> [Theme; 2] {
     [
-        "chromium",
-        "chromium-browser",
-        "google-chrome",
-        "google-chrome-stable",
-        "chrome",
+        Theme {
+            suffix: "light",
+            color_scheme: "light",
+            paper_background: "#ffffff",
+            plot_background: "#ffffff",
+            foreground: "#171922",
+            grid: "#d8deea",
+            border: "#d7dce2",
+        },
+        Theme {
+            suffix: "dark",
+            color_scheme: "dark",
+            paper_background: "#2b2f3a",
+            plot_background: "#2b2f3a",
+            foreground: "#f2f0f6",
+            grid: "#47404f",
+            border: "#47404f",
+        },
     ]
-    .iter()
-    .find_map(|program| find_on_path(program))
-    .or_else(|| {
-        browser_candidate_paths()
-            .into_iter()
-            .find(|path| path.exists())
-    })
-}
-
-fn find_chromedriver() -> Option<PathBuf> {
-    find_on_path("chromedriver").or_else(|| {
-        home_dir()
-            .map(|home| home.join(".local/bin/chromedriver"))
-            .filter(|path| path.exists())
-    })
-}
-
-fn find_on_path(program: &str) -> Option<PathBuf> {
-    env::var_os("PATH").and_then(|path| {
-        env::split_paths(&path)
-            .map(|dir| dir.join(program))
-            .find(|candidate| candidate.exists())
-    })
-}
-
-fn home_dir() -> Option<PathBuf> {
-    env::var_os("HOME").map(PathBuf::from)
-}
-
-fn browser_candidate_paths() -> Vec<PathBuf> {
-    let mut paths = Vec::new();
-
-    #[cfg(target_os = "linux")]
-    {
-        paths.extend([
-            PathBuf::from("/usr/bin/chromium"),
-            PathBuf::from("/usr/bin/chromium-browser"),
-            PathBuf::from("/usr/bin/google-chrome"),
-            PathBuf::from("/usr/bin/google-chrome-stable"),
-            PathBuf::from("/usr/local/bin/chromium"),
-            PathBuf::from("/usr/local/bin/chromium-browser"),
-            PathBuf::from("/usr/local/bin/google-chrome"),
-            PathBuf::from("/snap/chromium/current/usr/lib/chromium-browser/chrome"),
-            PathBuf::from("/snap/bin/chromium"),
-            PathBuf::from(
-                "/var/lib/flatpak/app/org.chromium.Chromium/current/active/files/chromium/chrome",
-            ),
-        ]);
-        if let Some(home) = home_dir() {
-            paths.push(home.join(
-                ".local/share/flatpak/app/org.chromium.Chromium/current/active/files/chromium/chrome",
-            ));
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        paths.extend([
-            PathBuf::from("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
-            PathBuf::from("/Applications/Chromium.app/Contents/MacOS/Chromium"),
-        ]);
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        if let Some(program_files) = env::var_os("PROGRAMFILES").map(PathBuf::from) {
-            paths.push(program_files.join("Google/Chrome/Application/chrome.exe"));
-        }
-        if let Some(program_files_x86) = env::var_os("PROGRAMFILES(X86)").map(PathBuf::from) {
-            paths.push(program_files_x86.join("Google/Chrome/Application/chrome.exe"));
-        }
-        if let Some(local_app_data) = env::var_os("LOCALAPPDATA").map(PathBuf::from) {
-            paths.push(local_app_data.join("Google/Chrome/Application/chrome.exe"));
-        }
-    }
-
-    paths
-}
-
-fn open_in_default_browser(path: &Path) -> Result<(), Box<dyn Error>> {
-    let status = open_command(path).status()?;
-    if !status.success() {
-        return Err(format!("failed to open {} with the default browser", path.display()).into());
-    }
-    Ok(())
-}
-
-#[cfg(all(unix, not(target_os = "android"), not(target_os = "macos")))]
-fn open_command(path: &Path) -> Command {
-    let mut command = Command::new("xdg-open");
-    command.arg(path);
-    command
-}
-
-#[cfg(target_os = "macos")]
-fn open_command(path: &Path) -> Command {
-    let mut command = Command::new("open");
-    command.arg(path);
-    command
-}
-
-#[cfg(target_os = "windows")]
-fn open_command(path: &Path) -> Command {
-    let mut command = Command::new("explorer");
-    command.arg(path);
-    command
 }
 
 fn frontend_groups() -> [FrontendGroup; 3] {
@@ -511,6 +319,7 @@ fn build_plot(
     default_reporting_rate_idx: usize,
 ) -> Plot {
     let mut plot = Plot::new();
+    plot.set_configuration(Configuration::new().responsive(true).display_logo(false));
     for (idx, variant) in variants.iter().enumerate() {
         let visible = if idx == default_reporting_rate_idx {
             Visible::True
@@ -552,7 +361,8 @@ fn write_interactive_html(
     let max_idx = variants.len().saturating_sub(1);
     let default_label = format_frequency(default_variant.reporting_rate_hz);
     let foreground = theme.foreground;
-    let background = theme.background;
+    let paper_background = theme.paper_background;
+    let border = theme.border;
 
     let html = format!(
         r#"<!doctype html>
@@ -562,9 +372,13 @@ fn write_interactive_html(
     <script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
     <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
     <style>
+        :root {{
+            color-scheme: {color_scheme};
+        }}
+
         html, body {{
             margin: 0;
-            background: {background};
+            background: {body_background};
         }}
 
         body {{
@@ -575,20 +389,26 @@ fn write_interactive_html(
         .rev7-shell {{
             box-sizing: border-box;
             display: flex;
-            gap: 12px;
+            flex-wrap: nowrap;
+            gap: 6px;
+            width: 100%;
+            max-width: {report_max_width};
             min-height: {height}px;
-            padding: 0;
-            background: {background};
+            margin: 0 auto;
+            padding: 0 clamp(0.25rem, 2vw, 1rem);
+            background: {paper_background};
+            border-left: 1px solid {border};
+            border-right: 1px solid {border};
         }}
 
         .rev7-slider-panel {{
             box-sizing: border-box;
             display: flex;
-            flex: 0 0 84px;
+            flex: 0 0 clamp(58px, 13vw, 84px);
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 12px;
+            gap: clamp(8px, 2vw, 12px);
             min-height: {height}px;
             color: {foreground};
             font-size: 12px;
@@ -604,14 +424,14 @@ fn write_interactive_html(
 
         #reporting-rate-slider {{
             width: 28px;
-            height: 560px;
+            height: 373px;
             writing-mode: vertical-lr;
             direction: rtl;
             accent-color: {foreground};
         }}
 
         #reporting-rate-value {{
-            min-width: 64px;
+            min-width: 58px;
             text-align: center;
             font-variant-numeric: tabular-nums;
         }}
@@ -624,6 +444,7 @@ fn write_interactive_html(
         }}
 
         .rev7-plot .plotly-graph-div {{
+            width: 100% !important;
             height: {height}px !important;
         }}
     </style>
@@ -664,14 +485,18 @@ fn write_interactive_html(
 </body>
 </html>
 "#,
+        border = border,
+        body_background = paper_background,
+        color_scheme = theme.color_scheme,
         default_label = default_label,
         default_reporting_rate_idx = default_reporting_rate_idx,
-        background = background,
         foreground = foreground,
         height = HEIGHT,
         inline_plot = inline_plot,
         max_idx = max_idx,
+        paper_background = paper_background,
         plot_id = plot_id,
+        report_max_width = REPORT_MAX_WIDTH,
         states_json = states_json,
     );
 
@@ -715,7 +540,7 @@ fn add_variant_traces(
         TraceStyle {
             name: "Combined",
             dash: DashType::Solid,
-            width: 3.0,
+            width: 1.5,
         },
         theme.foreground,
         false,
@@ -726,7 +551,7 @@ fn add_variant_traces(
         bode_traces.analog_frequencies_hz,
         &bode_traces.analog.magnitude_db,
         TraceStyle {
-            name: "Analog frontend",
+            name: "Analog",
             dash: DashType::Dot,
             width: 2.0,
         },
@@ -739,7 +564,7 @@ fn add_variant_traces(
         bode_traces.sampled_frequencies_hz,
         &bode_traces.digital.magnitude_db,
         TraceStyle {
-            name: "Fractional delay +<br>digital Butterworth",
+            name: "Digital",
             dash: DashType::Dash,
             width: 2.0,
         },
@@ -754,7 +579,7 @@ fn add_variant_traces(
         TraceStyle {
             name: "Combined",
             dash: DashType::Solid,
-            width: 3.0,
+            width: 1.5,
         },
         theme.foreground,
         true,
@@ -765,7 +590,7 @@ fn add_variant_traces(
         bode_traces.analog_frequencies_hz,
         &bode_traces.analog.phase_deg,
         TraceStyle {
-            name: "Analog frontend",
+            name: "Analog",
             dash: DashType::Dot,
             width: 2.0,
         },
@@ -778,7 +603,7 @@ fn add_variant_traces(
         bode_traces.sampled_frequencies_hz,
         &bode_traces.digital.phase_deg,
         TraceStyle {
-            name: "Fractional delay +<br>digital Butterworth",
+            name: "Digital",
             dash: DashType::Dash,
             width: 2.0,
         },
@@ -813,19 +638,28 @@ fn add_trace(
 fn layout(theme: &Theme, variant: &PlotVariant) -> Layout {
     Layout::new()
         .title(Title::with_text(&variant.title))
-        .width(WIDTH)
+        .auto_size(true)
         .height(HEIGHT)
         .font(Font::new().color(theme.foreground))
+        .legend(
+            Legend::new()
+                .font(Font::new().color(theme.foreground))
+                .orientation(Orientation::Horizontal)
+                .x(0.0)
+                .x_anchor(Anchor::Left)
+                .y(1.02)
+                .y_anchor(Anchor::Bottom),
+        )
         .margin(
             Margin::new()
-                .left(90)
-                .right(40)
-                .top(70)
+                .left(20)
+                .right(20)
+                .top(90)
                 .bottom(70)
                 .auto_expand(true),
         )
-        .paper_background_color(theme.background)
-        .plot_background_color(theme.background)
+        .paper_background_color(theme.paper_background)
+        .plot_background_color(theme.plot_background)
         .x_axis(
             axis(theme, "Frequency [Hz]", true)
                 .domain(&[0.0, 1.0])
@@ -865,8 +699,8 @@ fn reference_marks(
         (group.analog_cutoff_hz, "Analog cutoff"),
     ];
 
-    let mut shapes = Vec::with_capacity(vertical_marks.len() * 2 + 1);
-    let mut annotations = Vec::with_capacity(vertical_marks.len() * 2 + 1);
+    let mut shapes = Vec::with_capacity(vertical_marks.len() * 2);
+    let mut annotations = Vec::with_capacity(vertical_marks.len() * 2);
     for (frequency_hz, label) in vertical_marks {
         shapes.push(vertical_line(
             theme,
@@ -900,8 +734,6 @@ fn reference_marks(
         ));
     }
 
-    shapes.push(horizontal_phase_line(theme, -90.0));
-    annotations.push(phase_annotation(theme, -90.0, "-90 deg phase lag"));
     (shapes, annotations)
 }
 
@@ -929,24 +761,6 @@ fn vertical_line(
         )
 }
 
-fn horizontal_phase_line(theme: &Theme, phase_deg: f64) -> Shape {
-    Shape::new()
-        .shape_type(ShapeType::Line)
-        .x_ref("paper")
-        .x0(0.0)
-        .x1(1.0)
-        .y_ref("y2")
-        .y0(phase_deg)
-        .y1(phase_deg)
-        .opacity(0.5)
-        .line(
-            ShapeLine::new()
-                .color(theme.foreground)
-                .width(1.0)
-                .dash(DashType::Solid),
-        )
-}
-
 fn vertical_annotation(
     theme: &Theme,
     frequency_hz: f64,
@@ -964,20 +778,6 @@ fn vertical_annotation(
         .x_anchor(Anchor::Left)
         .y_anchor(y_anchor)
         .text_angle(-90.0)
-        .show_arrow(false)
-        .opacity(1.0)
-        .font(Font::new().color(theme.foreground).size(13))
-}
-
-fn phase_annotation(theme: &Theme, phase_deg: f64, label: &str) -> Annotation {
-    Annotation::new()
-        .text(label)
-        .x_ref("paper")
-        .x(0.99)
-        .y_ref("y2")
-        .y(phase_deg)
-        .x_anchor(Anchor::Right)
-        .y_anchor(Anchor::Bottom)
         .show_arrow(false)
         .opacity(1.0)
         .font(Font::new().color(theme.foreground).size(13))

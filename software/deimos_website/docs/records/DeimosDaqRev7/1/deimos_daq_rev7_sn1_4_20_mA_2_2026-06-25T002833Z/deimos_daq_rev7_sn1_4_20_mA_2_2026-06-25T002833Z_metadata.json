@@ -1,0 +1,8 @@
+{
+  "model": "deimos_daq_rev7",
+  "serial_number": 1,
+  "channel": "4_20_mA_2",
+  "signal_name": "p1_4_20_mA_2_A.y",
+  "calibrator_cold_junction_temperature_k": null,
+  "manual_reference_windows": []
+}

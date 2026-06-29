@@ -1,0 +1,56 @@
+# Operator console config for `software/deimos/examples/rev7_calibration.rs`.
+# Run with:
+# cargo run -p deimos_console -- --config software/deimos/examples/rev7_calibration_console.toml
+
+multicast_group = "239.255.0.1"
+port = 29573
+window_seconds = 90.0
+staleness_threshold_secs = 3.0
+forensic_log_path = "/tmp/deimos-rev7-calibration-console.csv"
+columns = 2
+
+[[panels]]
+title = "Rev7 4-20 mA Inputs"
+channels = [
+    "p1_4_20_mA_0_A.y",
+    "p1_4_20_mA_1_A.y",
+    "p1_4_20_mA_2_A.y",
+    "p1_4_20_mA_3_A.y",
+]
+
+[[panels]]
+title = "Rev7 RTD Inputs"
+channels = [
+    "p1_rtd_0.temperature_K",
+    "p1_rtd_1.temperature_K",
+    "p1_rtd_2.temperature_K",
+]
+
+[[panels]]
+title = "Rev7 Thermocouple Inputs"
+channels = [
+    "p1_tc_0.temperature_K",
+    "p1_tc_1.temperature_K",
+    "p1_board_rtd_filtered.y",
+]
+
+[[panels]]
+title = "Rev7 0-2.5 V Inputs"
+channels = [
+    "p1_0_2V5_0_sense_V.y",
+    "p1_0_2V5_1_sense_V.y",
+]
+
+[[panels]]
+title = "Rev7 0-15 V Inputs"
+channels = [
+    "p1_0_15V_0_sense_V.y",
+    "p1_0_15V_1_sense_V.y",
+]
+
+[[panels]]
+title = "Rev7 26x Voltage Inputs"
+channels = [
+    "p1_x26_0_sense_V.y",
+    "p1_x26_1_sense_V.y",
+]

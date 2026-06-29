@@ -1,0 +1,5 @@
+[build]
+rustdocflags = [
+    "--extend-css", "software/deimos_shared/docs/rustdoc.css",
+    "--default-theme", "dark",
+]

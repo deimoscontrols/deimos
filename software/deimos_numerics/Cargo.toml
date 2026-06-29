@@ -11,6 +11,10 @@ readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--extend-css", "docs/rustdoc.css", "--default-theme", "dark"]
+
 [dependencies]
 crunchy = "^0.2.4"
 num-traits = { version = "^0.2.19", default-features = false, features = ["libm"] }

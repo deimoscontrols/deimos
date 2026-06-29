@@ -15,7 +15,7 @@ Realtime data acquisition and controls ecosystem, including hardware, firmware, 
 
 | Model | I/O Medium | Sample/Control Rate | Input Capabilities | Output Capabilities |
 |------|------------|------------|--------------------|---------------------|
-| [Deimos DAQ 6.0.x](https://github.com/deimoscontrols/deimos/tree/main/hardware/boards/deimos_daq_rev6) | UDP over IPV4<br> on ethernet with LAN-only (non-routeable) MAC address | 5Hz-5kHz roundtrip<br><br>Performance depends on network and host machine | External:<br>4x 4-20mA (24V)<br>3x Pt100 RTD<br>2x K-Type TC<br>2x 0-2.5V<br>2x 0-15V<br>2x 25.7x gain<br>1x 660x gain<br>1x Encoder<br>1x Counter<br>2x Freq<br><br>Internal:<br>- Cold-junction RTD<br>- Bus current<br>- Bus voltage | 4x PWM (1Hz-1MHz, 3.3V)<br>2x 0-2.5V analog |
+| [Deimos DAQ 7.0.x](https://github.com/deimoscontrols/deimos/tree/main/hardware/boards/deimos_daq_rev7) | UDP/IP/Ethernet | 5Hz-5kHz roundtrip<br><br>Performance depends on network and host machine | 18x analog, 6x digital | 4x PWM <br>2x analog |
 
 # Controller Comm. Media
 
