@@ -11,9 +11,8 @@ hide:
     <p class="home-hero__eyebrow">Open-Source Ethernet DAQ and Control Hardware</p>
     <h2>Accuracy, Speed, Control.<br><b><i>Pick three.</i></b></h2>
     <p class="home-hero__lede">
-      Deimos DAQ is your interface between software and hardware.<br><br>
-      Measurement and real-time controls integrated in a single ethernet-connected
-      package supports engineers and scientists performing experiments on physical systems. 
+      Deimos DAQ is your interface between software and hardware: measurement and real-time controls integrated in a single ethernet-connected
+      package. 
     </p>
     <div class="home-hero__actions">
       <a class="md-button md-button--primary" href="products/deimos_daq/">View Product</a>
