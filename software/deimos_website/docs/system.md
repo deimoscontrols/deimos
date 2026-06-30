@@ -5,6 +5,11 @@ hide:
 
 # Deimos System Overview
 
+The Deimos system spans DAQ hardware, time-synchronized control program,
+and data pipeline components.
+
+<div> <img src="../assets/system.svg" alt="System overview" class="zoomable-image"> </div>
+
 ## :material-state-machine:{ .lg } DAQ State Machine
 
 DAQs behave according to a simple state machine.
