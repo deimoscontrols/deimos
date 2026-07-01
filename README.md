@@ -1,15 +1,17 @@
 # Deimos
 
-| [Control Program](https://github.com/deimoscontrols/deimos/tree/main/software/deimos) |\|| [Packet Formats](https://github.com/deimoscontrols/deimos/tree/main/software/deimos_shared) |\|| [Firmware](https://github.com/deimoscontrols/deimos/tree/main/firmware) |\|| [Hardware Designs](https://github.com/deimoscontrols/deimos/tree/main/hardware) |
-|-----------------|-|--------------|-|----------|-|----------|
+|[Website](https://deimoscontrols.com) |\||[Control Program](https://github.com/deimoscontrols/deimos/tree/main/software/deimos) |\|| [Packet Formats](https://github.com/deimoscontrols/deimos/tree/main/software/deimos_shared) |\|| [Firmware](https://github.com/deimoscontrols/deimos/tree/main/firmware) |\|| [Hardware Designs](https://github.com/deimoscontrols/deimos/tree/main/hardware) |
+|-----------------|-|--------------|-|----------|-|----------|-----|-|
 
 Realtime data acquisition and controls ecosystem, including hardware, firmware, and software.
 
+<img src="software/deimos_website/docs/assets/daq.svg" alt="Deimos DAQ hardware">
+
 # Contact
 
-| Email | Purpose |
+|  | Purpose |
 |-------|---------|
-| support@deimoscontrols.com | Questions about the hardware or software |
+| support@deimoscontrols.com <br> or <br>https://deimoscontrols.com/contact/ | Questions about the hardware or software |
 
 # Hardware Peripherals
 
