@@ -8,6 +8,9 @@ the goals and state of the project.
 The control program and the firmware-software shared library share a
 [changelog](https://github.com/deimoscontrols/deimos/blob/main/CHANGELOG.md) at the workspace level.
 
+<img src="../deimos_website/docs/assets/daq.svg" alt="Deimos DAQ hardware">
+
+
 ### Install - Rust
 
 ```bash
