@@ -4,11 +4,13 @@ hide:
 ---
 
 
-# Deimos DAQ - Overview
+#
 
 ## :material-graph-outline:{ .lg .middle } Overview
 
-<img src="../../assets/DSC02285.jpg" alt="Deimos DAQ hardware" class="product-splash-image zoomable-image">
+<!-- <img src="../../assets/DSC02285.jpg" alt="Deimos DAQ hardware" class="product-splash-image zoomable-image"> -->
+
+<img src="../../assets/daq.svg" alt="Deimos DAQ hardware" class="product-splash-image zoomable-image">
 
 The Deimos DAQ boasts a set of 22 input channels and 10 output channels,
 all available together and operated simultaneously on every cycle.
