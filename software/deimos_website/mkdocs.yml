@@ -30,13 +30,15 @@ theme:
     - python
     - rust
   palette:
-    - scheme: slate
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
       primary: deimos1
       accent: deimos1
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
-    - scheme: default
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
       primary: deimos1
       accent: deimos1
       toggle:
