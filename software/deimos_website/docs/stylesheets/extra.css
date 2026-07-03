@@ -402,7 +402,8 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
 
 .bode-plot-frame {
     position: relative;
-    width: 700px;
+    width: 100%;
+    max-width: 60rem;
     height: 600px;
     background: var(--deimos-plot-bg);
     border-radius: 8px;
