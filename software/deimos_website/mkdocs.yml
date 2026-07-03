@@ -30,11 +30,20 @@ theme:
     - python
     - rust
   palette:
-    # Palette toggle for dark mode
-    - scheme: slate
-      # This doesn't actually map to anything, but causes it to fail and fall back on colors in extra.css
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
       primary: deimos1
       accent: deimos1
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deimos1
+      accent: deimos1
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
   logo: assets/logo_light.png
   favicon: assets/logo_minimal.svg
   icon:
@@ -52,6 +61,7 @@ extra_css:
 extra_javascript:
   - javascripts/contact-form.js
   - javascripts/image-zoom.js
+  - javascripts/theme-assets.js
 
 markdown_extensions:
   - pymdownx.highlight:

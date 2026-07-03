@@ -1,12 +1,26 @@
 :root {
-    --md-primary-fg-color: #8232ba; /* Top bar background & side bar text */
-    --md-accent-fg-color: #ac37ff; /* Top bar background & side bar text */
+    --md-primary-fg-color: #8232ba;
+    --md-accent-fg-color: #ac37ff;
+    --deimos-teal: #3db6b2;
+    --deimos-amber: #d8b858;
+}
+
+[data-md-color-scheme="slate"] {
     --deimos-panel-border: rgba(242, 240, 246, 0.14);
     --deimos-panel-bg: rgba(255, 255, 255, 0.035);
     --deimos-panel-bg-strong: rgba(255, 255, 255, 0.055);
     --deimos-muted: var(--md-default-fg-color--light);
-    --deimos-teal: #3db6b2;
-    --deimos-amber: #d8b858;
+    --deimos-plot-bg: #2b2f3a;
+}
+
+[data-md-color-scheme="default"] {
+    --deimos-panel-border: rgba(52, 42, 66, 0.16);
+    --deimos-panel-bg: rgba(44, 50, 58, 0.025);
+    --deimos-panel-bg-strong: rgba(44, 50, 58, 0.045);
+    --deimos-muted: var(--md-default-fg-color--light);
+    --deimos-teal: #087f7a;
+    --deimos-amber: #8a6a00;
+    --deimos-plot-bg: #ffffff;
 }
 
 body:has(.home-hero) .md-grid {
@@ -388,9 +402,10 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
 
 .bode-plot-frame {
     position: relative;
-    width: 700px;
+    width: 100%;
+    max-width: 60rem;
     height: 600px;
-    background: #2b2f3a;
+    background: var(--deimos-plot-bg);
     border-radius: 8px;
     overflow: hidden;
     margin: 1.5rem 0;
@@ -400,7 +415,7 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
     display: block;
     width: 100%;
     height: 100%;
-    background: #2b2f3a;
+    background: var(--deimos-plot-bg);
     border: 0;
     margin: 0;
     opacity: 0;
@@ -418,7 +433,7 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
     width: 2rem;
     height: 2rem;
     margin: -1rem 0 0 -1rem;
-    border: 3px solid rgba(242, 240, 246, 0.22);
+    border: 3px solid var(--deimos-panel-border);
     border-top-color: var(--deimos-teal);
     border-radius: 50%;
     animation: bode-spin 0.8s linear infinite;
