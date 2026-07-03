@@ -6,9 +6,10 @@ function activeThemeVariant() {
 
 function updateThemeAssets() {
   const variant = activeThemeVariant();
+  const sourceKey = variant === "light" ? "themeSrcLight" : "themeSrcDark";
 
   document.querySelectorAll("[data-theme-src-dark][data-theme-src-light]").forEach((element) => {
-    const nextSource = element.dataset[`themeSrc${variant[0].toUpperCase()}${variant.slice(1)}`];
+    const nextSource = element.dataset[sourceKey];
 
     if (!nextSource || element.getAttribute("src") === nextSource) {
       return;
@@ -28,6 +29,14 @@ function initThemeAssets() {
     attributes: true,
     attributeFilter: ["data-md-color-scheme"],
   });
+
+  if (window.document$ && typeof window.document$.subscribe === "function") {
+    window.document$.subscribe(updateThemeAssets);
+  }
+
+  window.addEventListener("load", updateThemeAssets);
+  setTimeout(updateThemeAssets, 0);
+  setTimeout(updateThemeAssets, 250);
 }
 
 if (document.readyState === "loading") {
