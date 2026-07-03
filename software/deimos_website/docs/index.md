@@ -101,7 +101,13 @@ hide:
     </p>
     <a class="md-button" href="products/frontends/">Explore Frontends</a>
   </div>
-  <img src="assets/sk_3kHz.svg" alt="Sallen-Key filter schematic" class="zoomable-image">
+  <img
+    src="assets/sk_3kHz_light.svg"
+    data-theme-src-dark="assets/sk_3kHz.svg"
+    data-theme-src-light="assets/sk_3kHz_light.svg"
+    alt="Sallen-Key filter schematic"
+    class="zoomable-image"
+  >
 </section>
 
 <section class="home-section">
