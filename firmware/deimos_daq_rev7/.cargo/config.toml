@@ -4,6 +4,7 @@ linker = "flip-link"
 rustflags = [
   # LLD (shipped with the Rust toolchain) is used as the default linker
   "-C", "link-arg=-Tlink.x",
+  "-C", "link-arg=-Titcm.x",
   "-C", "target-cpu=cortex-m7",
   # Uncomment to use all floating-point instruction sets available with codegen,
   # full ARMv7 instruction set, and realtime profile

@@ -12,34 +12,60 @@ use embedded_alloc::LlffHeap as Heap;
 use rt::{entry, exception};
 use stm32h7xx_hal::{interrupt, pac, stm32, timer::Event};
 
-use core::mem::MaybeUninit;
+use core::mem::{size_of, MaybeUninit};
 use core::panic::PanicInfo;
-use core::ptr::addr_of_mut;
+use core::ptr::{addr_of, addr_of_mut, copy_nonoverlapping};
 use core::sync::atomic::compiler_fence;
 
 use irq::{handler, scope};
 use smoltcp::{iface::SocketStorage, storage::PacketMetadata};
 
-use crate::board::{Board, subsystems::net::NetStorageStatic};
+use crate::board::{subsystems::net::NetStorageStatic, Board};
 
 #[global_allocator]
 static HEAP: Heap = Heap::empty();
 
+/// Link region markers.
+/// These are placed at the start/end of special link regions
+/// to give us a way to refer to them at run time.
 unsafe extern "C" {
     static _heap_start: u8;
     static _heap_size: u8;
+    static __siitcm: u32; // Sampler DSP procedure function pointer
+    static mut __sitcm: u32; // Start of ITCM interrupt memory region
+    static mut __eitcm: u32; // End of ITCM
+}
+
+/// Move sensitive functions into ITCM (Instruction Tightly-Coupled Memory)
+unsafe fn initialize_itcm() {
+    let source = addr_of!(__siitcm);
+    let start = addr_of_mut!(__sitcm);
+    let end = addr_of_mut!(__eitcm);
+    let words = (end as usize - start as usize) / size_of::<u32>();
+
+    // Move sampler DSP procedure from flash into ITCM
+    // so that it can't be ejected from L1 cache.
+    unsafe {
+        copy_nonoverlapping(source, start, words);
+    }
+
+    cortex_m::asm::dsb();
+    cortex_m::asm::isb();
 }
 
 // MaybeUninit allows us write code that is correct even if STORE is not
 // initialised by the runtime
 static mut STORE: MaybeUninit<NetStorageStatic> = MaybeUninit::uninit();
 
-/// User program entrypoint after program is copied from flash into RAM
-/// This routine is specified at the reset vector in the ISR vector table.
+/// User entrypoint after cortex-m-rt initializes `.data` and `.bss`.
 ///
-/// Copies global .data init from flash to SRAM and then zeros the bss segment.
+/// Copies the sampling routine into ITCM before interrupts can execute it.
 #[entry]
 unsafe fn main() -> ! {
+    unsafe {
+        initialize_itcm();
+    }
+
     // Initialize runtime-defined exception handlers before running any
     // application code or doing anything that might trigger them
     handler!(systick_default_handler = || {});
