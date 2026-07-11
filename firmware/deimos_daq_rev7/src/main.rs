@@ -25,9 +25,9 @@ use crate::board::{subsystems::net::NetStorageStatic, Board};
 #[global_allocator]
 static HEAP: Heap = Heap::empty();
 
-/// Link region markers.
-/// These are placed at the start/end of special link regions
-/// to give us a way to refer to them at run time.
+// Link region markers.
+// These are placed at the start/end of special link regions
+// to give us a way to refer to them at run time.
 unsafe extern "C" {
     static _heap_start: u8;
     static _heap_size: u8;
