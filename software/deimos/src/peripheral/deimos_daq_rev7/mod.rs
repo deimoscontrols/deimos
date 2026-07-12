@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use pyo3::prelude::*;
 
 use crate::py_peripheral_methods;
-
 pub mod calibration_7_0_0;
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LinearCal {

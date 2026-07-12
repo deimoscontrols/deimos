@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026-07-09
+## 2026-07-09 0.18.1
 
 * Rev7 hardware
     * Finish pcb layout updates & re-generate fab files
