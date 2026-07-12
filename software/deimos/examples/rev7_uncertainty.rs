@@ -70,9 +70,11 @@ fn frontend_35mv<D: DualNum<f64> + Copy>(x: SVector<D, 10>) -> D {
 //   | Filter amp input offset      | 0 V           | 25 uV        | 0.5 uV/C            |
 //   | Filter amp input bias current| 5pA           | 5 pA         |                     |
 
-/// Linearized uncertainty in output voltage of
+/// Linearized uncertainty and thermal sensitivity in output voltage of
 /// the +/-35mV frontend at a given input voltage.
-fn frontend_35mv_uncertainty(v: f64) -> (f64, SVector<f64, 10>, SVector<f64, 10>) {
+fn frontend_35mv_uncertainty(
+    v: f64,
+) -> (f64, SVector<f64, 10>, SVector<f64, 10>, SVector<f64, 10>) {
     let nominal = SVector::<f64, 10>::from([
         v,     // v
         2e3,   // rg
@@ -99,17 +101,41 @@ fn frontend_35mv_uncertainty(v: f64) -> (f64, SVector<f64, 10>, SVector<f64, 10>
         1e-9,            // iovp
     ]);
 
+    let thermal_sensitivity = SVector::<f64, 10>::from([
+        0.0,           // v
+        5e-6 * 2e3,    // rg
+        10e-6,         // fg
+        0.4e-6,        // voi
+        2e-6,          // voo
+        12e-6 * 1.024, // voref
+        0.5e-6,        // voif
+        0.0,           // ibf
+        50e-6 * 10e3,  // rf
+        0.0,           // iovp
+    ]);
+
     let (value, gradient) = gradient(frontend_35mv, &nominal);
     let uncertainty_components = gradient.component_mul(&uncertainty);
+    let thermal_sensitivity_components = gradient.component_mul(&thermal_sensitivity);
 
-    (value, gradient, uncertainty_components)
+    (
+        value,
+        gradient,
+        uncertainty_components,
+        thermal_sensitivity_components,
+    )
 }
 
 fn main() {
     for input in [-35e-3, 0.0, 35e-3] {
-        let (value, _gradient, uncertainty_components) = frontend_35mv_uncertainty(input);
+        let (value, _gradient, uncertainty_components, thermal_sensitivity_components) =
+            frontend_35mv_uncertainty(input);
         let output_uncertainty = uncertainty_components.norm();
+        let output_thermal_sensitivity = thermal_sensitivity_components.abs().sum();
 
-        println!("{value} +/- {output_uncertainty}");
+        println!(
+            "{value} +/- {output_uncertainty}; thermal sensitivity: \
+             {output_thermal_sensitivity} V/C"
+        );
     }
 }
