@@ -50,20 +50,9 @@ fn opa196_3khz_filt<D: DualNum<f64> + Copy>(vf: D, voif: D, ibf: D, rf: D, iovp:
 }
 
 /// +/-35mV frontend voltage model
-fn frontend_35mv<D: DualNum<f64> + Copy>(
-    v: D,
-    rg: D,
-    fg: D,
-    voi: D,
-    voo: D,
-    voref: D,
-    voif: D,
-    ibf: D,
-    rf: D,
-    iovp: D,
-) -> D {
-    let vf = ina826(v, rg, fg, voi, voo, voref);
-    opa196_3khz_filt(vf, voif, ibf, rf, iovp)
+fn frontend_35mv<D: DualNum<f64> + Copy>(x: SVector<D, 10>) -> D {
+    let vf = ina826(x[0], x[1], x[2], x[3], x[4], x[5]);
+    opa196_3khz_filt(vf, x[6], x[7], x[8], x[9])
 }
 
 // As of rev 7.0.1, 2026-07-12
@@ -83,7 +72,7 @@ fn frontend_35mv<D: DualNum<f64> + Copy>(
 
 /// Linearized uncertainty in output voltage of
 /// the +/-35mV frontend at a given input voltage.
-fn frontend_35mv_uncertainty(v: f64) {
+fn frontend_35mv_uncertainty(v: f64) -> (f64, SVector<f64, 10>, SVector<f64, 10>) {
     let nominal = SVector::<f64, 10>::from([
         v,     // v
         2e3,   // rg
@@ -110,18 +99,17 @@ fn frontend_35mv_uncertainty(v: f64) {
         1e-9,            // iovp
     ]);
 
-    let (value, gradient) = gradient(
-        |x| frontend_35mv(x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9]),
-        &nominal,
-    );
+    let (value, gradient) = gradient(frontend_35mv, &nominal);
+    let uncertainty_components = gradient.component_mul(&uncertainty);
 
-    let output_uncertainty = gradient.component_mul(&uncertainty).norm();
-
-    println!("{value} +/- {output_uncertainty}");
+    (value, gradient, uncertainty_components)
 }
 
 fn main() {
-    frontend_35mv_uncertainty(-35e-3);
-    frontend_35mv_uncertainty(0.0);
-    frontend_35mv_uncertainty(35e-3);
+    for input in [-35e-3, 0.0, 35e-3] {
+        let (value, _gradient, uncertainty_components) = frontend_35mv_uncertainty(input);
+        let output_uncertainty = uncertainty_components.norm();
+
+        println!("{value} +/- {output_uncertainty}");
+    }
 }
