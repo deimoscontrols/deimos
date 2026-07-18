@@ -40,15 +40,16 @@ hide:
       <p class="home-cta__eyebrow">Pre-launch updates</p>
       <h2 id="home-cta-title">Follow development and availability.</h2>
       <p>
-        Sign up for monthly development updates and be the first to hear when
-        units are in-stock and ready to ship!<br><br>
-        Interested in beta-testing? Reach out via the <a href="contact/">contact page</a>!
+        Follow the project on Crowd Supply for development updates and to be the
+        first to hear when units are in stock and ready to ship!
       </p>
+      <!-- Temporarily hidden until after the Crowd Supply launch. -->
       <form
         class="home-signup"
         action="https://deimoscontrols.us13.list-manage.com/subscribe/post?u=d3f613c56803a4b84867251d4&amp;id=62e300351a&amp;f_id=005103e9f0"
         method="post"
         target="home-mailchimp-target"
+        hidden
       >
         <label for="home-signup-email">Email</label>
         <div class="home-signup__row">
@@ -63,9 +64,12 @@ hide:
         title="Mailing list signup target"
         hidden
       ></iframe>
-      <a class="home-cta__crowd-supply md-button" href="https://www.crowdsupply.com/deimos-controls/deimos-daq" rel="noopener" target="_blank">
+      <a class="home-cta__crowd-supply md-button md-button--primary" href="https://www.crowdsupply.com/deimos-controls/deimos-daq" rel="noopener" target="_blank">
         Follow on Crowd Supply
       </a>
+      <p>
+        Interested in beta-testing? Reach out via the <a href="contact/">contact page</a>!
+      </p>
     </div>
   </aside>
 </section>

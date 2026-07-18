@@ -150,6 +150,10 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
     margin: 1rem 0;
 }
 
+.home-signup[hidden] {
+    display: none;
+}
+
 .home-signup label {
     font-weight: 700;
 }
