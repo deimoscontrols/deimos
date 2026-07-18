@@ -24,7 +24,8 @@ Questions, comments, or suggestions? Use this form to send us a note!
     <input id="contact-organization" name="organization" type="text" autocomplete="organization">
   </div>
 
-  <div class="contact-form__checkbox">
+  <!-- Temporarily hidden until after the Crowd Supply launch. -->
+  <div class="contact-form__checkbox" hidden>
     <label for="contact-optin">
       <input id="contact-optin" name="mailing_list_opt_in" type="checkbox" value="yes">
       Add me to the mailing list for product updates!
@@ -43,8 +44,10 @@ Questions, comments, or suggestions? Use this form to send us a note!
   <p class="contact-form__privacy">
     We use your information to respond to your message.<br>
     Submissions are processed by Formspree.<br>
-    If you opt-in to the mailing list, we will send your information to Mailchimp.<br>
-    You can unsubscribe from emails using the link in the email footer. <br>
+    <span hidden>
+      If you opt-in to the mailing list, we will send your information to Mailchimp.<br>
+      You can unsubscribe from emails using the link in the email footer.<br>
+    </span>
     Please do not send confidential information through this form.
   </p>
 </form>
