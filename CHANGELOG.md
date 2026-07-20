@@ -1,14 +1,15 @@
 # Changelog
 
-## 2026-07-09 0.18.1
+## 2026-07-19 0.18.1
 
 * Rev7 hardware
     * Finish pcb layout updates & re-generate fab files
+    * Update enclosure graphics
 * Rev7 firmware
     * Move `sample()` function with DSP pipeline into ITCM memory
     * Move `Net::poll` function with bulk of networking logic into ITCM
     * This prevents them from being ejected from cache, or taking up space in cache
-    * This may allow all Operating-state code to remain in L1 cache (16kB)
+    * This should allow all remaining Operating-state code to remain in L1 cache (16kB)
 
 ## 2026-06-28 0.18.0
 
