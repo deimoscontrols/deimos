@@ -10,6 +10,8 @@
     * Move `Net::poll` function with bulk of networking logic into ITCM
     * This prevents them from being ejected from cache, or taking up space in cache
     * This should allow all remaining Operating-state code to remain in L1 cache (16kB)
+* deimos
+    * Update an example and reqwest dep
 
 ## 2026-06-28 0.18.0
 
