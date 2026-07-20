@@ -239,6 +239,8 @@ impl<'a> Net<'a> {
     /// incoming UDP packets for the UDP socket, but will not advance the
     /// DHCP state machine. This can reduce timing uncertainty under
     /// repeated polls.
+    #[inline(never)]
+    #[unsafe(link_section = ".itcm.net_poll")]
     pub(crate) fn poll(&mut self, time_ns: i64) -> bool {
         let timestamp = Instant::from_micros(time_ns / 1000);
         self.iface

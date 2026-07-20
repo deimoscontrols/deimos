@@ -292,6 +292,8 @@ impl Sampler {
         self.pulse_counter.1.reset(0);
     }
 
+    #[inline(never)]
+    #[unsafe(link_section = ".itcm.sample")]
     pub fn sample(&mut self) {
         self.timer.clear_irq();
         let start_time = self.timer.counter();
