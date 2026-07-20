@@ -1,33 +1,34 @@
 # Protocase Designer Configuration 
 Assembly:
-  designer: {'Jul. 19, 2026, 6:48:23 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 6:52:19 p.m. EDT': '7.1.2
-      July, 02', 'Jul. 19, 2026, 7:15:05 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 7:34:53 p.m. EDT': '7.1.2
-      July, 02', 'Jul. 19, 2026, 7:51:08 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 7:54:46 p.m. EDT': '7.1.2
-      July, 02', 'Jul. 19, 2026, 7:58:42 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 8:09:14 p.m. EDT': '7.1.2
-      July, 02', 'Jul. 19, 2026, 8:09:17 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 8:18:05 p.m. EDT': '7.1.2
-      July, 02', 'Jul. 19, 2026, 8:32:11 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 8:51:20 p.m. EDT': '7.1.2
-      July, 02', 'Jul. 19, 2026, 8:54:02 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 9:06:42 p.m. EDT': '7.1.2
-      July, 02', 'Jul. 19, 2026, 9:20:42 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 9:29:44 p.m. EDT': '7.1.2
-      July, 02', 'Jul. 19, 2026, 9:30:04 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 9:36:24 p.m. EDT': '7.1.2
-      July, 02', 'Jul. 19, 2026, 9:40:20 p.m. EDT': '7.1.2 July, 02', 'Mar. 17, 2026, 10:05:37 p.m. EDT': '7.2.1
-      Aug, 28', 'Mar. 17, 2026, 10:05:39 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 17, 2026, 10:29:39 p.m. EDT': '7.2.1
-      Aug, 28', 'Mar. 17, 2026, 10:35:22 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 17, 2026, 10:37:12 p.m. EDT': '7.2.1
-      Aug, 28', 'Mar. 17, 2026, 7:31:38 a.m. EDT': '7.1.2 July, 02', 'Mar. 17, 2026, 7:53:33 a.m. EDT': '7.1.2
-      July, 02', 'Mar. 17, 2026, 9:38:29 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 18, 2026, 2:54:19 p.m. EDT': '7.2.1
-      Aug, 28', 'Mar. 18, 2026, 3:03:20 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 18, 2026, 3:08:20 p.m. EDT': '7.2.1
-      Aug, 28', 'Mar. 18, 2026, 3:11:30 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 18, 2026, 4:12:45 p.m. EDT': '7.2.1
-      Aug, 28', 'Mar. 18, 2026, 4:32:00 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 18, 2026, 4:41:15 p.m. EDT': '7.2.1
-      Aug, 28', 'Mar. 18, 2026, 4:43:50 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 18, 2026, 4:51:22 p.m. EDT': '7.2.1
-      Aug, 28', 'Mar. 18, 2026, 5:01:51 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 18, 2026, 5:05:50 p.m. EDT': '7.2.1
-      Aug, 28', 'Mar. 18, 2026, 7:01:46 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 2:30:49 p.m. EDT': '7.2.1
-      Aug, 28', 'May 3, 2026, 2:48:00 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 2:51:26 p.m. EDT': '7.2.1
-      Aug, 28', 'May 3, 2026, 2:51:28 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 3:23:49 p.m. EDT': '7.2.1
-      Aug, 28', 'May 3, 2026, 3:37:41 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 3:40:27 p.m. EDT': '7.2.1
-      Aug, 28', 'May 3, 2026, 3:42:17 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 3:49:31 p.m. EDT': '7.2.1
-      Aug, 28', 'May 3, 2026, 3:51:21 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 3:55:07 p.m. EDT': '7.2.1
-      Aug, 28', 'May 3, 2026, 4:09:45 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 4:15:31 p.m. EDT': '7.2.1
-      Aug, 28', 'May 3, 2026, 4:18:48 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 4:20:37 p.m. EDT': '7.2.1
-      Aug, 28', 'May 3, 2026, 4:22:59 p.m. EDT': '7.2.1 Aug, 28'}
+  designer: {'Jul. 19, 2026, 10:20:40 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 6:48:23 p.m. EDT': '7.1.2
+      July, 02', 'Jul. 19, 2026, 6:52:19 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 7:15:05 p.m. EDT': '7.1.2
+      July, 02', 'Jul. 19, 2026, 7:34:53 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 7:51:08 p.m. EDT': '7.1.2
+      July, 02', 'Jul. 19, 2026, 7:54:46 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 7:58:42 p.m. EDT': '7.1.2
+      July, 02', 'Jul. 19, 2026, 8:09:14 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 8:09:17 p.m. EDT': '7.1.2
+      July, 02', 'Jul. 19, 2026, 8:18:05 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 8:32:11 p.m. EDT': '7.1.2
+      July, 02', 'Jul. 19, 2026, 8:51:20 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 8:54:02 p.m. EDT': '7.1.2
+      July, 02', 'Jul. 19, 2026, 9:06:42 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 9:20:42 p.m. EDT': '7.1.2
+      July, 02', 'Jul. 19, 2026, 9:29:44 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 9:30:04 p.m. EDT': '7.1.2
+      July, 02', 'Jul. 19, 2026, 9:36:24 p.m. EDT': '7.1.2 July, 02', 'Jul. 19, 2026, 9:40:20 p.m. EDT': '7.1.2
+      July, 02', 'Mar. 17, 2026, 10:05:37 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 17, 2026, 10:05:39 p.m. EDT': '7.2.1
+      Aug, 28', 'Mar. 17, 2026, 10:29:39 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 17, 2026, 10:35:22 p.m. EDT': '7.2.1
+      Aug, 28', 'Mar. 17, 2026, 10:37:12 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 17, 2026, 7:31:38 a.m. EDT': '7.1.2
+      July, 02', 'Mar. 17, 2026, 7:53:33 a.m. EDT': '7.1.2 July, 02', 'Mar. 17, 2026, 9:38:29 p.m. EDT': '7.2.1
+      Aug, 28', 'Mar. 18, 2026, 2:54:19 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 18, 2026, 3:03:20 p.m. EDT': '7.2.1
+      Aug, 28', 'Mar. 18, 2026, 3:08:20 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 18, 2026, 3:11:30 p.m. EDT': '7.2.1
+      Aug, 28', 'Mar. 18, 2026, 4:12:45 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 18, 2026, 4:32:00 p.m. EDT': '7.2.1
+      Aug, 28', 'Mar. 18, 2026, 4:41:15 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 18, 2026, 4:43:50 p.m. EDT': '7.2.1
+      Aug, 28', 'Mar. 18, 2026, 4:51:22 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 18, 2026, 5:01:51 p.m. EDT': '7.2.1
+      Aug, 28', 'Mar. 18, 2026, 5:05:50 p.m. EDT': '7.2.1 Aug, 28', 'Mar. 18, 2026, 7:01:46 p.m. EDT': '7.2.1
+      Aug, 28', 'May 3, 2026, 2:30:49 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 2:48:00 p.m. EDT': '7.2.1
+      Aug, 28', 'May 3, 2026, 2:51:26 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 2:51:28 p.m. EDT': '7.2.1
+      Aug, 28', 'May 3, 2026, 3:23:49 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 3:37:41 p.m. EDT': '7.2.1
+      Aug, 28', 'May 3, 2026, 3:40:27 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 3:42:17 p.m. EDT': '7.2.1
+      Aug, 28', 'May 3, 2026, 3:49:31 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 3:51:21 p.m. EDT': '7.2.1
+      Aug, 28', 'May 3, 2026, 3:55:07 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 4:09:45 p.m. EDT': '7.2.1
+      Aug, 28', 'May 3, 2026, 4:15:31 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 4:18:48 p.m. EDT': '7.2.1
+      Aug, 28', 'May 3, 2026, 4:20:37 p.m. EDT': '7.2.1 Aug, 28', 'May 3, 2026, 4:22:59 p.m. EDT': '7.2.1
+      Aug, 28'}
   versionIds: {4512a369-20d8-11f1-9463-0242ac110002: 'Mar 16, 2026, 1:35:02 a.m. UTC',
     d737052a-21f4-11f1-9515-02425d092ea2: 'Mar. 17, 2026, 7:31:38 a.m. EDT', 3ab0307e-21f7-11f1-9515-02425d092ea2: 'Mar.
       17, 2026, 7:48:35 a.m. EDT', df6d5971-21f7-11f1-9515-02425d092ea2: 'Mar. 17,
@@ -86,7 +87,8 @@ Assembly:
       2026, 9:06:42 p.m. EDT', 3887ed58-83d9-11f1-8c5d-0242b0f0c252: 'Jul. 19, 2026,
       9:20:42 p.m. EDT', 75da0f4d-83da-11f1-8c5d-0242b0f0c252: 'Jul. 19, 2026, 9:30:04
       p.m. EDT', 6a09f62f-83db-11f1-bc71-0242b0f0c252: 'Jul. 19, 2026, 9:36:24 p.m.
-      EDT', f44428b2-83db-11f1-bc71-0242b0f0c252: 'Jul. 19, 2026, 9:40:20 p.m. EDT'}
+      EDT', f44428b2-83db-11f1-bc71-0242b0f0c252: 'Jul. 19, 2026, 9:40:20 p.m. EDT',
+    98143fb6-83e1-11f1-bc71-0242b0f0c252: 'Jul. 19, 2026, 10:20:40 p.m. EDT'}
   commits: {'Aug, 28': 530ee2e14789923a8cc21622b4e8118cf7d1a7de, 'July, 02': 43470fcc00861e951874daf2748872566c87a815}
   QuotedUnits: INCHES
   DesignID: 1U Extruded Aluminum Type A Template
@@ -94,7 +96,7 @@ Assembly:
   displayName: 1U Extruded Aluminum Type A
   version: 12.9
   awiVersion: 0.0
-  VersionID: f44428b2-83db-11f1-bc71-0242b0f0c252
+  VersionID: 98143fb6-83e1-11f1-bc71-0242b0f0c252
   componentID: -1
   InParentID: b3d664f0-83d9-11f1-8c5d-0242b0f0c252
   description: A 1U enclosure with extruded aluminum sides. Type A front and rear
@@ -569,7 +571,7 @@ Assembly:
       displayName: Front Plate
       version: 12.9
       awiVersion: 0.0
-      VersionID: f44428b1-83db-11f1-bc71-0242b0f0c252
+      VersionID: 98143fb5-83e1-11f1-bc71-0242b0f0c252
       componentID: -1
       InParentID: bf91c4ac-83d5-11f1-a51e-0242b0f0c252
       description: The Front Cover (profiled with bends)
@@ -663,7 +665,7 @@ Assembly:
           displayName: Front Panel
           version: 12.9
           awiVersion: 0.0
-          VersionID: f44428b0-83db-11f1-bc71-0242b0f0c252
+          VersionID: 98143fb4-83e1-11f1-bc71-0242b0f0c252
           componentID: -1
           InParentID: bf91c4ab-83d5-11f1-a51e-0242b0f0c252
           ID: 45169b03-20d8-11f1-9463-0242ac110002
@@ -694,7 +696,7 @@ Assembly:
             VersionID: 45169b06-20d8-11f1-9463-0242ac110002
             componentID: -1
             InParentID: 45169b07-20d8-11f1-9463-0242ac110002
-            ID: f5fb75d5-83db-11f1-bc71-0242b0f0c252
+            ID: e4cda038-83e0-11f1-bc71-0242b0f0c252
             template: false
             verified: true
             cncApproved: false
@@ -1506,12 +1508,12 @@ Assembly:
               exportable: true, userLibraryCreated: false, customTemplate: false,
               locked: false, templateModification: UNMODIFIED, reconstructedFile: false,
               convertedFile: false, autogeneratedtype: NOT_AUTOGENERATED, layer: Default,
-              OriginX: '1.5493994593958522', OriginY: '1.0225003441277254', onSameSide: true,
+              OriginX: '1.4493994593958521', OriginY: '0.21250034412772467', onSameSide: true,
               flatpatternAttachment: false, scaleFactorY: '-1.0', zOrigin: '0.', content: +,
               fontFamily: Arial, fontStyle: Regular, fontSize: '7.0', sizeCorrected: true,
               userEditedFontSize: false, kerning: true, textAlignment: LEFT}
           - Line:
-              end: ['-0.1308069237278131', '1.1102230246251565E-16']
+              end: ['-0.09734522494394304', '1.1102230246251565E-16']
               type: GRAPHIC
               color: Opaque Black
               name: line
@@ -1535,8 +1537,8 @@ Assembly:
               convertedFile: false
               autogeneratedtype: NOT_AUTOGENERATED
               layer: Default
-              OriginX: '1.9710881125907476'
-              OriginY: '0.9850094031628687'
+              OriginX: '1.7876264138068774'
+              OriginY: '0.17500940316286795'
               onSameSide: true
               flatpatternAttachment: false
               scaleFactorY: '-1.0'
@@ -1570,8 +1572,8 @@ Assembly:
               autogeneratedtype: NOT_AUTOGENERATED
               layer: Default
               rotation: '350.0'
-              OriginX: '1.7714983155108712'
-              OriginY: '0.9435497721852346'
+              OriginX: '1.621498315510871'
+              OriginY: '0.1335497721852339'
               onSameSide: true
               flatpatternAttachment: false
               scaleFactorY: '-1.0'
@@ -1604,14 +1606,14 @@ Assembly:
               properties:
               - StringProperty: [ShortDescription, '']
               layer: Default
-              OriginX: '1.7836334077664624'
-              OriginY: '0.9850094031628684'
+              OriginX: '1.6336334077664623'
+              OriginY: '0.17500940316286773'
               onSameSide: true
               flatpatternAttachment: false
               scaleFactorY: '-1.0'
               zOrigin: '0.'
           - Line:
-              end: ['-0.1522303185648739', '0.0']
+              end: ['-0.10203777038906892', '0.0']
               type: GRAPHIC
               color: Opaque Black
               name: line
@@ -1635,8 +1637,8 @@ Assembly:
               convertedFile: false
               autogeneratedtype: NOT_AUTOGENERATED
               layer: Default
-              OriginX: '1.7729217103479322'
-              OriginY: '0.9850094031628686'
+              OriginX: '1.6229217103479319'
+              OriginY: '0.17500940316286784'
               onSameSide: true
               flatpatternAttachment: false
               scaleFactorY: '-1.0'
@@ -1651,7 +1653,7 @@ Assembly:
               convertedFile: false, autogeneratedtype: NOT_AUTOGENERATED, layer: Default,
               OriginX: '1.4269266365012816', OriginY: '0.9060950673609507', onSameSide: true,
               flatpatternAttachment: false, scaleFactorY: '-1.0', zOrigin: '0.', content: 1A
-                | 2.5 x 5.5, fontFamily: Arial, fontStyle: Regular, fontSize: '7.0',
+                | 2.5x5.5, fontFamily: Arial, fontStyle: Regular, fontSize: '7.0',
               sizeCorrected: true, userEditedFontSize: false, kerning: true, textAlignment: LEFT}
           - Text2D: {type: GRAPHIC, color: Opaque Black, name: Text, displayName: Thing2D,
               version: 12.9, awiVersion: 0.0, VersionID: cedd6fa4-4720-11f1-abfb-2c98113d472b,
