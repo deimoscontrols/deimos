@@ -114,10 +114,10 @@ nav:
     - Calibration Reports: records/index.md
   - System: system.md
   - Contact: contact.md
-  - Use-Cases:
-    - "Use-Case: Turbine Engine": usecases/turbine.md
-    - "Use-Case: Motor Control": usecases/motor.md
-    - "Use-Case: Electroplating": usecases/plating.md
+  # - Use-Cases:
+  #   - "Use-Case: Turbine Engine": usecases/turbine.md
+  #   - "Use-Case: Motor Control": usecases/motor.md
+  #   - "Use-Case: Electroplating": usecases/plating.md
   # - Blog: blog/index.md
   - Python API:
     - controller: api/api-python.md

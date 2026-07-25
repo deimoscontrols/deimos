@@ -4,7 +4,10 @@ hide:
   - navigation
 ---
 
-# 
+#
+
+<!-- Hachyderm verification -->
+<link rel="me" href="https://hachyderm.io/@deimoscontrols">
 
 <section class="home-hero">
   <div class="home-hero__intro">
@@ -114,7 +117,7 @@ hide:
   >
 </section>
 
-<section class="home-section">
+<!-- <section class="home-section">
   <p class="home-cta__eyebrow">Measure everything, control anything</p>
   <div class="home-use-cases">
     <a class="home-use-case" href="usecases/turbine/">
@@ -130,4 +133,4 @@ hide:
       <img src="assets/usecase_processing.svg" alt="Chemical processing use-case diagram" class="zoomable-image">
     </a>
   </div>
-</section>
+</section> -->
