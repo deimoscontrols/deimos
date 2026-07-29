@@ -633,18 +633,23 @@ def choose_tc_spline(direction, inverse_reference_voltage, inverse_reference_tem
     }
 
 
-def format_array(name, values):
-    """Format one numeric vector as a Rust `f32` constant.
+def format_array(name, values, declaration="const", attributes=""):
+    """Format one numeric vector as a Rust `f32` declaration.
 
     Args:
-        name: Rust constant identifier.
+        name: Rust identifier for the generated value.
         values: Numeric values with shape `(n_values,)`.
+        declaration: Rust storage keyword, either `const` or `static`.
+        attributes: Rust attributes prepended to the declaration.
 
     Returns:
-        Rust source text declaring an `[f32; n_values]` constant.
+        Rust source text declaring an `[f32; n_values]` value.
     """
     body = "\n".join(f"    {float(value):.9e}_f32," for value in values)
-    return f"pub const {name}: [f32; {len(values)}] = [\n{body}\n];\n"
+    return (
+        f"{attributes}pub {declaration} {name}: [f32; {len(values)}] = [\n"
+        f"{body}\n];\n"
+    )
 
 
 def write_rtd_data(result):
@@ -717,11 +722,25 @@ pub const TC_INVERSE_STEP_V: f32 = %.9e_f32;\n\
     )
     generated += "/// Forward-spline coefficients in `V` with shape `(n_grid,)`.\n"
     generated += format_array(
-        "TC_FORWARD_COEFFICIENTS_V", forward["coefficients_f32"]
+        "TC_FORWARD_COEFFICIENTS_V",
+        forward["coefficients_f32"],
+        declaration="static",
+        attributes="""#[cfg_attr(
+    all(target_os = "none", feature = "itcm"),
+    unsafe(link_section = ".itcm.tc_ktype.tables")
+)]
+""",
     )
     generated += "/// Inverse-spline coefficients in `K` with shape `(n_grid,)`.\n"
     generated += format_array(
-        "TC_INVERSE_COEFFICIENTS_K", inverse["coefficients_f32"]
+        "TC_INVERSE_COEFFICIENTS_K",
+        inverse["coefficients_f32"],
+        declaration="static",
+        attributes="""#[cfg_attr(
+    all(target_os = "none", feature = "itcm"),
+    unsafe(link_section = ".itcm.tc_ktype.tables")
+)]
+""",
     )
     TC_OUTPUT.write_text(generated)
 
