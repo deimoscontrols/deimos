@@ -22,7 +22,7 @@ atomic_float = "1.1.0"
 array-macro = "2.1.8"
 embedded-alloc = { version = "0.7.0", default-features = false, features = ["llff"] }
 
-deimos_shared = { path = "../../software/deimos_shared", version="0.18.0", features = ["alloc", "itcm"] }
+deimos_shared = { path = "../../software/deimos_shared", version="0.18.0", features = ["alloc", "tcm"] }
 deimos_numerics = { path = "../../software/deimos_numerics", version="0.18.0" }
 
 [dependencies.smoltcp]

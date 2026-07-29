@@ -5,6 +5,7 @@ fn main() {
 
     println!("cargo:rerun-if-changed=memory.x");
     println!("cargo:rerun-if-changed=itcm.x");
+    println!("cargo:rerun-if-changed=dtcm.x");
     println!("cargo:rerun-if-changed=static/calibration.in");
 
     const CHANNEL_COUNT: usize = 18;

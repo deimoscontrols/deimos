@@ -726,8 +726,8 @@ pub const TC_INVERSE_STEP_V: f32 = %.9e_f32;\n\
         forward["coefficients_f32"],
         declaration="static",
         attributes="""#[cfg_attr(
-    all(target_os = "none", feature = "itcm"),
-    unsafe(link_section = ".itcm.tc_ktype.tables")
+    all(target_os = "none", feature = "tcm"),
+    unsafe(link_section = ".dtcm.tc_ktype.tables")
 )]
 """,
     )
@@ -737,8 +737,8 @@ pub const TC_INVERSE_STEP_V: f32 = %.9e_f32;\n\
         inverse["coefficients_f32"],
         declaration="static",
         attributes="""#[cfg_attr(
-    all(target_os = "none", feature = "itcm"),
-    unsafe(link_section = ".itcm.tc_ktype.tables")
+    all(target_os = "none", feature = "tcm"),
+    unsafe(link_section = ".dtcm.tc_ktype.tables")
 )]
 """,
     )

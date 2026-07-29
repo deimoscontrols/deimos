@@ -37,8 +37,8 @@ serde_json = "1"
 [features]
 default = []
 alloc = ["dep:deimos_numerics", "deimos_numerics/alloc"]
-# Place selected real-time lookup tables in a firmware-provided ITCM section.
-itcm = []
+# Place selected real-time resources in firmware-provided TCM sections.
+tcm = []
 
 [[example]]
 name = "rev7_bode"

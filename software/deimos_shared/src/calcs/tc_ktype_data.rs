@@ -13,8 +13,8 @@ pub const TC_FORWARD_STEP_K: f32 = 1.670454597e+01_f32;
 pub const TC_INVERSE_STEP_V: f32 = 1.113963735e-04_f32;
 /// Forward-spline coefficients in `V` with shape `(n_grid,)`.
 #[cfg_attr(
-    all(target_os = "none", feature = "itcm"),
-    unsafe(link_section = ".itcm.tc_ktype.tables")
+    all(target_os = "none", feature = "tcm"),
+    unsafe(link_section = ".dtcm.tc_ktype.tables")
 )]
 pub static TC_FORWARD_COEFFICIENTS_V: [f32; 89] = [
     -6.043199915e-03_f32,
@@ -109,8 +109,8 @@ pub static TC_FORWARD_COEFFICIENTS_V: [f32; 89] = [
 ];
 /// Inverse-spline coefficients in `K` with shape `(n_grid,)`.
 #[cfg_attr(
-    all(target_os = "none", feature = "itcm"),
-    unsafe(link_section = ".itcm.tc_ktype.tables")
+    all(target_os = "none", feature = "tcm"),
+    unsafe(link_section = ".dtcm.tc_ktype.tables")
 )]
 pub static TC_INVERSE_COEFFICIENTS_K: [f32; 513] = [
     6.328484726e+01_f32,
