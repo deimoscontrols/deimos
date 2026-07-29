@@ -14,6 +14,8 @@ Modbus registers in Modbus mode.
 
 - Publish coherent ADC channel groups rather than copying independently updated
   ADC atomics.
+- Associate each published ADC group with its board acquisition timestamp and
+  carry that timestamp through the common engineering snapshot.
 - Apply rev7 calibration and hardware-specific engineering conversions in
   firmware in both operating modes.
 - Use one `ByteStruct` engineering snapshot as the source of truth for both the
@@ -25,6 +27,9 @@ Modbus registers in Modbus mode.
   to or re-export them.
 - Add one statically allocated smoltcp TCP socket and its storage before adding
   any Modbus protocol processing.
+- After the baseline is complete, characterize whether a sample-per-cycle path
+  can extend the supported cycle rate while retaining the free-running 33 kHz
+  sampler below a measured, alias-safe cutover.
 - Reuse the existing operating entrypoint, cycle timer, filter-cutoff policy,
   loss-of-contact counter, output handling, and address-management behavior.
 - Make the eventual difference between Deimos and Modbus operation primarily
@@ -35,8 +40,11 @@ Modbus registers in Modbus mode.
 The following are requirements rather than open design questions:
 
 - Do not add a `NetworkServing` board state.
-- Do not move ADC filter construction or installation out of the sampling
-  interrupt. The current `ADC_CUTOFF_RATIO`/`NEW_ADC_CUTOFF` handshake remains.
+- In the baseline free-running mode, do not move ADC filter construction or
+  installation out of the sampling interrupt. The current
+  `ADC_CUTOFF_RATIO`/`NEW_ADC_CUTOFF` handshake remains. A successful Phase 6
+  keeps that path intact; its alternative path has no ADC IIR and configures
+  only the rate-specific fractional-delay filter when its sampling scope starts.
 - Do not create independent Modbus publication, filter-cutoff, and timeout
   clocks. The operating cycle is the publication cycle, and the operating cycle
   rate is also used as the ADC filter cutoff exactly as it is in Deimos mode.
@@ -140,55 +148,78 @@ general-purpose “ignore calibration state” option.
 
 ## Terminology and state model
 
-Use one consistent state spelling in code. The current unit-like `Operating`
-variant will become a data-carrying variant:
+Use distinct top-level states for the two externally meaningful operating
+protocols while retaining one shared operating implementation. Rename the
+current unit-like `Operating` state to `OperatingDeimos` and add a data-carrying
+`OperatingModbus` state:
 
 ```rust
 enum BoardState {
     Connecting,
     Binding,
     Configuring,
-    Operating(OperatingMode),
+    OperatingDeimos,
+    OperatingModbus(ModbusInitialConfig),
 }
 
 enum OperatingMode {
     Deimos,
-    Modbus {
-        initial_config: ModbusInitialConfig,
-    },
+    Modbus(ModbusInitialConfig),
 }
 ```
 
-The existing `operate` function becomes `operate(mode: OperatingMode)` or an
-equivalent method. In particular, a Modbus cycle-rate update returns:
+`BoardState` remains the persistent state-machine representation;
+`OperatingMode` is only the private argument which configures one invocation of
+the shared operating loop. The top-level dispatch maps both states to that
+function:
 
 ```rust
-BoardState::Operating(OperatingMode::Modbus { initial_config })
+BoardState::OperatingDeimos => self.operate(OperatingMode::Deimos),
+BoardState::OperatingModbus(initial_config) => {
+    self.operate(OperatingMode::Modbus(initial_config))
+}
+```
+
+Do not keep a second stored mode alongside `BoardState`. Make
+`OperatingOutputSettings`, `ModbusInitialConfig`, `OperatingMode`, and
+`BoardState` `Clone + Copy`: they contain only fixed-size scalar/array values,
+so this preserves the current direct `match self.state` dispatch without a
+take/replace mechanism or another configuration owner. The current `Eq` derive
+on `BoardState` must be removed because the new configuration contains `f32`
+outputs; retain `PartialEq` only if it is useful to tests.
+
+In particular, a Modbus cycle-rate update returns:
+
+```rust
+BoardState::OperatingModbus(initial_config)
 ```
 
 This is the concrete interpretation of “reuse the existing OperatingRoundtrip
-entrypoint”; no separate `OperatingRoundtrip` board-state variant is needed.
+entrypoint”: both top-level operating states call the same `operate` function,
+and the common loop is not duplicated. This does not add a `NetworkServing`
+state.
 
 State transitions will be:
 
 ```text
-Connecting -> Binding -> Configuring -> Operating(Deimos)
+Connecting -> Binding -> Configuring -> OperatingDeimos
                     \
                      +-- first accepted Modbus read or write
-                         -> Operating(Modbus { initial_config })
+                         -> OperatingModbus(initial_config)
 
-Operating(Modbus) -- cycle-rate update --> Operating(Modbus { updated config })
-Operating(*)      -- loss of contact ----> Connecting
+OperatingModbus -- cycle-rate update --> OperatingModbus(updated config)
+OperatingDeimos -- loss of contact ----> Connecting
+OperatingModbus -- loss of contact ----> Connecting
 ```
 
 `Binding` will poll the already-created UDP and TCP sockets. A successful Deimos
 bind continues to `Configuring`; the first valid supported Modbus read or write
-enters `Operating(Modbus { .. })`. A read enters with the complete default
+enters `OperatingModbus(initial_config)`. A read enters with the complete default
 configuration and safe output values. A write starts from those defaults and
 overlays the complete fields supplied by that request. This provides the
-protocol-selection point without another board state. When rev7 is
+protocol-selection point directly in the top-level state machine. When rev7 is
 uncalibrated, Binding continues to serve the Deimos UDP handshake for the
-calibration workflow but does not listen on the Modbus TCP port. Only one mode
+calibration workflow but does not listen on the Modbus TCP port. Only one state
 owns outputs at a time.
 
 ## Common data path
@@ -197,7 +228,7 @@ The target data flow is:
 
 ```text
 TIM2 sampler at 33 kHz
-    -> publish filtered ADC group into ADC double buffer
+    -> publish filtered ADC group and acquisition timestamp into ADC double buffer
     -> operating-cycle snapshot publisher
          - copy coherent ADC group
          - read counters, frequencies, and digital inputs
@@ -212,6 +243,10 @@ TIM2 sampler at 33 kHz
 
 Snapshot publication occurs once per nominal operating cycle in both modes.
 Network reads never advance filters or cause measurements to be recalculated.
+The diagram describes the baseline free-running sampler. If Phase 6 passes its
+measurement gate, the high-rate path invokes the same acquisition/alignment and
+double-buffer publication code once from the SysTick scope immediately before
+the common snapshot publisher; the downstream data path does not change.
 
 ## Engineering snapshot contract
 
@@ -227,6 +262,7 @@ measurement fields:
 pub struct OperatingSnapshot {
     pub magic: u32,
     pub metrics: OperatingMetrics,
+    pub sample_time_ns: i64,             // acquisition time of this ADC group
 
     pub module_bus_current_a: f32,       // ain0
     pub module_bus_voltage_v: f32,       // ain1
@@ -247,6 +283,15 @@ The bus current and voltage remain available as final engineering telemetry,
 preserving the useful outputs currently produced by `standard_calcs`. No
 intermediate sense voltages, thermocouple voltages, or external RTD
 temperatures are included.
+
+`sample_time_ns` is the board timestamp captured immediately before the first
+ADC conversion group represented by the snapshot. It is distinct from
+`metrics.cycle_time_ns` and `metrics.sent_time_ns`, which describe snapshot
+publication rather than acquisition. The timestamp and all ADC values are one
+double-buffer payload and therefore always come from the same published sampler
+iteration. This field describes the final packet layout; Phases 1--4 use the
+otherwise-identical snapshot without it, and Phase 5 updates the packet length,
+golden encoding, host parser, and Modbus register map together.
 
 The field ordering is a wire contract. Add byte-length assertions, validate the
 snapshot magic before parsing its fields, and add golden serialization tests.
@@ -599,11 +644,20 @@ small abstraction owned by the sampling subsystem, conceptually:
 
 ```rust
 struct AdcSampleDoubleBuffer {
-    buffers: [UnsafeCell<[f32; ADC_CHANNEL_COUNT]>; 2],
+    buffers: [UnsafeCell<AdcSampleGroup>; 2],
     published_index: AtomicU8,
     reader_index: AtomicU8, // 0, 1, or NOT_IN_USE
 }
+
+struct AdcSampleGroup {
+    values: [f32; ADC_CHANNEL_COUNT],
+    sample_time_ns: i64,
+}
 ```
+
+Phase 1 may initially use the ADC array as the buffer payload. Phase 5
+extends that payload to `AdcSampleGroup`; timestamping is not a prerequisite for
+the nominal engineering conversion, operating-state refactor, or Modbus path.
 
 Required invariants:
 
@@ -649,6 +703,71 @@ installed.
 This double buffer guarantees that all ADC fields copied into one operating
 snapshot came from one completed sampler iteration. Counter/frequency coherence
 retains its current behavior; no additional synchronization is added.
+
+## ADC acquisition timestamping
+
+Implement acquisition timestamping as an independent fifth phase, after the
+nominal and Modbus operating paths are stable. Use SysTick as both the
+operating-cycle boundary and the within-cycle counter; do not add a TIM5 wrap
+interrupt or transfer TIM5 ownership to the sampling interrupt.
+
+Maintain a small operating acquisition-clock state containing:
+
+```rust
+struct AcquisitionClock {
+    cycle_start_ns: i64,
+    active_reload: u32,
+}
+```
+
+Initialize `cycle_start_ns` from the board time on operating entry. At the start
+of each higher-priority SysTick communication handler, advance it by the actual
+duration of the completed SysTick interval and record the reload which was
+loaded for the interval that has just started. Derive interval durations from
+the applied timer ticks, including the SysTick `reload = ticks - 1` convention,
+rather than repeatedly adding nominal `dt_ns`; this includes period adjustment
+and timer quantization. Keep the active reload separate from a reload programmed
+later in the handler for the next cycle. This acquisition clock does not change
+the existing cycle labels or phase/period timing-control calculations.
+
+Do not use acquire/release or sequentially consistent atomics to transfer this
+state. SysTick already has higher priority than TIM2. Protect the ordinary
+`AcquisitionClock` copy with a very short interrupt-masked critical section:
+
+1. Check `SCB_ICSR.PENDSTSET`; abandon this attempt if SysTick is already
+   pending.
+2. Copy `AcquisitionClock` and read `SYST_CVR` through
+   `SYST::get_current()` while interrupts remain masked.
+3. Check `PENDSTSET` again. If it became set during the copy, restore interrupts
+   so SysTick runs and retry.
+4. Otherwise restore interrupts and calculate elapsed ticks as
+   `active_reload - current_count` under the verified hardware convention.
+
+Capture the timestamp immediately before starting the first ADC conversion
+group. Bound the operation to two attempts: one normal capture and at most one
+retry after a pending SysTick handler completes. There is no unbounded ISR loop.
+If both attempts fail, publish the group normally with
+`last_sample_time_ns + nominal_sample_period_ns`, where the nominal period is
+derived from the configured sampling timer and rounded to nanoseconds. Do not
+add a validity field, error counter, or downstream conditional path for this
+case. Under the interrupt-priority and deadline assumptions, that fallback
+sample will be superseded by later 33 kHz samples before the next snapshot is
+published. Initialize `last_sample_time_ns` to one nominal sample period before
+the operating-entry acquisition-clock anchor so the fallback is defined even
+before the first successful counter capture.
+
+Store the resulting `sample_time_ns` and the completed filtered ADC values in
+the same `AdcSampleGroup`, then publish the double-buffer index. The operating
+snapshot publisher copies that timestamp without rereading any timer. Document
+the timestamp as the acquisition-start instant; do not attempt to compensate it
+for filter group delay.
+
+Add target-independent tests for the counter/reload arithmetic and a small
+model of the capture protocol covering a SysTick pending before the copy,
+between the clock copy and counter read, after the counter read, and on both
+bounded attempts. On hardware, compare timestamps against a GPIO marker around
+the first conversion start and verify monotonic sample timestamps across normal
+cycles and applied phase/period adjustments.
 
 ## TCP transport scaffold
 
@@ -769,7 +888,7 @@ preserve partial or pipelined application frames across a rare cycle-rate
 re-entry.
 
 The bounded one-ADU receive buffer is owned by `Board` or `Net` so the complete
-first request survives the `Binding -> Operating(Modbus)` transition. After
+first request survives the `Binding -> OperatingModbus` transition. After
 common operating initialization, the first normal operating cycle publishes a
 snapshot, processes that request, and sends its normal response. This lets a
 read-only client select Modbus mode and receive data at the default 10 Hz
@@ -785,7 +904,7 @@ When an accepted Modbus write changes the cycle rate:
    `loss_of_contact_limit`, and captured outputs.
 4. Request the new ADC cutoff using the existing cutoff mailbox.
 5. Exit `operate` and return
-   `BoardState::Operating(OperatingMode::Modbus { initial_config })`.
+   `BoardState::OperatingModbus(initial_config)`.
 6. Re-enter the common operating initialization without resetting outputs to
    defaults.
 
@@ -913,10 +1032,12 @@ Phase 1 exit criteria:
 
 ### Phase 2: operating-mode/state refactor
 
-1. Add `OperatingMode`, data-carrying `BoardState::Operating`, and
-   `ModbusInitialConfig`.
+1. Rename the existing state to `BoardState::OperatingDeimos`, add
+   `BoardState::OperatingModbus(ModbusInitialConfig)`, and add the private
+   `OperatingMode` dispatch argument.
 2. Separate common operating entry/cycle work from Deimos UDP I/O.
-3. Make `Configuring` enter `Operating(Deimos)`.
+3. Make `Configuring` enter `OperatingDeimos`; make both operating states call
+   the same `operate(OperatingMode)` implementation.
 4. Preserve outputs across Modbus-mode re-entry in unit tests before adding the
    Modbus parser.
 
@@ -931,7 +1052,8 @@ Phase 2 exit criteria:
 
 1. Add and integrate `rmodbus`.
 2. Allow the first valid supported read or write received while binding to
-   select `Operating(Modbus { .. })` only when firmware calibration is present;
+   select `OperatingModbus(initial_config)` only when firmware calibration is
+   present;
    preserve that request for processing after entry.
 3. Implement full-snapshot reads, directly applied validated writes, standard
    exception responses, and loss-of-contact reset.
@@ -957,7 +1079,7 @@ Phase 3 exit criteria:
 - One minute without accepted requests at the default configuration returns the
   board to `Connecting` and safe outputs through the existing transition path.
 
-### Phase 4: hardening and release
+### Phase 4: Modbus/TCP hardening
 
 1. Exercise malformed and fragmented Modbus TCP frames. Document that clients
    keep only one request outstanding; behavior for pipelined requests is not
@@ -967,10 +1089,120 @@ Phase 3 exit criteria:
    cycle rates and maximum-size reads.
 4. Verify calibration and conversion accuracy over the full supported RTD and
    thermocouple ranges.
-5. Reflash and rerun the full identity-first calibration procedure for both
-   existing rev7 units.
-6. Update firmware flashing/calibration procedures, software docs, examples,
+
+### Phase 5: ADC acquisition timestamps and release
+
+1. Add the SysTick-based `AcquisitionClock` and update it at the beginning of
+   the higher-priority communication handler using the actual completed
+   interval.
+2. Add the bounded, interrupt-masked TIM2 capture helper with `PENDSTSET`
+   rollover detection, at most two attempts, and nominal-sample-period
+   fallback.
+3. Extend the ADC double-buffer payload with `sample_time_ns` and capture it
+   immediately before the first conversion group.
+4. Add `sample_time_ns` to `OperatingSnapshot`, its Modbus register-map input,
+   and host parsing/output names.
+5. Add arithmetic/protocol tests, update and rerun snapshot/register-map golden
+   tests, and verify the acquisition instant against a hardware marker.
+6. Reflash and rerun the full identity-first calibration procedure for both
+   existing rev7 units with the final packet layout.
+7. Update firmware flashing/calibration procedures, software docs, examples,
    changelog, and coordinated-rollout notes.
+
+Phase 5 exit criteria:
+
+- Every engineering snapshot carries the acquisition time of the coherent ADC
+  group from which its analog values were calculated.
+- The normal capture path uses no strongly ordered atomics and masks interrupts
+  only for the bounded clock-state/counter snapshot.
+- Counter rollover cannot pair a cycle base with the wrong SysTick interval,
+  and capture performs no more than two attempts.
+- The fallback produces a monotonic nominal-period timestamp without adding a
+  packet-validity field, diagnostic counter, or downstream branch.
+- Existing cycle labels, active timing control, operating rates, and TIM5 uses
+  remain behaviorally unchanged.
+
+### Phase 6: post-baseline high-rate sample-per-cycle investigation
+
+Treat this as a measurement-gated extension after the complete baseline
+firmware and software are running. Preserve the 33 kHz free-running sampler as
+the default implementation unless the timing and aliasing characterizations
+demonstrate a safe overlap between the two sampling modes.
+
+1. Measure the final free-running path after firmware engineering conversions,
+   snapshot timestamping, and both transports are present. Sweep operating
+   rates with full packets and worst-case accepted reads/writes, active Deimos
+   timing corrections, and release-build cache behavior. Record total cycle
+   margin, communication-handler duration, TIM2 latency, and missed or coalesced
+   sample events. Define the highest acceptable free-running cycle rate from
+   these measurements rather than from UDP echo throughput alone.
+2. Extend the existing per-channel analog/digital response analysis to include
+   folded alias contributions for a mode whose ADC sample rate equals its
+   operating cycle rate. Determine the lowest acceptable sample-per-cycle rate
+   from the required bandwidth, analog-filter response, and documented alias
+   error limit. Evaluate approximately 5 kHz as the preferred cutover target;
+   use a lower cutover only if the measured alias performance is acceptable.
+3. Require the acceptable free-running range and sample-per-cycle range to
+   overlap. If they do not, retain the baseline free-running implementation and
+   check in the timing/alias report instead of introducing an unsupported rate
+   gap or silently reducing either safety margin.
+4. If a safe overlap exists, refactor interrupt ownership so operating entry
+   lends the `Sampler` to exactly one IRQ scope. In free-running mode, a
+   TIM2-owned closure samples at 33 kHz. In sample-per-cycle mode, the SysTick
+   communication closure owns the sampler, performs one ADC acquisition and
+   fractional-delay step first, then runs the common snapshot and communication
+   work. Do not share a mutable sampler between simultaneously registered
+   closures or place it behind a runtime lock.
+5. Make both sampling closures publish the same `AdcSampleGroup` through the
+   existing double-buffer writer API. The communication side uses the same
+   pinned-reader handoff, engineering-conversion pipeline, timestamp field, and
+   packet construction in both modes. Factor raw acquisition, channel alignment,
+   counter capture, and buffer publication so the closures do not duplicate
+   those operations.
+6. Select the sampling mode once on operating entry from the applied cycle rate;
+   do not branch on it in either steady-state hot path. Reuse the existing
+   operating re-entry for a rate change. Disable and clear TIM2 before lending
+   the sampler to SysTick, and restore its configured 33 kHz timer before
+   lending it back to the TIM2 scope.
+7. Build fractional-delay coefficients for the selected acquisition rate. The
+   free-running path retains its existing IIR bank and 33 kHz sample rate; the
+   sample-per-cycle path applies fractional delay but no ADC IIR. Continue using
+   the separate 1 Hz board-temperature publication filter in both modes.
+8. Define supported maximum post-quadrature encoder count rate and pulse-counter
+   edge rate constants. Add compile-time assertions proving that, at the longest
+   possible direct-mode cycle—including the permitted positive timing
+   adjustment and timer quantization—each counter advances by strictly less than
+   half its `2^16` modulus. Use explicit `2^16` and `2^32` modulus constants in
+   the unrolling implementation and verify the wrap arithmetic at both
+   boundaries.
+9. Characterize the implemented sample-per-cycle path with the same worst-case
+   UDP and Modbus workloads, phase/period corrections, counter inputs, and
+   hardware timing instrumentation. Establish its maximum supported rate and
+   attempt to demonstrate at least 5 kHz operation without violating cycle,
+   sampling, timestamp, aliasing, watchdog, or output-safety requirements.
+
+Phase 6 exit criteria:
+
+- The checked-in characterization identifies the highest supported
+  free-running rate, lowest alias-safe sample-per-cycle rate, and maximum
+  sample-per-cycle rate for each relevant operating transport.
+- If a safe overlap exists, one documented cutover selects the mode only at
+  operating entry, and rate re-entry transfers exclusive sampler ownership
+  between IRQ scopes without a steady-state mode branch.
+- Both modes produce the same `AdcSampleGroup` contract and exercise the same
+  communication-side snapshot, engineering-conversion, and packet code.
+- Free-running mode remains behaviorally unchanged below the cutover.
+  Sample-per-cycle mode performs exactly one ADC group and fractional-delay step
+  per cycle and does not run the ADC IIR.
+- Compile-time counter-rate assertions cover the worst direct-mode interval,
+  and boundary tests use the correct power-of-two counter moduli.
+- Hardware tests cover the shortest corrected cycle, maximum supported packets,
+  TIM2 cadence below the cutover, direct-mode cadence above it, and timestamps
+  across both modes.
+- If the ranges do not overlap or the 5 kHz target is not safe, the report states
+  the limiting timing or alias mechanism and the baseline mode remains the only
+  supported implementation; the phase does not weaken an existing limit merely
+  to add the new mode.
 
 ## Verification matrix
 
@@ -1026,6 +1258,8 @@ Phase 3 exit criteria:
 ### Double buffer and snapshots
 
 - Readers never observe a partially written ADC group.
+- Each copied `sample_time_ns` belongs to the same sampler iteration as every
+  ADC value in that snapshot.
 - The pinned buffer is never modified, including while multiple samples arrive
   during one communication copy.
 - Acquisition/retry tests cover publication immediately before and after the
@@ -1035,6 +1269,9 @@ Phase 3 exit criteria:
   `adc_values` without acquiring the communication-reader pin.
 - Channel-by-channel conversion tests verify ordering and calibration placement.
 - Snapshot serialization and host parsing agree field-for-field.
+- Acquisition-clock tests cover the verified SysTick reload/count convention,
+  pending-before/pending-during rollover cases, the two-attempt bound, and the
+  nominal-period fallback.
 
 ### Operating modes
 
@@ -1062,9 +1299,19 @@ Phase 3 exit criteria:
 ### Hardware timing
 
 - Compare release image size and SRAM3 use before/after TCP storage.
-- Measure TIM2 sample deadline margin while publishing all engineering values.
+- Measure TIM2 sample deadline margin while capturing acquisition timestamps
+  and publishing all engineering values.
+- Compare `sample_time_ns` with a GPIO acquisition-start marker and verify
+  monotonicity across ordinary cycles and active phase/period adjustments.
 - Measure worst-case operating-cycle margin while serving a maximum snapshot
   read and a full output/configuration write.
+- For the post-baseline investigation, sweep both sampling modes across the
+  candidate overlap and record cycle margin, TIM2 cadence, communication-handler
+  duration, and folded alias response. Include the shortest permitted corrected
+  Deimos cycle and the worst accepted Modbus request.
+- Exercise rate changes across the selected cutover and verify that exactly one
+  IRQ scope owns the sampler, TIM2 is stopped and cleared in sample-per-cycle
+  mode, and both modes publish the same coherent group format.
 - Verify watchdog feeding and safe-output behavior during network failure.
 
 ## Coordinated rollout
@@ -1085,7 +1332,7 @@ archive the verification results.
 Historical rev7 data which uses the old layout can be read with the old tagged
 software; the new runtime does not accept that obsolete rev7 layout.
 
-## Non-goals for the initial implementation
+## Non-goals for the baseline implementation (Phases 1--5)
 
 - A new `NetworkServing` state.
 - Moving or redesigning ADC filter initialization.
@@ -1127,3 +1374,15 @@ software; the new runtime does not accept that obsolete rev7 layout.
 - A single timeout reset by any accepted Modbus request means read-only polling
   also maintains output authority. This is intentional under the simplified
   one-timeout design and should be documented for integrators.
+- Acquisition timestamps rely on the existing SysTick-higher-than-TIM2 priority
+  relationship and on the communication handler completing before the next
+  SysTick boundary. The bounded fallback prevents this assumption from creating
+  an unbounded sampling-ISR path.
+- The safe free-running timing range and alias-safe sample-per-cycle range may
+  not overlap after all engineering and protocol work is present. Phase 6 is a
+  characterization-gated extension and retains the baseline sampler if there is
+  no overlap.
+- Sample-per-cycle mode makes the ADC cadence follow Deimos period/phase
+  corrections. Its timestamp accuracy, fractional-delay behavior, and control
+  quality must be verified at the maximum permitted corrections rather than
+  inferred from nominal-rate tests.
