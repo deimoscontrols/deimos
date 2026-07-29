@@ -3,9 +3,12 @@
 ## Status
 
 Phases 1 through 3 are implemented. The Phase 1 hardware-test checkpoint is
-`e60e8e5`; results are recorded in `plans/MODBUS_PHASE1_REPORT.md`,
-`plans/MODBUS_PHASE2_REPORT.md`, and `plans/MODBUS_PHASE3_REPORT.md`. Phase 4
-hardening is the next implementation phase.
+`e60e8e5`, and the Phase 3 handoff checkpoint is `aac4013`. Results are recorded
+in `plans/MODBUS_PHASE1_REPORT.md`, `plans/MODBUS_PHASE2_REPORT.md`, and
+`plans/MODBUS_PHASE3_REPORT.md`. The equipment-assisted identity-first
+calibration run and physical pre-rev7 compatibility run remain deferred to the
+final Phase 5 hardware verification. Phase 4 hardening is the next
+implementation phase.
 
 This is the implementation plan for adding a Modbus/TCP operating mode to
 `firmware/deimos_daq_rev7` while keeping the existing Deimos UDP operating mode.
@@ -1153,11 +1156,31 @@ Phase 3 exit criteria:
 1. Exercise malformed and partial-read Modbus TCP frames. Document that clients
    keep only one request outstanding; behavior for pipelined requests is not
    guaranteed.
-2. Test disconnect/reconnect, DHCP/fallback address changes, and stalled clients.
-3. Measure sampling/cycle timing on hardware at minimum and maximum supported
-   cycle rates and maximum-size reads.
-4. Verify calibration and conversion accuracy over the full supported RTD and
-   thermocouple ranges.
+2. Test disconnect/reconnect, DHCP/fallback address changes during an active
+   session, deliberately stalled clients with TX backpressure, and an
+   uninterrupted 60-second default loss-of-contact timeout.
+3. Run the hardware matrix at the supported 4 Hz and 5 kHz endpoints. At each
+   endpoint, sustain complete 75-register FC04 snapshot reads, complete
+   21-register output-block FC16 writes, and complete three-register timing-
+   configuration FC16 writes. Retain the one-request-outstanding client rule.
+4. For every matrix case, capture DAQ cycle-time margin, loss-of-contact count,
+   reconnect or operating-state exits, and the on-target MSP stack high-water
+   mark. Run the canonical 5 kHz/10-second Deimos benchmark on the final Phase 4
+   image and compare it with the Phase 3 handoff results.
+
+Phase 4 exit criteria:
+
+- Malformed, fragmented, stalled, and disconnected TCP sessions cannot create
+  unbounded per-cycle work, alter outputs through a rejected request, or prevent
+  a later client from reconnecting.
+- An active connection recovers cleanly through tested DHCP/fallback address
+  changes, and the default 60-second idle interval returns through the existing
+  safe-output connection path.
+- The 4 Hz and 5 kHz endpoint cases complete the full-read and full-write matrix
+  without a firmware deadline miss, unexpected state exit, or stack-headroom
+  violation. Any accepted loss or margin regression is recorded explicitly.
+- The canonical Deimos benchmark remains within its established regression
+  tolerance.
 
 ### Phase 5: ADC acquisition timestamps and release
 
@@ -1173,9 +1196,18 @@ Phase 3 exit criteria:
    and host parsing/output names.
 5. Add arithmetic/protocol tests, update and rerun snapshot/register-map golden
    tests, and verify the acquisition instant against a hardware marker.
-6. Reflash and rerun the full identity-first calibration procedure for both
-   existing rev7 units with the final packet layout.
-7. Update firmware flashing/calibration procedures, software docs, examples,
+6. After all preceding baseline firmware machinery is complete, reflash and
+   rerun the full identity-first calibration procedure for both existing rev7
+   units with the final packet layout, then flash and verify their generated
+   calibrated images.
+7. Perform the deferred full-range calibrated engineering checks, including
+   conversion accuracy over the supported RTD and thermocouple ranges. Keep
+   this at the end so any failure is isolated from further firmware-mechanism
+   changes.
+8. Perform and archive the deferred physical pre-rev7 compatibility run. Use
+   the Phase 1 checkpoint `e60e8e5` when the result must be attributed to the
+   packet/calculation changes independently of later rev7 state-machine work.
+9. Update firmware flashing/calibration procedures, software docs, examples,
    changelog, and coordinated-rollout notes.
 
 Phase 5 exit criteria:
@@ -1190,6 +1222,11 @@ Phase 5 exit criteria:
   packet-validity field, diagnostic counter, or downstream branch.
 - Existing cycle labels, active timing control, operating rates, and TIM5 uses
   remain behaviorally unchanged.
+- Both existing rev7 units complete the identity-first procedure, reject normal
+  operation while uncalibrated, accept it after their generated calibration is
+  flashed, and pass the final calibrated engineering checks.
+- Physical pre-rev7 discovery, binding, configuration, and operation remain
+  compatible, with the checkpoint and hardware result archived.
 
 ### Phase 6: post-baseline high-rate sample-per-cycle investigation
 
@@ -1382,6 +1419,10 @@ Phase 6 exit criteria:
   monotonicity across ordinary cycles and active phase/period adjustments.
 - Measure worst-case operating-cycle margin while serving a maximum snapshot
   read and a full output/configuration write.
+- At the Phase 4 4 Hz and 5 kHz endpoints, record the loss-of-contact series,
+  DAQ margin, reconnect/state-exit status, and on-target MSP high-water mark for
+  complete 75-register reads, 21-register output writes, and three-register
+  timing-configuration writes.
 - For the post-baseline investigation, sweep both sampling modes across the
   candidate overlap and record cycle margin, TIM2 cadence, communication-handler
   duration, and folded alias response. Include the shortest permitted corrected

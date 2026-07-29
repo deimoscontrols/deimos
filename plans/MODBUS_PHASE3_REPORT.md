@@ -3,6 +3,7 @@
 Date: 2026-07-29 (America/New_York)
 Phase 1 hardware-test checkpoint: `e60e8e5` (`use dtcm for tc tables`)
 Implementation base: `6e1ee90` (`zero sampling time at start of operating`)
+Phase 3 handoff checkpoint: `aac4013` (`stack analysis script`)
 Hardware: rev7 SN3, MAC `8C-1F-64-84-40-00`
 Benchmark adapter: CDC-NCM `A0:CE:C8:69:F4:6E`
 
@@ -199,10 +200,35 @@ Review CSVs are archived as
 `phase3_review_bounded8_run2_20260729.csv`. The final bounded-eight,
 identity-calibration image is flashed on SN3.
 
+## Stack-frame baseline at handoff
+
+The pinned `firmware/stack-sizes.sh` diagnostic at handoff produced 161
+demangled fixed-frame entries from a separate optimized fat-LTO object. The
+largest frames relevant to tracking firmware growth were:
+
+| Function | Fixed frame bytes |
+|---|---:|
+| `deimos_bare_metal::__cortex_m_rt_main` | 12,664 |
+| `Board::new` | 2,424 |
+| `Board::operate` | 1,616 |
+| `Sampler::sample` | 1,216 |
+| `libm::math::rem_pio2::rem_pio2` | 744 |
+| `Net::poll_bounded` | 736 |
+
+These are individual fixed frames rather than cumulative call-chain bounds and
+exclude hardware exception frames and unresolved indirect callees. Phase 4
+therefore pairs this reproducible static regression report with an on-target MSP
+high-water measurement during its endpoint stress matrix.
+
 ## Deferred Phase 4 work
 
 Phase 3 included targeted malformed-frame, partial-delivery, reconnect, and
 high-rate request tests needed to validate the implementation. Broader Phase 4
 hardening remains: DHCP/fallback changes during a session, deliberately stalled
-clients with TX backpressure, sustained maximum-size reads at rate extremes,
-and full-range calibrated engineering-accuracy verification.
+clients with TX backpressure, the full 60-second default timeout, and sustained
+complete reads and writes at the 4 Hz and 5 kHz endpoints. The
+equipment-assisted identity-first calibration and full-range calibrated
+engineering checks remain deferred until the end of Phase 5, after all other
+baseline firmware machinery is complete. The physical pre-rev7 compatibility
+run also remains a final Phase 5 verification item, with `e60e8e5` retained as
+the attribution checkpoint.
