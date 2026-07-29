@@ -640,64 +640,63 @@ refer to `p1.ain*` or intermediate standard-calc names.
 ## ADC double buffer
 
 Replace the public `[AtomicF32; ADC_CHANNEL_COUNT]` latest-value array with a
-small abstraction owned by the sampling subsystem, conceptually:
+two-slot atomic abstraction owned by the sampling subsystem, conceptually:
 
 ```rust
-struct AdcSampleDoubleBuffer {
-    buffers: [UnsafeCell<AdcSampleGroup>; 2],
-    published_index: AtomicU8,
-    reader_index: AtomicU8, // 0, 1, or NOT_IN_USE
+struct AtomicAdcSampleGroup {
+    values: [AtomicF32; ADC_CHANNEL_COUNT],
+    sample_time_lo: AtomicU32,
+    sample_time_hi: AtomicU32,
 }
 
-struct AdcSampleGroup {
-    values: [f32; ADC_CHANNEL_COUNT],
-    sample_time_ns: i64,
+struct AdcSampleDoubleBuffer {
+    buffers: [AtomicAdcSampleGroup; 2],
+    latest: AtomicBool, // false selects slot 0; true selects slot 1
 }
 ```
 
-Phase 1 may initially use the ADC array as the buffer payload. Phase 5
-extends that payload to `AdcSampleGroup`; timestamping is not a prerequisite for
-the nominal engineering conversion, operating-state refactor, or Modbus path.
+The reader reconstructs an ordinary `AdcSampleGroup` containing the `f32` values
+and `i64 sample_time_ns`. Phase 1 may initially omit the two timestamp words;
+Phase 5 adds them without changing the publication protocol. Split the timestamp
+into two atomic 32-bit words because this Cortex-M target does not provide native
+64-bit atomics.
 
 Required invariants:
 
-- The TIM2 sampling interrupt is the only writer.
-- The communication interrupt is the only reader and pins its selected buffer
-  by storing its index in `reader_index` before copying.
-- If neither buffer is pinned, TIM2 normally writes the buffer other than the
-  currently published one.
-- If a buffer is pinned, TIM2 writes the other buffer. While a reader remains
-  pinned, repeated samples may overwrite and republish that other buffer; the
-  pinned buffer remains immutable until released.
-- TIM2 writes a complete channel group before publishing its index.
-- It publishes the completed buffer index with release ordering.
-- The communication reader loads the published index, marks that index in use,
-  and rechecks the published index before copying. If publication changed
-  during acquisition, it releases and retries so it obtains a well-defined
-  latest complete generation.
-- The reader clears `reader_index` on every exit path. Encapsulate this in a
-  small `ReadGuard` which owns the pinned index and stores `NOT_IN_USE` from its
-  `Drop` implementation, so errors or early returns cannot leave a buffer
-  permanently pinned.
-- The writer acquires `reader_index` before selecting a target, and the reader
-  acquires `published_index`; the final implementation documents the exact
-  acquire/release ordering and the interrupt-priority assumptions.
-- No critical section or interrupt masking is required for the 18-float copy.
-- No code may access either buffer without going through the writer or pinned
-  reader API, and a second concurrent reader is not supported.
-- All unsafe interior mutability is contained in this abstraction and justified
-  with safety comments.
+- The sampling closure is the only writer and the only context which modifies
+  `latest`.
+- The writer loads `latest` with relaxed ordering, fills the other slot using
+  relaxed atomic stores, executes a release `compiler_fence`, and publishes that
+  slot with one relaxed `AtomicBool` store.
+- The communication closure loads `latest` exactly once with relaxed ordering,
+  executes an acquire `compiler_fence`, and copies every field from the selected
+  slot with relaxed atomic loads. It does not recheck or modify the flag.
+- Compiler fences prevent source-level reordering across publication but emit no
+  Cortex-M hardware memory-barrier instruction. The relaxed `AtomicF32`,
+  `AtomicU32`, and `AtomicBool` accesses compile to the same ordinary aligned
+  loads and stores used by the current handoff.
+- SysTick is the only reader and has higher priority than the TIM2 writer. If it
+  preempts before publication, it reads the previous slot while TIM2 writes the
+  other one. If it preempts after publication, the new slot is complete. TIM2
+  cannot resume and reuse a slot until the reader has finished copying it.
+- In sample-per-cycle mode, the same publication and copy occur sequentially in
+  the SysTick scope and therefore satisfy the same contract.
+- The reader returns an `AdcSampleGroup` by value. It must never return a
+  reference into either static slot which could remain live after the
+  communication interrupt returns.
+- No critical section, interrupt masking, reader flag, reader guard, retry, or
+  unsafe interior mutability is required.
 
 Keep the implementation specific to the current single-core, single-writer,
-single-reader interrupt model. Add a prominent safety comment that reuse on a
-multicore platform would require a triple buffer or a stronger ownership
-protocol to preserve the no-wait read/write contract; a second core must not be
-made safe by merely adding another reader flag.
+single-higher-priority-reader interrupt model. Add a prominent comment that a
+multicore platform, a writer capable of preempting the reader, or an additional
+reader would require a triple buffer or a stronger ownership protocol to
+preserve the no-wait read/write contract.
 
-Update the nominal operating snapshot publisher to use the pinned-reader API.
-For filter-update steady-state initialization inside the sampling interrupt,
-use the sampler's own `adc_values` directly rather than impersonating the
-communication reader. Do not change where the filter bank is constructed or
+Update the nominal operating snapshot publisher to use the single-load reader
+API. For filter-update steady-state initialization inside the sampling
+interrupt, use the sampler's own `adc_values` directly rather than going through
+the shared reader API. Do not change where the filter bank is constructed or
 installed.
 
 This double buffer guarantees that all ADC fields copied into one operating
@@ -757,7 +756,7 @@ the operating-entry acquisition-clock anchor so the fallback is defined even
 before the first successful counter capture.
 
 Store the resulting `sample_time_ns` and the completed filtered ADC values in
-the same `AdcSampleGroup`, then publish the double-buffer index. The operating
+the same `AdcSampleGroup`, then publish the double-buffer flag. The operating
 snapshot publisher copies that timestamp without rereading any timer. Document
 the timestamp as the acquisition-start instant; do not attempt to compensate it
 for filter group delay.
@@ -1155,10 +1154,10 @@ demonstrate a safe overlap between the two sampling modes.
    closures or place it behind a runtime lock.
 5. Make both sampling closures publish the same `AdcSampleGroup` through the
    existing double-buffer writer API. The communication side uses the same
-   pinned-reader handoff, engineering-conversion pipeline, timestamp field, and
-   packet construction in both modes. Factor raw acquisition, channel alignment,
-   counter capture, and buffer publication so the closures do not duplicate
-   those operations.
+   single-flag-load reader handoff, engineering-conversion pipeline, timestamp
+   field, and packet construction in both modes. Factor raw acquisition, channel
+   alignment, counter capture, and buffer publication so the closures do not
+   duplicate those operations.
 6. Select the sampling mode once on operating entry from the applied cycle rate;
    do not branch on it in either steady-state hot path. Reuse the existing
    operating re-entry for a rate change. Disable and clear TIM2 before lending
@@ -1260,13 +1259,16 @@ Phase 6 exit criteria:
 - Readers never observe a partially written ADC group.
 - Each copied `sample_time_ns` belongs to the same sampler iteration as every
   ADC value in that snapshot.
-- The pinned buffer is never modified, including while multiple samples arrive
-  during one communication copy.
-- Acquisition/retry tests cover publication immediately before and after the
-  reader marks a buffer in use.
-- The reader guard releases its pin on every return path.
+- Model tests cover the communication interrupt preempting TIM2 before the
+  relaxed publication store and immediately after it. The reader obtains the
+  complete previous or new generation respectively.
+- The communication reader loads `latest` once, never writes it, and returns a
+  value rather than a reference into static storage.
+- Generated-code inspection confirms the relaxed publication operations and
+  compiler fences do not emit hardware memory barriers or atomic read-modify-
+  write instructions on the firmware target.
 - Filter-update initialization uses the sampling subsystem's own latest
-  `adc_values` without acquiring the communication-reader pin.
+  `adc_values` without going through the shared reader API.
 - Channel-by-channel conversion tests verify ordering and calibration placement.
 - Snapshot serialization and host parsing agree field-for-field.
 - Acquisition-clock tests cover the verified SysTick reload/count convention,
@@ -1350,8 +1352,9 @@ software; the new runtime does not accept that obsolete rev7 layout.
 
 ## Known risks
 
-- The reader-in-use protocol depends on a single communication reader and exact
-  atomic ordering. Reuse on a multicore system requires a triple buffer or a
+- The relaxed two-slot publication protocol depends on one core, one writer,
+  and one higher-priority communication reader. A multicore system, another
+  reader, or a writer which can preempt the reader requires a triple buffer or a
   stronger ownership protocol to preserve no-wait reads and writes.
 - The existing filter-rate update resets input counters and skips a sample. A
   writable Modbus cycle rate makes that documented behavior externally
