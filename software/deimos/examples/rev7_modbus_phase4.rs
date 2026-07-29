@@ -225,21 +225,48 @@ fn backpressure_suite(endpoint: &str) -> TestResult {
     client
         .stream
         .set_write_timeout(Some(Duration::from_secs(2)))?;
-    let accepted_by_host = match client.stream.write(&burst) {
+    let mut accepted_by_host = match client.stream.write(&burst) {
         Ok(count) => count,
         Err(error) if matches!(error.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => 0,
         Err(error) => return Err(error.into()),
     };
+    if accepted_by_host < 12 {
+        return Err("host accepted no complete backpressure request".into());
+    }
+    let trailing = accepted_by_host % 12;
+    if trailing != 0 {
+        let completion = 12 - trailing;
+        client
+            .stream
+            .write_all(&burst[accepted_by_host..accepted_by_host + completion])?;
+        accepted_by_host += completion;
+    }
     thread::sleep(Duration::from_secs(2));
 
-    // At least the first response must remain a complete, valid ADU after the
-    // stall. Recovery is then checked through the production reconnect path.
-    let response = read_one_adu(&mut client.stream)?;
-    validate_response_header(&response, 0, 0, 0x04)?;
-    parse_read_registers(&response, 0x04, 75)?;
+    // Drain every complete request accepted by the host. This proves the same
+    // connection resumes after its receive window reopens and exposes margin
+    // data from the stressed interval before the reconnect check.
+    let response_count = accepted_by_host / 12;
+    let mut min_margin_ns = i64::MAX;
+    let mut deadline_misses = 0_usize;
+    let mut margins_ns = Vec::with_capacity(response_count);
+    for index in 0..response_count {
+        let response = read_one_adu(&mut client.stream)?;
+        validate_response_header(&response, index as u16, 0, 0x04)?;
+        let registers = parse_read_registers(&response, 0x04, 75)?;
+        let snapshot = snapshot_from_input_registers(&registers)
+            .map_err(|error| format!("invalid backpressure snapshot: {error:?}"))?;
+        let margin_ns = snapshot.metrics.cycle_time_margin_ns;
+        min_margin_ns = min_margin_ns.min(margin_ns);
+        deadline_misses += usize::from(margin_ns < 0);
+        margins_ns.push(margin_ns);
+    }
+    margins_ns.sort_unstable();
+    let margin_p01_ns = margins_ns[(margins_ns.len() - 1) / 100];
+    let holding = client.read_registers(0x03, 0, HOLDING_REGISTER_COUNT, 0)?;
+    let loss_counter = holding[usize::from(HOLDING_LOSS_OF_CONTACT_COUNTER)];
     println!(
-        "backpressure_request_bytes_accepted={accepted_by_host} first_response_bytes={}",
-        response.len()
+        "backpressure_request_bytes_accepted={accepted_by_host} drained_responses={response_count} deadline_misses={deadline_misses} min_margin_ns={min_margin_ns} margin_p01_ns={margin_p01_ns} loss_counter={loss_counter}",
     );
     drop(client);
     verify_fresh_connection(endpoint)?;

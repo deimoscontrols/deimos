@@ -9,6 +9,15 @@ use irq::{handler, scope};
 
 use super::modbus::{ModbusSocketBudget, ReceiveStatus};
 
+/// Conservative minimum operating-cycle margin for test-instrumented images.
+///
+/// One communication IRQ is the only writer, so relaxed load/store semantics
+/// are sufficient and avoid an exclusive-update loop in the measured path.
+#[cfg(feature = "timing-watermark")]
+#[unsafe(no_mangle)]
+pub static PHASE4_MIN_CYCLE_MARGIN_NS: core::sync::atomic::AtomicI32 =
+    core::sync::atomic::AtomicI32::new(i32::MAX);
+
 /// When an i32 wraps, what is the size of the jump in value?
 /// Counter values will eventually be converted to an f64, so it's useful to think about the implications.
 /// 64-bit float which has integer resolution out to 2**53, so
@@ -306,7 +315,6 @@ impl<'a> Board<'a> {
                                 }
                                 ReceiveStatus::Incomplete => {}
                             }
-
                             if self.modbus.response_pending()
                                 && self
                                     .modbus
@@ -346,6 +354,18 @@ impl<'a> Board<'a> {
                     ACCUMULATED_SAMPLING_TIME_NS.fetch_and(0, Ordering::Relaxed) as i64;
                 operating_output.metrics.cycle_time_margin_ns =
                     end_of_cycle - self.board_time(subcycle_res_ns) - adc_sample_time_ns;
+                #[cfg(feature = "timing-watermark")]
+                {
+                    let margin_ns = operating_output
+                        .metrics
+                        .cycle_time_margin_ns
+                        .clamp(i64::from(i32::MIN), i64::from(i32::MAX))
+                        as i32;
+                    let minimum = PHASE4_MIN_CYCLE_MARGIN_NS.load(Ordering::Relaxed);
+                    if margin_ns < minimum {
+                        PHASE4_MIN_CYCLE_MARGIN_NS.store(margin_ns, Ordering::Relaxed);
+                    }
+                }
 
                 self.watchdog.feed();
             }

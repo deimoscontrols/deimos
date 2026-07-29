@@ -11,6 +11,8 @@ use crate::states::OperatingMetrics;
 pub const SNAPSHOT_INPUT_START: u16 = 0;
 /// Number of input registers occupied by one complete engineering snapshot.
 pub const SNAPSHOT_INPUT_REGISTER_COUNT: u16 = 75;
+/// Number of wire bytes occupied by one complete engineering snapshot register block.
+pub const SNAPSHOT_INPUT_BYTE_COUNT: usize = SNAPSHOT_INPUT_REGISTER_COUNT as usize * 2;
 
 /// First holding register of the writable cycle rate in `Hz` as IEEE-754 `f32`.
 pub const HOLDING_CYCLE_RATE_HZ: u16 = 0;
@@ -72,56 +74,64 @@ pub enum SnapshotDecodeError {
 pub fn snapshot_input_registers(
     snapshot: &OperatingSnapshot,
 ) -> [u16; SNAPSHOT_INPUT_REGISTER_COUNT as usize] {
+    let mut bytes = [0_u8; SNAPSHOT_INPUT_BYTE_COUNT];
+    write_snapshot_input_register_bytes(snapshot, &mut bytes);
     let mut registers = [0_u16; SNAPSHOT_INPUT_REGISTER_COUNT as usize];
+    for (register, pair) in registers.iter_mut().zip(bytes.chunks_exact(2)) {
+        *register = u16::from_be_bytes([pair[0], pair[1]]);
+    }
+    registers
+}
+
+/// Encode a complete snapshot directly into Modbus/TCP register payload bytes.
+///
+/// This is the common encoding source for the register-valued host API and the
+/// firmware's full-snapshot fast path. Writing directly into the response
+/// avoids converting 75 intermediate `u16` values back into network byte order
+/// in the realtime communication interrupt.
+///
+/// Args:
+///   snapshot: Engineering snapshot to encode.
+///   bytes: Destination with shape `(SNAPSHOT_INPUT_BYTE_COUNT,)` in Modbus
+///     register and network byte order.
+#[inline(always)]
+pub fn write_snapshot_input_register_bytes(
+    snapshot: &OperatingSnapshot,
+    bytes: &mut [u8; SNAPSHOT_INPUT_BYTE_COUNT],
+) {
     let mut position = 0;
 
-    put_u32(&mut registers, &mut position, snapshot.magic);
-    put_u64(&mut registers, &mut position, snapshot.metrics.id);
-    put_u64(
-        &mut registers,
-        &mut position,
-        snapshot.metrics.cycle_time_ns as u64,
-    );
-    put_u64(
-        &mut registers,
-        &mut position,
-        snapshot.metrics.sent_time_ns as u64,
-    );
-    put_u64(
-        &mut registers,
-        &mut position,
-        snapshot.metrics.last_input_id,
-    );
-    put_u64(
-        &mut registers,
+    put_u32_bytes(bytes, &mut position, snapshot.magic);
+    put_u64_bytes(bytes, &mut position, snapshot.metrics.id);
+    put_u64_bytes(bytes, &mut position, snapshot.metrics.cycle_time_ns as u64);
+    put_u64_bytes(bytes, &mut position, snapshot.metrics.sent_time_ns as u64);
+    put_u64_bytes(bytes, &mut position, snapshot.metrics.last_input_id);
+    put_u64_bytes(
+        bytes,
         &mut position,
         snapshot.metrics.last_input_received_time_ns as u64,
     );
-    put_u64(
-        &mut registers,
+    put_u64_bytes(
+        bytes,
         &mut position,
         snapshot.metrics.cycle_time_margin_ns as u64,
     );
 
-    put_f32(&mut registers, &mut position, snapshot.module_bus_current_a);
-    put_f32(&mut registers, &mut position, snapshot.module_bus_voltage_v);
-    put_f32(&mut registers, &mut position, snapshot.board_temperature_k);
-    put_f32_array(&mut registers, &mut position, &snapshot.current_4_20_a);
-    put_f32_array(&mut registers, &mut position, &snapshot.rtd_resistance_ohm);
-    put_f32_array(
-        &mut registers,
-        &mut position,
-        &snapshot.thermocouple_temperature_k,
-    );
-    put_f32_array(&mut registers, &mut position, &snapshot.voltage_v);
-    put_u64(&mut registers, &mut position, snapshot.encoder as u64);
-    put_u64(&mut registers, &mut position, snapshot.pulse_counter as u64);
-    put_f32_array(&mut registers, &mut position, &snapshot.frequency_meas);
-    registers[position] = u16::from(snapshot.gpio);
-    position += 1;
+    put_f32_bytes(bytes, &mut position, snapshot.module_bus_current_a);
+    put_f32_bytes(bytes, &mut position, snapshot.module_bus_voltage_v);
+    put_f32_bytes(bytes, &mut position, snapshot.board_temperature_k);
+    put_f32_array_bytes(bytes, &mut position, &snapshot.current_4_20_a);
+    put_f32_array_bytes(bytes, &mut position, &snapshot.rtd_resistance_ohm);
+    put_f32_array_bytes(bytes, &mut position, &snapshot.thermocouple_temperature_k);
+    put_f32_array_bytes(bytes, &mut position, &snapshot.voltage_v);
+    put_u64_bytes(bytes, &mut position, snapshot.encoder as u64);
+    put_u64_bytes(bytes, &mut position, snapshot.pulse_counter as u64);
+    put_f32_array_bytes(bytes, &mut position, &snapshot.frequency_meas);
+    bytes[position] = 0;
+    bytes[position + 1] = snapshot.gpio;
+    position += 2;
 
-    debug_assert_eq!(position, SNAPSHOT_INPUT_REGISTER_COUNT as usize);
-    registers
+    debug_assert_eq!(position, SNAPSHOT_INPUT_BYTE_COUNT);
 }
 
 /// Decode one complete Modbus input-register block into its shared snapshot type.
@@ -314,12 +324,24 @@ fn put_u32_array<const N: usize>(registers: &mut [u16], position: &mut usize, va
     }
 }
 
-fn put_u64(registers: &mut [u16], position: &mut usize, value: u64) {
-    registers[*position] = (value >> 48) as u16;
-    registers[*position + 1] = (value >> 32) as u16;
-    registers[*position + 2] = (value >> 16) as u16;
-    registers[*position + 3] = value as u16;
+fn put_u32_bytes(bytes: &mut [u8], position: &mut usize, value: u32) {
+    bytes[*position..*position + 4].copy_from_slice(&value.to_be_bytes());
     *position += 4;
+}
+
+fn put_f32_bytes(bytes: &mut [u8], position: &mut usize, value: f32) {
+    put_u32_bytes(bytes, position, value.to_bits());
+}
+
+fn put_f32_array_bytes<const N: usize>(bytes: &mut [u8], position: &mut usize, values: &[f32; N]) {
+    for &value in values {
+        put_f32_bytes(bytes, position, value);
+    }
+}
+
+fn put_u64_bytes(bytes: &mut [u8], position: &mut usize, value: u64) {
+    bytes[*position..*position + 8].copy_from_slice(&value.to_be_bytes());
+    *position += 8;
 }
 
 fn read_u32(values: &[u16], write_start: usize, field_start: usize) -> u32 {

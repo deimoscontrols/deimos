@@ -4,8 +4,8 @@ use deimos_shared::peripherals::deimos_daq_rev7::{
     ModbusInitialConfig, OperatingSnapshot,
     modbus::{
         HOLDING_REGISTER_COUNT, MAX_HOLDING_WRITE_REGISTERS, MODBUS_MAX_READ_REGISTERS,
-        SNAPSHOT_INPUT_REGISTER_COUNT, apply_holding_write, holding_registers,
-        snapshot_input_registers,
+        SNAPSHOT_INPUT_BYTE_COUNT, SNAPSHOT_INPUT_REGISTER_COUNT, apply_holding_write,
+        holding_registers, snapshot_input_registers, write_snapshot_input_register_bytes,
     },
 };
 use rmodbus::{
@@ -362,6 +362,9 @@ impl ModbusTcpServer {
 
     /// Validate, answer, and optionally consume the one staged request.
     ///
+    /// This bounded dispatcher resides in ITCM because continuous full-snapshot
+    /// requests are the worst measured communication workload at 5 kHz.
+    ///
     /// Args:
     ///   snapshot: Latest immutable engineering snapshot.
     ///   config: Complete retained configuration before this request.
@@ -372,6 +375,8 @@ impl ModbusTcpServer {
     /// Returns:
     ///   Acceptance state, resulting configuration, and transaction ID, or an
     ///   internal codec error which requires resetting the connection.
+    #[inline(never)]
+    #[unsafe(link_section = ".itcm.modbus_request")]
     fn process_request(
         &mut self,
         snapshot: &OperatingSnapshot,
@@ -527,8 +532,7 @@ fn process_with_rmodbus(
 
     match function {
         ModbusFunction::GetInputs => {
-            let registers = snapshot_input_registers(snapshot);
-            if queue_read_response(request, response, &registers, address, count).is_err() {
+            if queue_snapshot_response(request, response, snapshot, address, count).is_err() {
                 set_exception_response(
                     request,
                     response,
@@ -589,6 +593,57 @@ fn process_with_rmodbus(
         }
         _ => Err(ErrorKind::IllegalFunction),
     }
+}
+
+/// Encode a full snapshot directly into its response payload when possible.
+///
+/// The complete 75-register read is the synchronized-snapshot use case and the
+/// worst realtime request. Its direct path avoids constructing intermediate
+/// registers and then converting each one back into network byte order.
+/// Uncommon partial reads retain the generic register-slice implementation.
+///
+/// Args:
+///   request: Complete request ADU supplying header and function fields.
+///   response: Fixed response storage.
+///   snapshot: Latest immutable engineering snapshot.
+///   address: Zero-based first requested register.
+///   count: Number of requested registers.
+///
+/// Returns:
+///   `Ok(())` after encoding an in-range span, or `IllegalDataAddress`.
+fn queue_snapshot_response(
+    request: &[u8],
+    response: &mut FixedResponse,
+    snapshot: &OperatingSnapshot,
+    address: u16,
+    count: u16,
+) -> Result<(), ErrorKind> {
+    if address != 0 || count != SNAPSHOT_INPUT_REGISTER_COUNT {
+        return queue_partial_snapshot_response(request, response, snapshot, address, count);
+    }
+
+    let response_len = 9 + SNAPSHOT_INPUT_BYTE_COUNT;
+    initialize_response(request, response, request[6], SNAPSHOT_INPUT_BYTE_COUNT + 2);
+    response.bytes[7] = request[7];
+    response.bytes[8] = SNAPSHOT_INPUT_BYTE_COUNT as u8;
+    let destination: &mut [u8; SNAPSHOT_INPUT_BYTE_COUNT] = (&mut response.bytes[9..response_len])
+        .try_into()
+        .map_err(|_| ErrorKind::OOB)?;
+    write_snapshot_input_register_bytes(snapshot, destination);
+    Ok(())
+}
+
+/// Encode an uncommon partial snapshot through the shared register-valued map.
+#[inline(never)]
+fn queue_partial_snapshot_response(
+    request: &[u8],
+    response: &mut FixedResponse,
+    snapshot: &OperatingSnapshot,
+    address: u16,
+    count: u16,
+) -> Result<(), ErrorKind> {
+    let registers = snapshot_input_registers(snapshot);
+    queue_read_response(request, response, &registers, address, count)
 }
 
 /// Encode one bounded register slice into an FC03 or FC04 response.

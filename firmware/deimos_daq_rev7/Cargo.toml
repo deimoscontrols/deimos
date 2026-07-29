@@ -36,3 +36,5 @@ features = ["medium-ethernet", "proto-ipv4", "socket-raw", "socket-udp", "socket
 # Test-only startup stack painting for an on-target MSP high-water measurement.
 # It has no effect on the production image unless selected explicitly.
 stack-watermark = ["dep:cortex-m-stack"]
+# Test-only minimum cycle-margin recorder, read later through the debug probe.
+timing-watermark = []
