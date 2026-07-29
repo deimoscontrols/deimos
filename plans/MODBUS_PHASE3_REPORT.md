@@ -32,7 +32,7 @@ Benchmark adapter: CDC-NCM `A0:CE:C8:69:F4:6E`
   Ethernet-frame transmits, and one complete ADU parse. Register loops are
   bounded by 125 read registers and 21 writable registers.
 - Aborted the unused TCP listener when UDP wins protocol selection, before the
-  normal Deimos Configuring path resumes its legacy network polling.
+  normal Deimos Configuring path resumes ordinary network polling.
 - Added the register-map guide and an `rmodbus` reference client which reads and
   decodes the full 75-register snapshot.
 
@@ -73,11 +73,13 @@ hardware wait was not performed in this pass.
 
 ## Verification
 
-- `cargo test --workspace`: passed (46 Deimos, 320 numerics, 13 shared, all
+- `cargo test --workspace`: passed (46 Deimos, 320 numerics, 14 shared, all
   enabled console/integration tests, and the Deimos doctest; one pre-existing
   desktop smoke test ignored).
 - `cargo check -p deimos --examples`: passed, including the reference client.
 - rev7 firmware `cargo build --release`: passed without warnings.
+- rev7 firmware and shared-library Clippy checks produced no warning in a
+  Phase 3 file; remaining warnings are pre-existing in unrelated code/tests.
 - `python firmware/flash.py`: flashed the final identity/uncalibrated image to
   SN3.
 - No temporary calibrated flag, panic loop, debug marker, or debug symbol
@@ -136,6 +138,66 @@ The second run CSV is archived as
 is `target/rev7_rate_benchmark/phase3_final_run3_20260729.csv`. The first run was
 overwritten by the repeat before archival, so its printed summary above is the
 retained record.
+
+## Phase 3 review
+
+A post-implementation review of commit `af2f02b` tightened the Phase 3 code
+without changing the register map or protocol behavior:
+
+- Factored the duplicated MBAP-prefix parser, response-header construction,
+  Modbus-listener recovery, and fixed-array register encoding/decoding.
+- Added Google-style no-types docstrings and field comments to the new framing,
+  socket-budget, register-map, and network-storage code. Units and fixed array
+  shapes are stated at the relevant boundaries.
+- Replaced the two state-transition `unwrap` calls with safe reconnect fallbacks,
+  made the loss-of-contact increment saturating, and removed a fallible unwrap
+  from realtime exception construction.
+- Added shared decoder coverage for wrong register count, wrong snapshot magic,
+  and an out-of-range GPIO value.
+- Inspected `rmodbus::ModbusFrame::parse`; it contains no loop. Firmware request
+  loops are bounded by two socket calls, the 256-byte ADU, the 21-register
+  writable map, or fixed compile-time array lengths.
+- Put every `smoltcp::Interface::poll` behind a finite device-token allowance.
+  Modbus retains one shared two-RX/two-TX frame budget across both polls in a
+  cycle. An ordinary poll permits at most eight RX and eight TX frames, so the
+  Deimos loop's two polls permit at most 16 in each direction per cycle. The
+  only explicit unbounded loops in the reviewed paths are the interrupt-driven
+  `wfi` state-transition waits.
+- Confirmed that the reviewed paths add no allocation, realtime FMA, or unsafe
+  block. The existing `link_section` attribute is the only unsafe annotation in
+  the network path.
+
+The ordinary-poll bound was selected with a hardware A/B. A four-frame limit
+spread queued traffic over enough cycles to reduce the DAQ-margin percentile;
+the final eight-frame limit drained the normal backlog while remaining strictly
+bounded. The unlimited run below was diagnostic only and was not left flashed.
+
+| Measurement | bounded 4 run 1 | bounded 4 run 2 | unlimited A/B | final bounded 8 run 1 | final bounded 8 run 2 |
+|---|---:|---:|---:|---:|---:|
+| Rows / expected | 49,989 / 50,000 | 49,991 / 50,000 | 49,990 / 50,000 | 49,988 / 50,000 | 49,989 / 50,000 |
+| Whole-run drop rate | 0.01638360 | 0.02840511 | 0.04318864 | 0.04813155 | 0.04382964 |
+| Final-five-second drop rate | 0.01156000 | 0.03272000 | 0.03788000 | 0.04560000 | 0.04684000 |
+| Maximum loss burst | 1 | 1 | 1 | 1 | 1 |
+| Minimum controller margin | 152,563 ns | 158,663 ns | 134,644 ns | 160,351 ns | 104,327 ns |
+| Minimum DAQ margin | 11,825 ns | 7,475 ns | 11,825 ns | 11,295 ns | 11,345 ns |
+| Whole-run DAQ margin p01 | 12,595 ns | 12,575 ns | 15,385 ns | 15,655 ns | 15,485 ns |
+| Final-five-second DAQ margin p01 | 12,705 ns | 12,525 ns | 15,355 ns | 15,625 ns | 15,475 ns |
+
+The final bounded runs have no DAQ deadline miss and recover roughly 0.5--1.0
+microseconds of first-percentile margin relative to the pre-review Phase 3
+runs. Their loss rates remain within the established adapter/host variation and
+all loss bursts were isolated single cycles. The final reviewed release image
+is 140,608 bytes: 368 bytes smaller than the `af2f02b` image. Its principal
+sections are `.text` 83,600, `.rodata` 14,376, `.itcm` 19,920, `.dtcm` 2,408,
+and `.bss` 7,008 bytes.
+
+Review CSVs are archived as
+`target/rev7_rate_benchmark/phase3_review_run1_20260729.csv`,
+`phase3_review_run2_20260729.csv`,
+`phase3_review_unbounded_ab_20260729.csv`,
+`phase3_review_bounded8_run1_20260729.csv`, and
+`phase3_review_bounded8_run2_20260729.csv`. The final bounded-eight,
+identity-calibration image is flashed on SN3.
 
 ## Deferred Phase 4 work
 

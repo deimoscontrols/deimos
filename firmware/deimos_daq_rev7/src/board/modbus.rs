@@ -3,11 +3,16 @@
 use deimos_shared::peripherals::deimos_daq_rev7::{
     ModbusInitialConfig, OperatingSnapshot,
     modbus::{
-        HOLDING_REGISTER_COUNT, MAX_HOLDING_WRITE_REGISTERS, SNAPSHOT_INPUT_REGISTER_COUNT,
-        apply_holding_write, holding_registers, snapshot_input_registers,
+        HOLDING_REGISTER_COUNT, MAX_HOLDING_WRITE_REGISTERS, MODBUS_MAX_READ_REGISTERS,
+        SNAPSHOT_INPUT_REGISTER_COUNT, apply_holding_write, holding_registers,
+        snapshot_input_registers,
     },
 };
-use rmodbus::{ErrorKind, ModbusProto, VectorTrait, consts::ModbusFunction, server::ModbusFrame};
+use rmodbus::{
+    ErrorKind, ModbusProto, VectorTrait,
+    consts::{ModbusErrorCode, ModbusFunction},
+    server::ModbusFrame,
+};
 
 use super::subsystems::net::Net;
 
@@ -18,7 +23,7 @@ const MBAP_PREFIX_LEN: usize = 6;
 /// Lowest legal MBAP length: one unit byte and one function byte.
 const MIN_MBAP_LENGTH: usize = 2;
 /// Highest MBAP length accepted by rmodbus's fixed frame representation.
-const MAX_MBAP_LENGTH: usize = 250;
+const MAX_MBAP_LENGTH: usize = MODBUS_ADU_CAPACITY - MBAP_PREFIX_LEN;
 /// Maximum socket receive calls in one publishing cycle.
 const MAX_RX_CALLS_PER_CYCLE: u8 = 2;
 /// Maximum socket transmit calls in one publishing cycle.
@@ -26,7 +31,9 @@ const MAX_TX_CALLS_PER_CYCLE: u8 = 2;
 
 /// Remaining socket operations available to one binding or operating cycle.
 pub(super) struct ModbusSocketBudget {
+    /// Remaining TCP receive calls in this publishing cycle.
     rx_calls: u8,
+    /// Remaining TCP transmit calls in this publishing cycle.
     tx_calls: u8,
 }
 
@@ -66,11 +73,14 @@ pub(super) struct RequestOutcome {
 
 /// Fixed-capacity byte vector implementing rmodbus's response abstraction.
 struct FixedResponse {
+    /// Response ADU storage with shape `(MODBUS_ADU_CAPACITY,)`.
     bytes: [u8; MODBUS_ADU_CAPACITY],
+    /// Initialized prefix length within `bytes`, in bytes.
     len: usize,
 }
 
 impl FixedResponse {
+    /// Construct empty fixed-capacity response storage.
     const fn new() -> Self {
         Self {
             bytes: [0; MODBUS_ADU_CAPACITY],
@@ -135,18 +145,26 @@ impl VectorTrait<u8> for FixedResponse {
     }
 
     fn replace(&mut self, index: usize, value: u8) {
+        debug_assert!(index < self.len);
         self.bytes[index] = value;
     }
 }
 
 /// Board-owned Modbus framing state which survives state-machine re-entry.
 pub(super) struct ModbusTcpServer {
+    /// One staged request ADU with shape `(MODBUS_ADU_CAPACITY,)`.
     request: [u8; MODBUS_ADU_CAPACITY],
+    /// Number of initialized request bytes.
     request_len: usize,
+    /// Complete ADU length obtained from the validated MBAP prefix.
     expected_len: Option<usize>,
+    /// One response retained until it has entered the smoltcp TX ring.
     response: FixedResponse,
+    /// First response byte not yet copied into the smoltcp TX ring.
     response_offset: usize,
+    /// Defaults overlaid by the first accepted request during Binding.
     binding_config: Option<ModbusInitialConfig>,
+    /// Rate-change configuration retained until its response is enqueued.
     reentry_config: Option<ModbusInitialConfig>,
 }
 
@@ -211,14 +229,8 @@ impl ModbusTcpServer {
             if budget.rx_calls == 0 {
                 break;
             }
-            if self.expected_len.is_none() && self.request_len == MBAP_PREFIX_LEN {
-                let protocol = u16::from_be_bytes([self.request[2], self.request[3]]);
-                let mbap_length =
-                    usize::from(u16::from_be_bytes([self.request[4], self.request[5]]));
-                if protocol != 0 || !(MIN_MBAP_LENGTH..=MAX_MBAP_LENGTH).contains(&mbap_length) {
-                    return ReceiveStatus::Malformed;
-                }
-                self.expected_len = Some(MBAP_PREFIX_LEN + mbap_length);
+            if self.parse_mbap_prefix().is_err() {
+                return ReceiveStatus::Malformed;
             }
 
             let target_len = self.expected_len.unwrap_or(MBAP_PREFIX_LEN);
@@ -234,13 +246,8 @@ impl ModbusTcpServer {
             }
         }
 
-        if self.expected_len.is_none() && self.request_len == MBAP_PREFIX_LEN {
-            let protocol = u16::from_be_bytes([self.request[2], self.request[3]]);
-            let mbap_length = usize::from(u16::from_be_bytes([self.request[4], self.request[5]]));
-            if protocol != 0 || !(MIN_MBAP_LENGTH..=MAX_MBAP_LENGTH).contains(&mbap_length) {
-                return ReceiveStatus::Malformed;
-            }
-            self.expected_len = Some(MBAP_PREFIX_LEN + mbap_length);
+        if self.parse_mbap_prefix().is_err() {
+            return ReceiveStatus::Malformed;
         }
 
         if self.request_complete() {
@@ -257,13 +264,13 @@ impl ModbusTcpServer {
     ///   budget: Remaining socket-call allowance for the current cycle.
     ///
     /// Returns:
-    ///   `Ok(true)` once the complete response has been enqueued, `Ok(false)`
-    ///   when backpressure leaves bytes pending, or `Err(())` on disconnect.
+    ///   `Ok(())` after exhausting the call allowance without a socket error;
+    ///   [`Self::response_pending`] reports whether backpressure retained bytes.
     pub(super) fn send_response(
         &mut self,
         net: &mut Net<'_>,
         budget: &mut ModbusSocketBudget,
-    ) -> Result<bool, ()> {
+    ) -> Result<(), ()> {
         for _ in 0..MAX_TX_CALLS_PER_CYCLE {
             if !self.response_pending() || budget.tx_calls == 0 {
                 break;
@@ -275,13 +282,11 @@ impl ModbusTcpServer {
                 Err(_) => return Err(()),
             }
         }
-        if self.response_pending() {
-            Ok(false)
-        } else {
+        if !self.response_pending() {
             self.response.clear();
             self.response_offset = 0;
-            Ok(true)
         }
+        Ok(())
     }
 
     /// Validate the first request and retain accepted traffic for operating entry.
@@ -300,6 +305,14 @@ impl ModbusTcpServer {
     }
 
     /// Process and consume one complete request against the current board state.
+    ///
+    /// Args:
+    ///   snapshot: Latest immutable engineering snapshot.
+    ///   config: Complete retained Modbus configuration before this request.
+    ///   loss_of_contact_counter: Current unanswered-cycle count.
+    ///
+    /// Returns:
+    ///   Request acceptance and resulting state, or an internal codec error.
     pub(super) fn process_operating_request(
         &mut self,
         snapshot: &OperatingSnapshot,
@@ -329,6 +342,36 @@ impl ModbusTcpServer {
         self.reentry_config.take()
     }
 
+    /// Parse the staged MBAP prefix exactly once when all six bytes are present.
+    ///
+    /// Returns:
+    ///   `Ok(())` while the prefix is incomplete or after recording a valid ADU
+    ///   length; `Err(())` for a nonzero protocol ID or unsupported ADU length.
+    fn parse_mbap_prefix(&mut self) -> Result<(), ()> {
+        if self.expected_len.is_some() || self.request_len != MBAP_PREFIX_LEN {
+            return Ok(());
+        }
+        let protocol = u16::from_be_bytes([self.request[2], self.request[3]]);
+        let mbap_length = usize::from(u16::from_be_bytes([self.request[4], self.request[5]]));
+        if protocol != 0 || !(MIN_MBAP_LENGTH..=MAX_MBAP_LENGTH).contains(&mbap_length) {
+            return Err(());
+        }
+        self.expected_len = Some(MBAP_PREFIX_LEN + mbap_length);
+        Ok(())
+    }
+
+    /// Validate, answer, and optionally consume the one staged request.
+    ///
+    /// Args:
+    ///   snapshot: Latest immutable engineering snapshot.
+    ///   config: Complete retained configuration before this request.
+    ///   loss_of_contact_counter: Current unanswered-cycle count.
+    ///   consume_accepted: Whether an accepted request should be removed now;
+    ///     Binding leaves it staged for the first operating publication.
+    ///
+    /// Returns:
+    ///   Acceptance state, resulting configuration, and transaction ID, or an
+    ///   internal codec error which requires resetting the connection.
     fn process_request(
         &mut self,
         snapshot: &OperatingSnapshot,
@@ -387,6 +430,12 @@ impl ModbusTcpServer {
         })
     }
 
+    /// Replace any prior response with one standard Modbus exception ADU.
+    ///
+    /// Args:
+    ///   unit_id: Unit Identifier copied from the request.
+    ///   function: Rejected request function code.
+    ///   error: Standard Modbus exception represented by rmodbus.
     fn queue_exception(&mut self, unit_id: u8, function: u8, error: ErrorKind) {
         self.response_offset = 0;
         set_exception_response(
@@ -398,12 +447,25 @@ impl ModbusTcpServer {
         );
     }
 
+    /// Discard the staged ADU without changing response or configuration state.
     fn reset_request(&mut self) {
         self.request_len = 0;
         self.expected_len = None;
     }
 }
 
+/// Validate supported request lengths and protocol-defined register counts.
+///
+/// The caller has already required an eight-byte minimum ADU, so indexing the
+/// unit and function bytes is safe. FC16 byte iteration is consequently bounded
+/// by the fixed 256-byte request buffer.
+///
+/// Args:
+///   request: Complete request ADU with shape `(request_len,)`.
+///
+/// Returns:
+///   `Ok(())` for a supported, structurally valid PDU, or the standard Modbus
+///   exception represented by rmodbus.
 fn validate_supported_pdu(request: &[u8]) -> Result<(), ErrorKind> {
     match request[7] {
         0x03 | 0x04 => {
@@ -411,7 +473,7 @@ fn validate_supported_pdu(request: &[u8]) -> Result<(), ErrorKind> {
                 return Err(ErrorKind::IllegalDataValue);
             }
             let count = u16::from_be_bytes([request[10], request[11]]);
-            if count == 0 || count > 125 {
+            if count == 0 || count > MODBUS_MAX_READ_REGISTERS {
                 return Err(ErrorKind::IllegalDataValue);
             }
             Ok(())
@@ -435,6 +497,21 @@ fn validate_supported_pdu(request: &[u8]) -> Result<(), ErrorKind> {
     }
 }
 
+/// Parse one ADU with rmodbus and apply the rev7 fixed register map.
+///
+/// rmodbus parsing contains no request-dependent loop. The only subsequent
+/// loops are bounded by the fixed snapshot and holding-register array lengths.
+///
+/// Args:
+///   request: Complete, normalized-unit request ADU with shape `(request_len,)`.
+///   response: Fixed response storage.
+///   snapshot: Latest immutable engineering snapshot.
+///   config: Complete retained configuration before the request.
+///   loss_of_contact_counter: Current unanswered-cycle count.
+///
+/// Returns:
+///   Whether the request was accepted and the resulting complete configuration,
+///   or an internal rmodbus parsing/storage error.
 fn process_with_rmodbus(
     request: &[u8],
     response: &mut FixedResponse,
@@ -442,12 +519,11 @@ fn process_with_rmodbus(
     config: ModbusInitialConfig,
     loss_of_contact_counter: u16,
 ) -> Result<(bool, ModbusInitialConfig), ErrorKind> {
-    let mut frame = ModbusFrame::new(1, request, ModbusProto::TcpUdp, response);
-    frame.parse()?;
-    let function = frame.func;
-    let address = frame.reg;
-    let count = frame.count;
-    drop(frame);
+    let (function, address, count) = {
+        let mut frame = ModbusFrame::new(1, request, ModbusProto::TcpUdp, response);
+        frame.parse()?;
+        (frame.func, frame.reg, frame.count)
+    };
 
     match function {
         ModbusFunction::GetInputs => {
@@ -497,11 +573,8 @@ fn process_with_rmodbus(
             }
             match apply_holding_write(config, address, &values[..usize::from(count)]) {
                 Ok(updated_config) => {
-                    response.clear();
-                    response.bytes[..4].copy_from_slice(&request[..4]);
-                    response.bytes[4..6].copy_from_slice(&6_u16.to_be_bytes());
-                    response.bytes[6..12].copy_from_slice(&request[6..12]);
-                    response.len = 12;
+                    initialize_response(request, response, request[6], 5);
+                    response.bytes[7..12].copy_from_slice(&request[7..12]);
                     Ok((true, updated_config))
                 }
                 Err(error) => {
@@ -518,6 +591,17 @@ fn process_with_rmodbus(
     }
 }
 
+/// Encode one bounded register slice into an FC03 or FC04 response.
+///
+/// Args:
+///   request: Complete request ADU supplying header and function fields.
+///   response: Fixed response storage.
+///   registers: Complete source map with shape `(N,)`.
+///   address: Zero-based first requested register.
+///   count: Number of requested registers.
+///
+/// Returns:
+///   `Ok(())` after encoding the requested in-range span, or `IllegalDataAddress`.
 fn queue_read_response<const N: usize>(
     request: &[u8],
     response: &mut FixedResponse,
@@ -534,10 +618,7 @@ fn queue_read_response<const N: usize>(
     if end > registers.len() || response_len > MODBUS_ADU_CAPACITY {
         return Err(ErrorKind::IllegalDataAddress);
     }
-    response.clear();
-    response.bytes[..4].copy_from_slice(&request[..4]);
-    response.bytes[4..6].copy_from_slice(&u16::try_from(data_len + 3)?.to_be_bytes());
-    response.bytes[6] = request[6];
+    initialize_response(request, response, request[6], data_len + 2);
     response.bytes[7] = request[7];
     response.bytes[8] = data_len as u8;
     for (destination, value) in response.bytes[9..response_len]
@@ -546,10 +627,35 @@ fn queue_read_response<const N: usize>(
     {
         destination.copy_from_slice(&value.to_be_bytes());
     }
-    response.len = response_len;
     Ok(())
 }
 
+/// Initialize the shared MBAP response header and final response length.
+///
+/// Args:
+///   request: Complete request ADU supplying transaction and protocol IDs.
+///   response: Fixed response storage to reset and initialize.
+///   unit_id: Unit Identifier to echo.
+///   pdu_len: Response PDU length in bytes, excluding the Unit Identifier.
+fn initialize_response(request: &[u8], response: &mut FixedResponse, unit_id: u8, pdu_len: usize) {
+    let response_len = 7 + pdu_len;
+    debug_assert!(response_len <= MODBUS_ADU_CAPACITY);
+    response.clear();
+    response.bytes[..4].copy_from_slice(&request[..4]);
+    response.bytes[4..6].copy_from_slice(&((pdu_len + 1) as u16).to_be_bytes());
+    response.bytes[6] = unit_id;
+    response.len = response_len;
+}
+
+/// Encode one standard exception response without a fallible realtime unwrap.
+///
+/// Args:
+///   request: Complete request ADU supplying transaction and protocol IDs.
+///   response: Fixed response storage.
+///   unit_id: Unit Identifier copied from the request.
+///   function: Rejected request function code.
+///   error: rmodbus error mapped to a standard exception code; unexpected
+///     internal errors defensively become `SlaveDeviceFailure`.
 fn set_exception_response(
     request: &[u8],
     response: &mut FixedResponse,
@@ -557,20 +663,15 @@ fn set_exception_response(
     function: u8,
     error: ErrorKind,
 ) {
-    response.clear();
-    response.bytes[..9].copy_from_slice(&[
-        request[0],
-        request[1],
-        0,
-        0,
-        0,
-        3,
-        unit_id,
-        function | 0x80,
-        error.to_modbus_error().unwrap().byte(),
-    ]);
-    response.len = 9;
+    let error_code = match error.to_modbus_error() {
+        Ok(code) => code,
+        Err(_) => ModbusErrorCode::SlaveDeviceFailure,
+    }
+    .byte();
+    initialize_response(request, response, unit_id, 2);
+    response.bytes[7] = function | 0x80;
+    response.bytes[8] = error_code;
 }
 
-const _: () = assert!(SNAPSHOT_INPUT_REGISTER_COUNT <= 125);
-const _: () = assert!(HOLDING_REGISTER_COUNT <= 125);
+const _: () = assert!(SNAPSHOT_INPUT_REGISTER_COUNT <= MODBUS_MAX_READ_REGISTERS);
+const _: () = assert!(HOLDING_REGISTER_COUNT <= MODBUS_MAX_READ_REGISTERS);

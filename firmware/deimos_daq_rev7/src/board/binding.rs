@@ -13,6 +13,18 @@ use deimos_shared::states::{ByteStruct, ByteStructLen};
 use super::modbus::{ModbusSocketBudget, ReceiveStatus};
 
 impl<'a> Board<'a> {
+    /// Reset one failed Modbus session and resume listening on TCP port 502.
+    ///
+    /// Args:
+    ///   transition_connecting: Binding-state transition flag set when the
+    ///     socket cannot be returned to its listening state.
+    fn recover_modbus_listener(&mut self, transition_connecting: &AtomicBool) {
+        self.modbus.reset();
+        if self.net.tcp_relisten().is_err() {
+            transition_connecting.store(true, Ordering::Relaxed);
+        }
+    }
+
     /// Bind to a controller
     pub fn bind(&mut self) -> BoardState {
         // Initialize
@@ -84,51 +96,50 @@ impl<'a> Board<'a> {
                 }
 
                 // Check for a controller trying to bind
-                if let Ok((recv_buf, meta)) = self.net.udp_recv() {
-                    if recv_buf.len() == Rev7BindingInput::BYTE_LEN {
-                        let binding_input = Rev7BindingInput::read_bytes(recv_buf);
-                        if binding_input.is_valid() {
-                            // Store the controller's address
-                            self.controller = Some(meta);
-                            self.configuring_timeout_ms = binding_input.configuring_timeout_ms;
+                if let Ok((recv_buf, meta)) = self.net.udp_recv()
+                    && recv_buf.len() == Rev7BindingInput::BYTE_LEN
+                {
+                    let binding_input = Rev7BindingInput::read_bytes(recv_buf);
+                    if binding_input.is_valid() {
+                        // Store the controller's address
+                        self.controller = Some(meta);
+                        self.configuring_timeout_ms = binding_input.configuring_timeout_ms;
 
-                            // Respond to the controller
-                            let binding_response = Rev7BindingOutput::new(PeripheralId {
-                                model_number: MODEL_NUMBER,
-                                serial_number: SERIAL_NUMBER,
-                            });
-                            match self
-                                .net
-                                .udp_send_with(Rev7BindingOutput::BYTE_LEN, meta, |buf| {
-                                    binding_response.write_bytes(buf);
-                                    Rev7BindingOutput::BYTE_LEN
-                                }) {
-                                Ok(_) => {}
-                                Err(_) => {
-                                    // If we are unable to send a UDP packet for any reason,
-                                    // go back to connecting and start over
-                                    transition_connecting.store(true, Ordering::Relaxed);
-                                    self.watchdog.feed();
-                                    return;
-                                }
+                        // Respond to the controller
+                        let binding_response = Rev7BindingOutput::new(PeripheralId {
+                            model_number: MODEL_NUMBER,
+                            serial_number: SERIAL_NUMBER,
+                        });
+                        match self
+                            .net
+                            .udp_send_with(Rev7BindingOutput::BYTE_LEN, meta, |buf| {
+                                binding_response.write_bytes(buf);
+                                Rev7BindingOutput::BYTE_LEN
+                            }) {
+                            Ok(_) => {}
+                            Err(_) => {
+                                // If we are unable to send a UDP packet for any reason,
+                                // go back to connecting and start over
+                                transition_connecting.store(true, Ordering::Relaxed);
+                                self.watchdog.feed();
+                                return;
                             }
-                            if modbus_enabled {
-                                self.net.poll_bounded(self.time_ns, &mut net_budget);
-                            } else {
-                                self.net.poll(self.time_ns);
-                            }
-
-                            // UDP won protocol selection. Disable the unused
-                            // TCP service before Configuring enters its legacy
-                            // unbounded network-poll path.
-                            self.modbus.reset();
-                            self.net.reset_tcp_socket();
-
-                            // Set flag to continue to Configuring
-                            transition_configuring.store(true, Ordering::Relaxed);
-                            self.watchdog.feed();
-                            return;
                         }
+                        if modbus_enabled {
+                            self.net.poll_bounded(self.time_ns, &mut net_budget);
+                        } else {
+                            self.net.poll(self.time_ns);
+                        }
+
+                        // UDP won protocol selection. Disable the unused TCP
+                        // service before Configuring resumes ordinary polling.
+                        self.modbus.reset();
+                        self.net.reset_tcp_socket();
+
+                        // Set flag to continue to Configuring
+                        transition_configuring.store(true, Ordering::Relaxed);
+                        self.watchdog.feed();
+                        return;
                     }
                 }
 
@@ -141,8 +152,7 @@ impl<'a> Board<'a> {
                             .send_response(&mut self.net, &mut socket_budget)
                             .is_err()
                         {
-                            self.modbus.reset();
-                            let _ = self.net.tcp_relisten();
+                            self.recover_modbus_listener(&transition_connecting);
                         }
                     } else if self.net.tcp_can_recv() {
                         match self.modbus.receive(&mut self.net, &mut socket_budget) {
@@ -157,31 +167,23 @@ impl<'a> Board<'a> {
                                             .send_response(&mut self.net, &mut socket_budget)
                                             .is_err()
                                         {
-                                            self.modbus.reset();
-                                            let _ = self.net.tcp_relisten();
+                                            self.recover_modbus_listener(&transition_connecting);
                                         }
                                     }
                                     Err(_) => {
-                                        self.modbus.reset();
-                                        let _ = self.net.tcp_relisten();
+                                        self.recover_modbus_listener(&transition_connecting);
                                     }
                                 }
                             }
-                            ReceiveStatus::Malformed => {
+                            ReceiveStatus::Malformed | ReceiveStatus::Disconnected => {
                                 // Modbus/TCP has no stream resynchronization marker. Abort only
                                 // this connection; the next connection starts at byte zero again.
-                                self.modbus.reset();
-                                let _ = self.net.tcp_relisten();
-                            }
-                            ReceiveStatus::Disconnected => {
-                                self.modbus.reset();
-                                let _ = self.net.tcp_relisten();
+                                self.recover_modbus_listener(&transition_connecting);
                             }
                             ReceiveStatus::Incomplete => {}
                         }
                     } else if self.net.tcp_connection_ended() {
-                        self.modbus.reset();
-                        let _ = self.net.tcp_relisten();
+                        self.recover_modbus_listener(&transition_connecting);
                     }
 
                     // Flush newly queued response bytes without exceeding the
@@ -214,11 +216,17 @@ impl<'a> Board<'a> {
         });
 
         if transition_configuring.load(Ordering::Relaxed) {
-            return BoardState::Configuring;
+            BoardState::Configuring
         } else if transition_modbus.load(Ordering::Relaxed) {
-            return BoardState::OperatingModbus(self.modbus.take_binding_config().unwrap());
+            match self.modbus.take_binding_config() {
+                Some(config) => BoardState::OperatingModbus(config),
+                // The transition flag and retained configuration are written
+                // together. Recover through Connecting if that invariant is
+                // ever violated instead of panicking in interrupt context.
+                None => BoardState::Connecting,
+            }
         } else {
-            return BoardState::Connecting;
+            BoardState::Connecting
         }
     }
 }

@@ -121,6 +121,10 @@ impl<D: phy::Device> ObservedDevice<D> {
     }
 
     /// Install finite frame budgets before entering smoltcp's internal poll loop.
+    ///
+    /// Args:
+    ///   rx_budget: Maximum additional DMA receive frames.
+    ///   tx_budget: Maximum additional DMA transmit frames.
     pub(super) fn set_io_budget(&mut self, rx_budget: usize, tx_budget: usize) {
         self.rx_budget = rx_budget;
         self.tx_budget = tx_budget;
@@ -136,7 +140,10 @@ impl<D: phy::Device> ObservedDevice<D> {
         self.tx_budget
     }
 
-    /// Restore ordinary unbounded device operation after a bounded poll finishes.
+    /// Remove the poll-local limit after smoltcp returns.
+    ///
+    /// One-off ARP sends outside `Interface::poll` still perform only one
+    /// transmit-token consumption, so the sentinel does not introduce a loop.
     pub(super) fn clear_io_budget(&mut self) {
         self.rx_budget = usize::MAX;
         self.tx_budget = usize::MAX;
@@ -218,7 +225,9 @@ impl<'a, T: phy::RxToken> phy::RxToken for ObservedRxToken<'a, T> {
 
 /// Transmit token wrapper used by [`ObservedDevice`].
 pub(super) struct ObservedTxToken<'a, T: phy::TxToken> {
+    /// Underlying DMA transmit token.
     inner: T,
+    /// Poll-local frame allowance decremented exactly once on consumption.
     tx_budget: &'a mut usize,
 }
 
@@ -227,6 +236,7 @@ impl<T: phy::TxToken> phy::TxToken for ObservedTxToken<'_, T> {
     where
         F: FnOnce(&mut [u8]) -> R,
     {
+        debug_assert!(*self.tx_budget > 0);
         *self.tx_budget -= 1;
         self.inner.consume(len, f)
     }

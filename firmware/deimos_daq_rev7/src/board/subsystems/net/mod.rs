@@ -20,6 +20,10 @@ const FALLBACK_VALIDATION_NS: i64 = 250_000_000;
 
 /// Standard port exposed by the calibrated Modbus/TCP operating path.
 pub(crate) const MODBUS_TCP_PORT: u16 = 502;
+/// Two complete four-entry DMA descriptor rings per ordinary network poll.
+const STANDARD_POLL_FRAME_BUDGET: usize = 8;
+/// Modbus IRQ work limit in each direction across all polls in one cycle.
+const MODBUS_POLL_FRAME_BUDGET: usize = 2;
 
 /// Remaining Ethernet-frame work allowed across bounded polls in one cycle.
 pub(crate) struct NetPollBudget {
@@ -33,16 +37,16 @@ impl NetPollBudget {
     /// Build the fixed two-RX/two-TX budget used by one Modbus-capable cycle.
     pub(crate) fn modbus_cycle() -> Self {
         Self {
-            rx_remaining: 2,
-            tx_remaining: 2,
+            rx_remaining: MODBUS_POLL_FRAME_BUDGET,
+            tx_remaining: MODBUS_POLL_FRAME_BUDGET,
         }
     }
 
-    /// Build an effectively unlimited allowance for the legacy UDP paths.
-    fn unbounded() -> Self {
+    /// Build a two-descriptor-ring allowance for an ordinary network poll.
+    fn standard_poll() -> Self {
         Self {
-            rx_remaining: usize::MAX,
-            tx_remaining: usize::MAX,
+            rx_remaining: STANDARD_POLL_FRAME_BUDGET,
+            tx_remaining: STANDARD_POLL_FRAME_BUDGET,
         }
     }
 }
@@ -59,9 +63,9 @@ pub(crate) struct NetStorageStatic<'a> {
     pub(crate) tx_metadata_storage: [PacketMetadata<udp::UdpMetadata>; 4],
     /// Transmit-packet payload buffer for the board UDP socket.
     pub(crate) tx_payload_storage: [u8; 1522],
-    /// Receive-byte storage for the future Modbus/TCP socket with shape `(512,)`.
+    /// Receive-byte storage for the Modbus/TCP socket with shape `(512,)`.
     pub(crate) tcp_rx_storage: [u8; 512],
-    /// Transmit-byte storage for the future Modbus/TCP socket with shape `(512,)`.
+    /// Transmit-byte storage for the Modbus/TCP socket with shape `(512,)`.
     pub(crate) tcp_tx_storage: [u8; 512],
 }
 
@@ -193,11 +197,11 @@ pub(crate) struct Net<'a> {
     iface: Interface,
     /// Ethernet device wrapper with ARP scraping.
     ethdev: ObservedDevice<ethernet::EthernetDMA<4, 4>>,
-    /// Socket storage backing the board's UDP and DHCP sockets.
+    /// Socket storage backing the board's UDP, TCP, and DHCP sockets.
     sockets: SocketSet<'a>,
     /// UDP socket handle used for controller-to-board traffic.
     udp_handle: smoltcp::iface::SocketHandle,
-    /// TCP socket reserved in Phase 1; it is not placed into listen mode yet.
+    /// TCP socket used for the calibrated Modbus/TCP connection.
     tcp_handle: smoltcp::iface::SocketHandle,
     /// DHCP socket handle.
     dhcp_handle: smoltcp::iface::SocketHandle,
@@ -262,8 +266,8 @@ impl<'a> Net<'a> {
             .unwrap();
         let udp_handle = sockets.add(udp_socket);
 
-        // Reserve the stream socket and backing buffers without exposing a TCP
-        // service until the Modbus operating path is implemented.
+        // Reserve the stream socket and backing buffers. Binding starts the
+        // listener only when the installed calibration is marked valid.
         let tcp_socket = tcp::Socket::new(
             tcp::SocketBuffer::new(&mut tcp_rx_storage[..]),
             tcp::SocketBuffer::new(&mut tcp_tx_storage[..]),
@@ -296,9 +300,16 @@ impl<'a> Net<'a> {
     /// If polled at the same `time_ns` multiple times, this will process
     /// incoming UDP packets for the UDP socket, but will not advance the
     /// DHCP state machine. This can reduce timing uncertainty under
-    /// repeated polls.
+    /// repeated polls. One call processes at most two complete four-entry DMA
+    /// descriptor rings in each direction.
+    ///
+    /// Args:
+    ///   time_ns: Current board time in `ns`.
+    ///
+    /// Returns:
+    ///   Whether smoltcp processed or emitted at least one frame.
     pub(crate) fn poll(&mut self, time_ns: i64) -> bool {
-        let mut budget = NetPollBudget::unbounded();
+        let mut budget = NetPollBudget::standard_poll();
         self.poll_bounded(time_ns, &mut budget)
     }
 
@@ -367,10 +378,7 @@ impl<'a> Net<'a> {
         self.sockets.get_mut::<tcp::Socket>(self.tcp_handle).abort();
     }
 
-    /// Begin accepting the one future Modbus/TCP connection.
-    ///
-    /// Phase 1 deliberately does not call this helper, so merely reserving the
-    /// socket does not expose a TCP service.
+    /// Begin accepting the one calibrated Modbus/TCP connection.
     ///
     /// Returns:
     ///   `Ok(())` after binding the socket to TCP port `502`, or smoltcp's
@@ -418,7 +426,10 @@ impl<'a> Net<'a> {
             .send_slice(bytes)
     }
 
-    /// Return whether the TCP socket currently owns an established session.
+    /// Return smoltcp's broad active-session state.
+    ///
+    /// This includes handshake and closing states; callers needing peer-close
+    /// detection use [`Self::tcp_connection_ended`] instead.
     pub(crate) fn tcp_is_active(&self) -> bool {
         self.sockets.get::<tcp::Socket>(self.tcp_handle).is_active()
     }
@@ -453,11 +464,11 @@ impl<'a> Net<'a> {
 
         // If a DHCP lease was deferred while operating on fallback, apply it as
         // soon as the caller allows address changes again.
-        if !matches!(mode, AddressMode::Operating) {
-            if let Some(config) = self.take_deferred_dhcp() {
-                self.apply_dhcp_config(config);
-                reconnect_required = matches!(mode, AddressMode::SessionSetup);
-            }
+        if !matches!(mode, AddressMode::Operating)
+            && let Some(config) = self.take_deferred_dhcp()
+        {
+            self.apply_dhcp_config(config);
+            reconnect_required = matches!(mode, AddressMode::SessionSetup);
         }
 
         // Poll DHCP and collapse the borrowed smoltcp event into an owned form.

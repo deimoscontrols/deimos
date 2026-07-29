@@ -42,8 +42,11 @@ impl<'a> Board<'a> {
         // Deimos configuration already installed its period, timeout, and ADC
         // cutoff. Modbus carries those values explicitly so rate-change
         // re-entry can preserve the complete output state.
-        let initial_outputs = match mode {
-            OperatingMode::Deimos => OperatingOutputSettings::default(),
+        let (initial_outputs, mut current_modbus_config) = match mode {
+            OperatingMode::Deimos => (
+                OperatingOutputSettings::default(),
+                ModbusInitialConfig::default(),
+            ),
             OperatingMode::Modbus(initial_config) => {
                 self.dt_ns = initial_config.dt_ns;
                 self.loss_of_contact_limit = initial_config.loss_of_contact_limit;
@@ -53,12 +56,8 @@ impl<'a> Board<'a> {
                 ADC_CUTOFF_RATIO.store(cutoff_ratio as f32, Ordering::Relaxed);
                 NEW_ADC_CUTOFF.store(true, Ordering::Relaxed);
 
-                initial_config.outputs
+                (initial_config.outputs, initial_config)
             }
-        };
-        let mut current_modbus_config = match mode {
-            OperatingMode::Deimos => ModbusInitialConfig::default(),
-            OperatingMode::Modbus(initial_config) => initial_config,
         };
 
         // A Modbus operating invocation owns the connection selected in
@@ -92,8 +91,10 @@ impl<'a> Board<'a> {
 
         //    Storage
         let mut operating_output = OperatingSnapshot::default();
-        let mut deimos_input = OperatingRoundtripInput::default();
-        deimos_input.outputs = initial_outputs;
+        let mut deimos_input = OperatingRoundtripInput {
+            outputs: initial_outputs,
+            ..OperatingRoundtripInput::default()
+        };
         let mut loss_of_contact_persistence_counter = 0;
 
         // Board temperature is the cold-junction estimate and is filtered once per
@@ -145,7 +146,8 @@ impl<'a> Board<'a> {
                 // so that it increments even if we do not complete the cycle on time
                 // and clear the phase delta so that we do not repeatedly apply the same
                 // delta if we miss an input packet
-                loss_of_contact_persistence_counter += 1;
+                loss_of_contact_persistence_counter =
+                    loss_of_contact_persistence_counter.saturating_add(1);
                 // Only Deimos uses timing corrections. Zero its one-cycle
                 // phase portion while preserving the period adjustment.
                 deimos_input.phase_delta_ns = 0;
@@ -211,24 +213,21 @@ impl<'a> Board<'a> {
                             // the roundtrip controller converges on phase lock.
                             self.net.poll(self.board_time(subcycle_res_ns));
                             match self.net.udp_recv() {
-                                Ok((recv_buf, meta)) if Some(meta) == self.controller => {
-                                    if recv_buf.len() == OperatingRoundtripInput::BYTE_LEN {
-                                        let candidate =
-                                            OperatingRoundtripInput::read_bytes(recv_buf);
-                                        if !candidate.is_valid() {
-                                            continue;
-                                        }
-                                        deimos_input = candidate;
+                                Ok((recv_buf, meta))
+                                    if Some(meta) == self.controller
+                                        && recv_buf.len() == OperatingRoundtripInput::BYTE_LEN =>
+                                {
+                                    let candidate = OperatingRoundtripInput::read_bytes(recv_buf);
+                                    if !candidate.is_valid() {
+                                        continue;
+                                    }
+                                    deimos_input = candidate;
 
-                                        if deimos_input.id > operating_output.metrics.last_input_id
-                                        {
-                                            operating_output.metrics.last_input_id =
-                                                deimos_input.id;
-                                            loss_of_contact_persistence_counter = 0;
-                                        }
+                                    if deimos_input.id > operating_output.metrics.last_input_id {
+                                        operating_output.metrics.last_input_id = deimos_input.id;
+                                        loss_of_contact_persistence_counter = 0;
                                     }
                                 }
-                                Err(_) => {}
                                 _ => {}
                             };
                         }
@@ -331,7 +330,7 @@ impl<'a> Board<'a> {
                 }
 
                 // Apply one complete settings object in either mode. Modbus
-                // reads and omitted future writes leave this retained value
+                // reads and writes which omit fields leave this retained value
                 // unchanged across cycles and rate-change re-entry.
                 self.set_outputs(&deimos_input.outputs);
 
@@ -371,7 +370,12 @@ impl<'a> Board<'a> {
         if transition_connecting.load(Ordering::Relaxed) {
             BoardState::Connecting
         } else if transition_modbus_reentry.load(Ordering::Relaxed) {
-            BoardState::OperatingModbus(self.modbus.take_reentry_config().unwrap())
+            match self.modbus.take_reentry_config() {
+                Some(config) => BoardState::OperatingModbus(config),
+                // A missing configuration indicates an internal state
+                // invariant violation; reconnect safely instead of panicking.
+                None => BoardState::Connecting,
+            }
         } else {
             BoardState::Connecting
         }

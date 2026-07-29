@@ -5,6 +5,7 @@
 //! in Modbus network byte order by the transport layer.
 
 use super::{ModbusInitialConfig, OperatingSnapshot, DAC_CHANNEL_COUNT, PWM_CHANNEL_COUNT};
+use crate::states::OperatingMetrics;
 
 /// First input register occupied by the coherent engineering snapshot.
 pub const SNAPSHOT_INPUT_START: u16 = 0;
@@ -30,9 +31,9 @@ pub const HOLDING_GPIO: u16 = 26;
 /// Total number of readable holding registers.
 pub const HOLDING_REGISTER_COUNT: u16 = 27;
 
-/// Slowest supported Phase 3 publishing rate in `Hz`.
+/// Slowest supported Modbus publishing rate in `Hz`.
 pub const MODBUS_MIN_CYCLE_RATE_HZ: f32 = 4.0;
-/// Fastest supported Phase 3 publishing rate in `Hz`.
+/// Fastest supported Modbus publishing rate in `Hz`.
 pub const MODBUS_MAX_CYCLE_RATE_HZ: f32 = 5_000.0;
 
 /// Maximum register count in one standard Modbus read request.
@@ -105,23 +106,17 @@ pub fn snapshot_input_registers(
     put_f32(&mut registers, &mut position, snapshot.module_bus_current_a);
     put_f32(&mut registers, &mut position, snapshot.module_bus_voltage_v);
     put_f32(&mut registers, &mut position, snapshot.board_temperature_k);
-    for value in snapshot.current_4_20_a {
-        put_f32(&mut registers, &mut position, value);
-    }
-    for value in snapshot.rtd_resistance_ohm {
-        put_f32(&mut registers, &mut position, value);
-    }
-    for value in snapshot.thermocouple_temperature_k {
-        put_f32(&mut registers, &mut position, value);
-    }
-    for value in snapshot.voltage_v {
-        put_f32(&mut registers, &mut position, value);
-    }
+    put_f32_array(&mut registers, &mut position, &snapshot.current_4_20_a);
+    put_f32_array(&mut registers, &mut position, &snapshot.rtd_resistance_ohm);
+    put_f32_array(
+        &mut registers,
+        &mut position,
+        &snapshot.thermocouple_temperature_k,
+    );
+    put_f32_array(&mut registers, &mut position, &snapshot.voltage_v);
     put_u64(&mut registers, &mut position, snapshot.encoder as u64);
     put_u64(&mut registers, &mut position, snapshot.pulse_counter as u64);
-    for value in snapshot.frequency_meas {
-        put_f32(&mut registers, &mut position, value);
-    }
+    put_f32_array(&mut registers, &mut position, &snapshot.frequency_meas);
     registers[position] = u16::from(snapshot.gpio);
     position += 1;
 
@@ -145,37 +140,32 @@ pub fn snapshot_from_input_registers(
         return Err(SnapshotDecodeError::InvalidLength);
     }
     let mut position = 0;
-    let mut snapshot = OperatingSnapshot::default();
-    snapshot.magic = take_u32(registers, &mut position);
-    snapshot.metrics.id = take_u64(registers, &mut position);
-    snapshot.metrics.cycle_time_ns = take_u64(registers, &mut position) as i64;
-    snapshot.metrics.sent_time_ns = take_u64(registers, &mut position) as i64;
-    snapshot.metrics.last_input_id = take_u64(registers, &mut position);
-    snapshot.metrics.last_input_received_time_ns = take_u64(registers, &mut position) as i64;
-    snapshot.metrics.cycle_time_margin_ns = take_u64(registers, &mut position) as i64;
-    snapshot.module_bus_current_a = take_f32(registers, &mut position);
-    snapshot.module_bus_voltage_v = take_f32(registers, &mut position);
-    snapshot.board_temperature_k = take_f32(registers, &mut position);
-    for value in &mut snapshot.current_4_20_a {
-        *value = take_f32(registers, &mut position);
-    }
-    for value in &mut snapshot.rtd_resistance_ohm {
-        *value = take_f32(registers, &mut position);
-    }
-    for value in &mut snapshot.thermocouple_temperature_k {
-        *value = take_f32(registers, &mut position);
-    }
-    for value in &mut snapshot.voltage_v {
-        *value = take_f32(registers, &mut position);
-    }
-    snapshot.encoder = take_u64(registers, &mut position) as i64;
-    snapshot.pulse_counter = take_u64(registers, &mut position) as i64;
-    for value in &mut snapshot.frequency_meas {
-        *value = take_f32(registers, &mut position);
-    }
-    snapshot.gpio = registers[position]
-        .try_into()
-        .map_err(|_| SnapshotDecodeError::InvalidSnapshot)?;
+    let snapshot = OperatingSnapshot {
+        magic: take_u32(registers, &mut position),
+        metrics: OperatingMetrics {
+            id: take_u64(registers, &mut position),
+            cycle_time_ns: take_u64(registers, &mut position) as i64,
+            sent_time_ns: take_u64(registers, &mut position) as i64,
+            last_input_id: take_u64(registers, &mut position),
+            last_input_received_time_ns: take_u64(registers, &mut position) as i64,
+            cycle_time_margin_ns: take_u64(registers, &mut position) as i64,
+        },
+        module_bus_current_a: take_f32(registers, &mut position),
+        module_bus_voltage_v: take_f32(registers, &mut position),
+        board_temperature_k: take_f32(registers, &mut position),
+        current_4_20_a: take_f32_array(registers, &mut position),
+        rtd_resistance_ohm: take_f32_array(registers, &mut position),
+        thermocouple_temperature_k: take_f32_array(registers, &mut position),
+        voltage_v: take_f32_array(registers, &mut position),
+        encoder: take_u64(registers, &mut position) as i64,
+        pulse_counter: take_u64(registers, &mut position) as i64,
+        frequency_meas: take_f32_array(registers, &mut position),
+        gpio: registers[position]
+            .try_into()
+            .map_err(|_| SnapshotDecodeError::InvalidSnapshot)?,
+    };
+    position += 1;
+    debug_assert_eq!(position, SNAPSHOT_INPUT_REGISTER_COUNT as usize);
 
     if !snapshot.is_valid() {
         return Err(SnapshotDecodeError::InvalidSnapshot);
@@ -210,17 +200,11 @@ pub fn holding_registers(
     registers[HOLDING_LOSS_OF_CONTACT_COUNTER as usize] = loss_of_contact_counter;
 
     position = HOLDING_PWM_DUTY_FRAC as usize;
-    for value in config.outputs.pwm_duty_frac {
-        put_f32(&mut registers, &mut position, value);
-    }
+    put_f32_array(&mut registers, &mut position, &config.outputs.pwm_duty_frac);
     position = HOLDING_PWM_FREQUENCY_HZ as usize;
-    for value in config.outputs.pwm_freq_hz {
-        put_u32(&mut registers, &mut position, value);
-    }
+    put_u32_array(&mut registers, &mut position, &config.outputs.pwm_freq_hz);
     position = HOLDING_DAC_V as usize;
-    for value in config.outputs.dac_v {
-        put_f32(&mut registers, &mut position, value);
-    }
+    put_f32_array(&mut registers, &mut position, &config.outputs.dac_v);
     registers[HOLDING_GPIO as usize] = u16::from(config.outputs.gpio);
     registers
 }
@@ -318,6 +302,18 @@ fn put_f32(registers: &mut [u16], position: &mut usize, value: f32) {
     put_u32(registers, position, value.to_bits());
 }
 
+fn put_f32_array<const N: usize>(registers: &mut [u16], position: &mut usize, values: &[f32; N]) {
+    for &value in values {
+        put_f32(registers, position, value);
+    }
+}
+
+fn put_u32_array<const N: usize>(registers: &mut [u16], position: &mut usize, values: &[u32; N]) {
+    for &value in values {
+        put_u32(registers, position, value);
+    }
+}
+
 fn put_u64(registers: &mut [u16], position: &mut usize, value: u64) {
     registers[*position] = (value >> 48) as u16;
     registers[*position + 1] = (value >> 32) as u16;
@@ -339,6 +335,10 @@ fn take_u32(registers: &[u16], position: &mut usize) -> u32 {
 
 fn take_f32(registers: &[u16], position: &mut usize) -> f32 {
     f32::from_bits(take_u32(registers, position))
+}
+
+fn take_f32_array<const N: usize>(registers: &[u16], position: &mut usize) -> [f32; N] {
+    core::array::from_fn(|_| take_f32(registers, position))
 }
 
 fn take_u64(registers: &[u16], position: &mut usize) -> u64 {
@@ -400,6 +400,29 @@ mod tests {
         assert_eq!(decoded.module_bus_current_a.to_bits(), 1.0_f32.to_bits());
         assert_eq!(decoded.encoder, -2);
         assert_eq!(decoded.gpio, 3);
+    }
+
+    #[test]
+    fn snapshot_decoder_rejects_wrong_shape_magic_and_gpio() {
+        let valid = snapshot_input_registers(&OperatingSnapshot::default());
+        assert!(matches!(
+            snapshot_from_input_registers(&valid[..valid.len() - 1]),
+            Err(SnapshotDecodeError::InvalidLength)
+        ));
+
+        let mut wrong_magic = valid;
+        wrong_magic[0] ^= 1;
+        assert!(matches!(
+            snapshot_from_input_registers(&wrong_magic),
+            Err(SnapshotDecodeError::InvalidSnapshot)
+        ));
+
+        let mut invalid_gpio = valid;
+        invalid_gpio[SNAPSHOT_INPUT_REGISTER_COUNT as usize - 1] = 0x0100;
+        assert!(matches!(
+            snapshot_from_input_registers(&invalid_gpio),
+            Err(SnapshotDecodeError::InvalidSnapshot)
+        ));
     }
 
     #[test]
