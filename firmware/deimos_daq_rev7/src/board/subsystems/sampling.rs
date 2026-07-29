@@ -16,7 +16,7 @@ use stm32h7xx_hal::{
 
 use crate::board::{
     ACCUMULATED_SAMPLING_TIME_NS, ADC_CHANNEL_COUNT, ADC_CUTOFF_RATIO, ADC_SAMPLE_FREQ_HZ,
-    ADC_SAMPLES, COUNTER_SAMPLES, COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF, VREF,
+    COUNTER_SAMPLES, COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF, VREF, publish_adc_samples,
 };
 
 /// Above this size of change, 16-bit counters are assumed to have wrapped.
@@ -269,7 +269,7 @@ impl Sampler {
             .for_each(|(i, (filter, state))| {
                 // Get the most recent existing sample to initialize the filter
                 // and, if it is in an error state, reset it to zero.
-                let mut init_val = ADC_SAMPLES[i].load(Ordering::Relaxed);
+                let mut init_val = self.adc_values[i];
                 if !init_val.is_finite() {
                     init_val = 0.0;
                 }
@@ -382,9 +382,7 @@ impl Sampler {
         }
 
         // Send measurements to shared storage
-        for i in 0..ADC_SAMPLES.len() {
-            ADC_SAMPLES[i].store(self.adc_values[i], Ordering::Relaxed);
-        }
+        publish_adc_samples(&self.adc_values);
 
         // Get latest timer input readings, unwrapping integer counts
         let encoder_val: u16 = self.encoder.0.cnt.read().cnt().bits().into();

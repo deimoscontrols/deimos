@@ -16,8 +16,14 @@ use serde::{Deserialize, Serialize};
 use deimos_shared::OperatingMetrics;
 use deimos_shared::PERIPHERAL_RX_PORT;
 use deimos_shared::peripherals::PeripheralId;
+use deimos_shared::peripherals::deimos_daq_rev7::{
+    MODEL_NUMBER as REV7_MODEL_NUMBER, OperatingRoundtripInput as Rev7OperatingInput,
+    OperatingSnapshot as Rev7OperatingSnapshot, Rev7BindingInput, Rev7BindingOutput,
+    Rev7ConfiguringInput, Rev7ConfiguringOutput,
+};
 use deimos_shared::states::{
-    BindingInput, BindingOutput, ByteStruct, ByteStructLen, ConfiguringInput, ConfiguringOutput,
+    AcknowledgeConfiguration, BindingInput, BindingOutput, ByteStruct, ByteStructLen,
+    ConfiguringInput, ConfiguringOutput,
 };
 
 #[cfg(feature = "python")]
@@ -160,6 +166,30 @@ impl Peripheral for HootlPeripheral {
         }
 
         metrics
+    }
+
+    fn validate_operating_roundtrip(&self, bytes: &[u8]) -> bool {
+        self.inner.validate_operating_roundtrip(bytes)
+    }
+
+    fn configuring_input_size(&self) -> usize {
+        self.inner.configuring_input_size()
+    }
+
+    fn configuring_output_size(&self) -> usize {
+        self.inner.configuring_output_size()
+    }
+
+    fn emit_configuring(&self, base_config: ConfiguringInput, bytes: &mut [u8]) {
+        self.inner.emit_configuring(base_config, bytes);
+    }
+
+    fn parse_configuring(&self, bytes: &[u8]) -> Result<Option<bool>, String> {
+        self.inner.parse_configuring(bytes)
+    }
+
+    fn requires_host_calibration_artifact(&self) -> bool {
+        self.inner.requires_host_calibration_artifact()
     }
 
     fn standard_calcs(
@@ -483,19 +513,37 @@ impl HootlRunner {
             match state {
                 DriverState::Binding => {
                     if let Some((size, addr)) = self.transport.recv_packet(&mut buf) {
-                        // Parse incoming packet
-                        if size != BindingInput::BYTE_LEN {
-                            continue;
-                        }
-                        let msg = BindingInput::read_bytes(&buf[..size]);
-                        let timeout = Duration::from_millis(msg.configuring_timeout_ms as u64);
-
-                        // Build response packet
-                        let resp = BindingOutput {
-                            peripheral_id: self.config.peripheral_id,
-                        };
-                        let mut out = vec![0u8; BindingOutput::BYTE_LEN];
-                        resp.write_bytes(&mut out);
+                        let (timeout, out) =
+                            if self.config.peripheral_id.model_number == REV7_MODEL_NUMBER {
+                                if size != Rev7BindingInput::BYTE_LEN {
+                                    continue;
+                                }
+                                let request = Rev7BindingInput::read_bytes(&buf[..size]);
+                                if !request.is_valid() {
+                                    continue;
+                                }
+                                let response = Rev7BindingOutput::new(self.config.peripheral_id);
+                                let mut out = vec![0u8; Rev7BindingOutput::BYTE_LEN];
+                                response.write_bytes(&mut out);
+                                (
+                                    Duration::from_millis(request.configuring_timeout_ms as u64),
+                                    out,
+                                )
+                            } else {
+                                if size != BindingInput::BYTE_LEN {
+                                    continue;
+                                }
+                                let request = BindingInput::read_bytes(&buf[..size]);
+                                let response = BindingOutput {
+                                    peripheral_id: self.config.peripheral_id,
+                                };
+                                let mut out = vec![0u8; BindingOutput::BYTE_LEN];
+                                response.write_bytes(&mut out);
+                                (
+                                    Duration::from_millis(request.configuring_timeout_ms as u64),
+                                    out,
+                                )
+                            };
 
                         // Send response
                         let send_status = self.transport.send_packet(
@@ -529,17 +577,30 @@ impl HootlRunner {
                     }
 
                     if let Some((size, _addr)) = self.transport.recv_packet(&mut buf) {
-                        // FUTURE: validate configuration.
-                        if size != ConfiguringInput::BYTE_LEN {
-                            continue;
-                        }
-
-                        // Send response to acknowledge configuration.
-                        let resp = ConfiguringOutput {
-                            acknowledge: deimos_shared::states::AcknowledgeConfiguration::Ack,
+                        let out = if self.config.peripheral_id.model_number == REV7_MODEL_NUMBER {
+                            if size != Rev7ConfiguringInput::BYTE_LEN {
+                                continue;
+                            }
+                            let request = Rev7ConfiguringInput::read_bytes(&buf[..size]);
+                            if !request.is_valid() {
+                                continue;
+                            }
+                            let response =
+                                Rev7ConfiguringOutput::new(AcknowledgeConfiguration::Ack, true);
+                            let mut out = vec![0u8; Rev7ConfiguringOutput::BYTE_LEN];
+                            response.write_bytes(&mut out);
+                            out
+                        } else {
+                            if size != ConfiguringInput::BYTE_LEN {
+                                continue;
+                            }
+                            let response = ConfiguringOutput {
+                                acknowledge: AcknowledgeConfiguration::Ack,
+                            };
+                            let mut out = vec![0u8; ConfiguringOutput::BYTE_LEN];
+                            response.write_bytes(&mut out);
+                            out
                         };
-                        let mut out = vec![0u8; ConfiguringOutput::BYTE_LEN];
-                        resp.write_bytes(&mut out);
 
                         let send_status = self.transport.send_packet(
                             &out,
@@ -576,7 +637,14 @@ impl HootlRunner {
 
                         // Reset loss-of-contact counter
                         *last_contact = Instant::now();
-                        let last_input_id = if size >= 8 {
+                        let is_rev7 = self.config.peripheral_id.model_number == REV7_MODEL_NUMBER;
+                        let last_input_id = if is_rev7 {
+                            let request = Rev7OperatingInput::read_bytes(&buf[..size]);
+                            if !request.is_valid() {
+                                continue;
+                            }
+                            request.id
+                        } else if size >= 8 {
                             let mut bytes = [0u8; 8];
                             bytes.copy_from_slice(&buf[..8]);
                             u64::from_le_bytes(bytes)
@@ -586,13 +654,19 @@ impl HootlRunner {
 
                         // Send operating response
                         // FUTURE: use peripheral object to write output
-                        let mut out = vec![0u8; self.config.output_size];
                         let metrics = OperatingMetrics {
                             id: *counter,
                             last_input_id,
                             ..Default::default()
                         };
-                        metrics.write_bytes(&mut out[..OperatingMetrics::BYTE_LEN]);
+                        let mut out = vec![0u8; self.config.output_size];
+                        if is_rev7 {
+                            let mut response = Rev7OperatingSnapshot::default();
+                            response.metrics = metrics;
+                            response.write_bytes(&mut out);
+                        } else {
+                            metrics.write_bytes(&mut out[..OperatingMetrics::BYTE_LEN]);
+                        }
 
                         let send_status = self.transport.send_packet(
                             &out,
@@ -862,7 +936,7 @@ mod tests {
     use super::*;
     use crate::peripheral::DeimosDaqRev7;
     use deimos_shared::peripherals::deimos_daq_rev7::OperatingRoundtripInput;
-    use deimos_shared::states::{ByteStruct, ByteStructLen};
+    use deimos_shared::states::ByteStruct;
 
     /// Verify byte-level compat between `HootlPeripheral` and the real
     /// `DeimosDaqRev7` for a single operating-cycle packet.
@@ -949,8 +1023,9 @@ mod tests {
             last_input_id,
             ..Default::default()
         };
-        metrics.write_bytes(&mut response_bytes[..OperatingMetrics::BYTE_LEN]);
-        // Remaining bytes stay zeroed (simulates HOOTL runner behaviour).
+        let mut response = Rev7OperatingSnapshot::default();
+        response.metrics = metrics;
+        response.write_bytes(&mut response_bytes);
 
         // --- Real DeimosDaqRev7 parse ---
         let mut real_outputs = vec![0.0f64; real.output_names().len()];

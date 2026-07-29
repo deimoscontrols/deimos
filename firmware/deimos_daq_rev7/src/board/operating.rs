@@ -20,7 +20,7 @@ use irq::{handler, scope};
 /// * 50MHz is the fastest possible rate that the counter peripherals can reach in any configuration
 /// * 2**53 count is about 5 years at 50MHz before losing exact resolution
 /// * 2**62 count is about 2900 years at 50MHz before wrapping
-const WRAP_SPAN: i64 = (i32::MAX as i64) * 2;
+const WRAP_SPAN: i64 = 1_i64 << 32;
 
 impl<'a> Board<'a> {
     pub fn operate(&mut self) -> BoardState {
@@ -50,9 +50,26 @@ impl<'a> Board<'a> {
         let transition_connecting = AtomicBool::new(false);
 
         //    Storage
-        let mut udp_output = OperatingRoundtripOutput::default();
+        let mut udp_output = OperatingSnapshot::default();
         let mut udp_input: OperatingRoundtripInput = OperatingRoundtripInput::default();
         let mut loss_of_contact_persistence_counter = 0;
+
+        // Board temperature is the cold-junction estimate and is filtered once per
+        // publishing cycle. Filter construction remains outside the interrupt hot path.
+        let reporting_rate_hz = 1.0e9 / self.dt_ns as f64;
+        let board_temperature_filter = adc_filter_bank(1.0 / reporting_rate_hz).unwrap()[0];
+        let initial_samples = latest_adc_samples();
+        let initial_board_temperature_k =
+            board_temperature_k_f32(&initial_samples, &self.calibration);
+        let mut board_temperature_filter_state = board_temperature_filter.reset_state();
+        board_temperature_filter.set_steady_state(
+            &mut board_temperature_filter_state,
+            [if initial_board_temperature_k.is_finite() {
+                initial_board_temperature_k
+            } else {
+                0.0
+            }],
+        );
 
         // Set up main cycle
         self.systick_init();
@@ -80,10 +97,20 @@ impl<'a> Board<'a> {
                 loss_of_contact_persistence_counter += 1;
                 udp_input.phase_delta_ns = 0; // Only zero the phase portion, but preserve period adjustment
 
-                // Get latest ADC readings
-                for i in 0..ADC_SAMPLES.len() {
-                    udp_output.adc_voltages[i] = ADC_SAMPLES[i].load(Ordering::Relaxed);
-                }
+                // Read one coherent ADC group and convert it to the common engineering snapshot.
+                let adc_samples = latest_adc_samples();
+                let unfiltered_board_temperature_k =
+                    board_temperature_k_f32(&adc_samples, &self.calibration);
+                let filtered_board_temperature_k = board_temperature_filter.step(
+                    &mut board_temperature_filter_state,
+                    [unfiltered_board_temperature_k],
+                )[0];
+                populate_analog_snapshot_f32(
+                    &mut udp_output,
+                    &adc_samples,
+                    &self.calibration,
+                    filtered_board_temperature_k,
+                );
 
                 // Get latest timer input readings
                 // and unwrap from i32 values to one i64
@@ -107,9 +134,9 @@ impl<'a> Board<'a> {
 
                     match self
                         .net
-                        .udp_send_with(OperatingRoundtripOutput::BYTE_LEN, meta, |buf| {
+                        .udp_send_with(OperatingSnapshot::BYTE_LEN, meta, |buf| {
                             udp_output.write_bytes(buf);
-                            OperatingRoundtripOutput::BYTE_LEN
+                            OperatingSnapshot::BYTE_LEN
                         }) {
                         Ok(_) => {}
                         // If we are unable to transmit for any reason, return to connecting
@@ -134,8 +161,11 @@ impl<'a> Board<'a> {
                     match self.net.udp_recv() {
                         Ok((recv_buf, meta)) if Some(meta) == self.controller => {
                             if recv_buf.len() == OperatingRoundtripInput::BYTE_LEN {
-                                // Parse
-                                udp_input = OperatingRoundtripInput::read_bytes(&recv_buf);
+                                let candidate = OperatingRoundtripInput::read_bytes(recv_buf);
+                                if !candidate.is_valid() {
+                                    continue;
+                                }
+                                udp_input = candidate;
 
                                 if udp_input.id > udp_output.metrics.last_input_id {
                                     // Set last received packet id

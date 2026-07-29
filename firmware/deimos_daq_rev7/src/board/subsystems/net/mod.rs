@@ -1,6 +1,6 @@
 use smoltcp::{
     iface::{Config, Interface, SocketSet, SocketStorage},
-    socket::{dhcpv4, udp},
+    socket::{dhcpv4, tcp, udp},
     storage::{PacketBuffer, PacketMetadata},
     time::Instant,
     wire::{EthernetAddress, IpListenEndpoint, Ipv4Address, Ipv4Cidr},
@@ -18,6 +18,9 @@ use arp_scraper::ObservedDevice;
 /// Length of the post-claim conflict observation window for a tentative fallback address.
 const FALLBACK_VALIDATION_NS: i64 = 250_000_000;
 
+/// Port reserved for the later Modbus/TCP operating path.
+pub(crate) const MODBUS_TCP_PORT: u16 = 502;
+
 /// Socket storage borrowed by [`Net`] for the lifetime of the firmware.
 pub(crate) struct NetStorageStatic<'a> {
     /// Backing storage for sockets registered with the smoltcp interface.
@@ -30,6 +33,10 @@ pub(crate) struct NetStorageStatic<'a> {
     pub(crate) tx_metadata_storage: [PacketMetadata<udp::UdpMetadata>; 4],
     /// Transmit-packet payload buffer for the board UDP socket.
     pub(crate) tx_payload_storage: [u8; 1522],
+    /// Receive-byte storage for the future Modbus/TCP socket with shape `(512,)`.
+    pub(crate) tcp_rx_storage: [u8; 512],
+    /// Transmit-byte storage for the future Modbus/TCP socket with shape `(512,)`.
+    pub(crate) tcp_tx_storage: [u8; 512],
 }
 
 /// How aggressively the address manager may change the board's network identity.
@@ -164,6 +171,8 @@ pub(crate) struct Net<'a> {
     sockets: SocketSet<'a>,
     /// UDP socket handle used for controller-to-board traffic.
     udp_handle: smoltcp::iface::SocketHandle,
+    /// TCP socket reserved in Phase 1; it is not placed into listen mode yet.
+    tcp_handle: smoltcp::iface::SocketHandle,
     /// DHCP socket handle.
     dhcp_handle: smoltcp::iface::SocketHandle,
     /// Local MAC address used for deterministic fallback candidate generation.
@@ -175,7 +184,19 @@ pub(crate) struct Net<'a> {
 }
 
 impl<'a> Net<'a> {
-    /// Build the Ethernet interface, UDP socket, DHCP socket, and address state machine.
+    /// Builds the Ethernet interface, sockets, and address state machine.
+    ///
+    /// The TCP socket and its backing storage are reserved here but remain
+    /// closed until the Modbus operating path explicitly calls [`Self::tcp_listen`].
+    ///
+    /// Args:
+    ///   store: Static socket metadata and payload storage.
+    ///   ethdev: Initialized Ethernet DMA device.
+    ///   ethernet_addr: Board MAC address.
+    ///   now: Current smoltcp time in `ms`.
+    ///
+    /// Returns:
+    ///   Initialized network subsystem.
     pub(crate) fn new(
         store: &'a mut NetStorageStatic<'a>,
         ethdev: ethernet::EthernetDMA<4, 4>,
@@ -188,6 +209,8 @@ impl<'a> Net<'a> {
             rx_payload_storage,
             tx_metadata_storage,
             tx_payload_storage,
+            tcp_rx_storage,
+            tcp_tx_storage,
         } = store;
 
         // Wrap the DMA device so fallback ARP traffic can be inspected and injected.
@@ -213,6 +236,14 @@ impl<'a> Net<'a> {
             .unwrap();
         let udp_handle = sockets.add(udp_socket);
 
+        // Reserve the stream socket and backing buffers without exposing a TCP
+        // service until the Modbus operating path is implemented.
+        let tcp_socket = tcp::Socket::new(
+            tcp::SocketBuffer::new(&mut tcp_rx_storage[..]),
+            tcp::SocketBuffer::new(&mut tcp_tx_storage[..]),
+        );
+        let tcp_handle = sockets.add(tcp_socket);
+
         // Add a DHCP client socket for dynamic IPv4 configuration when available.
         let dhcp_socket = dhcpv4::Socket::new();
         let dhcp_handle: smoltcp::iface::SocketHandle = sockets.add(dhcp_socket);
@@ -226,6 +257,7 @@ impl<'a> Net<'a> {
             ethdev,
             sockets,
             udp_handle,
+            tcp_handle,
             dhcp_handle,
             local_mac,
             address_state: AddressState::Unconfigured,
@@ -277,6 +309,74 @@ impl<'a> Net<'a> {
                 port: PERIPHERAL_RX_PORT,
             })
             .unwrap();
+    }
+
+    /// Drop any stream state when the board returns to connection discovery.
+    pub(crate) fn reset_tcp_socket(&mut self) {
+        self.sockets.get_mut::<tcp::Socket>(self.tcp_handle).abort();
+    }
+
+    /// Begin accepting the one future Modbus/TCP connection.
+    ///
+    /// Phase 1 deliberately does not call this helper, so merely reserving the
+    /// socket does not expose a TCP service.
+    ///
+    /// Returns:
+    ///   `Ok(())` after binding the socket to TCP port `502`, or smoltcp's
+    ///   listen error if the socket cannot enter the listening state.
+    #[allow(dead_code)]
+    pub(crate) fn tcp_listen(&mut self) -> Result<(), tcp::ListenError> {
+        self.sockets
+            .get_mut::<tcp::Socket>(self.tcp_handle)
+            .listen(MODBUS_TCP_PORT)
+    }
+
+    /// Aborts any current stream and returns it to the listening state.
+    ///
+    /// Returns:
+    ///   `Ok(())` after rebinding TCP port `502`, or smoltcp's listen error.
+    #[allow(dead_code)]
+    pub(crate) fn tcp_relisten(&mut self) -> Result<(), tcp::ListenError> {
+        self.reset_tcp_socket();
+        self.tcp_listen()
+    }
+
+    /// Copies currently buffered TCP receive data without blocking.
+    ///
+    /// Args:
+    ///   bytes: Destination byte buffer with shape `(capacity,)`.
+    ///
+    /// Returns:
+    ///   Number of bytes copied, or smoltcp's receive error when no stream data
+    ///   can be read.
+    #[allow(dead_code)]
+    pub(crate) fn tcp_recv(&mut self, bytes: &mut [u8]) -> Result<usize, tcp::RecvError> {
+        self.sockets
+            .get_mut::<tcp::Socket>(self.tcp_handle)
+            .recv_slice(bytes)
+    }
+
+    /// Queues TCP response bytes without blocking.
+    ///
+    /// Args:
+    ///   bytes: Response byte buffer with shape `(n_bytes,)`.
+    ///
+    /// Returns:
+    ///   Number of bytes queued, or smoltcp's send error when the stream cannot
+    ///   accept data.
+    #[allow(dead_code)]
+    pub(crate) fn tcp_send(&mut self, bytes: &[u8]) -> Result<usize, tcp::SendError> {
+        self.sockets
+            .get_mut::<tcp::Socket>(self.tcp_handle)
+            .send_slice(bytes)
+    }
+
+    /// Gracefully close the current TCP stream.
+    #[allow(dead_code)]
+    pub(crate) fn tcp_close(&mut self) {
+        self.sockets
+            .get_mut::<tcp::Socket>(self.tcp_handle)
+            .close();
     }
 
     /// Advance the full address manager and report whether the caller may continue.

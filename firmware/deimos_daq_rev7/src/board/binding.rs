@@ -5,8 +5,10 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use irq::{handler, scope};
 
 use deimos_shared::peripherals::PeripheralId;
-use deimos_shared::peripherals::deimos_daq_rev7::operating_roundtrip::OperatingRoundtripInput;
-use deimos_shared::states::binding::*;
+use deimos_shared::peripherals::deimos_daq_rev7::{
+    operating_roundtrip::OperatingRoundtripInput, Rev7BindingInput, Rev7BindingOutput,
+};
+use deimos_shared::states::{ByteStruct, ByteStructLen};
 
 impl<'a> Board<'a> {
     /// Bind to a controller
@@ -72,24 +74,26 @@ impl<'a> Board<'a> {
                     }
                 };
 
-                if recv_buf.len() == BindingInput::BYTE_LEN {
+                if recv_buf.len() == Rev7BindingInput::BYTE_LEN {
+                    let binding_input = Rev7BindingInput::read_bytes(recv_buf);
+                    if !binding_input.is_valid() {
+                        self.watchdog.feed();
+                        return;
+                    }
                     // Store the controller's address
                     self.controller = Some(meta);
-                    let binding_input = BindingInput::read_bytes(recv_buf);
                     self.configuring_timeout_ms = binding_input.configuring_timeout_ms;
 
                     // Respond to the controller
-                    let binding_response = BindingOutput {
-                        peripheral_id: PeripheralId {
+                    let binding_response = Rev7BindingOutput::new(PeripheralId {
                             model_number: MODEL_NUMBER,
                             serial_number: SERIAL_NUMBER,
-                        },
-                    };
+                        });
                     match self
                         .net
-                        .udp_send_with(BindingOutput::BYTE_LEN, meta, |buf| {
+                        .udp_send_with(Rev7BindingOutput::BYTE_LEN, meta, |buf| {
                             binding_response.write_bytes(buf);
-                            BindingOutput::BYTE_LEN
+                            Rev7BindingOutput::BYTE_LEN
                         }) {
                         Ok(_) => {}
                         Err(_) => {

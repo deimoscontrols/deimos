@@ -26,6 +26,7 @@ use crate::{
     },
 };
 use deimos_numerics::embedded::fixed::MedianFilter;
+use deimos_shared::peripherals::deimos_daq_rev7::{Rev7BindingInput, Rev7BindingOutput};
 use deimos_shared::states::*;
 
 use crate::calc::{CalcOrchestrator, FieldName, PeripheralInputName};
@@ -48,6 +49,39 @@ pub type ManualInputMap = Arc<RwLock<HashMap<FieldName, f64>>>;
 
 pub(crate) fn manual_inputs_default() -> ManualInputMap {
     Arc::new(RwLock::new(HashMap::new()))
+}
+
+/// Validates a peripheral configuration response and its calibration status policy.
+///
+/// Args:
+///   peripheral: Device-specific packet parser and policy implementation.
+///   payload: Complete configuration response with shape
+///     `(peripheral.configuring_output_size(),)`.
+///   calibration_run: Whether the controller is collecting a calibration from
+///     an identity-calibrated firmware image.
+///
+/// Returns:
+///   `Ok(())` when the response is acknowledged and any reported calibration
+///   status matches the operation, or a descriptive error otherwise.
+fn validate_configuring_response(
+    peripheral: &dyn Peripheral,
+    payload: &[u8],
+    calibration_run: bool,
+) -> Result<(), String> {
+    if let Some(firmware_calibrated) = peripheral.parse_configuring(payload)? {
+        let expected = !calibration_run;
+        if firmware_calibrated != expected {
+            let expected_text = if expected {
+                "calibrated"
+            } else {
+                "uncalibrated"
+            };
+            return Err(format!(
+                "Rev7 firmware must be {expected_text} for this operation (reported firmware_calibrated={firmware_calibrated})"
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// The controller implements the control loop,
@@ -178,7 +212,13 @@ impl Controller {
         // Resolve the calibration artifact before initializing standard calcs
         // because the peripheral owns how its calibration record is applied.
         let slug = p.slug();
-        let cals = if self.ctx.use_no_calibrations {
+        let cals = if !p.requires_host_calibration_artifact() {
+            info!(
+                peripheral = name,
+                slug, "Peripheral calibration is embedded in firmware."
+            );
+            String::new()
+        } else if self.ctx.use_no_calibrations {
             info!(
                 peripheral = name,
                 slug, "Calibration lookup disabled; using peripheral default calibration."
@@ -501,6 +541,9 @@ impl Controller {
             configuring_timeout_ms,
         };
         binding_msg.write_bytes(&mut buf[..BindingInput::BYTE_LEN]);
+        let rev7_binding_msg = Rev7BindingInput::new(configuring_timeout_ms);
+        let mut rev7_binding_buf = [0_u8; Rev7BindingInput::BYTE_LEN];
+        rev7_binding_msg.write_bytes(&mut rev7_binding_buf);
 
         // Start the clock at transmission
         let start_of_binding = Instant::now();
@@ -519,6 +562,11 @@ impl Controller {
                     .map_err(|e| {
                         format!("Failed to send binding request to {peripheral_id:?}: {e}")
                     })?;
+                socket
+                    .send(*peripheral_id, &rev7_binding_buf)
+                    .map_err(|e| {
+                        format!("Failed to send rev7 binding request to {peripheral_id:?}: {e}")
+                    })?;
             }
         } else {
             // Bind any modules on the local network
@@ -526,6 +574,9 @@ impl Controller {
                 socket
                     .broadcast(&buf[..BindingInput::BYTE_LEN])
                     .map_err(|e| format!("Failed to broadcast binding request: {e}"))?;
+                socket
+                    .broadcast(&rev7_binding_buf)
+                    .map_err(|e| format!("Failed to broadcast rev7 binding request: {e}"))?;
             }
         }
 
@@ -538,8 +589,17 @@ impl Controller {
                     // broadcast binding request, bind the module
                     // let recvd = &udp_buf[..BindingOutput::BYTE_LEN];
                     let amt = meta.size;
-                    if amt == BindingOutput::BYTE_LEN {
-                        let binding_response = BindingOutput::read_bytes(&rxbuf[..amt]);
+                    let binding_response = if amt == BindingOutput::BYTE_LEN {
+                        Some(BindingOutput::read_bytes(&rxbuf[..amt]))
+                    } else if amt == Rev7BindingOutput::BYTE_LEN {
+                        let response = Rev7BindingOutput::read_bytes(&rxbuf[..amt]);
+                        response.is_valid().then_some(BindingOutput {
+                            peripheral_id: response.peripheral_id,
+                        })
+                    } else {
+                        None
+                    };
+                    if let Some(binding_response) = binding_response {
                         match parse_binding(&binding_response, plugins) {
                             Ok(parsed) => {
                                 let pid = parsed.id();
@@ -555,7 +615,7 @@ impl Controller {
                         }
                     } else {
                         warn!(
-                            "Received malformed binding response on socket {sid} ({socket_name}) with {amt} bytes"
+                            "Received malformed or invalid binding response on socket {sid} ({socket_name}) with {amt} bytes"
                         );
                     }
                 }
@@ -688,6 +748,10 @@ impl Controller {
             }
             return;
         }
+        if !p.validate_operating_roundtrip(&payload[..n]) {
+            warn!("Received invalid packet from peripheral `{}`", &ps.name);
+            return;
+        }
 
         let last_packet_id = ps.metrics.operating_metrics.id;
         let metrics = self
@@ -722,9 +786,17 @@ impl Controller {
         let now = Instant::now();
 
         // Handle Binding response
-        if meta.size == BindingOutput::BYTE_LEN {
-            // Parse.
-            let binding_response = BindingOutput::read_bytes(payload);
+        let binding_response = if meta.size == BindingOutput::BYTE_LEN {
+            Some(BindingOutput::read_bytes(payload))
+        } else if meta.size == Rev7BindingOutput::BYTE_LEN {
+            let response = Rev7BindingOutput::read_bytes(payload);
+            response.is_valid().then_some(BindingOutput {
+                peripheral_id: response.peripheral_id,
+            })
+        } else {
+            None
+        };
+        if let Some(binding_response) = binding_response {
             let pid = binding_response.peripheral_id;
             let addr = (meta.socket_id, pid);
 
@@ -800,17 +872,17 @@ impl Controller {
         }
 
         // Handle Configuring response.
-        if meta.size == ConfiguringOutput::BYTE_LEN {
+        if let Some(pid) = meta.pid {
             // Get this peripheral's state info.
-            let pid = match meta.pid {
-                Some(pid) => pid,
-                None => return false,
-            };
             let addr = (meta.socket_id, pid);
             let ps = match controller_state.peripheral_state.get_mut(&addr) {
                 Some(ps) => ps,
                 None => return false, // Indicate that this was not a reconnection packet.
             };
+            let peripheral = &self.peripherals[&ps.name];
+            if meta.size != peripheral.configuring_output_size() {
+                return false;
+            }
 
             // Check if we were expecting a Configuring response from this peripheral.
             // It's possible that this is arriving late after we've already transitioned
@@ -824,17 +896,20 @@ impl Controller {
 
             // Check whether the configuration was acknowledged by the peripheral.
             // If not, mark it as Disconnected again.
-            let ack = ConfiguringOutput::read_bytes(payload);
-            match ack.acknowledge {
-                AcknowledgeConfiguration::Ack => {
+            match validate_configuring_response(
+                peripheral.as_ref(),
+                payload,
+                self.ctx.use_no_calibrations,
+            ) {
+                Ok(()) => {
                     ps.acknowledged_configuration = true;
                     ps.metrics.loss_of_contact_counter = 0.0;
                     ps.metrics.operating_metrics = OperatingMetrics::default();
                     ps.conn_state = ConnState::Operating();
                 }
-                _ => {
+                Err(err) => {
                     warn!(
-                        "Peripheral {} rejected configuration during reconnect.",
+                        "Peripheral {} rejected configuration during reconnect: {err}",
                         ps.name
                     );
                     ps.conn_state = ConnState::Disconnected {
@@ -1144,7 +1219,6 @@ impl Controller {
                                     );
                                     continue;
                                 }
-                                let ack = ConfiguringOutput::read_bytes(&rxbuf[..amt]);
                                 let addr = (sid, pid);
 
                                 // Check if this is peripheral belongs to this controller.
@@ -1153,8 +1227,12 @@ impl Controller {
                                 }
 
                                 // Check status.
-                                match ack.acknowledge {
-                                    AcknowledgeConfiguration::Ack => {
+                                match validate_configuring_response(
+                                    p.as_ref(),
+                                    &rxbuf[..amt],
+                                    self.ctx.use_no_calibrations,
+                                ) {
+                                    Ok(()) => {
                                         let ps = controller_state
                                             .peripheral_state
                                             .get_mut(&addr)
@@ -1163,9 +1241,9 @@ impl Controller {
                                         // Move this peripheral to operating once it acknowledges.
                                         ps.conn_state = ConnState::Operating();
                                     }
-                                    _ => {
+                                    Err(err) => {
                                         return Err(format!(
-                                            "Peripheral at {addr:?} rejected configuration."
+                                            "Peripheral at {addr:?} rejected configuration: {err}"
                                         ));
                                     }
                                 }
@@ -1497,10 +1575,19 @@ impl Controller {
                     let send_result =
                         socket_orchestrator.broadcast(sid, &binding_buf[..BindingInput::BYTE_LEN]);
 
+                    let rev7_binding_msg = Rev7BindingInput::new(reconnect_step_timeout_ms);
+                    let mut rev7_binding_buf = [0_u8; Rev7BindingInput::BYTE_LEN];
+                    rev7_binding_msg.write_bytes(&mut rev7_binding_buf);
+                    let rev7_send_result = socket_orchestrator.broadcast(sid, &rev7_binding_buf);
+
                     // If we have lost the ability to transmit on this socket,
                     // log the error, but let the loss of contact logic handle
                     // whether this means the controller should exit.
                     if let Err(err) = send_result {
+                        error!("{err}");
+                        continue;
+                    }
+                    if let Err(err) = rev7_send_result {
                         error!("{err}");
                         continue;
                     }
@@ -1752,6 +1839,12 @@ impl Controller {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use crate::peripheral::{DeimosDaqRev7, analog_i_rev_2::AnalogIRev2};
+    use deimos_shared::{
+        peripherals::deimos_daq_rev7::Rev7ConfiguringOutput,
+        states::{AcknowledgeConfiguration, ByteStruct, ByteStructLen, ConfiguringOutput},
+    };
 
     /// Make sure that we can serialize _and_ deserialize a full controller.
     /// It is possible to produce a system where a serialized output is not able to be
@@ -1759,10 +1852,8 @@ mod test {
     /// which is resolved via type tagging here.
     #[test]
     fn test_ser_roundtrip() {
-        use super::*;
-
         let mut controller = Controller::default();
-        let per = crate::peripheral::analog_i_rev_2::AnalogIRev2 { serial_number: 0 };
+        let per = AnalogIRev2 { serial_number: 0 };
         controller
             .peripherals
             .insert("test".to_owned(), Box::new(per));
@@ -1773,5 +1864,51 @@ mod test {
 
         assert_eq!(serialized, reserialized);
         debug!("Serialized controller state: {serialized}");
+    }
+
+    #[test]
+    fn rev7_configuration_enforces_the_requested_calibration_state() {
+        let peripheral = DeimosDaqRev7 { serial_number: 3 };
+        for calibrated in [false, true] {
+            let response = Rev7ConfiguringOutput::new(AcknowledgeConfiguration::Ack, calibrated);
+            let mut bytes = [0_u8; Rev7ConfiguringOutput::BYTE_LEN];
+            response.write_bytes(&mut bytes);
+
+            assert_eq!(
+                validate_configuring_response(&peripheral, &bytes, false).is_ok(),
+                calibrated,
+                "normal operation must require a calibrated rev7 image"
+            );
+            assert_eq!(
+                validate_configuring_response(&peripheral, &bytes, true).is_ok(),
+                !calibrated,
+                "calibration collection must require an identity rev7 image"
+            );
+        }
+    }
+
+    #[test]
+    fn pre_rev7_configuration_does_not_gain_a_calibration_requirement() {
+        let peripheral = AnalogIRev2 { serial_number: 1 };
+        let response = ConfiguringOutput {
+            acknowledge: AcknowledgeConfiguration::Ack,
+        };
+        let mut bytes = [0_u8; ConfiguringOutput::BYTE_LEN];
+        response.write_bytes(&mut bytes);
+        assert!(validate_configuring_response(&peripheral, &bytes, false).is_ok());
+        assert!(validate_configuring_response(&peripheral, &bytes, true).is_ok());
+    }
+
+    #[test]
+    fn rev7_registration_does_not_require_a_duplicate_host_calibration() {
+        let mut controller = Controller::default();
+        controller
+            .add_peripheral(
+                "p1",
+                Box::new(DeimosDaqRev7 {
+                    serial_number: 999_999,
+                }),
+            )
+            .unwrap();
     }
 }

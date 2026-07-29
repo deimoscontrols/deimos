@@ -1,6 +1,7 @@
 use super::*;
 
 use core::{ptr::addr_of_mut, time::Duration};
+use deimos_shared::states::ByteStruct;
 
 use smoltcp::time::Instant;
 use stm32h7xx_hal::{
@@ -18,6 +19,11 @@ use stm32h7xx_hal::{
 impl<'a> Board<'a> {
     /// Configure power, clocks, and peripherals
     pub fn new(store: &'a mut NetStorageStatic<'a>) -> (Self, Sampler) {
+        let calibration = Rev7Calibration::read_bytes(include_bytes!(concat!(
+            env!("OUT_DIR"),
+            "/calibration.in"
+        )));
+        assert!(calibration.is_valid());
         // Power setup
         let dp = stm32::Peripherals::take().unwrap();
         let mut cp = stm32::CorePeripherals::take().unwrap();
@@ -459,6 +465,7 @@ impl<'a> Board<'a> {
                 controller,
                 configuring_timeout_ms,
                 loss_of_contact_limit,
+                calibration,
                 outputs,
             },
             adc,

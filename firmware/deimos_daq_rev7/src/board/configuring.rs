@@ -2,7 +2,10 @@ use super::*;
 
 use core::sync::atomic::{AtomicBool, Ordering};
 use deimos_shared::{
-    peripherals::deimos_daq_rev7::OperatingRoundtripInput, states::configuring::*,
+    peripherals::deimos_daq_rev7::{
+        OperatingRoundtripInput, Rev7ConfiguringInput, Rev7ConfiguringOutput,
+    },
+    states::{AcknowledgeConfiguration, ByteStruct, ByteStructLen},
 };
 use irq::{handler, scope};
 
@@ -73,14 +76,16 @@ impl<'a> Board<'a> {
                     };
 
                     // Parse received config
-                    if recv_buf.len() == ConfiguringInput::BYTE_LEN {
+                    if recv_buf.len() == Rev7ConfiguringInput::BYTE_LEN {
+                        let config = Rev7ConfiguringInput::read_bytes(recv_buf);
+                        if !config.is_valid() {
+                            self.watchdog.feed();
+                            return;
+                        }
                         // Mark the time
                         configured_time_ns = self.time_ns;
 
-                        // TODO: Check inputs and NACK if necessary
-
                         // Parse and apply configuration
-                        let config = ConfiguringInput::read_bytes(&recv_buf);
                         self.loss_of_contact_limit = config.loss_of_contact_limit;
                         self.dt_ns = config.dt_ns;
                         timeout_to_operating_ns = config.timeout_to_operating_ns;
@@ -101,12 +106,15 @@ impl<'a> Board<'a> {
                 if configured {
                     if let Some(meta) = self.controller {
                         // Acknowledge configuration
-                        let ack = ConfiguringOutput::default();
+                        let ack = Rev7ConfiguringOutput::new(
+                            AcknowledgeConfiguration::Ack,
+                            self.calibration.is_calibrated(),
+                        );
                         match self
                             .net
-                            .udp_send_with(ConfiguringOutput::BYTE_LEN, meta, |buf| {
+                            .udp_send_with(Rev7ConfiguringOutput::BYTE_LEN, meta, |buf| {
                                 ack.write_bytes(buf);
-                                ConfiguringOutput::BYTE_LEN
+                                Rev7ConfiguringOutput::BYTE_LEN
                             }) {
                             Ok(_) => {}
                             Err(_) => {

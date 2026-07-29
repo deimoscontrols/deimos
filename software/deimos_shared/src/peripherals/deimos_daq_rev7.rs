@@ -29,6 +29,18 @@ pub const DIGITAL_OUTPUT_COUNT: usize = 4;
 /// Number of digital input bits reported by deimos DAQ rev7.
 pub const DIGITAL_INPUT_COUNT: usize = 2;
 
+/// Number of rev7 4-20 mA measurement channels.
+pub const CURRENT_4_20_CHANNEL_COUNT: usize = 4;
+
+/// Number of rev7 resistance/RTD measurement channels.
+pub const RTD_CHANNEL_COUNT: usize = 3;
+
+/// Number of rev7 thermocouple measurement channels.
+pub const THERMOCOUPLE_CHANNEL_COUNT: usize = 2;
+
+/// Number of rev7 voltage measurement channels.
+pub const VOLTAGE_CHANNEL_COUNT: usize = 6;
+
 /// ADC sample frequency.
 pub const ADC_SAMPLE_FREQ_HZ: u32 = 33_000;
 
@@ -58,6 +70,361 @@ pub const ADC_SAMPLE_HOLD_CYCLES: f64 = 16.5;
 
 /// ADC conversion duration in ADC clock cycles, from STM32H7 RM0433 25.4.13.
 pub const ADC_CONVERSION_CYCLES: f64 = 7.5;
+
+/// Magic marker for controller-to-board binding packets.
+pub const BINDING_INPUT_MAGIC: u32 = 0xD7B1_0001;
+/// Magic marker for board-to-controller binding packets.
+pub const BINDING_OUTPUT_MAGIC: u32 = 0xD7B1_0002;
+/// Magic marker for controller-to-board configuring packets.
+pub const CONFIGURING_INPUT_MAGIC: u32 = 0xD7C0_0001;
+/// Magic marker for board-to-controller configuring packets.
+pub const CONFIGURING_OUTPUT_MAGIC: u32 = 0xD7C0_0002;
+/// Magic marker for controller-to-board Deimos operating packets.
+pub const OPERATING_INPUT_MAGIC: u32 = 0xD700_0001;
+/// Magic marker for board-to-controller engineering snapshots.
+pub const OPERATING_SNAPSHOT_MAGIC: u32 = 0xD700_0002;
+
+pub use packets::*;
+
+const MODULE_BUS_CURRENT_SCALE: f32 = 1.0 / (0.006 * 50.0);
+const MODULE_BUS_VOLTAGE_SCALE: f32 = 21.5 / 1.5;
+const CURRENT_REFERENCE_RESISTOR_OHM: f32 = 75.0;
+const RTD_REFERENCE_CURRENT_A: f32 = 250.0e-6;
+const RTD_FRONTEND_GAIN: f32 = 25.7;
+const TC_FRONTEND_GAIN: f32 = 25.7;
+const TC_FRONTEND_OFFSET_V: f32 = 1.024;
+
+/// Converts the rev7 cold-junction ADC channel to unfiltered board temperature.
+///
+/// Channel `ain2` is divided by the analog-front-end gain, calibrated at the
+/// sensed-voltage point, converted to Pt100 resistance, and evaluated with the
+/// shared IEC 60751 inverse.
+///
+/// Args:
+///   samples: Coherent ADC output-voltage group in `V` with shape
+///     `(ADC_CHANNEL_COUNT,)` and channel order `ain0..ain12, ain15..ain19`.
+///   calibration: Per-channel sensed-voltage calibration record.
+///
+/// Returns:
+///   Unfiltered absolute board temperature scalar in `K`.
+#[inline]
+pub fn board_temperature_k_f32(
+    samples: &[f32; ADC_CHANNEL_COUNT],
+    calibration: &Rev7Calibration,
+) -> f32 {
+    let sensed_v = calibration.voltage_cals[2].apply(samples[2] / RTD_FRONTEND_GAIN);
+    crate::calcs::pt100_temperature_k_f32(sensed_v / RTD_REFERENCE_CURRENT_A)
+}
+
+/// Populate the analog engineering fields of a coherent rev7 snapshot.
+///
+/// Calibration is applied at the sensed-voltage point used by the former host
+/// standard-calculation graph. The caller supplies the already-filtered board
+/// temperature so both thermocouples use the same publication-cycle value.
+///
+/// Args:
+///   output: Snapshot record whose analog engineering fields are overwritten.
+///   samples: Coherent ADC output-voltage group in `V` with shape
+///     `(ADC_CHANNEL_COUNT,)` and channel order `ain0..ain12, ain15..ain19`.
+///   calibration: Per-channel sensed-voltage calibration record.
+///   filtered_board_temperature_k: Publication-cycle cold-junction temperature
+///     scalar in `K` after the `1 Hz` digital filter.
+#[inline]
+pub fn populate_analog_snapshot_f32(
+    output: &mut OperatingSnapshot,
+    samples: &[f32; ADC_CHANNEL_COUNT],
+    calibration: &Rev7Calibration,
+    filtered_board_temperature_k: f32,
+) {
+    output.module_bus_current_a = samples[0] * MODULE_BUS_CURRENT_SCALE;
+    output.module_bus_voltage_v = samples[1] * MODULE_BUS_VOLTAGE_SCALE;
+    output.board_temperature_k = filtered_board_temperature_k;
+
+    for index in 0..CURRENT_4_20_CHANNEL_COUNT {
+        let sample_index = 3 + index;
+        let sensed_v = calibration.voltage_cals[sample_index].apply(samples[sample_index]);
+        output.current_4_20_a[index] = sensed_v / CURRENT_REFERENCE_RESISTOR_OHM;
+    }
+    for index in 0..RTD_CHANNEL_COUNT {
+        let sample_index = 7 + index;
+        let sensed_v =
+            calibration.voltage_cals[sample_index].apply(samples[sample_index] / RTD_FRONTEND_GAIN);
+        output.rtd_resistance_ohm[index] = sensed_v / RTD_REFERENCE_CURRENT_A;
+    }
+    for index in 0..THERMOCOUPLE_CHANNEL_COUNT {
+        let sample_index = 10 + index;
+        let sensed_v = calibration.voltage_cals[sample_index]
+            .apply((samples[sample_index] - TC_FRONTEND_OFFSET_V) / TC_FRONTEND_GAIN);
+        output.thermocouple_temperature_k[index] =
+            crate::calcs::ktype_corrected_temperature_k_f32(sensed_v, filtered_board_temperature_k);
+    }
+
+    output.voltage_v[0] = calibration.voltage_cals[12].apply(samples[12]);
+    output.voltage_v[1] = calibration.voltage_cals[13].apply(samples[13]);
+    output.voltage_v[2] = calibration.voltage_cals[14].apply(samples[14] * 6.0);
+    output.voltage_v[3] = calibration.voltage_cals[15].apply(samples[15] * 6.0);
+    output.voltage_v[4] =
+        calibration.voltage_cals[16].apply((samples[16] - TC_FRONTEND_OFFSET_V) / TC_FRONTEND_GAIN);
+    output.voltage_v[5] =
+        calibration.voltage_cals[17].apply((samples[17] - TC_FRONTEND_OFFSET_V) / TC_FRONTEND_GAIN);
+}
+
+/// Rev7 setup packets and calibration image records.
+pub mod packets {
+    use byte_struct::{ByteStruct, ByteStructLen, ByteStructUnspecifiedByteOrder};
+
+    use crate::{
+        peripherals::PeripheralId,
+        states::{AcknowledgeConfiguration, ConfiguringInput, Mode},
+    };
+
+    /// Rev7-specific binding request. Older hardware continues to use the generic request.
+    ///
+    /// Fields are serialized contiguously in little-endian order.
+    #[derive(ByteStruct, Clone, Copy, Debug, Default)]
+    #[byte_struct_le]
+    pub struct Rev7BindingInput {
+        /// Direction- and state-specific packet marker.
+        pub magic: u32,
+        /// Maximum configuring-state inactivity duration in `ms`.
+        pub configuring_timeout_ms: u16,
+    }
+
+    impl Rev7BindingInput {
+        /// Builds a binding request with the required rev7 packet marker.
+        ///
+        /// Args:
+        ///   configuring_timeout_ms: Maximum configuring-state inactivity
+        ///     duration in `ms`.
+        ///
+        /// Returns:
+        ///   Initialized rev7 binding request.
+        pub fn new(configuring_timeout_ms: u16) -> Self {
+            Self {
+                magic: super::BINDING_INPUT_MAGIC,
+                configuring_timeout_ms,
+            }
+        }
+
+        /// Checks the direction- and state-specific packet marker.
+        ///
+        /// Returns:
+        ///   `true` when `magic` matches [`super::BINDING_INPUT_MAGIC`].
+        pub fn is_valid(&self) -> bool {
+            self.magic == super::BINDING_INPUT_MAGIC
+        }
+    }
+
+    /// Rev7-specific binding response.
+    ///
+    /// Fields are serialized contiguously in little-endian order.
+    #[derive(ByteStruct, Clone, Copy, Debug, Default)]
+    #[byte_struct_le]
+    pub struct Rev7BindingOutput {
+        /// Direction- and state-specific packet marker.
+        pub magic: u32,
+        /// Model and serial-number identity of the responding board.
+        pub peripheral_id: PeripheralId,
+    }
+
+    impl Rev7BindingOutput {
+        /// Builds a binding response with the required rev7 packet marker.
+        ///
+        /// Args:
+        ///   peripheral_id: Model and serial-number identity of the board.
+        ///
+        /// Returns:
+        ///   Initialized rev7 binding response.
+        pub fn new(peripheral_id: PeripheralId) -> Self {
+            Self {
+                magic: super::BINDING_OUTPUT_MAGIC,
+                peripheral_id,
+            }
+        }
+
+        /// Checks the packet marker and rev7 model number.
+        ///
+        /// Returns:
+        ///   `true` when the response is marked as a rev7 binding response and
+        ///   identifies a rev7 board.
+        pub fn is_valid(&self) -> bool {
+            self.magic == super::BINDING_OUTPUT_MAGIC
+                && self.peripheral_id.model_number == super::MODEL_NUMBER
+        }
+    }
+
+    /// Rev7 configuration request with a direction-specific packet marker.
+    ///
+    /// Fields are serialized contiguously in little-endian order.
+    #[derive(ByteStruct, Clone, Copy, Debug, Default)]
+    #[byte_struct_le]
+    pub struct Rev7ConfiguringInput {
+        /// Direction- and state-specific packet marker.
+        pub magic: u32,
+        /// Nominal operating-cycle duration in `ns`.
+        pub dt_ns: u32,
+        /// Requested operating protocol mode.
+        pub mode: Mode,
+        /// Delay from accepted configuration to operating entry in `ns`.
+        pub timeout_to_operating_ns: u32,
+        /// Consecutive missed cycles allowed before loss-of-contact shutdown.
+        pub loss_of_contact_limit: u16,
+    }
+
+    impl Rev7ConfiguringInput {
+        /// Adds the rev7 packet marker to a generic configuration request.
+        ///
+        /// Args:
+        ///   base: Generic Deimos configuration values.
+        ///
+        /// Returns:
+        ///   Equivalent rev7-specific request.
+        pub fn from_base(base: ConfiguringInput) -> Self {
+            Self {
+                magic: super::CONFIGURING_INPUT_MAGIC,
+                dt_ns: base.dt_ns,
+                mode: base.mode,
+                timeout_to_operating_ns: base.timeout_to_operating_ns,
+                loss_of_contact_limit: base.loss_of_contact_limit,
+            }
+        }
+
+        /// Checks the packet marker and currently supported operating settings.
+        ///
+        /// Returns:
+        ///   `true` for a marked, nonzero-period roundtrip configuration.
+        pub fn is_valid(&self) -> bool {
+            self.magic == super::CONFIGURING_INPUT_MAGIC
+                && self.dt_ns != 0
+                && matches!(self.mode, Mode::Roundtrip)
+        }
+    }
+
+    /// Rev7 configuration response carrying the firmware calibration status.
+    ///
+    /// Fields are serialized contiguously in little-endian order.
+    #[derive(ByteStruct, Clone, Copy, Debug, Default)]
+    #[byte_struct_le]
+    pub struct Rev7ConfiguringOutput {
+        /// Direction- and state-specific packet marker.
+        pub magic: u32,
+        /// Firmware acceptance or rejection of the configuration.
+        pub acknowledge: AcknowledgeConfiguration,
+        /// Calibration status encoded as `0` for identity or `1` for calibrated.
+        pub firmware_calibrated: u8,
+    }
+
+    impl Rev7ConfiguringOutput {
+        /// Builds a configuration response with a canonical calibration flag.
+        ///
+        /// Args:
+        ///   acknowledge: Firmware configuration result.
+        ///   firmware_calibrated: Whether the installed coefficients were
+        ///     produced by the calibration procedure.
+        ///
+        /// Returns:
+        ///   Initialized rev7 configuration response.
+        pub fn new(acknowledge: AcknowledgeConfiguration, firmware_calibrated: bool) -> Self {
+            Self {
+                magic: super::CONFIGURING_OUTPUT_MAGIC,
+                acknowledge,
+                firmware_calibrated: u8::from(firmware_calibrated),
+            }
+        }
+
+        /// Checks the packet marker and calibration-flag encoding.
+        ///
+        /// Returns:
+        ///   `true` when the marker matches and the flag is either `0` or `1`.
+        pub fn is_valid(&self) -> bool {
+            self.magic == super::CONFIGURING_OUTPUT_MAGIC && self.firmware_calibrated <= 1
+        }
+    }
+
+    /// One affine sensed-voltage calibration, `calibrated = slope * raw + offset`.
+    #[derive(ByteStruct, Clone, Copy, Debug)]
+    #[byte_struct_le]
+    pub struct LinearCalibration {
+        /// Dimensionless sensed-voltage scale factor.
+        pub slope: f32,
+        /// Sensed-voltage offset in `V`.
+        pub offset: f32,
+    }
+
+    impl Default for LinearCalibration {
+        fn default() -> Self {
+            Self {
+                slope: 1.0,
+                offset: 0.0,
+            }
+        }
+    }
+
+    impl LinearCalibration {
+        /// Applies this affine calibration to one sensed voltage.
+        ///
+        /// Args:
+        ///   value: Uncalibrated sensed-voltage scalar in `V`.
+        ///
+        /// Returns:
+        ///   Calibrated sensed-voltage scalar in `V`.
+        #[inline]
+        pub fn apply(&self, value: f32) -> f32 {
+            value * self.slope + self.offset
+        }
+
+        /// Checks that the affine conversion is finite and invertible.
+        ///
+        /// Returns:
+        ///   `true` when `slope` is finite and nonzero and `offset` is finite.
+        pub fn is_valid(&self) -> bool {
+            self.slope.is_finite() && self.slope != 0.0 && self.offset.is_finite()
+        }
+    }
+
+    /// Complete calibration image embedded in rev7 firmware.
+    ///
+    /// `firmware_calibrated` is deliberately separate from protocol packet magic: it
+    /// records whether the coefficients were produced by the calibration procedure.
+    #[derive(ByteStruct, Clone, Copy, Debug)]
+    #[byte_struct_le]
+    pub struct Rev7Calibration {
+        /// Status encoded as `0` for identity or `1` for procedurally calibrated.
+        pub firmware_calibrated: u8,
+        /// Sensed-voltage calibrations with shape `(ADC_CHANNEL_COUNT,)` and
+        /// channel order `ain0..ain12, ain15..ain19`.
+        pub voltage_cals: [LinearCalibration; super::ADC_CHANNEL_COUNT],
+    }
+
+    impl Default for Rev7Calibration {
+        fn default() -> Self {
+            Self {
+                firmware_calibrated: 0,
+                voltage_cals: [LinearCalibration::default(); super::ADC_CHANNEL_COUNT],
+            }
+        }
+    }
+
+    impl Rev7Calibration {
+        /// Reports whether this image contains procedurally generated coefficients.
+        ///
+        /// Returns:
+        ///   `true` only when `firmware_calibrated` is exactly `1`.
+        pub fn is_calibrated(&self) -> bool {
+            self.firmware_calibrated == 1
+        }
+
+        /// Checks the flag encoding and every affine calibration.
+        ///
+        /// Returns:
+        ///   `true` when the record is safe to evaluate. Identity records are
+        ///   valid but are reported as uncalibrated by [`Self::is_calibrated`].
+        pub fn is_valid(&self) -> bool {
+            self.firmware_calibrated <= 1
+                && self.voltage_cals.iter().all(LinearCalibration::is_valid)
+        }
+    }
+}
 
 /// Rev7 analog front-end low-pass filter variants, ordered by reported ADC channel.
 ///
@@ -103,10 +470,17 @@ pub mod operating_roundtrip {
 
     use crate::OperatingMetrics;
 
+    /// Controller command and timing-correction packet for Deimos roundtrip mode.
+    ///
+    /// Fixed-size array fields state their wire shapes below. Fields are serialized
+    /// contiguously in little-endian order.
     #[derive(ByteStruct, Clone, Copy, Debug)]
     #[byte_struct_le]
     pub struct OperatingRoundtripInput {
-        /// Application-level packet ID
+        /// Direction- and state-specific packet marker.
+        pub magic: u32,
+
+        /// Monotonically increasing application-level packet identifier.
         pub id: u64,
 
         /// Adjustment to apply to board cycle duration to
@@ -115,6 +489,7 @@ pub mod operating_roundtrip {
         /// This part is preserved if a packet from the controller is missed.
         ///
         /// For a PID timing controller, this would be the integral term.
+        /// The scalar value is in `ns`.
         pub period_delta_ns: i64,
 
         /// Adjustment to apply to board cycle duration to
@@ -124,24 +499,25 @@ pub mod operating_roundtrip {
         /// preserved between cycles.
         ///
         /// For a PID timing controller, this would be the `P` and `D` terms.
+        /// The scalar value is in `ns`.
         pub phase_delta_ns: i64,
 
-        /// PWM duty cycle in range of [0, 1]
+        /// PWM duty fractions with shape `(PWM_CHANNEL_COUNT,)` and range `[0, 1]`.
         pub pwm_duty_frac: [f32; super::PWM_CHANNEL_COUNT],
 
-        /// PWM frequency in Hz
+        /// PWM frequencies in `Hz` with shape `(PWM_CHANNEL_COUNT,)`.
+        ///
         /// PWM counters are buffered, so when using PWMs as
         /// GPIO by setting duty cycle to 0%/100%, pwm
         /// frequency should be set high to produce a quick
         /// response.
         pub pwm_freq_hz: [u32; super::PWM_CHANNEL_COUNT],
 
-        /// Digital-to-analog converter analog output voltage.
-        /// 0-2.5V range.
+        /// DAC output voltages in `V` with shape `(DAC_CHANNEL_COUNT,)` and
+        /// range `[0, VREF]`.
         pub dac_v: [f32; super::DAC_CHANNEL_COUNT],
 
-        /// GPIO pin states.
-        /// Only bits 0-3 are used.
+        /// GPIO output-state bit field; only bits `0..=3` are used.
         pub gpio: u8,
     }
 
@@ -150,6 +526,7 @@ pub mod operating_roundtrip {
         /// frequency from the default state.
         fn default() -> Self {
             Self {
+                magic: super::OPERATING_INPUT_MAGIC,
                 id: 0,
                 period_delta_ns: 0,
                 phase_delta_ns: 0,
@@ -161,17 +538,257 @@ pub mod operating_roundtrip {
         }
     }
 
-    #[derive(ByteStruct, Clone, Copy, Debug, Default)]
+    impl OperatingRoundtripInput {
+        /// Checks the packet marker and all safety-relevant output ranges.
+        ///
+        /// Returns:
+        ///   `true` when the marker, PWM settings, DAC voltages, and GPIO mask
+        ///   are valid for rev7 firmware.
+        pub fn is_valid(&self) -> bool {
+            self.magic == super::OPERATING_INPUT_MAGIC
+                && self
+                    .pwm_duty_frac
+                    .iter()
+                    .all(|value| value.is_finite() && (0.0..=1.0).contains(value))
+                && self.pwm_freq_hz.iter().all(|&value| value != 0)
+                && self
+                    .dac_v
+                    .iter()
+                    .all(|value| value.is_finite() && (0.0..=super::VREF).contains(value))
+                && self.gpio & !0x0f == 0
+        }
+    }
+
+    /// Coherent engineering-unit snapshot published by both operating transports.
+    ///
+    /// Analog values are the final firmware-converted outputs except for the
+    /// external RTD channels, which intentionally publish resistance for the
+    /// software-side temperature conversion. Fixed-size array fields state their
+    /// wire shapes below. Fields are serialized contiguously in little-endian order.
+    #[derive(ByteStruct, Clone, Copy, Debug)]
     #[byte_struct_le]
-    pub struct OperatingRoundtripOutput {
+    pub struct OperatingSnapshot {
+        /// Direction- and state-specific packet marker.
+        pub magic: u32,
+        /// Board timing, packet-ID, and loss-of-contact metrics.
         pub metrics: OperatingMetrics,
-        pub adc_voltages: [f32; super::ADC_CHANNEL_COUNT],
+        /// Measured module-bus current scalar in `A`.
+        pub module_bus_current_a: f32,
+        /// Measured module-bus voltage scalar in `V`.
+        pub module_bus_voltage_v: f32,
+        /// Filtered absolute cold-junction/board temperature scalar in `K`.
+        pub board_temperature_k: f32,
+        /// Measured loop currents in `A` with shape `(CURRENT_4_20_CHANNEL_COUNT,)`.
+        pub current_4_20_a: [f32; super::CURRENT_4_20_CHANNEL_COUNT],
+        /// Measured external RTD resistances in `ohm` with shape `(RTD_CHANNEL_COUNT,)`.
+        pub rtd_resistance_ohm: [f32; super::RTD_CHANNEL_COUNT],
+        /// Cold-junction-compensated absolute thermocouple temperatures in `K`
+        /// with shape `(THERMOCOUPLE_CHANNEL_COUNT,)`.
+        pub thermocouple_temperature_k: [f32; super::THERMOCOUPLE_CHANNEL_COUNT],
+        /// Measured voltage-channel values in `V` with shape `(VOLTAGE_CHANNEL_COUNT,)`.
+        pub voltage_v: [f32; super::VOLTAGE_CHANNEL_COUNT],
+        /// Unwrapped quadrature-encoder count.
         pub encoder: i64,
+        /// Unwrapped pulse count.
         pub pulse_counter: i64,
+        /// Measured input frequencies in `Hz` with shape `(FREQUENCY_CHANNEL_COUNT,)`.
         pub frequency_meas: [f32; super::FREQUENCY_CHANNEL_COUNT],
 
-        /// GPIO inputs. Only bits 0-1 are used.
+        /// GPIO input-state bit field; only bits `0..=1` are used.
         pub gpio: u8,
+    }
+
+    impl Default for OperatingSnapshot {
+        fn default() -> Self {
+            Self {
+                magic: super::OPERATING_SNAPSHOT_MAGIC,
+                metrics: OperatingMetrics::default(),
+                module_bus_current_a: 0.0,
+                module_bus_voltage_v: 0.0,
+                board_temperature_k: 0.0,
+                current_4_20_a: [0.0; super::CURRENT_4_20_CHANNEL_COUNT],
+                rtd_resistance_ohm: [0.0; super::RTD_CHANNEL_COUNT],
+                thermocouple_temperature_k: [0.0; super::THERMOCOUPLE_CHANNEL_COUNT],
+                voltage_v: [0.0; super::VOLTAGE_CHANNEL_COUNT],
+                encoder: 0,
+                pulse_counter: 0,
+                frequency_meas: [0.0; super::FREQUENCY_CHANNEL_COUNT],
+                gpio: 0,
+            }
+        }
+    }
+
+    impl OperatingSnapshot {
+        /// Checks the packet marker and all finite-value and GPIO invariants.
+        ///
+        /// Returns:
+        ///   `true` when the snapshot is safe for the software calc graph.
+        pub fn is_valid(&self) -> bool {
+            self.magic == super::OPERATING_SNAPSHOT_MAGIC
+                && self.module_bus_current_a.is_finite()
+                && self.module_bus_voltage_v.is_finite()
+                && self.board_temperature_k.is_finite()
+                && self.current_4_20_a.iter().all(|value| value.is_finite())
+                && self
+                    .rtd_resistance_ohm
+                    .iter()
+                    .all(|value| value.is_finite())
+                && self
+                    .thermocouple_temperature_k
+                    .iter()
+                    .all(|value| value.is_finite())
+                && self.voltage_v.iter().all(|value| value.is_finite())
+                && self.frequency_meas.iter().all(|value| value.is_finite())
+                && self.gpio & !0x03 == 0
+        }
+    }
+
+    /// Backward-compatible name for the Deimos roundtrip snapshot packet.
+    pub type OperatingRoundtripOutput = OperatingSnapshot;
+}
+
+#[cfg(test)]
+mod packet_tests {
+    use super::*;
+    use crate::{
+        peripherals::PeripheralId,
+        states::{AcknowledgeConfiguration, ByteStruct, ByteStructLen, ConfiguringInput},
+    };
+
+    fn round_trip<T>(value: T) -> T
+    where
+        T: ByteStruct + ByteStructLen,
+    {
+        let mut bytes = [0_u8; 256];
+        value.write_bytes(&mut bytes[..T::BYTE_LEN]);
+        T::read_bytes(&bytes[..T::BYTE_LEN])
+    }
+
+    #[test]
+    fn packet_magics_are_direction_specific_and_validated() {
+        let markers = [
+            BINDING_INPUT_MAGIC,
+            BINDING_OUTPUT_MAGIC,
+            CONFIGURING_INPUT_MAGIC,
+            CONFIGURING_OUTPUT_MAGIC,
+            OPERATING_INPUT_MAGIC,
+            OPERATING_SNAPSHOT_MAGIC,
+        ];
+        for (index, marker) in markers.iter().enumerate() {
+            assert!(!markers[..index].contains(marker));
+        }
+
+        let mut binding_input = Rev7BindingInput::new(1_000);
+        assert!(round_trip(binding_input).is_valid());
+        binding_input.magic ^= 1;
+        assert!(!round_trip(binding_input).is_valid());
+
+        let mut binding_output = Rev7BindingOutput::new(PeripheralId {
+            model_number: MODEL_NUMBER,
+            serial_number: 3,
+        });
+        assert!(round_trip(binding_output).is_valid());
+        binding_output.peripheral_id.model_number ^= 1;
+        assert!(!round_trip(binding_output).is_valid());
+
+        let mut configuring_input = Rev7ConfiguringInput::from_base(ConfiguringInput::default());
+        configuring_input.dt_ns = 1;
+        assert!(round_trip(configuring_input).is_valid());
+        configuring_input.magic ^= 1;
+        assert!(!round_trip(configuring_input).is_valid());
+
+        let mut configuring_output =
+            Rev7ConfiguringOutput::new(AcknowledgeConfiguration::Ack, false);
+        assert!(round_trip(configuring_output).is_valid());
+        configuring_output.firmware_calibrated = 2;
+        assert!(!round_trip(configuring_output).is_valid());
+
+        let mut operating_input = OperatingRoundtripInput::default();
+        assert!(round_trip(operating_input).is_valid());
+        operating_input.pwm_duty_frac[0] = f32::NAN;
+        assert!(!round_trip(operating_input).is_valid());
+
+        let mut snapshot = OperatingSnapshot::default();
+        assert!(round_trip(snapshot).is_valid());
+        snapshot.magic ^= 1;
+        assert!(!round_trip(snapshot).is_valid());
+    }
+
+    #[test]
+    fn calibration_binary_round_trips_without_protocol_magic() {
+        let mut calibration = Rev7Calibration::default();
+        calibration.firmware_calibrated = 1;
+        calibration.voltage_cals[4] = LinearCalibration {
+            slope: 1.25,
+            offset: -0.125,
+        };
+
+        let decoded = round_trip(calibration);
+        assert!(decoded.is_valid());
+        assert!(decoded.is_calibrated());
+        assert_eq!(decoded.voltage_cals[4].slope, 1.25);
+        assert_eq!(decoded.voltage_cals[4].offset, -0.125);
+        assert_eq!(Rev7Calibration::BYTE_LEN, 1 + ADC_CHANNEL_COUNT * 8);
+    }
+
+    #[test]
+    fn engineering_conversion_preserves_channel_order_and_calibration_placement() {
+        use crate::calcs::{ktype_voltage_v_f32, pt100_resistance_ohm_f32};
+
+        let cold_junction_k = 300.0_f32;
+        let hot_junction_k = 500.0_f32;
+        let mut samples = [0.0_f32; ADC_CHANNEL_COUNT];
+        samples[0] = 0.3;
+        samples[1] = 1.5;
+        samples[2] =
+            pt100_resistance_ohm_f32(cold_junction_k) * RTD_REFERENCE_CURRENT_A * RTD_FRONTEND_GAIN;
+        samples[3] = 0.75;
+        samples[7] = 100.0 * RTD_REFERENCE_CURRENT_A * RTD_FRONTEND_GAIN;
+        samples[10] = TC_FRONTEND_OFFSET_V
+            + TC_FRONTEND_GAIN
+                * (ktype_voltage_v_f32(hot_junction_k) - ktype_voltage_v_f32(cold_junction_k));
+        samples[12] = 1.25;
+        samples[13] = 2.0;
+        samples[14] = 2.0;
+        samples[15] = 1.5;
+        samples[16] = TC_FRONTEND_OFFSET_V + TC_FRONTEND_GAIN * 0.01;
+        samples[17] = TC_FRONTEND_OFFSET_V - TC_FRONTEND_GAIN * 0.005;
+
+        let mut calibration = Rev7Calibration::default();
+        calibration.voltage_cals[3] = LinearCalibration {
+            slope: 2.0,
+            offset: 0.15,
+        };
+        calibration.voltage_cals[7] = LinearCalibration {
+            slope: 2.0,
+            offset: 0.001,
+        };
+        calibration.voltage_cals[14] = LinearCalibration {
+            slope: 2.0,
+            offset: 1.0,
+        };
+        calibration.voltage_cals[16] = LinearCalibration {
+            slope: 2.0,
+            offset: 0.001,
+        };
+
+        let calculated_board_k = board_temperature_k_f32(&samples, &calibration);
+        assert!((calculated_board_k - cold_junction_k).abs() <= 0.01);
+
+        let mut snapshot = OperatingSnapshot::default();
+        populate_analog_snapshot_f32(&mut snapshot, &samples, &calibration, cold_junction_k);
+        assert!((snapshot.module_bus_current_a - 1.0).abs() < 1.0e-6);
+        assert!((snapshot.module_bus_voltage_v - 21.5).abs() < 1.0e-6);
+        assert_eq!(snapshot.board_temperature_k, cold_junction_k);
+        assert!((snapshot.current_4_20_a[0] - 0.022).abs() < 1.0e-7);
+        assert!((snapshot.rtd_resistance_ohm[0] - 204.0).abs() < 1.0e-4);
+        assert!((snapshot.thermocouple_temperature_k[0] - hot_junction_k).abs() < 0.02);
+        assert_eq!(snapshot.voltage_v[0], 1.25);
+        assert_eq!(snapshot.voltage_v[1], 2.0);
+        assert_eq!(snapshot.voltage_v[2], 25.0);
+        assert_eq!(snapshot.voltage_v[3], 9.0);
+        assert!((snapshot.voltage_v[4] - 0.021).abs() < 1.0e-6);
+        assert!((snapshot.voltage_v[5] + 0.005).abs() < 1.0e-6);
     }
 }
 

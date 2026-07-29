@@ -515,10 +515,12 @@ endpoint-extrapolation checks.
 
 ### Offline K-type B-spline fitting and generated runtime form
 
-Add a reproducible host-side generator which fits clamped regular-grid cubic
-B-splines in `f64` and emits only the compact `f32` runtime definitions into
-`deimos_shared`. Check in both the generator and generated Rust source so
-firmware builds do not perform fitting and do not need an allocation feature.
+Add a reproducible host-side generator which fits regular-grid cubic B-splines
+in `f64` using `interpn.MultiBsplineRegular` inside a SciPy
+Levenberg--Marquardt solve. Emit `interpn`'s precomputed coefficients as the
+compact `f32` runtime definitions in `deimos_shared`. Check in both the
+generator and generated Rust source so firmware builds do not perform fitting
+and do not need an allocation feature.
 
 Fit the two monotonic K-type mappings needed in the runtime path:
 
@@ -527,26 +529,27 @@ Fit the two monotonic K-type mappings needed in the runtime path:
 - K-type thermoelectric voltage to temperature.
 
 Both K-type directions are needed for cold-junction compensation on every
-cycle. Each fit replaces runtime branching across NIST regions with a bounds
-check, regular-grid index calculation, and evaluation of four adjacent control
-points.
+cycle. Each fit replaces runtime branching across NIST regions with
+`interpn::MultiBsplineRegular`'s regular-grid index calculation and evaluation
+of four adjacent coefficients.
 
-The generator should sweep a modest range of control-point counts and select
-the smallest count which satisfies documented value-error, derivative-quality,
-monotonicity, and inverse-consistency limits. Start the search in the tens to
-low hundreds of control points rather than assuming the final count.
+The generator should sweep a modest range of coefficient counts and select the
+smallest count which satisfies documented value-error, derivative-quality,
+monotonicity, and inverse-consistency limits. Start the forward search in the
+tens and allow the inverse search to extend through the low hundreds rather
+than assuming either final count.
 
 Set the maximum interpolation error limit to `0.01 K`, including the error from
 the generated `f32` coefficients and evaluator. Apply this directly to mappings
 whose output is temperature. For a temperature-to-voltage mapping, convert its
 voltage residual through the high-precision inverse reference and enforce the
-same `0.01 K` temperature-equivalent limit. Control-point selection may use a
-smaller internal target, but never a larger reported bound.
+same `0.01 K` temperature-equivalent limit. Coefficient-count selection may
+use a smaller internal target, but never a larger reported bound.
 
 A dense validation grid is useful for diagnostics but is not sufficient to
-claim a strict error bound. For every span between adjacent regular-grid control
-points, seed bounded local optimizations within the span to locate local maxima
-of both signs of the error. Include the span endpoints, spline knots, source
+claim a strict error bound. For every regular-grid span, seed bounded local
+optimizations within the span to locate local maxima of both signs of the
+error. Include the span endpoints, spline knots, source
 function branch boundaries, and other known nonsmooth reference points as
 explicit candidates. Bracket and solve all detected stationary points of the
 signed error; use multiple interior seeds/subdivisions rather than assuming a
@@ -559,7 +562,7 @@ Error is measured against the continuous NIST reference functions. Check in a
 fit report containing:
 
 - reference source/version and supported domain;
-- knot origin, spacing, boundary convention, and number of control points;
+- grid origin, spacing, boundary convention, and number of coefficients;
 - maximum value error found by interval-local optimization and RMS error on a
   much denser validation grid;
 - first-derivative error/smoothness metrics;
@@ -567,16 +570,17 @@ fit report containing:
 - forward/inverse round-trip error;
 - the error added when coefficients and evaluation are reduced to `f32`.
 
-The runtime representation consists only of domain bounds, grid origin/inverse
-spacing, and a fixed `f32` control-point array. The evaluator performs O(1)
-indexing and one cubic basis evaluation with no heap, table search, or interior
-piecewise-function branch. Boundary handling is fixed by the generated clamped
-knot convention. With the `linearize_extrapolation` flag set, finite inputs
-outside the supported physical domain use the endpoint value plus the endpoint
-tangent times distance outside the domain. Use that policy consistently in
-firmware and software, and test continuity of both value and first derivative at
-each boundary. NaN and infinity behavior remains explicit and is not treated as
-ordinary extrapolation.
+The runtime representation consists only of domain bounds, grid origin and
+spacing, and a fixed `f32` coefficient array. The evaluator constructs a
+borrowed `interpn::MultiBsplineRegular` view and performs O(1) indexing and one
+cubic evaluation with no heap, table search, or interior piecewise-function
+branch. Boundary handling uses `interpn`'s zero-third-derivative ghost-
+coefficient convention. With the `linearize_extrapolation` flag set, finite
+inputs outside the supported physical domain use the endpoint value plus the
+endpoint tangent times distance outside the domain. Use that policy
+consistently in firmware and software, and test continuity of both value and
+first derivative at each boundary. NaN and infinity behavior remains explicit
+and is not treated as ordinary extrapolation.
 
 ## Rev7 engineering conversion pipeline
 
@@ -1404,7 +1408,7 @@ software; the new runtime does not accept that obsolete rev7 layout.
 - The existing filter-rate update resets input counters and skips a sample. A
   writable Modbus cycle rate makes that documented behavior externally
   observable, but rate changes are expected to be rare.
-- Too few K-type spline control points can introduce value bias; too many waste
+- Too few K-type spline coefficients can introduce value bias; too many waste
   flash. Generated fit metrics and checked error/derivative limits determine
   the count.
 - The global Pt100 inverse polynomial must meet the `0.01 K` requirement and

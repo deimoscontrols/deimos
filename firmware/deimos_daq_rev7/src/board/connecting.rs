@@ -18,6 +18,7 @@ impl<'a> Board<'a> {
         // Unbind if previously bound
         self.controller = None;
         self.net.reset_udp_socket();
+        self.net.reset_tcp_socket();
 
         // Set status LEDs
         self.led0.set_low();

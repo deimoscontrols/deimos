@@ -28,4 +28,4 @@ deimos_numerics = { path = "../../software/deimos_numerics", version="0.18.0" }
 [dependencies.smoltcp]
 version = "0.11.0"
 default-features = false
-features = ["medium-ethernet", "proto-ipv4", "socket-raw", "socket-udp", "socket-dhcpv4"]
+features = ["medium-ethernet", "proto-ipv4", "socket-raw", "socket-udp", "socket-tcp", "socket-dhcpv4"]

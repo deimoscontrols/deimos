@@ -159,6 +159,18 @@ pub trait Peripheral: Send + Sync + Debug {
     /// Parse bytes of a packet sent to the controller
     fn parse_operating_roundtrip(&self, bytes: &[u8], outputs: &mut [f64]) -> OperatingMetrics;
 
+    /// Validates a device-specific operating response before it reaches the calc graph.
+    ///
+    /// Args:
+    ///   bytes: Complete received packet with shape `(operating_roundtrip_output_size(),)`.
+    ///
+    /// Returns:
+    ///   `true` when the packet is structurally and semantically valid. The
+    ///   default preserves the validation behavior of older peripherals.
+    fn validate_operating_roundtrip(&self, _bytes: &[u8]) -> bool {
+        true
+    }
+
     /// Byte length of packet to send to the peripheral
     fn configuring_input_size(&self) -> usize {
         ConfiguringInput::BYTE_LEN
@@ -175,13 +187,31 @@ pub trait Peripheral: Send + Sync + Debug {
         base_config.write_bytes(&mut bytes[..num_to_write]);
     }
 
-    /// Parse bytes of a packet sent to the controller
-    fn parse_configuring(&self, bytes: &[u8]) -> Result<(), String> {
+    /// Parses a configuration response and optionally returns firmware calibration state.
+    ///
+    /// Args:
+    ///   bytes: Complete configuration response with shape
+    ///     `(configuring_output_size(),)`.
+    ///
+    /// Returns:
+    ///   `Some(true)` or `Some(false)` for devices that report firmware
+    ///   calibration state, `None` for older devices, or an error for a rejected
+    ///   or malformed response.
+    fn parse_configuring(&self, bytes: &[u8]) -> Result<Option<bool>, String> {
         let resp = ConfiguringOutput::read_bytes(bytes);
         match resp.acknowledge {
-            AcknowledgeConfiguration::Ack => Ok(()),
+            AcknowledgeConfiguration::Ack => Ok(None),
             x => Err(format!("{x:?}")),
         }
+    }
+
+    /// Reports whether host setup must resolve a software-side calibration artifact.
+    ///
+    /// Returns:
+    ///   `false` for devices whose complete calibration is embedded in firmware;
+    ///   the default is `true` for older peripherals.
+    fn requires_host_calibration_artifact(&self) -> bool {
+        true
     }
 
     /// Get a standard set of calcs that convert the raw outputs into a useable format.

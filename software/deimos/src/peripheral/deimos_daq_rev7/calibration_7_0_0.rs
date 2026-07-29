@@ -4,6 +4,16 @@
 //! runs for 4-20 mA, RTD, thermocouple, and voltage inputs. It writes one
 //! raw capture per channel, replays it through the standard calc pipeline, then
 //! processes the replayed channel data into plots and calibration records.
+//!
+//! # References
+//!
+//! \[1\] IEC 60751, *Industrial platinum resistance thermometers and platinum
+//!     temperature sensors*.
+//!
+//! \[2\] G. W. Burns, M. G. Scroger, G. F. Strouse, M. C. Croarkin, and
+//!     W. F. Guthrie, *Temperature-Electromotive Force Reference Functions and
+//!     Tables for the Letter-Designated Thermocouple Types Based on the ITS-90*,
+//!     NIST Monograph 175, 1993, doi: 10.6028/NIST.MONO.175.
 
 use std::{
     collections::BTreeMap,
@@ -26,6 +36,8 @@ use crate::{
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use deimos_shared::peripherals::deimos_daq_rev7::MODEL_NUMBER;
+use deimos_shared::peripherals::deimos_daq_rev7::Rev7Calibration;
+use deimos_shared::states::{ByteStruct, ByteStructLen};
 
 use super::{CalRecord, DeimosDaqRev7, LinearCal};
 use serde::{Deserialize, Serialize};
@@ -79,7 +91,7 @@ const TC_CAPTURE_SECONDS: u64 = 240;
 const VA710_TEMPERATURE_ACCURACY_K: f64 = 0.3;
 const VA710_COLD_JUNCTION_ACCURACY_K: f64 = 0.3;
 const VA710_NEAR_ROOM_VOLTAGE_ACCURACY_K: f64 = 0.25;
-const BOARD_COLD_JUNCTION_SIGNAL_NAME: &str = "p1_board_rtd_filtered.y";
+const BOARD_COLD_JUNCTION_SIGNAL_NAME: &str = "p1.board_temperature_K";
 
 const CONSOLE_CONFIG_PATH: &str = "software/deimos/examples/rev7_calibration_console.toml";
 const RAW_RUN_SUFFIX: &str = "_raw.csv";
@@ -112,28 +124,28 @@ const CURRENT_CHANNELS: [CalibrationChannel; 4] = [
     CalibrationChannel {
         label: "4-20 mA channel 0 (ain3)",
         analog_input_name: "ain3",
-        signal_name: "p1_4_20_mA_0_A.y",
+        signal_name: "p1.current_4_20_0_A",
         slug: "4_20_mA_0",
         kind: CalibrationKind::Current4To20,
     },
     CalibrationChannel {
         label: "4-20 mA channel 1 (ain4)",
         analog_input_name: "ain4",
-        signal_name: "p1_4_20_mA_1_A.y",
+        signal_name: "p1.current_4_20_1_A",
         slug: "4_20_mA_1",
         kind: CalibrationKind::Current4To20,
     },
     CalibrationChannel {
         label: "4-20 mA channel 2 (ain5)",
         analog_input_name: "ain5",
-        signal_name: "p1_4_20_mA_2_A.y",
+        signal_name: "p1.current_4_20_2_A",
         slug: "4_20_mA_2",
         kind: CalibrationKind::Current4To20,
     },
     CalibrationChannel {
         label: "4-20 mA channel 3 (ain6)",
         analog_input_name: "ain6",
-        signal_name: "p1_4_20_mA_3_A.y",
+        signal_name: "p1.current_4_20_3_A",
         slug: "4_20_mA_3",
         kind: CalibrationKind::Current4To20,
     },
@@ -167,14 +179,14 @@ const THERMOCOUPLE_CHANNELS: [CalibrationChannel; 2] = [
     CalibrationChannel {
         label: "Thermocouple channel 0 (ain10)",
         analog_input_name: "ain10",
-        signal_name: "p1_tc_0.temperature_K",
+        signal_name: "p1.thermocouple_0_temperature_K",
         slug: "tc_0",
         kind: CalibrationKind::Thermocouple,
     },
     CalibrationChannel {
         label: "Thermocouple channel 1 (ain11)",
         analog_input_name: "ain11",
-        signal_name: "p1_tc_1.temperature_K",
+        signal_name: "p1.thermocouple_1_temperature_K",
         slug: "tc_1",
         kind: CalibrationKind::Thermocouple,
     },
@@ -184,42 +196,42 @@ const VOLTAGE_CHANNELS: [CalibrationChannel; 6] = [
     CalibrationChannel {
         label: "0-2.5 V channel 0 (ain12)",
         analog_input_name: "ain12",
-        signal_name: "p1_0_2V5_0_sense_V.y",
+        signal_name: "p1.voltage_0_2V5_0_V",
         slug: "0_2V5_0",
         kind: CalibrationKind::Voltage,
     },
     CalibrationChannel {
         label: "0-2.5 V channel 1 (ain15)",
         analog_input_name: "ain15",
-        signal_name: "p1_0_2V5_1_sense_V.y",
+        signal_name: "p1.voltage_0_2V5_1_V",
         slug: "0_2V5_1",
         kind: CalibrationKind::Voltage,
     },
     CalibrationChannel {
         label: "0-15 V channel 0 (ain16)",
         analog_input_name: "ain16",
-        signal_name: "p1_0_15V_0_sense_V.y",
+        signal_name: "p1.voltage_0_15_0_V",
         slug: "0_15V_0",
         kind: CalibrationKind::Voltage,
     },
     CalibrationChannel {
         label: "0-15 V channel 1 (ain17)",
         analog_input_name: "ain17",
-        signal_name: "p1_0_15V_1_sense_V.y",
+        signal_name: "p1.voltage_0_15_1_V",
         slug: "0_15V_1",
         kind: CalibrationKind::Voltage,
     },
     CalibrationChannel {
         label: "x26 voltage channel 0 (ain18)",
         analog_input_name: "ain18",
-        signal_name: "p1_x26_0_sense_V.y",
+        signal_name: "p1.voltage_x26_0_V",
         slug: "x26_0",
         kind: CalibrationKind::Voltage,
     },
     CalibrationChannel {
         label: "x26 voltage channel 1 (ain19)",
         analog_input_name: "ain19",
-        signal_name: "p1_x26_1_sense_V.y",
+        signal_name: "p1.voltage_x26_1_V",
         slug: "x26_1",
         kind: CalibrationKind::Voltage,
     },
@@ -425,16 +437,8 @@ impl CalibrationChannel {
         }
     }
 
-    fn tc_voltage_signal_name(self) -> Option<&'static str> {
-        match self.slug {
-            "tc_0" => Some("p1_tc_0_sense_V.y"),
-            "tc_1" => Some("p1_tc_1_sense_V.y"),
-            _ => None,
-        }
-    }
-
     fn calibration_signal_name(self) -> &'static str {
-        self.tc_voltage_signal_name().unwrap_or(self.signal_name)
+        self.signal_name
     }
 }
 
@@ -705,6 +709,17 @@ enum PromptDecision {
     Skip,
 }
 
+/// Runs collection, processing, or both for one rev7 calibration.
+///
+/// Args:
+///   sn: Rev7 board serial number.
+///   collect: Whether to acquire new `100 Hz` raw channel runs.
+///   process: Whether to replay acquired data and generate calibration results.
+///   dst: Calibration input/output directory.
+///
+/// Returns:
+///   `Ok(())` after all requested stages complete, or a descriptive acquisition,
+///   replay, fitting, or file error.
 pub fn run_procedure(
     sn: u64,
     collect: bool,
@@ -1356,8 +1371,7 @@ fn replay_calibration_run(raw_path: &Path) -> Result<PathBuf, String> {
 /// Columns from the replayed calc graph that are required for analysis.
 fn replay_channel_names(channel: CalibrationChannel) -> Vec<String> {
     let mut channels = vec![channel.signal_name.to_owned()];
-    if let Some(signal_name) = channel.tc_voltage_signal_name() {
-        channels.push(signal_name.to_owned());
+    if matches!(channel.kind, CalibrationKind::Thermocouple) {
         channels.push(BOARD_COLD_JUNCTION_SIGNAL_NAME.to_owned());
     }
     channels
@@ -1565,6 +1579,13 @@ fn write_full_cal_record(
         .map_err(|e| format!("Failed to serialize full calibration record: {e}"))?;
     fs::write(&path, json).map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
 
+    let firmware_calibration = record.firmware_calibration(true)?;
+    let mut firmware_bytes = vec![0_u8; Rev7Calibration::BYTE_LEN];
+    firmware_calibration.write_bytes(&mut firmware_bytes);
+    let firmware_path = summary_dir.join("calibration.bin");
+    fs::write(&firmware_path, firmware_bytes)
+        .map_err(|e| format!("Failed to write {}: {e}", firmware_path.display()))?;
+
     Ok(path)
 }
 
@@ -1674,20 +1695,14 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
         .to_path_buf();
     let op_name = op_name_from_path(path, REPLAY_DATA_SUFFIX)?;
     let measurement_idx = replay_csv.required_channel_indices([channel.signal_name])?[0];
-    let tc_voltage_idx = channel
-        .tc_voltage_signal_name()
-        .map(|signal_name| {
-            replay_csv
-                .required_channel_indices([signal_name])
-                .map(|idx| idx[0])
-        })
-        .transpose()?;
     let board_cold_junction_idx = if matches!(channel.kind, CalibrationKind::Thermocouple) {
         Some(replay_csv.required_channel_indices([BOARD_COLD_JUNCTION_SIGNAL_NAME])?[0])
     } else {
         None
     };
 
+    // Parallel sample vectors all have shape `(n_valid_samples,)`; suffixes
+    // identify their respective `ns`, channel-engineering, `K`, and `V` units.
     let mut raw_timestamps_ns = Vec::new();
     let mut raw_measurements = Vec::new();
     let mut raw_board_cold_junction_temperature_k = Vec::new();
@@ -1704,10 +1719,10 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
             // Thermocouple analysis applies the operator-entered cold-junction
             // correction after replay so the replay itself stays generic.
             let board_temperature_k = row.channel_values[board_idx];
-            let voltage_idx = tc_voltage_idx.ok_or_else(|| {
-                format!("Missing thermocouple voltage channel for {}", channel.label)
-            })?;
-            let thermocouple_voltage = row.channel_values[voltage_idx];
+            // Identity-calibrated firmware reports final thermocouple temperature.
+            // Invert that monotonic final conversion to recover sensed voltage for fitting.
+            let thermocouple_voltage =
+                ktype_voltage_v(measurement) - ktype_voltage_v(board_temperature_k);
             if !board_temperature_k.is_finite() || !thermocouple_voltage.is_finite() {
                 continue;
             }

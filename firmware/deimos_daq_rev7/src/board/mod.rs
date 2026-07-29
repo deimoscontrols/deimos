@@ -1,6 +1,6 @@
 use core::{
     mem::MaybeUninit,
-    sync::atomic::{AtomicBool, AtomicI32, AtomicU32},
+    sync::atomic::{compiler_fence, AtomicBool, AtomicI32, AtomicU32, Ordering},
 };
 use cortex_m::peripheral::syst::SystClkSource;
 
@@ -33,7 +33,9 @@ use subsystems::net::*;
 use subsystems::output::*;
 use subsystems::sampling::*;
 
-use deimos_shared::peripherals::deimos_daq_rev7::operating_roundtrip::OperatingRoundtripInput;
+use deimos_shared::peripherals::deimos_daq_rev7::{
+    operating_roundtrip::OperatingRoundtripInput, Rev7Calibration,
+};
 pub use deimos_shared::peripherals::deimos_daq_rev7::{
     ADC_CHANNEL_COUNT, ADC_SAMPLE_FREQ_HZ, COUNTER_CHANNEL_COUNT, FREQUENCY_CHANNEL_COUNT,
     MODEL_NUMBER, VREF,
@@ -49,9 +51,63 @@ pub const SERIAL_NUMBER: u64 = u64::from_le_bytes(*include_bytes!("../../static/
 #[unsafe(link_section = ".sram3.eth")]
 static mut DES_RING: MaybeUninit<ethernet::DesRing<4, 4>> = MaybeUninit::uninit();
 
-/// Storage for the latest ADC samples
-pub static ADC_SAMPLES: [AtomicF32; ADC_CHANNEL_COUNT] =
+/// First of two ADC publication buffers, in `V`, with shape `(ADC_CHANNEL_COUNT,)`.
+///
+/// This no-wait contract depends on the current single-core, single-writer,
+/// higher-priority-reader interrupt topology. Reuse on a multicore target, with
+/// a writer that can preempt the reader, or with another reader requires a
+/// triple buffer or a stronger ownership protocol.
+static ADC_SAMPLE_BUFFER_0: [AtomicF32; ADC_CHANNEL_COUNT] =
     array_macro::array![_ => AtomicF32::new(0.0); ADC_CHANNEL_COUNT];
+/// Second ADC publication buffer, in `V`, with shape `(ADC_CHANNEL_COUNT,)`.
+static ADC_SAMPLE_BUFFER_1: [AtomicF32; ADC_CHANNEL_COUNT] =
+    array_macro::array![_ => AtomicF32::new(0.0); ADC_CHANNEL_COUNT];
+/// Selector written only by TIM2 after it has completed the inactive buffer.
+static ADC_LATEST_BUFFER_IS_1: AtomicBool = AtomicBool::new(false);
+
+/// Publish one complete sample group without exposing a partially written group.
+///
+/// TIM2 writes only the buffer not named by the selector, then publishes that
+/// buffer with one selector store. The higher-priority communication interrupt
+/// can therefore preempt this function without observing a partially written
+/// group.
+///
+/// Args:
+///   values: Filtered ADC output voltages in `V` with shape
+///     `(ADC_CHANNEL_COUNT,)` and channel order `ain0..ain12, ain15..ain19`.
+#[inline]
+pub fn publish_adc_samples(values: &[f32; ADC_CHANNEL_COUNT]) {
+    let latest_is_1 = ADC_LATEST_BUFFER_IS_1.load(Ordering::Relaxed);
+    let destination = if latest_is_1 {
+        &ADC_SAMPLE_BUFFER_0
+    } else {
+        &ADC_SAMPLE_BUFFER_1
+    };
+    for (slot, value) in destination.iter().zip(values.iter()) {
+        slot.store(*value, Ordering::Relaxed);
+    }
+    // On this single-core target the compiler fences prevent reordering; no
+    // strongly ordered atomic or hardware memory barrier is required.
+    compiler_fence(Ordering::Release);
+    ADC_LATEST_BUFFER_IS_1.store(!latest_is_1, Ordering::Relaxed);
+}
+
+/// Reads exactly one published ADC group by loading the selector once.
+///
+/// Returns:
+///   Coherent filtered ADC output voltages in `V` with shape
+///   `(ADC_CHANNEL_COUNT,)` and channel order `ain0..ain12, ain15..ain19`.
+#[inline]
+pub fn latest_adc_samples() -> [f32; ADC_CHANNEL_COUNT] {
+    let latest_is_1 = ADC_LATEST_BUFFER_IS_1.load(Ordering::Relaxed);
+    compiler_fence(Ordering::Acquire);
+    let source = if latest_is_1 {
+        &ADC_SAMPLE_BUFFER_1
+    } else {
+        &ADC_SAMPLE_BUFFER_0
+    };
+    core::array::from_fn(|index| source[index].load(Ordering::Relaxed))
+}
 
 /// Storage for latest unrolled counter samples
 /// These are only integer-unwrapped, not filtered
@@ -112,6 +168,9 @@ pub struct Board<'a> {
     pub controller: Option<UdpMetadata>,
     pub configuring_timeout_ms: u16,
     pub loss_of_contact_limit: u16,
+
+    // Embedded measurement calibration.
+    pub calibration: Rev7Calibration,
 
     // I/O
     pub outputs: Outputs,

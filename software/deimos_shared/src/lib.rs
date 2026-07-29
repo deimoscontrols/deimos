@@ -7,6 +7,7 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+pub mod calcs;
 pub mod peripherals;
 pub mod states;
 pub use states::OperatingMetrics;

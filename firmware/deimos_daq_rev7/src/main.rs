@@ -90,6 +90,8 @@ unsafe fn main() -> ! {
             rx_payload_storage: [0u8; 1522],
             tx_metadata_storage: [PacketMetadata::EMPTY; 4],
             tx_payload_storage: [0u8; 1522],
+            tcp_rx_storage: [0u8; 512],
+            tcp_tx_storage: [0u8; 512],
         });
 
         // Now that the value is fully initialised we can obtain the unique

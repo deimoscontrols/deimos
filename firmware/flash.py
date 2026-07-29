@@ -1,22 +1,41 @@
-import os
+"""Build and flash assigned firmware identities onto attached DAQ probes."""
+
+import json
+import re
 from pathlib import Path
 from subprocess import check_call
-import json
 
 
 def writemac(fp: Path, mac: str):
-    # MAC format like 02:00:11:22:33:44
-    mac_parts = mac.split(":")
-    
-    if os.path.exists(fp):
-        os.remove(fp)
+    """Write one assigned MAC address as the firmware's six-byte image.
 
-    mac_bytes = bytes([int(x, base=16) for x in mac_parts])
-    
+    Args:
+        fp: Destination binary-file path.
+        mac: MAC address in colon- or hyphen-separated hexadecimal notation.
+
+    Raises:
+        ValueError: The address is not six two-digit hexadecimal octets.
+    """
+    mac_parts = re.split("[:-]", mac)
+    if len(mac_parts) != 6 or any(len(part) != 2 for part in mac_parts):
+        raise ValueError(f"Invalid MAC address: {mac}")
+
+    try:
+        mac_bytes = bytes(int(part, base=16) for part in mac_parts)
+    except ValueError as error:
+        raise ValueError(f"Invalid MAC address: {mac}") from error
+
     with open(fp, "wb") as f:
         f.write(mac_bytes)
 
+
 def writesn(fp: Path, sn: str):
+    """Write one assigned serial number as an eight-byte little-endian integer.
+
+    Args:
+        fp: Destination binary-file path.
+        sn: Nonnegative base-10 serial-number text.
+    """
     sn = int(sn)
     sn_bytes = sn.to_bytes(8, "little")
 
@@ -43,7 +62,7 @@ if __name__ == "__main__":
         model = cfg["model"]
 
         scriptfp = here / "flash.sh"
-        macfp = here / f"{model}/static/macaddr.in" 
+        macfp = here / f"{model}/static/macaddr.in"
         snfp = here / f"{model}/static/serialnumber.in"
 
         print(f"Flashing SN {sn} with MAC {mac} on probe {probe}")
@@ -55,5 +74,4 @@ if __name__ == "__main__":
         probe_usb_device = probe_to_usb_device_map[probe]
         cmd = ["sh", scriptfp, model, probe_usb_device]
         print("Running", cmd)
-        check_call(cmd)
-
+        check_call(cmd, cwd=here)
