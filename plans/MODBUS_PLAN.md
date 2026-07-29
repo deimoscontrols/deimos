@@ -976,7 +976,47 @@ Keep these as operating instructions rather than firmware mechanisms:
   response says uncalibrated, but does not compare versions, coefficients, or
   unit metadata.
 
+## High-rate performance regression benchmark
+
+Maintain a repeatable hardware benchmark throughout implementation so that
+individually small firmware costs do not silently reduce the maximum viable
+control rate. Establish a baseline before the Phase 1 changes, rerun it after
+each phase and after any material sampling, conversion, serialization, or
+network hot-path change, and check the result into the corresponding phase
+report.
+
+The canonical benchmark is a 5 kHz Deimos UDP roundtrip run lasting 10 seconds
+in a release build on the same designated rev7 unit, controller host, direct
+network setup, controller loop method, and operating configuration. Record the
+controller's `loss_of_contact_counter` on every one of the expected 50,000
+cycles. For this benchmark:
+
+- a cycle with `loss_of_contact_counter > 0` is one dropped cycle;
+- the drop rate is the number of dropped cycles divided by the number of cycles
+  in the selected measurement window; do not sum the counter values, because
+  that would overcount a consecutive-loss burst;
+- the maximum observed counter is the maximum consecutive-drop burst length;
+- report one-second buckets for the complete run so the initial synchronization
+  transient and later steady behavior remain visible;
+- report the steady drop rate over the final five seconds in addition to the
+  whole-run drop rate. The fixed final window makes comparisons reproducible
+  while excluding the expected initial synchronization transient;
+- treat a reconnect, operating-state exit, or missing benchmark output as a
+  failed run rather than as an ordinary dropped cycle.
+
+Archive the firmware and software revisions, hardware serial, applied cycle
+period, packet sizes, whole-run and steady drop rates, maximum burst length, and
+minimum observed board/controller cycle margins. Use the initial measurements
+to set the allowed regression tolerance before judging later phases. Any result
+outside that tolerance blocks the phase until it is explained, optimized, or
+explicitly accepted with an updated supported-rate limit. Do not hide a
+performance regression by moving the sample-per-cycle cutover downward.
+
 ## Implementation phases
+
+Every phase exit includes the canonical 5 kHz/10-second hardware regression run
+and comparison with the stored baseline; the functional exit criteria below do
+not supersede that performance gate.
 
 ### Phase 1: shared nominal-path support, no Modbus protocol
 
@@ -1133,8 +1173,10 @@ demonstrate a safe overlap between the two sampling modes.
    rates with full packets and worst-case accepted reads/writes, active Deimos
    timing corrections, and release-build cache behavior. Record total cycle
    margin, communication-handler duration, TIM2 latency, and missed or coalesced
-   sample events. Define the highest acceptable free-running cycle rate from
-   these measurements rather than from UDP echo throughput alone.
+   sample events. Include the canonical 5 kHz loss-of-contact drop benchmark and
+   compare its complete per-second series with the stored pre-change results.
+   Define the highest acceptable free-running cycle rate from these measurements
+   rather than from UDP echo throughput alone.
 2. Extend the existing per-channel analog/digital response analysis to include
    folded alias contributions for a mode whose ADC sample rate equals its
    operating cycle rate. Determine the lowest acceptable sample-per-cycle rate
@@ -1301,6 +1343,9 @@ Phase 6 exit criteria:
 ### Hardware timing
 
 - Compare release image size and SRAM3 use before/after TCP storage.
+- Run and archive the canonical 5 kHz/10-second loss-of-contact benchmark after
+  every phase and material hot-path change; compare whole-run and final-five-
+  second drop rates with the established baseline.
 - Measure TIM2 sample deadline margin while capturing acquisition timestamps
   and publishing all engineering values.
 - Compare `sample_time_ns` with a GPIO acquisition-start marker and verify
@@ -1389,3 +1434,7 @@ software; the new runtime does not accept that obsolete rev7 layout.
   corrections. Its timestamp accuracy, fractional-delay behavior, and control
   quality must be verified at the maximum permitted corrections rather than
   inferred from nominal-rate tests.
+- Small costs added across otherwise-correct phases can cumulatively reduce the
+  viable control rate. The fixed 5 kHz loss-of-contact benchmark is a phase gate,
+  and a regression must not be concealed by lowering the later sampling-mode
+  cutover.
