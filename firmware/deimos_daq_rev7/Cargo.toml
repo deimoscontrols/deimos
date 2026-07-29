@@ -25,8 +25,14 @@ embedded-alloc = { version = "0.7.0", default-features = false, features = ["llf
 deimos_shared = { path = "../../software/deimos_shared", version="0.18.0", features = ["alloc", "tcm"] }
 deimos_numerics = { path = "../../software/deimos_numerics", version="0.18.0" }
 rmodbus = { version = "0.12.2", default-features = false }
+cortex-m-stack = { version = "0.2.1", optional = true }
 
 [dependencies.smoltcp]
 version = "0.11.0"
 default-features = false
 features = ["medium-ethernet", "proto-ipv4", "socket-raw", "socket-udp", "socket-tcp", "socket-dhcpv4"]
+
+[features]
+# Test-only startup stack painting for an on-target MSP high-water measurement.
+# It has no effect on the production image unless selected explicitly.
+stack-watermark = ["dep:cortex-m-stack"]
