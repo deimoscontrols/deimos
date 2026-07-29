@@ -57,6 +57,25 @@ fn ctx_dt_ns() -> i64 {
     (1_000_000_000 / RATE_HZ) as i64
 }
 
+/// Selects a lower-tail percentile without interpolation.
+///
+/// Args:
+///   values: Finite benchmark samples with shape `(n_cycles,)`.
+///   numerator: Percentile fraction numerator.
+///   denominator: Nonzero percentile fraction denominator.
+///
+/// Returns:
+///   The lower-tail order statistic, or `NaN` for empty input or a zero
+///   denominator.
+fn lower_percentile(mut values: Vec<f64>, numerator: usize, denominator: usize) -> f64 {
+    if values.is_empty() || denominator == 0 {
+        return f64::NAN;
+    }
+    values.sort_unstable_by(f64::total_cmp);
+    let index = (values.len() - 1) * numerator / denominator;
+    values[index]
+}
+
 fn report(path: &std::path::Path, dt_ns: i64) -> Result<(), String> {
     let csv = load_csv(path)?;
     let indices = csv.required_channel_indices([
@@ -111,6 +130,25 @@ fn report(path: &std::path::Path, dt_ns: i64) -> Result<(), String> {
         .iter()
         .filter(|row| row.channel_values[loss_idx] > 0.0)
         .count();
+    let board_margin_p01 = lower_percentile(
+        rows.iter()
+            .map(|row| row.channel_values[board_margin_idx])
+            .collect(),
+        1,
+        100,
+    );
+    let steady_board_margin_min = steady_rows
+        .iter()
+        .map(|row| row.channel_values[board_margin_idx])
+        .fold(f64::INFINITY, f64::min);
+    let steady_board_margin_p01 = lower_percentile(
+        steady_rows
+            .iter()
+            .map(|row| row.channel_values[board_margin_idx])
+            .collect(),
+        1,
+        100,
+    );
 
     println!("rev7 SN{DAQ_SERIAL} {RATE_HZ} Hz / {RUN_SECONDS} s benchmark");
     println!(
@@ -134,8 +172,20 @@ fn report(path: &std::path::Path, dt_ns: i64) -> Result<(), String> {
         steady_drops as f64 / steady_rows.len() as f64,
     );
     println!(
-        "min_controller_margin_ns={min_ctrl_margin:.0}, min_board_margin_ns={min_board_margin:.0}, min_board_cycle_time_ns={min_cycle_time:.0}"
+        "min_controller_margin_ns={min_ctrl_margin:.0}, min_board_margin_ns={min_board_margin:.0}, board_margin_p01_ns={board_margin_p01:.0}, steady_min_board_margin_ns={steady_board_margin_min:.0}, steady_board_margin_p01_ns={steady_board_margin_p01:.0}, min_board_cycle_time_ns={min_cycle_time:.0}"
     );
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::lower_percentile;
+
+    #[test]
+    fn lower_percentile_selects_the_lower_tail_order_statistic() {
+        let values = (0..=100).rev().map(|value| value as f64).collect();
+        assert_eq!(lower_percentile(values, 1, 100), 1.0);
+        assert!(lower_percentile(Vec::new(), 1, 100).is_nan());
+    }
 }

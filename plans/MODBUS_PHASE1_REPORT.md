@@ -2,6 +2,7 @@
 
 Date: 2026-07-29 (America/New_York)  
 Base revision: `8ea56a0` (`add assignment for SN3`)  
+Deferred hardware-verification checkpoint: `e60e8e5` (`use dtcm for tc tables`)
 Hardware: rev7 SN3, MAC `8C-1F-64-84-40-00`
 
 ## Implemented scope

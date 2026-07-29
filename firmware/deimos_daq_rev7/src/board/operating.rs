@@ -23,11 +23,37 @@ use irq::{handler, scope};
 const WRAP_SPAN: i64 = 1_i64 << 32;
 
 impl<'a> Board<'a> {
-    pub fn operate(&mut self) -> BoardState {
+    /// Runs the common engineering-snapshot operating loop for one protocol.
+    ///
+    /// Args:
+    ///   mode: Per-invocation transport selection and resolved entry values.
+    ///
+    /// Returns:
+    ///   The next persistent board state after timeout or transport failure.
+    pub(super) fn operate(&mut self, mode: OperatingMode) -> BoardState {
         // Pause systick until we are ready
         self.systick.disable_interrupt();
         self.systick.disable_counter();
         self.watchdog.feed();
+
+        // Resolve all mode-specific entry state before enabling the cycle IRQ.
+        // Deimos configuration already installed its period, timeout, and ADC
+        // cutoff. Modbus carries those values explicitly so rate-change
+        // re-entry can preserve the complete output state.
+        let initial_outputs = match mode {
+            OperatingMode::Deimos => OperatingOutputSettings::default(),
+            OperatingMode::Modbus(initial_config) => {
+                self.dt_ns = initial_config.dt_ns;
+                self.loss_of_contact_limit = initial_config.loss_of_contact_limit;
+
+                let reporting_rate_hz = 1.0e9 / self.dt_ns as f64;
+                let cutoff_ratio = reporting_rate_hz / ADC_SAMPLE_FREQ_HZ as f64;
+                ADC_CUTOFF_RATIO.store(cutoff_ratio as f32, Ordering::Relaxed);
+                NEW_ADC_CUTOFF.store(true, Ordering::Relaxed);
+
+                initial_config.outputs
+            }
+        };
 
         // Init
         //    Set status LEDs
@@ -43,15 +69,17 @@ impl<'a> Board<'a> {
         let subcycle_res_ns =
             (subcycle_scale * 1_000_000_000 / (self.subcycle_rate_hz as u64)) as u32;
 
-        // Reset output state
-        self.set_outputs(&OperatingRoundtripInput::default());
+        // Deimos enters with safe defaults; Modbus re-entry restores its last
+        // complete settings without an intermediate output glitch.
+        self.set_outputs(&initial_outputs);
 
         //    Transition flags
         let transition_connecting = AtomicBool::new(false);
 
         //    Storage
-        let mut udp_output = OperatingSnapshot::default();
-        let mut udp_input: OperatingRoundtripInput = OperatingRoundtripInput::default();
+        let mut operating_output = OperatingSnapshot::default();
+        let mut deimos_input = OperatingRoundtripInput::default();
+        deimos_input.outputs = initial_outputs;
         let mut loss_of_contact_persistence_counter = 0;
 
         // Board temperature is the cold-junction estimate and is filtered once per
@@ -83,7 +111,11 @@ impl<'a> Board<'a> {
 
                 // Increment cycle time
                 self.time_ns += self.dt_ns as i64;
-                let end_of_cycle = self.time_ns + self.dt_ns as i64 + udp_input.phase_delta_ns;
+                let phase_delta_ns = match mode {
+                    OperatingMode::Deimos => deimos_input.phase_delta_ns,
+                    OperatingMode::Modbus(_) => 0,
+                };
+                let end_of_cycle = self.time_ns + self.dt_ns as i64 + phase_delta_ns;
 
                 // If we have lost contact with the controller, go back to connecting
                 let contact_lost =
@@ -95,7 +127,9 @@ impl<'a> Board<'a> {
                 // and clear the phase delta so that we do not repeatedly apply the same
                 // delta if we miss an input packet
                 loss_of_contact_persistence_counter += 1;
-                udp_input.phase_delta_ns = 0; // Only zero the phase portion, but preserve period adjustment
+                // Only Deimos uses timing corrections. Zero its one-cycle
+                // phase portion while preserving the period adjustment.
+                deimos_input.phase_delta_ns = 0;
 
                 // Read one coherent ADC group and convert it to the common engineering snapshot.
                 let adc_samples = latest_adc_samples();
@@ -106,7 +140,7 @@ impl<'a> Board<'a> {
                     [unfiltered_board_temperature_k],
                 )[0];
                 populate_analog_snapshot_f32(
-                    &mut udp_output,
+                    &mut operating_output,
                     &adc_samples,
                     &self.calibration,
                     filtered_board_temperature_k,
@@ -116,76 +150,86 @@ impl<'a> Board<'a> {
                 // and unwrap from i32 values to one i64
                 let encoder_val = COUNTER_SAMPLES[0].load(Ordering::Relaxed) as i64;
                 let encoder_wraps = COUNTER_WRAPS[0].load(Ordering::Relaxed) as i64;
-                udp_output.encoder = encoder_val + encoder_wraps * WRAP_SPAN;
+                operating_output.encoder = encoder_val + encoder_wraps * WRAP_SPAN;
 
                 let pulse_counter_val = COUNTER_SAMPLES[1].load(Ordering::Relaxed) as i64;
                 let pulse_counter_wraps = COUNTER_WRAPS[1].load(Ordering::Relaxed) as i64;
-                udp_output.pulse_counter = pulse_counter_val + pulse_counter_wraps * WRAP_SPAN;
+                operating_output.pulse_counter =
+                    pulse_counter_val + pulse_counter_wraps * WRAP_SPAN;
 
-                udp_output.frequency_meas[0] = FREQ_SAMPLES[0].load(Ordering::Relaxed);
-                udp_output.frequency_meas[1] = FREQ_SAMPLES[1].load(Ordering::Relaxed);
-                udp_output.gpio = self.read_gpio_inputs();
+                operating_output.frequency_meas[0] = FREQ_SAMPLES[0].load(Ordering::Relaxed);
+                operating_output.frequency_meas[1] = FREQ_SAMPLES[1].load(Ordering::Relaxed);
+                operating_output.gpio = self.read_gpio_inputs();
+                operating_output.metrics.cycle_time_ns = self.time_ns;
+                operating_output.metrics.id = operating_output.metrics.id.wrapping_add(1);
+                operating_output.metrics.sent_time_ns = self.board_time(subcycle_res_ns);
 
-                // UDP send
-                if let Some(meta) = self.controller {
-                    udp_output.metrics.cycle_time_ns = self.time_ns;
-                    udp_output.metrics.id = udp_output.metrics.id.wrapping_add(1);
-                    udp_output.metrics.sent_time_ns = self.board_time(subcycle_res_ns);
-
-                    match self
-                        .net
-                        .udp_send_with(OperatingSnapshot::BYTE_LEN, meta, |buf| {
-                            udp_output.write_bytes(buf);
-                            OperatingSnapshot::BYTE_LEN
-                        }) {
-                        Ok(_) => {}
-                        // If we are unable to transmit for any reason, return to connecting
-                        Err(_) => {
+                match mode {
+                    OperatingMode::Deimos => {
+                        // Deimos publishes every snapshot as an unsolicited UDP
+                        // response and requires its bound controller to remain.
+                        let Some(meta) = self.controller else {
                             transition_connecting.store(true, Ordering::Relaxed);
                             self.watchdog.feed();
                             return;
-                        }
-                    }
-                } else {
-                    // If the controller is deconfigured, go back to connecting
-                    transition_connecting.store(true, Ordering::Relaxed);
-                    self.watchdog.feed();
-                    return;
-                }
-
-                for _ in 0..2 {
-                    // Poll to receive next input
-                    // We have to do this at least twice per cycle to clear
-                    // buffering inputs if we were behind and are becoming sync'd
-                    self.net.poll(self.board_time(subcycle_res_ns));
-                    match self.net.udp_recv() {
-                        Ok((recv_buf, meta)) if Some(meta) == self.controller => {
-                            if recv_buf.len() == OperatingRoundtripInput::BYTE_LEN {
-                                let candidate = OperatingRoundtripInput::read_bytes(recv_buf);
-                                if !candidate.is_valid() {
-                                    continue;
-                                }
-                                udp_input = candidate;
-
-                                if udp_input.id > udp_output.metrics.last_input_id {
-                                    // Set last received packet id
-                                    udp_output.metrics.last_input_id = udp_input.id;
-
-                                    // Reset loss-of-contact counter
-                                    loss_of_contact_persistence_counter = 0;
-                                }
+                        };
+                        match self
+                            .net
+                            .udp_send_with(OperatingSnapshot::BYTE_LEN, meta, |buf| {
+                                operating_output.write_bytes(buf);
+                                OperatingSnapshot::BYTE_LEN
+                            }) {
+                            Ok(_) => {}
+                            Err(_) => {
+                                transition_connecting.store(true, Ordering::Relaxed);
+                                self.watchdog.feed();
+                                return;
                             }
                         }
-                        Err(_) => {}
-                        _ => {}
-                    };
+
+                        for _ in 0..2 {
+                            // Poll at least twice to clear buffered inputs while
+                            // the roundtrip controller converges on phase lock.
+                            self.net.poll(self.board_time(subcycle_res_ns));
+                            match self.net.udp_recv() {
+                                Ok((recv_buf, meta)) if Some(meta) == self.controller => {
+                                    if recv_buf.len() == OperatingRoundtripInput::BYTE_LEN {
+                                        let candidate =
+                                            OperatingRoundtripInput::read_bytes(recv_buf);
+                                        if !candidate.is_valid() {
+                                            continue;
+                                        }
+                                        deimos_input = candidate;
+
+                                        if deimos_input.id > operating_output.metrics.last_input_id
+                                        {
+                                            operating_output.metrics.last_input_id =
+                                                deimos_input.id;
+                                            loss_of_contact_persistence_counter = 0;
+                                        }
+                                    }
+                                }
+                                Err(_) => {}
+                                _ => {}
+                            };
+                        }
+
+                        self.systick_adjust(
+                            deimos_input.phase_delta_ns + deimos_input.period_delta_ns,
+                        );
+                    }
+                    OperatingMode::Modbus(_) => {
+                        // Phase 2 deliberately has no Modbus parser. Polling
+                        // maintains the interface while the common loop
+                        // publishes retained snapshots and exercises timeout.
+                        self.net.poll(self.board_time(subcycle_res_ns));
+                    }
                 }
 
-                // Set target phase adjustment
-                self.systick_adjust(udp_input.phase_delta_ns + udp_input.period_delta_ns);
-
-                // Write GPIO state based on last received inputs
-                self.set_outputs(&udp_input);
+                // Apply one complete settings object in either mode. Modbus
+                // reads and omitted future writes leave this retained value
+                // unchanged across cycles and rate-change re-entry.
+                self.set_outputs(&deimos_input.outputs);
 
                 // Keep operating on the current address and defer fallback-to-DHCP swaps.
                 if self.net.step_address(self.time_ns, AddressMode::Operating)
@@ -197,7 +241,7 @@ impl<'a> Board<'a> {
                 // Get overall cycle timing margin and put it in the output
                 let adc_sample_time_ns =
                     ACCUMULATED_SAMPLING_TIME_NS.fetch_and(0, Ordering::Relaxed) as i64;
-                udp_output.metrics.cycle_time_margin_ns =
+                operating_output.metrics.cycle_time_margin_ns =
                     end_of_cycle - self.board_time(subcycle_res_ns) - adc_sample_time_ns;
 
                 self.watchdog.feed();

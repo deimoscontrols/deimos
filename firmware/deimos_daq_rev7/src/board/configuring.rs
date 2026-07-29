@@ -3,7 +3,7 @@ use super::*;
 use core::sync::atomic::{AtomicBool, Ordering};
 use deimos_shared::{
     peripherals::deimos_daq_rev7::{
-        OperatingRoundtripInput, Rev7ConfiguringInput, Rev7ConfiguringOutput,
+        OperatingOutputSettings, Rev7ConfiguringInput, Rev7ConfiguringOutput,
     },
     states::{AcknowledgeConfiguration, ByteStruct, ByteStructLen},
 };
@@ -12,7 +12,7 @@ use irq::{handler, scope};
 impl<'a> Board<'a> {
     pub fn configure(&mut self) -> BoardState {
         // Initialize
-        self.set_outputs(&OperatingRoundtripInput::default());
+        self.set_outputs(&OperatingOutputSettings::default());
         self.dt_ns = 1_000_000;
         self.systick_init();
         self.watchdog.feed();
@@ -168,6 +168,6 @@ impl<'a> Board<'a> {
             return BoardState::Connecting;
         }
 
-        return BoardState::Operating;
+        return BoardState::OperatingDeimos;
     }
 }

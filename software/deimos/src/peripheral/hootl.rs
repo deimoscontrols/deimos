@@ -996,8 +996,8 @@ mod tests {
         assert_eq!(parsed.id, id);
         assert_eq!(parsed.period_delta_ns, period_delta_ns);
         assert_eq!(parsed.phase_delta_ns, phase_delta_ns);
-        assert!((parsed.pwm_duty_frac[0] - 0.5f32).abs() < 1e-6);
-        assert_eq!(parsed.gpio, 0b0101); // bits 0 and 2 set
+        assert!((parsed.outputs.pwm_duty_frac[0] - 0.5f32).abs() < 1e-6);
+        assert_eq!(parsed.outputs.gpio, 0b0101); // bits 0 and 2 set
     }
 
     /// Verify that the inbound (peripheral→host) response parsed outputs diverge

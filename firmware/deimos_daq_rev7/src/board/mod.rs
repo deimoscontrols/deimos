@@ -1,6 +1,6 @@
 use core::{
     mem::MaybeUninit,
-    sync::atomic::{compiler_fence, AtomicBool, AtomicI32, AtomicU32, Ordering},
+    sync::atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering, compiler_fence},
 };
 use cortex_m::peripheral::syst::SystClkSource;
 
@@ -33,12 +33,13 @@ use subsystems::net::*;
 use subsystems::output::*;
 use subsystems::sampling::*;
 
-use deimos_shared::peripherals::deimos_daq_rev7::{
-    operating_roundtrip::OperatingRoundtripInput, Rev7Calibration,
-};
 pub use deimos_shared::peripherals::deimos_daq_rev7::{
     ADC_CHANNEL_COUNT, ADC_SAMPLE_FREQ_HZ, COUNTER_CHANNEL_COUNT, FREQUENCY_CHANNEL_COUNT,
     MODEL_NUMBER, VREF,
+};
+use deimos_shared::peripherals::deimos_daq_rev7::{
+    Rev7Calibration,
+    operating_roundtrip::{ModbusInitialConfig, OperatingOutputSettings},
 };
 
 /// Locally administered MAC address
@@ -135,12 +136,21 @@ pub static NEW_ADC_CUTOFF: AtomicBool = AtomicBool::new(false);
 /// Accumulated time spent sampling and filtering since last comm cycle
 pub static ACCUMULATED_SAMPLING_TIME_NS: AtomicU32 = AtomicU32::new(0);
 
-#[derive(PartialEq, Eq)]
+/// Private per-invocation selector for the common operating implementation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum OperatingMode {
+    Deimos,
+    Modbus(ModbusInitialConfig),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BoardState {
     Connecting,
     Binding,
     Configuring,
-    Operating,
+    OperatingDeimos,
+    #[allow(dead_code)] // Constructed by the first accepted request in Phase 3.
+    OperatingModbus(ModbusInitialConfig),
 }
 
 pub struct Board<'a> {
@@ -184,7 +194,10 @@ impl<'a> Board<'a> {
                 BoardState::Connecting => self.connect(),
                 BoardState::Binding => self.bind(),
                 BoardState::Configuring => self.configure(),
-                BoardState::Operating => self.operate(),
+                BoardState::OperatingDeimos => self.operate(OperatingMode::Deimos),
+                BoardState::OperatingModbus(initial_config) => {
+                    self.operate(OperatingMode::Modbus(initial_config))
+                }
             }
         }
     }
@@ -229,13 +242,13 @@ impl<'a> Board<'a> {
     }
 
     // Set GPIO high/low or PWM duty cycle.
-    fn set_outputs(&mut self, input: &OperatingRoundtripInput) {
+    fn set_outputs(&mut self, settings: &OperatingOutputSettings) {
         set_outputs(
             &mut self.outputs,
-            &input.pwm_duty_frac,
-            &input.pwm_freq_hz,
-            &input.dac_v,
-            input.gpio,
+            &settings.pwm_duty_frac,
+            &settings.pwm_freq_hz,
+            &settings.dac_v,
+            settings.gpio,
             &self.clocks,
         );
     }

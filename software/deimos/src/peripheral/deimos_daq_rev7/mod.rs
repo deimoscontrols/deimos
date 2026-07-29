@@ -158,18 +158,18 @@ impl Peripheral for DeimosDaqRev7 {
         packet.period_delta_ns = period_delta_ns;
         packet.phase_delta_ns = phase_delta_ns;
         for i in 0..PWM_CHANNEL_COUNT {
-            packet.pwm_duty_frac[i] = (inputs[i] as f32).clamp(0.0, 1.0);
-            packet.pwm_freq_hz[i] =
+            packet.outputs.pwm_duty_frac[i] = (inputs[i] as f32).clamp(0.0, 1.0);
+            packet.outputs.pwm_freq_hz[i] =
                 inputs[i + PWM_CHANNEL_COUNT].clamp(1.0, u32::MAX as f64) as u32;
         }
         let dac_start = PWM_CHANNEL_COUNT * 2;
-        packet.dac_v = [
+        packet.outputs.dac_v = [
             (inputs[dac_start] as f32).clamp(0.0, VREF),
             (inputs[dac_start + 1] as f32).clamp(0.0, VREF),
         ];
         let digital_output_start = dac_start + DAC_CHANNEL_COUNT;
         for i in 0..DIGITAL_OUTPUT_COUNT {
-            packet.gpio |= u8::from(inputs[digital_output_start + i] != 0.0) << i;
+            packet.outputs.gpio |= u8::from(inputs[digital_output_start + i] != 0.0) << i;
         }
         packet.write_bytes(bytes);
     }

@@ -2,7 +2,11 @@
 
 ## Status
 
-Proposed implementation plan for adding a Modbus/TCP operating mode to
+Phases 1 and 2 are implemented. The Phase 1 hardware-test checkpoint is
+`e60e8e5`; results are recorded in `plans/MODBUS_PHASE1_REPORT.md` and
+`plans/MODBUS_PHASE2_REPORT.md`. Phase 3 is the next implementation phase.
+
+This is the implementation plan for adding a Modbus/TCP operating mode to
 `firmware/deimos_daq_rev7` while keeping the existing Deimos UDP operating mode.
 
 This plan intentionally changes the nominal Deimos operating path before adding
@@ -1005,6 +1009,10 @@ cycles. For this benchmark:
 - report the steady drop rate over the final five seconds in addition to the
   whole-run drop rate. The fixed final window makes comparisons reproducible
   while excluding the expected initial synchronization transient;
+- report the DAQ-reported cycle-time margin over both the whole run and final
+  five seconds. Use its minimum to detect any missed deadline and a low
+  percentile to estimate smaller firmware execution-time changes without
+  allowing one host/network outlier to dominate the comparison;
 - treat a reconnect, operating-state exit, or missing benchmark output as a
   failed run rather than as an ordinary dropped cycle.
 
@@ -1015,6 +1023,14 @@ to set the allowed regression tolerance before judging later phases. Any result
 outside that tolerance blocks the phase until it is explained, optimized, or
 explicitly accepted with an updated supported-rate limit. Do not hide a
 performance regression by moving the sample-per-cycle cutover downward.
+
+The existing rev7 board-time wrap behavior currently corrupts a sparse set of
+DAQ-margin samples and therefore makes the raw minimum invalid during long
+runs. Continue archiving the raw field and use the first percentile as a
+provisional comparative firmware-timing gate; it remains stable when fewer than
+one percent of samples are corrupted. Do not apply the strict minimum/deadline
+gate until Phase 5 repairs and validates the timebase. The loss/contact gate
+remains active in the interim.
 
 ## Implementation phases
 

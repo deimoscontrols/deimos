@@ -470,6 +470,108 @@ pub mod operating_roundtrip {
 
     use crate::OperatingMetrics;
 
+    /// Complete rev7 output state shared by Deimos and Modbus operating modes.
+    ///
+    /// Fixed-size array fields state their wire shapes below. The struct is
+    /// serialized inline in the Deimos roundtrip input and is also retained
+    /// directly across future Modbus operating re-entry.
+    #[derive(ByteStruct, Clone, Copy, Debug, PartialEq)]
+    #[byte_struct_le]
+    pub struct OperatingOutputSettings {
+        /// PWM duty fractions with shape `(PWM_CHANNEL_COUNT,)` and range `[0, 1]`.
+        pub pwm_duty_frac: [f32; super::PWM_CHANNEL_COUNT],
+
+        /// PWM frequencies in `Hz` with shape `(PWM_CHANNEL_COUNT,)`.
+        ///
+        /// PWM counters are buffered, so when using PWMs as GPIO by setting
+        /// duty cycle to 0%/100%, the frequency should be high enough to
+        /// produce the required response time.
+        pub pwm_freq_hz: [u32; super::PWM_CHANNEL_COUNT],
+
+        /// DAC output voltages in `V` with shape `(DAC_CHANNEL_COUNT,)` and
+        /// range `[0, VREF]`.
+        pub dac_v: [f32; super::DAC_CHANNEL_COUNT],
+
+        /// GPIO output-state bit field; only bits `0..=3` are used.
+        pub gpio: u8,
+    }
+
+    impl Default for OperatingOutputSettings {
+        /// Returns the safe output state with nonzero PWM carrier frequencies.
+        fn default() -> Self {
+            Self {
+                pwm_duty_frac: [0.0_f32; super::PWM_CHANNEL_COUNT],
+                pwm_freq_hz: [1_000_000_u32; super::PWM_CHANNEL_COUNT],
+                dac_v: [0.0_f32; super::DAC_CHANNEL_COUNT],
+                gpio: 0,
+            }
+        }
+    }
+
+    impl OperatingOutputSettings {
+        /// Checks all safety-relevant output ranges.
+        ///
+        /// Returns:
+        ///   `true` when every PWM, DAC, and GPIO setting is valid for rev7
+        ///   firmware.
+        pub fn is_valid(&self) -> bool {
+            self.pwm_duty_frac
+                .iter()
+                .all(|value| value.is_finite() && (0.0..=1.0).contains(value))
+                && self.pwm_freq_hz.iter().all(|&value| value != 0)
+                && self
+                    .dac_v
+                    .iter()
+                    .all(|value| value.is_finite() && (0.0..=super::VREF).contains(value))
+                && self.gpio & !0x0f == 0
+        }
+    }
+
+    /// Default Modbus publishing period, corresponding to 10 Hz.
+    pub const MODBUS_DEFAULT_DT_NS: u32 = 100_000_000;
+    /// Default one-minute Modbus contact timeout at 10 Hz.
+    pub const MODBUS_DEFAULT_LOSS_OF_CONTACT_LIMIT: u16 = 600;
+
+    /// Fully resolved values needed to enter or re-enter Modbus operation.
+    ///
+    /// This is internal operating state rather than a serialized protocol
+    /// record. Keeping the complete output state in one copyable value prevents
+    /// a rare cycle-rate re-entry from briefly applying safe defaults.
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub struct ModbusInitialConfig {
+        /// Nominal publishing-cycle duration in `ns`.
+        pub dt_ns: u32,
+        /// Consecutive cycles without an accepted request before shutdown.
+        pub loss_of_contact_limit: u16,
+        /// Output state to apply on operating entry.
+        pub outputs: OperatingOutputSettings,
+    }
+
+    impl Default for ModbusInitialConfig {
+        /// Returns the documented 10 Hz, one-minute, safe-output configuration.
+        fn default() -> Self {
+            Self {
+                dt_ns: MODBUS_DEFAULT_DT_NS,
+                loss_of_contact_limit: MODBUS_DEFAULT_LOSS_OF_CONTACT_LIMIT,
+                outputs: OperatingOutputSettings::default(),
+            }
+        }
+    }
+
+    impl ModbusInitialConfig {
+        /// Builds a rate-change re-entry configuration without altering outputs.
+        ///
+        /// Args:
+        ///   dt_ns: New nominal publishing-cycle duration in `ns`.
+        ///
+        /// Returns:
+        ///   A configuration with the new period and the existing timeout count
+        ///   and complete output state.
+        pub fn reenter_at_period(self, dt_ns: u32) -> Self {
+            Self { dt_ns, ..self }
+        }
+    }
+
     /// Controller command and timing-correction packet for Deimos roundtrip mode.
     ///
     /// Fixed-size array fields state their wire shapes below. Fields are serialized
@@ -502,23 +604,8 @@ pub mod operating_roundtrip {
         /// The scalar value is in `ns`.
         pub phase_delta_ns: i64,
 
-        /// PWM duty fractions with shape `(PWM_CHANNEL_COUNT,)` and range `[0, 1]`.
-        pub pwm_duty_frac: [f32; super::PWM_CHANNEL_COUNT],
-
-        /// PWM frequencies in `Hz` with shape `(PWM_CHANNEL_COUNT,)`.
-        ///
-        /// PWM counters are buffered, so when using PWMs as
-        /// GPIO by setting duty cycle to 0%/100%, pwm
-        /// frequency should be set high to produce a quick
-        /// response.
-        pub pwm_freq_hz: [u32; super::PWM_CHANNEL_COUNT],
-
-        /// DAC output voltages in `V` with shape `(DAC_CHANNEL_COUNT,)` and
-        /// range `[0, VREF]`.
-        pub dac_v: [f32; super::DAC_CHANNEL_COUNT],
-
-        /// GPIO output-state bit field; only bits `0..=3` are used.
-        pub gpio: u8,
+        /// Complete output state applied for this Deimos roundtrip cycle.
+        pub outputs: OperatingOutputSettings,
     }
 
     impl Default for OperatingRoundtripInput {
@@ -530,10 +617,7 @@ pub mod operating_roundtrip {
                 id: 0,
                 period_delta_ns: 0,
                 phase_delta_ns: 0,
-                pwm_duty_frac: [0.0_f32; super::PWM_CHANNEL_COUNT],
-                pwm_freq_hz: [1_000_000_u32; super::PWM_CHANNEL_COUNT],
-                dac_v: [0.0_f32; super::DAC_CHANNEL_COUNT],
-                gpio: 0,
+                outputs: OperatingOutputSettings::default(),
             }
         }
     }
@@ -545,17 +629,7 @@ pub mod operating_roundtrip {
         ///   `true` when the marker, PWM settings, DAC voltages, and GPIO mask
         ///   are valid for rev7 firmware.
         pub fn is_valid(&self) -> bool {
-            self.magic == super::OPERATING_INPUT_MAGIC
-                && self
-                    .pwm_duty_frac
-                    .iter()
-                    .all(|value| value.is_finite() && (0.0..=1.0).contains(value))
-                && self.pwm_freq_hz.iter().all(|&value| value != 0)
-                && self
-                    .dac_v
-                    .iter()
-                    .all(|value| value.is_finite() && (0.0..=super::VREF).contains(value))
-                && self.gpio & !0x0f == 0
+            self.magic == super::OPERATING_INPUT_MAGIC && self.outputs.is_valid()
         }
     }
 
@@ -705,7 +779,7 @@ mod packet_tests {
 
         let mut operating_input = OperatingRoundtripInput::default();
         assert!(round_trip(operating_input).is_valid());
-        operating_input.pwm_duty_frac[0] = f32::NAN;
+        operating_input.outputs.pwm_duty_frac[0] = f32::NAN;
         assert!(!round_trip(operating_input).is_valid());
 
         let mut snapshot = OperatingSnapshot::default();
@@ -729,6 +803,53 @@ mod packet_tests {
         assert_eq!(decoded.voltage_cals[4].slope, 1.25);
         assert_eq!(decoded.voltage_cals[4].offset, -0.125);
         assert_eq!(Rev7Calibration::BYTE_LEN, 1 + ADC_CHANNEL_COUNT * 8);
+    }
+
+    #[test]
+    fn operating_output_settings_round_trip_as_one_preserved_value() {
+        let settings = OperatingOutputSettings {
+            pwm_duty_frac: [0.1, 0.2, 0.3, 0.4],
+            pwm_freq_hz: [1_000, 2_000, 3_000, 4_000],
+            dac_v: [0.5, 2.0],
+            gpio: 0b1010,
+        };
+        assert!(settings.is_valid());
+
+        let retained_for_reentry = settings;
+        assert_eq!(retained_for_reentry, settings);
+
+        let initial_config = ModbusInitialConfig {
+            outputs: retained_for_reentry,
+            ..ModbusInitialConfig::default()
+        };
+        assert_eq!(initial_config.dt_ns, MODBUS_DEFAULT_DT_NS);
+        assert_eq!(
+            initial_config.loss_of_contact_limit,
+            MODBUS_DEFAULT_LOSS_OF_CONTACT_LIMIT
+        );
+        let reentry_config = initial_config.reenter_at_period(200_000);
+        assert_eq!(reentry_config.dt_ns, 200_000);
+        assert_eq!(
+            reentry_config.loss_of_contact_limit,
+            initial_config.loss_of_contact_limit
+        );
+        assert_eq!(reentry_config.outputs, settings);
+
+        let packet = OperatingRoundtripInput {
+            outputs: reentry_config.outputs,
+            ..OperatingRoundtripInput::default()
+        };
+        let mut encoded = [0_u8; 69];
+        packet.write_bytes(&mut encoded);
+        assert_eq!(&encoded[28..32], &0.1_f32.to_le_bytes());
+        assert_eq!(&encoded[44..48], &1_000_u32.to_le_bytes());
+        assert_eq!(&encoded[60..64], &0.5_f32.to_le_bytes());
+        assert_eq!(encoded[68], 0b1010);
+
+        let decoded = round_trip(packet);
+        assert_eq!(decoded.outputs, settings);
+        assert_eq!(OperatingOutputSettings::BYTE_LEN, 41);
+        assert_eq!(OperatingRoundtripInput::BYTE_LEN, 69);
     }
 
     #[test]

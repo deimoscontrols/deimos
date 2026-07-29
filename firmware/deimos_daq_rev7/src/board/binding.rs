@@ -6,7 +6,7 @@ use irq::{handler, scope};
 
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::peripherals::deimos_daq_rev7::{
-    operating_roundtrip::OperatingRoundtripInput, Rev7BindingInput, Rev7BindingOutput,
+    Rev7BindingInput, Rev7BindingOutput, operating_roundtrip::OperatingOutputSettings,
 };
 use deimos_shared::states::{ByteStruct, ByteStructLen};
 
@@ -14,7 +14,7 @@ impl<'a> Board<'a> {
     /// Bind to a controller
     pub fn bind(&mut self) -> BoardState {
         // Initialize
-        self.set_outputs(&OperatingRoundtripInput::default());
+        self.set_outputs(&OperatingOutputSettings::default());
         self.dt_ns = 1_000_000;
         self.systick_init();
         self.watchdog.feed();
@@ -86,9 +86,9 @@ impl<'a> Board<'a> {
 
                     // Respond to the controller
                     let binding_response = Rev7BindingOutput::new(PeripheralId {
-                            model_number: MODEL_NUMBER,
-                            serial_number: SERIAL_NUMBER,
-                        });
+                        model_number: MODEL_NUMBER,
+                        serial_number: SERIAL_NUMBER,
+                    });
                     match self
                         .net
                         .udp_send_with(Rev7BindingOutput::BYTE_LEN, meta, |buf| {
