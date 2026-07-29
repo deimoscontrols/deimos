@@ -67,6 +67,7 @@ num-dual = "0.13.6"
 rand = "0.10.2"
 ndarray = "0.17.2"
 plotly = "0.14.1"
+rmodbus = "0.12.2"
 
 [features]
 # default = ["python"]  # For development

@@ -1,0 +1,472 @@
+//! Modbus/TCP register layout for rev7 engineering snapshots and control state.
+//!
+//! Addresses are zero-based protocol addresses. Multi-register scalars place
+//! the most-significant 16-bit register first, and each register is transmitted
+//! in Modbus network byte order by the transport layer.
+
+use super::{ModbusInitialConfig, OperatingSnapshot, DAC_CHANNEL_COUNT, PWM_CHANNEL_COUNT};
+
+/// First input register occupied by the coherent engineering snapshot.
+pub const SNAPSHOT_INPUT_START: u16 = 0;
+/// Number of input registers occupied by one complete engineering snapshot.
+pub const SNAPSHOT_INPUT_REGISTER_COUNT: u16 = 75;
+
+/// First holding register of the writable cycle rate in `Hz` as IEEE-754 `f32`.
+pub const HOLDING_CYCLE_RATE_HZ: u16 = 0;
+/// Writable loss-of-contact limit in publishing cycles.
+pub const HOLDING_LOSS_OF_CONTACT_LIMIT: u16 = 2;
+/// Read-only current publishing period in `ns` as `u32`.
+pub const HOLDING_CYCLE_PERIOD_NS: u16 = 3;
+/// Read-only current loss-of-contact counter.
+pub const HOLDING_LOSS_OF_CONTACT_COUNTER: u16 = 5;
+/// First register of four writable PWM duty fractions as IEEE-754 `f32` values.
+pub const HOLDING_PWM_DUTY_FRAC: u16 = 6;
+/// First register of four writable PWM frequencies in `Hz` as `u32` values.
+pub const HOLDING_PWM_FREQUENCY_HZ: u16 = 14;
+/// First register of two writable DAC voltages in `V` as IEEE-754 `f32` values.
+pub const HOLDING_DAC_V: u16 = 22;
+/// Writable GPIO output bit field in the low byte of one register.
+pub const HOLDING_GPIO: u16 = 26;
+/// Total number of readable holding registers.
+pub const HOLDING_REGISTER_COUNT: u16 = 27;
+
+/// Slowest supported Phase 3 publishing rate in `Hz`.
+pub const MODBUS_MIN_CYCLE_RATE_HZ: f32 = 4.0;
+/// Fastest supported Phase 3 publishing rate in `Hz`.
+pub const MODBUS_MAX_CYCLE_RATE_HZ: f32 = 5_000.0;
+
+/// Maximum register count in one standard Modbus read request.
+pub const MODBUS_MAX_READ_REGISTERS: u16 = 125;
+/// Maximum writable holding-register span in the rev7 map.
+pub const MAX_HOLDING_WRITE_REGISTERS: usize = 21;
+
+const _: () = assert!(SNAPSHOT_INPUT_REGISTER_COUNT <= MODBUS_MAX_READ_REGISTERS);
+
+/// Semantic errors produced while validating a holding-register write.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum HoldingWriteError {
+    /// The requested range is read-only, unsupported, or splits a scalar field.
+    IllegalDataAddress,
+    /// At least one complete requested field contains an invalid value.
+    IllegalDataValue,
+}
+
+/// Errors encountered while decoding a complete snapshot register block.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SnapshotDecodeError {
+    /// The supplied block does not contain exactly 75 registers.
+    InvalidLength,
+    /// The decoded packet magic or engineering-value invariants are invalid.
+    InvalidSnapshot,
+}
+
+/// Encode one coherent snapshot into its complete Modbus input-register image.
+///
+/// Args:
+///   snapshot: Engineering snapshot to encode.
+///
+/// Returns:
+///   Register values with shape `(SNAPSHOT_INPUT_REGISTER_COUNT,)`, ordered by
+///   zero-based input-register address.
+pub fn snapshot_input_registers(
+    snapshot: &OperatingSnapshot,
+) -> [u16; SNAPSHOT_INPUT_REGISTER_COUNT as usize] {
+    let mut registers = [0_u16; SNAPSHOT_INPUT_REGISTER_COUNT as usize];
+    let mut position = 0;
+
+    put_u32(&mut registers, &mut position, snapshot.magic);
+    put_u64(&mut registers, &mut position, snapshot.metrics.id);
+    put_u64(
+        &mut registers,
+        &mut position,
+        snapshot.metrics.cycle_time_ns as u64,
+    );
+    put_u64(
+        &mut registers,
+        &mut position,
+        snapshot.metrics.sent_time_ns as u64,
+    );
+    put_u64(
+        &mut registers,
+        &mut position,
+        snapshot.metrics.last_input_id,
+    );
+    put_u64(
+        &mut registers,
+        &mut position,
+        snapshot.metrics.last_input_received_time_ns as u64,
+    );
+    put_u64(
+        &mut registers,
+        &mut position,
+        snapshot.metrics.cycle_time_margin_ns as u64,
+    );
+
+    put_f32(&mut registers, &mut position, snapshot.module_bus_current_a);
+    put_f32(&mut registers, &mut position, snapshot.module_bus_voltage_v);
+    put_f32(&mut registers, &mut position, snapshot.board_temperature_k);
+    for value in snapshot.current_4_20_a {
+        put_f32(&mut registers, &mut position, value);
+    }
+    for value in snapshot.rtd_resistance_ohm {
+        put_f32(&mut registers, &mut position, value);
+    }
+    for value in snapshot.thermocouple_temperature_k {
+        put_f32(&mut registers, &mut position, value);
+    }
+    for value in snapshot.voltage_v {
+        put_f32(&mut registers, &mut position, value);
+    }
+    put_u64(&mut registers, &mut position, snapshot.encoder as u64);
+    put_u64(&mut registers, &mut position, snapshot.pulse_counter as u64);
+    for value in snapshot.frequency_meas {
+        put_f32(&mut registers, &mut position, value);
+    }
+    registers[position] = u16::from(snapshot.gpio);
+    position += 1;
+
+    debug_assert_eq!(position, SNAPSHOT_INPUT_REGISTER_COUNT as usize);
+    registers
+}
+
+/// Decode one complete Modbus input-register block into its shared snapshot type.
+///
+/// Args:
+///   registers: Register values with shape
+///     `(SNAPSHOT_INPUT_REGISTER_COUNT,)`, already decoded from network byte
+///     order and beginning at [`SNAPSHOT_INPUT_START`].
+///
+/// Returns:
+///   Validated engineering snapshot, or a length/content error.
+pub fn snapshot_from_input_registers(
+    registers: &[u16],
+) -> Result<OperatingSnapshot, SnapshotDecodeError> {
+    if registers.len() != SNAPSHOT_INPUT_REGISTER_COUNT as usize {
+        return Err(SnapshotDecodeError::InvalidLength);
+    }
+    let mut position = 0;
+    let mut snapshot = OperatingSnapshot::default();
+    snapshot.magic = take_u32(registers, &mut position);
+    snapshot.metrics.id = take_u64(registers, &mut position);
+    snapshot.metrics.cycle_time_ns = take_u64(registers, &mut position) as i64;
+    snapshot.metrics.sent_time_ns = take_u64(registers, &mut position) as i64;
+    snapshot.metrics.last_input_id = take_u64(registers, &mut position);
+    snapshot.metrics.last_input_received_time_ns = take_u64(registers, &mut position) as i64;
+    snapshot.metrics.cycle_time_margin_ns = take_u64(registers, &mut position) as i64;
+    snapshot.module_bus_current_a = take_f32(registers, &mut position);
+    snapshot.module_bus_voltage_v = take_f32(registers, &mut position);
+    snapshot.board_temperature_k = take_f32(registers, &mut position);
+    for value in &mut snapshot.current_4_20_a {
+        *value = take_f32(registers, &mut position);
+    }
+    for value in &mut snapshot.rtd_resistance_ohm {
+        *value = take_f32(registers, &mut position);
+    }
+    for value in &mut snapshot.thermocouple_temperature_k {
+        *value = take_f32(registers, &mut position);
+    }
+    for value in &mut snapshot.voltage_v {
+        *value = take_f32(registers, &mut position);
+    }
+    snapshot.encoder = take_u64(registers, &mut position) as i64;
+    snapshot.pulse_counter = take_u64(registers, &mut position) as i64;
+    for value in &mut snapshot.frequency_meas {
+        *value = take_f32(registers, &mut position);
+    }
+    snapshot.gpio = registers[position]
+        .try_into()
+        .map_err(|_| SnapshotDecodeError::InvalidSnapshot)?;
+
+    if !snapshot.is_valid() {
+        return Err(SnapshotDecodeError::InvalidSnapshot);
+    }
+    Ok(snapshot)
+}
+
+/// Encode current Modbus configuration, diagnostics, and outputs as holding registers.
+///
+/// Args:
+///   config: Current publishing period, timeout count, and retained output settings.
+///   loss_of_contact_counter: Current number of consecutive cycles without an
+///     accepted request.
+///
+/// Returns:
+///   Register values with shape `(HOLDING_REGISTER_COUNT,)`, ordered by
+///   zero-based holding-register address.
+pub fn holding_registers(
+    config: &ModbusInitialConfig,
+    loss_of_contact_counter: u16,
+) -> [u16; HOLDING_REGISTER_COUNT as usize] {
+    let mut registers = [0_u16; HOLDING_REGISTER_COUNT as usize];
+    let mut position = HOLDING_CYCLE_RATE_HZ as usize;
+    put_f32(
+        &mut registers,
+        &mut position,
+        1.0e9_f32 / config.dt_ns as f32,
+    );
+    registers[HOLDING_LOSS_OF_CONTACT_LIMIT as usize] = config.loss_of_contact_limit;
+    position = HOLDING_CYCLE_PERIOD_NS as usize;
+    put_u32(&mut registers, &mut position, config.dt_ns);
+    registers[HOLDING_LOSS_OF_CONTACT_COUNTER as usize] = loss_of_contact_counter;
+
+    position = HOLDING_PWM_DUTY_FRAC as usize;
+    for value in config.outputs.pwm_duty_frac {
+        put_f32(&mut registers, &mut position, value);
+    }
+    position = HOLDING_PWM_FREQUENCY_HZ as usize;
+    for value in config.outputs.pwm_freq_hz {
+        put_u32(&mut registers, &mut position, value);
+    }
+    position = HOLDING_DAC_V as usize;
+    for value in config.outputs.dac_v {
+        put_f32(&mut registers, &mut position, value);
+    }
+    registers[HOLDING_GPIO as usize] = u16::from(config.outputs.gpio);
+    registers
+}
+
+/// Apply one complete-field holding-register write to a retained configuration.
+///
+/// The function accepts only the writable configuration range `0..3` or a
+/// contiguous range within the output block `6..27`. Both ends must coincide
+/// with scalar-field boundaries. The candidate is validated in full before it
+/// is returned, so rejected writes cannot partially alter outputs.
+///
+/// Args:
+///   current: Configuration to preserve for omitted fields.
+///   address: Zero-based first holding-register address.
+///   values: Network-decoded register values with shape `(register_count,)`.
+///
+/// Returns:
+///   Updated complete configuration, or the corresponding Modbus semantic error.
+pub fn apply_holding_write(
+    current: ModbusInitialConfig,
+    address: u16,
+    values: &[u16],
+) -> Result<ModbusInitialConfig, HoldingWriteError> {
+    if values.is_empty() || values.len() > MAX_HOLDING_WRITE_REGISTERS {
+        return Err(HoldingWriteError::IllegalDataAddress);
+    }
+    let end = usize::from(address)
+        .checked_add(values.len())
+        .ok_or(HoldingWriteError::IllegalDataAddress)?;
+    let start = usize::from(address);
+
+    let in_config = start < 3 && end <= 3;
+    let in_outputs =
+        start >= usize::from(HOLDING_PWM_DUTY_FRAC) && end <= usize::from(HOLDING_REGISTER_COUNT);
+    if !(in_config || in_outputs) || !is_writable_field_start(start) || !is_writable_field_end(end)
+    {
+        return Err(HoldingWriteError::IllegalDataAddress);
+    }
+
+    let mut candidate = current;
+    if field_is_covered(start, end, HOLDING_CYCLE_RATE_HZ as usize, 2) {
+        let rate_hz = f32::from_bits(read_u32(values, start, HOLDING_CYCLE_RATE_HZ as usize));
+        if !rate_hz.is_finite()
+            || !(MODBUS_MIN_CYCLE_RATE_HZ..=MODBUS_MAX_CYCLE_RATE_HZ).contains(&rate_hz)
+        {
+            return Err(HoldingWriteError::IllegalDataValue);
+        }
+        candidate.dt_ns = (1.0e9_f32 / rate_hz + 0.5) as u32;
+    }
+    if field_is_covered(start, end, HOLDING_LOSS_OF_CONTACT_LIMIT as usize, 1) {
+        candidate.loss_of_contact_limit =
+            values[usize::from(HOLDING_LOSS_OF_CONTACT_LIMIT) - start];
+        if candidate.loss_of_contact_limit == 0 {
+            return Err(HoldingWriteError::IllegalDataValue);
+        }
+    }
+
+    for index in 0..PWM_CHANNEL_COUNT {
+        let field = usize::from(HOLDING_PWM_DUTY_FRAC) + 2 * index;
+        if field_is_covered(start, end, field, 2) {
+            candidate.outputs.pwm_duty_frac[index] = f32::from_bits(read_u32(values, start, field));
+        }
+    }
+    for index in 0..PWM_CHANNEL_COUNT {
+        let field = usize::from(HOLDING_PWM_FREQUENCY_HZ) + 2 * index;
+        if field_is_covered(start, end, field, 2) {
+            candidate.outputs.pwm_freq_hz[index] = read_u32(values, start, field);
+        }
+    }
+    for index in 0..DAC_CHANNEL_COUNT {
+        let field = usize::from(HOLDING_DAC_V) + 2 * index;
+        if field_is_covered(start, end, field, 2) {
+            candidate.outputs.dac_v[index] = f32::from_bits(read_u32(values, start, field));
+        }
+    }
+    if field_is_covered(start, end, HOLDING_GPIO as usize, 1) {
+        candidate.outputs.gpio = values[usize::from(HOLDING_GPIO) - start]
+            .try_into()
+            .map_err(|_| HoldingWriteError::IllegalDataValue)?;
+    }
+
+    if !candidate.outputs.is_valid() {
+        return Err(HoldingWriteError::IllegalDataValue);
+    }
+    Ok(candidate)
+}
+
+fn put_u32(registers: &mut [u16], position: &mut usize, value: u32) {
+    registers[*position] = (value >> 16) as u16;
+    registers[*position + 1] = value as u16;
+    *position += 2;
+}
+
+fn put_f32(registers: &mut [u16], position: &mut usize, value: f32) {
+    put_u32(registers, position, value.to_bits());
+}
+
+fn put_u64(registers: &mut [u16], position: &mut usize, value: u64) {
+    registers[*position] = (value >> 48) as u16;
+    registers[*position + 1] = (value >> 32) as u16;
+    registers[*position + 2] = (value >> 16) as u16;
+    registers[*position + 3] = value as u16;
+    *position += 4;
+}
+
+fn read_u32(values: &[u16], write_start: usize, field_start: usize) -> u32 {
+    let offset = field_start - write_start;
+    (u32::from(values[offset]) << 16) | u32::from(values[offset + 1])
+}
+
+fn take_u32(registers: &[u16], position: &mut usize) -> u32 {
+    let value = (u32::from(registers[*position]) << 16) | u32::from(registers[*position + 1]);
+    *position += 2;
+    value
+}
+
+fn take_f32(registers: &[u16], position: &mut usize) -> f32 {
+    f32::from_bits(take_u32(registers, position))
+}
+
+fn take_u64(registers: &[u16], position: &mut usize) -> u64 {
+    let value = (u64::from(registers[*position]) << 48)
+        | (u64::from(registers[*position + 1]) << 32)
+        | (u64::from(registers[*position + 2]) << 16)
+        | u64::from(registers[*position + 3]);
+    *position += 4;
+    value
+}
+
+fn field_is_covered(start: usize, end: usize, field_start: usize, width: usize) -> bool {
+    start <= field_start && end >= field_start + width
+}
+
+fn is_writable_field_start(address: usize) -> bool {
+    matches!(
+        address,
+        0 | 2 | 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20 | 22 | 24 | 26
+    )
+}
+
+fn is_writable_field_end(address: usize) -> bool {
+    matches!(
+        address,
+        2 | 3 | 8 | 10 | 12 | 14 | 16 | 18 | 20 | 22 | 24 | 26 | 27
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::peripherals::deimos_daq_rev7::OPERATING_SNAPSHOT_MAGIC;
+
+    #[test]
+    fn snapshot_registers_are_most_significant_register_first() {
+        let mut snapshot = OperatingSnapshot::default();
+        snapshot.metrics.id = 0x0123_4567_89ab_cdef;
+        snapshot.module_bus_current_a = 1.0;
+        snapshot.encoder = -2;
+        snapshot.gpio = 3;
+
+        let registers = snapshot_input_registers(&snapshot);
+        assert_eq!(
+            &registers[0..2],
+            &[
+                (OPERATING_SNAPSHOT_MAGIC >> 16) as u16,
+                OPERATING_SNAPSHOT_MAGIC as u16
+            ]
+        );
+        assert_eq!(&registers[2..6], &[0x0123, 0x4567, 0x89ab, 0xcdef]);
+        assert_eq!(&registers[26..28], &[0x3f80, 0x0000]);
+        assert_eq!(&registers[62..66], &[0xffff, 0xffff, 0xffff, 0xfffe]);
+        assert_eq!(registers[74], 3);
+
+        let decoded = snapshot_from_input_registers(&registers).unwrap();
+        assert_eq!(decoded.magic, snapshot.magic);
+        assert_eq!(decoded.metrics.id, snapshot.metrics.id);
+        assert_eq!(decoded.module_bus_current_a.to_bits(), 1.0_f32.to_bits());
+        assert_eq!(decoded.encoder, -2);
+        assert_eq!(decoded.gpio, 3);
+    }
+
+    #[test]
+    fn holding_registers_round_trip_writable_fields() {
+        let current = ModbusInitialConfig::default();
+        let mut values = [0_u16; 21];
+        let mut position = 0;
+        for value in [0.25_f32, 0.5, 0.75, 1.0] {
+            put_f32(&mut values, &mut position, value);
+        }
+        for value in [100_u32, 200, 300, 400] {
+            put_u32(&mut values, &mut position, value);
+        }
+        for value in [1.25_f32, 2.5] {
+            put_f32(&mut values, &mut position, value);
+        }
+        values[position] = 0x0a;
+
+        let updated = apply_holding_write(current, HOLDING_PWM_DUTY_FRAC, &values).unwrap();
+        assert_eq!(updated.outputs.pwm_duty_frac, [0.25, 0.5, 0.75, 1.0]);
+        assert_eq!(updated.outputs.pwm_freq_hz, [100, 200, 300, 400]);
+        assert_eq!(updated.outputs.dac_v, [1.25, 2.5]);
+        assert_eq!(updated.outputs.gpio, 0x0a);
+
+        let registers = holding_registers(&updated, 7);
+        assert_eq!(&registers[6..], &values);
+        assert_eq!(registers[HOLDING_LOSS_OF_CONTACT_COUNTER as usize], 7);
+    }
+
+    #[test]
+    fn holding_writes_preserve_omitted_fields_and_validate_atomically() {
+        let current = ModbusInitialConfig::default();
+        let rate_bits = 2_000.0_f32.to_bits();
+        let updated = apply_holding_write(
+            current,
+            HOLDING_CYCLE_RATE_HZ,
+            &[(rate_bits >> 16) as u16, rate_bits as u16, 123],
+        )
+        .unwrap();
+        assert_eq!(updated.dt_ns, 500_000);
+        assert_eq!(updated.loss_of_contact_limit, 123);
+        assert_eq!(updated.outputs, current.outputs);
+
+        assert_eq!(
+            apply_holding_write(current, 1, &[0]),
+            Err(HoldingWriteError::IllegalDataAddress)
+        );
+        assert_eq!(
+            apply_holding_write(current, 2, &[1, 2, 3, 4]),
+            Err(HoldingWriteError::IllegalDataAddress)
+        );
+        assert_eq!(
+            apply_holding_write(current, HOLDING_GPIO, &[0x10]),
+            Err(HoldingWriteError::IllegalDataValue)
+        );
+        assert_eq!(
+            apply_holding_write(current, HOLDING_LOSS_OF_CONTACT_LIMIT, &[0]),
+            Err(HoldingWriteError::IllegalDataValue)
+        );
+        let nan = f32::NAN.to_bits();
+        assert_eq!(
+            apply_holding_write(
+                current,
+                HOLDING_PWM_DUTY_FRAC,
+                &[(nan >> 16) as u16, nan as u16],
+            ),
+            Err(HoldingWriteError::IllegalDataValue)
+        );
+    }
+}

@@ -2,9 +2,10 @@
 
 ## Status
 
-Phases 1 and 2 are implemented. The Phase 1 hardware-test checkpoint is
-`e60e8e5`; results are recorded in `plans/MODBUS_PHASE1_REPORT.md` and
-`plans/MODBUS_PHASE2_REPORT.md`. Phase 3 is the next implementation phase.
+Phases 1 through 3 are implemented. The Phase 1 hardware-test checkpoint is
+`e60e8e5`; results are recorded in `plans/MODBUS_PHASE1_REPORT.md`,
+`plans/MODBUS_PHASE2_REPORT.md`, and `plans/MODBUS_PHASE3_REPORT.md`. Phase 4
+hardening is the next implementation phase.
 
 This is the implementation plan for adding a Modbus/TCP operating mode to
 `firmware/deimos_daq_rev7` while keeping the existing Deimos UDP operating mode.
@@ -933,9 +934,13 @@ matches the documentation.
 After phase-one support is stable:
 
 - Add `rmodbus` with default features disabled and fixed-size response storage.
-- Accumulate at most one bounded TCP ADU, handling partial receipt, invalid MBAP
-  lengths, transmit backpressure, disconnect, and relisten. Require clients to
-  wait for each response before sending the next request.
+- Accumulate at most one bounded TCP ADU, handling partial TCP reads, invalid
+  MBAP lengths, transmit backpressure, disconnect, and relisten. Require clients
+  to wait for each response before sending the next request. In every
+  Modbus-capable cycle, perform at most two TCP receive-buffer calls, two TCP
+  transmit-buffer calls, two Ethernet frame receives, and two Ethernet frame
+  transmits. Parse at most one complete ADU; do not use resynchronization scans
+  or any unbounded packet-draining loop.
 - Define a zero-based register map tested alongside the `OperatingSnapshot`
   definition.
 - Support function code 04 for the immutable latest-snapshot input registers,
@@ -1137,12 +1142,15 @@ Phase 3 exit criteria:
   cutoff; clients wait for the response before issuing another request.
 - Requests using any Unit Identifier, including `0` and `255`, are accepted and
   responses echo the identifier unchanged.
+- Each Modbus-capable cycle performs no more than two socket receives, two
+  socket transmits, two Ethernet-frame receives, two Ethernet-frame transmits,
+  and one complete ADU parse.
 - One minute without accepted requests at the default configuration returns the
   board to `Connecting` and safe outputs through the existing transition path.
 
 ### Phase 4: Modbus/TCP hardening
 
-1. Exercise malformed and fragmented Modbus TCP frames. Document that clients
+1. Exercise malformed and partial-read Modbus TCP frames. Document that clients
    keep only one request outstanding; behavior for pipelined requests is not
    guaranteed.
 2. Test disconnect/reconnect, DHCP/fallback address changes, and stalled clients.

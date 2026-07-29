@@ -24,6 +24,7 @@ embedded-alloc = { version = "0.7.0", default-features = false, features = ["llf
 
 deimos_shared = { path = "../../software/deimos_shared", version="0.18.0", features = ["alloc", "tcm"] }
 deimos_numerics = { path = "../../software/deimos_numerics", version="0.18.0" }
+rmodbus = { version = "0.12.2", default-features = false }
 
 [dependencies.smoltcp]
 version = "0.11.0"

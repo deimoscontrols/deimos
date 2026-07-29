@@ -465,6 +465,7 @@ impl<'a> Board<'a> {
                 controller,
                 configuring_timeout_ms,
                 loss_of_contact_limit,
+                modbus: ModbusTcpServer::new(),
                 calibration,
                 outputs,
             },

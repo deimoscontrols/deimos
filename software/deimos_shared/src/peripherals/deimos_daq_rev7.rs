@@ -1,5 +1,8 @@
 pub use operating_roundtrip::*;
 
+#[path = "deimos_daq_rev7_modbus.rs"]
+pub mod modbus;
+
 use super::model_numbers;
 
 /// Rev7 model number.

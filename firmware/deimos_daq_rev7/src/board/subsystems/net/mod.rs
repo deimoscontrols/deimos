@@ -18,8 +18,34 @@ use arp_scraper::ObservedDevice;
 /// Length of the post-claim conflict observation window for a tentative fallback address.
 const FALLBACK_VALIDATION_NS: i64 = 250_000_000;
 
-/// Port reserved for the later Modbus/TCP operating path.
+/// Standard port exposed by the calibrated Modbus/TCP operating path.
 pub(crate) const MODBUS_TCP_PORT: u16 = 502;
+
+/// Remaining Ethernet-frame work allowed across bounded polls in one cycle.
+pub(crate) struct NetPollBudget {
+    /// Receive frames which smoltcp may still take from the DMA ring.
+    rx_remaining: usize,
+    /// Transmit frames which smoltcp may still emit through the DMA ring.
+    tx_remaining: usize,
+}
+
+impl NetPollBudget {
+    /// Build the fixed two-RX/two-TX budget used by one Modbus-capable cycle.
+    pub(crate) fn modbus_cycle() -> Self {
+        Self {
+            rx_remaining: 2,
+            tx_remaining: 2,
+        }
+    }
+
+    /// Build an effectively unlimited allowance for the legacy UDP paths.
+    fn unbounded() -> Self {
+        Self {
+            rx_remaining: usize::MAX,
+            tx_remaining: usize::MAX,
+        }
+    }
+}
 
 /// Socket storage borrowed by [`Net`] for the lifetime of the firmware.
 pub(crate) struct NetStorageStatic<'a> {
@@ -271,12 +297,37 @@ impl<'a> Net<'a> {
     /// incoming UDP packets for the UDP socket, but will not advance the
     /// DHCP state machine. This can reduce timing uncertainty under
     /// repeated polls.
+    pub(crate) fn poll(&mut self, time_ns: i64) -> bool {
+        let mut budget = NetPollBudget::unbounded();
+        self.poll_bounded(time_ns, &mut budget)
+    }
+
+    /// Poll smoltcp without allowing a packet storm to monopolize the IRQ.
+    ///
+    /// The same budget can be passed to a second poll later in the cycle; only
+    /// the unconsumed portion remains available. The device wrapper makes
+    /// smoltcp's otherwise draining internal loop terminate when either finite
+    /// frame allowance is exhausted.
+    ///
+    /// Args:
+    ///   time_ns: Current board time in `ns`.
+    ///   budget: Remaining receive/transmit frame counts for this cycle.
+    ///
+    /// Returns:
+    ///   Whether smoltcp processed or emitted at least one frame.
     #[inline(never)]
     #[unsafe(link_section = ".itcm.net_poll")]
-    pub(crate) fn poll(&mut self, time_ns: i64) -> bool {
+    pub(crate) fn poll_bounded(&mut self, time_ns: i64, budget: &mut NetPollBudget) -> bool {
+        self.ethdev
+            .set_io_budget(budget.rx_remaining, budget.tx_remaining);
         let timestamp = Instant::from_micros(time_ns / 1000);
-        self.iface
-            .poll(timestamp, &mut self.ethdev, &mut self.sockets)
+        let changed = self
+            .iface
+            .poll(timestamp, &mut self.ethdev, &mut self.sockets);
+        budget.rx_remaining = self.ethdev.rx_budget();
+        budget.tx_remaining = self.ethdev.tx_budget();
+        self.ethdev.clear_io_budget();
+        changed
     }
 
     /// Receive one UDP packet directly from the socket buffer.
@@ -324,7 +375,6 @@ impl<'a> Net<'a> {
     /// Returns:
     ///   `Ok(())` after binding the socket to TCP port `502`, or smoltcp's
     ///   listen error if the socket cannot enter the listening state.
-    #[allow(dead_code)]
     pub(crate) fn tcp_listen(&mut self) -> Result<(), tcp::ListenError> {
         self.sockets
             .get_mut::<tcp::Socket>(self.tcp_handle)
@@ -335,7 +385,6 @@ impl<'a> Net<'a> {
     ///
     /// Returns:
     ///   `Ok(())` after rebinding TCP port `502`, or smoltcp's listen error.
-    #[allow(dead_code)]
     pub(crate) fn tcp_relisten(&mut self) -> Result<(), tcp::ListenError> {
         self.reset_tcp_socket();
         self.tcp_listen()
@@ -349,7 +398,6 @@ impl<'a> Net<'a> {
     /// Returns:
     ///   Number of bytes copied, or smoltcp's receive error when no stream data
     ///   can be read.
-    #[allow(dead_code)]
     pub(crate) fn tcp_recv(&mut self, bytes: &mut [u8]) -> Result<usize, tcp::RecvError> {
         self.sockets
             .get_mut::<tcp::Socket>(self.tcp_handle)
@@ -364,19 +412,36 @@ impl<'a> Net<'a> {
     /// Returns:
     ///   Number of bytes queued, or smoltcp's send error when the stream cannot
     ///   accept data.
-    #[allow(dead_code)]
     pub(crate) fn tcp_send(&mut self, bytes: &[u8]) -> Result<usize, tcp::SendError> {
         self.sockets
             .get_mut::<tcp::Socket>(self.tcp_handle)
             .send_slice(bytes)
     }
 
-    /// Gracefully close the current TCP stream.
-    #[allow(dead_code)]
-    pub(crate) fn tcp_close(&mut self) {
-        self.sockets
-            .get_mut::<tcp::Socket>(self.tcp_handle)
-            .close();
+    /// Return whether the TCP socket currently owns an established session.
+    pub(crate) fn tcp_is_active(&self) -> bool {
+        self.sockets.get::<tcp::Socket>(self.tcp_handle).is_active()
+    }
+
+    /// Return whether at least one application byte is ready to receive.
+    pub(crate) fn tcp_can_recv(&self) -> bool {
+        self.sockets.get::<tcp::Socket>(self.tcp_handle).can_recv()
+    }
+
+    /// Return whether the TCP state can no longer receive a request from its peer.
+    ///
+    /// The explicit state test distinguishes an orderly peer close from
+    /// `SynReceived`, where neither [`tcp::Socket::can_recv`] nor
+    /// [`tcp::Socket::may_recv`] is true while the handshake is still valid.
+    pub(crate) fn tcp_connection_ended(&self) -> bool {
+        matches!(
+            self.sockets.get::<tcp::Socket>(self.tcp_handle).state(),
+            tcp::State::Closed
+                | tcp::State::CloseWait
+                | tcp::State::Closing
+                | tcp::State::LastAck
+                | tcp::State::TimeWait
+        )
     }
 
     /// Advance the full address manager and report whether the caller may continue.

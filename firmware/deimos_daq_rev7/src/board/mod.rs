@@ -23,11 +23,13 @@ use atomic_float::AtomicF32;
 mod binding;
 mod configuring;
 mod connecting;
+mod modbus;
 mod operating;
 mod startup;
 
 // Peripherals with their own state and logic
 pub mod subsystems;
+use modbus::ModbusTcpServer;
 pub use subsystems::interrupts;
 use subsystems::net::*;
 use subsystems::output::*;
@@ -149,7 +151,6 @@ pub enum BoardState {
     Binding,
     Configuring,
     OperatingDeimos,
-    #[allow(dead_code)] // Constructed by the first accepted request in Phase 3.
     OperatingModbus(ModbusInitialConfig),
 }
 
@@ -178,6 +179,8 @@ pub struct Board<'a> {
     pub controller: Option<UdpMetadata>,
     pub configuring_timeout_ms: u16,
     pub loss_of_contact_limit: u16,
+    /// Fixed-storage Modbus/TCP framing and response state.
+    modbus: ModbusTcpServer,
 
     // Embedded measurement calibration.
     pub calibration: Rev7Calibration,

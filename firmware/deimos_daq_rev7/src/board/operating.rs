@@ -7,6 +7,8 @@ use deimos_shared::peripherals::deimos_daq_rev7::*;
 use deimos_shared::states::{ByteStruct, ByteStructLen};
 use irq::{handler, scope};
 
+use super::modbus::{ModbusSocketBudget, ReceiveStatus};
+
 /// When an i32 wraps, what is the size of the jump in value?
 /// Counter values will eventually be converted to an f64, so it's useful to think about the implications.
 /// 64-bit float which has integer resolution out to 2**53, so
@@ -54,6 +56,17 @@ impl<'a> Board<'a> {
                 initial_config.outputs
             }
         };
+        let mut current_modbus_config = match mode {
+            OperatingMode::Deimos => ModbusInitialConfig::default(),
+            OperatingMode::Modbus(initial_config) => initial_config,
+        };
+
+        // A Modbus operating invocation owns the connection selected in
+        // Binding, including across a rate-change re-entry. A vanished session
+        // uses the normal safe-output reconnect path.
+        if matches!(mode, OperatingMode::Modbus(_)) && !self.net.tcp_is_active() {
+            return BoardState::Connecting;
+        }
 
         // Init
         //    Set status LEDs
@@ -75,6 +88,7 @@ impl<'a> Board<'a> {
 
         //    Transition flags
         let transition_connecting = AtomicBool::new(false);
+        let transition_modbus_reentry = AtomicBool::new(false);
 
         //    Storage
         let mut operating_output = OperatingSnapshot::default();
@@ -224,10 +238,95 @@ impl<'a> Board<'a> {
                         );
                     }
                     OperatingMode::Modbus(_) => {
-                        // Phase 2 deliberately has no Modbus parser. Polling
-                        // maintains the interface while the common loop
-                        // publishes retained snapshots and exercises timeout.
-                        self.net.poll(self.board_time(subcycle_res_ns));
+                        let mut net_budget = NetPollBudget::modbus_cycle();
+                        self.net
+                            .poll_bounded(self.board_time(subcycle_res_ns), &mut net_budget);
+                        if self.net.tcp_connection_ended() {
+                            transition_connecting.store(true, Ordering::Relaxed);
+                            self.watchdog.feed();
+                            return;
+                        }
+
+                        let mut socket_budget = ModbusSocketBudget::new();
+                        let response_was_pending = self.modbus.response_pending();
+                        if response_was_pending {
+                            if self
+                                .modbus
+                                .send_response(&mut self.net, &mut socket_budget)
+                                .is_err()
+                            {
+                                transition_connecting.store(true, Ordering::Relaxed);
+                                self.watchdog.feed();
+                                return;
+                            }
+                        } else {
+                            let receive_status =
+                                if self.modbus.request_complete() || self.net.tcp_can_recv() {
+                                    self.modbus.receive(&mut self.net, &mut socket_budget)
+                                } else {
+                                    ReceiveStatus::Incomplete
+                                };
+                            match receive_status {
+                                ReceiveStatus::Complete => {
+                                    match self.modbus.process_operating_request(
+                                        &operating_output,
+                                        current_modbus_config,
+                                        loss_of_contact_persistence_counter,
+                                    ) {
+                                        Ok(outcome) => {
+                                            if outcome.accepted {
+                                                let rate_changed =
+                                                    outcome.config.dt_ns != self.dt_ns;
+                                                current_modbus_config = outcome.config;
+                                                self.loss_of_contact_limit =
+                                                    outcome.config.loss_of_contact_limit;
+                                                deimos_input.outputs = outcome.config.outputs;
+                                                operating_output.metrics.last_input_id =
+                                                    u64::from(outcome.transaction_id);
+                                                operating_output
+                                                    .metrics
+                                                    .last_input_received_time_ns =
+                                                    self.board_time(subcycle_res_ns);
+                                                loss_of_contact_persistence_counter = 0;
+                                                if rate_changed {
+                                                    self.modbus.set_reentry_config(outcome.config);
+                                                }
+                                            }
+                                        }
+                                        Err(_) => {
+                                            transition_connecting.store(true, Ordering::Relaxed);
+                                            self.watchdog.feed();
+                                            return;
+                                        }
+                                    }
+                                }
+                                ReceiveStatus::Malformed | ReceiveStatus::Disconnected => {
+                                    transition_connecting.store(true, Ordering::Relaxed);
+                                    self.watchdog.feed();
+                                    return;
+                                }
+                                ReceiveStatus::Incomplete => {}
+                            }
+
+                            if self.modbus.response_pending()
+                                && self
+                                    .modbus
+                                    .send_response(&mut self.net, &mut socket_budget)
+                                    .is_err()
+                            {
+                                transition_connecting.store(true, Ordering::Relaxed);
+                                self.watchdog.feed();
+                                return;
+                            }
+                        }
+
+                        // A second bounded poll can emit a newly enqueued
+                        // response, but shares the original two-frame budget.
+                        self.net
+                            .poll_bounded(self.board_time(subcycle_res_ns), &mut net_budget);
+                        if self.modbus.reentry_pending() && !self.modbus.response_pending() {
+                            transition_modbus_reentry.store(true, Ordering::Relaxed);
+                        }
                     }
                 }
 
@@ -260,6 +359,7 @@ impl<'a> Board<'a> {
             let mut transition: bool;
             'wait_for_transition: loop {
                 transition = transition_connecting.load(Ordering::Relaxed);
+                transition |= transition_modbus_reentry.load(Ordering::Relaxed);
                 if transition {
                     break 'wait_for_transition;
                 }
@@ -268,6 +368,12 @@ impl<'a> Board<'a> {
             }
         });
 
-        return BoardState::Connecting;
+        if transition_connecting.load(Ordering::Relaxed) {
+            BoardState::Connecting
+        } else if transition_modbus_reentry.load(Ordering::Relaxed) {
+            BoardState::OperatingModbus(self.modbus.take_reentry_config().unwrap())
+        } else {
+            BoardState::Connecting
+        }
     }
 }

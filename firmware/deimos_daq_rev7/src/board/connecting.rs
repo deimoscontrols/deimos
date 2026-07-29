@@ -19,6 +19,7 @@ impl<'a> Board<'a> {
         self.controller = None;
         self.net.reset_udp_socket();
         self.net.reset_tcp_socket();
+        self.modbus.reset();
 
         // Set status LEDs
         self.led0.set_low();
