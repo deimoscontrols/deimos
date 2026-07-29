@@ -1024,13 +1024,15 @@ outside that tolerance blocks the phase until it is explained, optimized, or
 explicitly accepted with an updated supported-rate limit. Do not hide a
 performance regression by moving the sample-per-cycle cutover downward.
 
-The existing rev7 board-time wrap behavior currently corrupts a sparse set of
-DAQ-margin samples and therefore makes the raw minimum invalid during long
-runs. Continue archiving the raw field and use the first percentile as a
-provisional comparative firmware-timing gate; it remains stable when fewer than
-one percent of samples are corrupted. Do not apply the strict minimum/deadline
-gate until Phase 5 repairs and validates the timebase. The loss/contact gate
-remains active in the interim.
+The DAQ margin describes the preceding completed cycle, so the first snapshot
+has no margin measurement and retains its packet-default zero. Exclude that
+default if it reaches the dispatched CSV; depending on synchronization, it may
+be consumed before dispatch begins, so retain a nonzero first row. Clear the
+sampling-time accumulator immediately before enabling the operating SysTick so
+the first measured cycle does not subtract work accumulated during Connecting,
+Binding, and Configuring. Use both the remaining minimum and first percentile
+as active firmware-timing gates; Phase 5's acquisition timestamp work is
+independent of this measurement.
 
 ## Implementation phases
 

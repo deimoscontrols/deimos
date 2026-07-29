@@ -99,6 +99,11 @@ impl<'a> Board<'a> {
             }],
         );
 
+        // Sampling runs in every board state. Discard time accumulated before
+        // this operating interval so the first completed-cycle margin contains
+        // only work attributable to the new operating session.
+        ACCUMULATED_SAMPLING_TIME_NS.store(0, Ordering::Relaxed);
+
         // Set up main cycle
         self.systick_init();
 

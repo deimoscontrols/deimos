@@ -93,8 +93,10 @@ dominated loss rate. Its two-run median decreased from 16,875 to 16,465 ns for
 the whole run and from 16,920 to 16,440 ns for the steady window. The estimated
 Phase 2 firmware cost is therefore approximately 0.4--0.5 microseconds at 5
 kHz, leaving a steady first-percentile margin of at least 16.385 microseconds in
-these runs. Sparse board-time wrap artifacts still invalidate the raw minimum;
-Phase 5 retains the strict minimum-margin fix and gate.
+these runs. The historical whole-run raw minimum was invalid because the first
+completed cycle subtracted sampling time accumulated before Operating. The
+firmware now clears that accumulator on operating entry, and the benchmark
+excludes the first snapshot because it has no preceding cycle to measure.
 
 Network misses remained individually isolated and all runs delivered
 essentially 50,000 snapshots. Their per-second clustering and run-to-run rate
@@ -107,6 +109,22 @@ Raw final CSVs are archived as
 `target/rev7_rate_benchmark/phase2_optimized_original_adapter_run1_20260729.csv`
 and
 `target/rev7_rate_benchmark/phase2_optimized_original_adapter_run2_20260729.csv`.
+
+### Sampling-accumulator entry correction
+
+Inspection of the historical whole-run minima showed exactly one huge negative
+sample per run: the first completed operating cycle subtracted TIM2 execution
+time accumulated throughout the preceding board states. This was not a TIM5 or
+board-time wrap. `Board::operate` now clears the accumulator immediately before
+enabling its SysTick. The benchmark also ignores the first row only when it
+contains the unmeasured packet-default zero.
+
+One post-fix 5 kHz run produced 49,989 rows, 0.02080458 whole-run loss,
+0.01532000 steady loss, a valid 12,835 ns whole/steady minimum, and 16,335 ns
+whole-run / 16,275 ns steady first percentiles. Its first archived margin was
+already a valid 24,860 ns because the default snapshot was consumed before CSV
+dispatch. No large negative margin remained. The raw CSV is archived as
+`target/rev7_rate_benchmark/phase2_accumulator_clear_20260729.csv`.
 
 ## Deferred hardware verification
 

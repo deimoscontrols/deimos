@@ -108,14 +108,20 @@ fn report(path: &std::path::Path, dt_ns: i64) -> Result<(), String> {
     let mut min_cycle_time = f64::INFINITY;
     let start_timestamp = rows.first().map(|row| row.timestamp).unwrap_or(0);
 
-    for row in rows {
+    for (row_index, row) in rows.iter().enumerate() {
         let values = &row.channel_values;
         let loss = values[loss_idx];
         let dropped = loss > 0.0;
         total_drops += usize::from(dropped);
         max_burst = max_burst.max(loss);
         min_ctrl_margin = min_ctrl_margin.min(values[ctrl_margin_idx]);
-        min_board_margin = min_board_margin.min(values[board_margin_idx]);
+        // The first snapshot has no completed predecessor cycle and may carry
+        // the packet-default zero. Depending on synchronization, that snapshot
+        // can be consumed before dispatch begins; retain a nonzero first row.
+        let board_margin = values[board_margin_idx];
+        if row_index != 0 || board_margin != 0.0 {
+            min_board_margin = min_board_margin.min(board_margin);
+        }
         min_cycle_time = min_cycle_time.min(values[cycle_time_idx]);
 
         let elapsed = row.timestamp.saturating_sub(start_timestamp);
@@ -132,7 +138,11 @@ fn report(path: &std::path::Path, dt_ns: i64) -> Result<(), String> {
         .count();
     let board_margin_p01 = lower_percentile(
         rows.iter()
-            .map(|row| row.channel_values[board_margin_idx])
+            .enumerate()
+            .filter_map(|(index, row)| {
+                let margin = row.channel_values[board_margin_idx];
+                (index != 0 || margin != 0.0).then_some(margin)
+            })
             .collect(),
         1,
         100,

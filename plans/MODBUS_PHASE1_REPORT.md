@@ -190,10 +190,12 @@ additional Phase 1 calculations. Raw CSVs are archived as
 The two `interpn` runs remain within the 0.00540 to 0.04384 final-five-second
 spread observed across the earlier custom-spline runs. They do not demonstrate
 a loss-of-contact-rate regression, but the run-to-run variance is too large to
-claim a performance improvement from this benchmark alone. The board cycle
-time and board margin minima were nonsensical in all runs because of the
-pre-existing board-time wrap behavior; they are intentionally not used for this
-comparison and remain in scope for the later timing phase.
+claim a performance improvement from this benchmark alone. The board
+`cycle_time_ns` field is absolute uptime rather than a cycle duration. The
+whole-run margin minimum was also corrupted by subtracting sampling time
+accumulated before Operating from the first completed cycle; final-window
+margin statistics were unaffected. The accumulator initialization was corrected
+after Phase 2 without changing these archived results.
 
 Three runs of the preceding custom-spline image were attempted. The first,
 immediately after that flash, stopped receiving fresh operating packets after
