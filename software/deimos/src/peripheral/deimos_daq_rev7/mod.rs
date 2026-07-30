@@ -110,6 +110,7 @@ impl Peripheral for DeimosDaqRev7 {
 
     fn output_names(&self) -> Vec<String> {
         let mut names = vec![
+            "sample_time_ns".to_owned(),
             "module_bus_current_A".to_owned(),
             "module_bus_voltage_V".to_owned(),
             "board_temperature_K".to_owned(),
@@ -181,7 +182,8 @@ impl Peripheral for DeimosDaqRev7 {
 
     fn parse_operating_roundtrip(&self, bytes: &[u8], outputs: &mut [f64]) -> OperatingMetrics {
         let packet = OperatingSnapshot::read_bytes(bytes);
-        let mut index = 0;
+        outputs[0] = packet.sample_time_ns as f64;
+        let mut index = 1;
         for value in [
             packet.module_bus_current_a,
             packet.module_bus_voltage_v,
@@ -281,11 +283,16 @@ mod tests {
     #[test]
     fn packet_output_count_matches_names() {
         let peripheral = DeimosDaqRev7::default();
-        let packet = OperatingSnapshot::default();
+        let packet = OperatingSnapshot {
+            sample_time_ns: 0x0012_3456_789a_bcde,
+            ..OperatingSnapshot::default()
+        };
         let mut bytes = vec![0; OperatingSnapshot::BYTE_LEN];
         packet.write_bytes(&mut bytes);
         let mut outputs = vec![0.0; peripheral.output_names().len()];
         peripheral.parse_operating_roundtrip(&bytes, &mut outputs);
-        assert_eq!(outputs.len(), 24);
+        assert_eq!(outputs.len(), 25);
+        assert_eq!(outputs[0], packet.sample_time_ns as f64);
+        assert_eq!(peripheral.output_names()[0], "sample_time_ns");
     }
 }

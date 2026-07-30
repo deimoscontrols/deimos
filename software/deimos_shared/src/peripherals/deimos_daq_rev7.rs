@@ -3,6 +3,9 @@ pub use operating_roundtrip::*;
 #[path = "deimos_daq_rev7_modbus.rs"]
 pub mod modbus;
 
+#[path = "deimos_daq_rev7_acquisition.rs"]
+pub mod acquisition;
+
 use super::model_numbers;
 
 /// Rev7 model number.
@@ -649,6 +652,11 @@ pub mod operating_roundtrip {
         pub magic: u32,
         /// Board timing, packet-ID, and loss-of-contact metrics.
         pub metrics: OperatingMetrics,
+        /// Board time immediately before acquisition of the published ADC group, in `ns`.
+        ///
+        /// This is the acquisition-start instant and is not corrected for the
+        /// fractional-delay or low-pass filter group delay.
+        pub sample_time_ns: i64,
         /// Measured module-bus current scalar in `A`.
         pub module_bus_current_a: f32,
         /// Measured module-bus voltage scalar in `V`.
@@ -680,6 +688,7 @@ pub mod operating_roundtrip {
             Self {
                 magic: super::OPERATING_SNAPSHOT_MAGIC,
                 metrics: OperatingMetrics::default(),
+                sample_time_ns: 0,
                 module_bus_current_a: 0.0,
                 module_bus_voltage_v: 0.0,
                 board_temperature_k: 0.0,
@@ -785,8 +794,13 @@ mod packet_tests {
         operating_input.outputs.pwm_duty_frac[0] = f32::NAN;
         assert!(!round_trip(operating_input).is_valid());
 
-        let mut snapshot = OperatingSnapshot::default();
+        let mut snapshot = OperatingSnapshot {
+            sample_time_ns: 0x0012_3456_789a_bcde,
+            ..OperatingSnapshot::default()
+        };
         assert!(round_trip(snapshot).is_valid());
+        assert_eq!(round_trip(snapshot).sample_time_ns, snapshot.sample_time_ns);
+        assert_eq!(OperatingSnapshot::BYTE_LEN, 157);
         snapshot.magic ^= 1;
         assert!(!round_trip(snapshot).is_valid());
     }

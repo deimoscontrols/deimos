@@ -57,6 +57,7 @@ impl<'a> Board<'a> {
 
         handler!(
             systick_handler = || {
+                self.acquisition_clock_advance();
                 self.time_ns += self.dt_ns as i64;
 
                 unsafe {

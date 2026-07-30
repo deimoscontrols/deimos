@@ -16,7 +16,8 @@ use stm32h7xx_hal::{
 
 use crate::board::{
     ACCUMULATED_SAMPLING_TIME_NS, ADC_CHANNEL_COUNT, ADC_CUTOFF_RATIO, ADC_SAMPLE_FREQ_HZ,
-    COUNTER_SAMPLES, COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF, VREF, publish_adc_samples,
+    COUNTER_SAMPLES, COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF, VREF, capture_adc_sample_time_ns,
+    configure_adc_sample_period_ns, publish_adc_samples,
 };
 
 /// Above this size of change, 16-bit counters are assumed to have wrapped.
@@ -230,6 +231,11 @@ impl Sampler {
         let t2clk_hz = TIM2::get_clk(clocks).unwrap().to_Hz();
         let t2psc = timer.inner().psc.read().psc().bits() + 1;
         let tick_period_ns = ((t2psc as f64) / (t2clk_hz as f64) * 1e9) as u32; // [ns] ADC timer tick period
+        let sample_timer_ticks =
+            u64::from(t2psc) * (u64::from(timer.inner().arr.read().arr().bits()) + 1);
+        let sample_period_ns =
+            (sample_timer_ticks * 1_000_000_000 + u64::from(t2clk_hz) / 2) / u64::from(t2clk_hz);
+        configure_adc_sample_period_ns(sample_period_ns as i64);
 
         Self {
             adc1,
@@ -321,6 +327,11 @@ impl Sampler {
 
         let mut b = [0_u32; ADC_CHANNEL_COUNT];
 
+        // Timestamp the acquisition start before launching the first
+        // simultaneous ADC conversion group. The value labels this raw group;
+        // it is not adjusted for the downstream filter group delay.
+        let sample_time_ns = capture_adc_sample_time_ns();
+
         // Sample
         self.adc1.start_conversion(&mut self.adc_pins.ain8);
         self.adc2.start_conversion(&mut self.adc_pins.ain9);
@@ -382,7 +393,7 @@ impl Sampler {
         }
 
         // Send measurements to shared storage
-        publish_adc_samples(&self.adc_values);
+        publish_adc_samples(&self.adc_values, sample_time_ns);
 
         // Get latest timer input readings, unwrapping integer counts
         let encoder_val: u16 = self.encoder.0.cnt.read().cnt().bits().into();

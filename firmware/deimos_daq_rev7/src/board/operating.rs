@@ -110,9 +110,9 @@ impl<'a> Board<'a> {
         // publishing cycle. Filter construction remains outside the interrupt hot path.
         let reporting_rate_hz = 1.0e9 / self.dt_ns as f64;
         let board_temperature_filter = adc_filter_bank(1.0 / reporting_rate_hz).unwrap()[0];
-        let initial_samples = latest_adc_samples();
+        let initial_sample_group = latest_adc_sample_group();
         let initial_board_temperature_k =
-            board_temperature_k_f32(&initial_samples, &self.calibration);
+            board_temperature_k_f32(&initial_sample_group.values, &self.calibration);
         let mut board_temperature_filter_state = board_temperature_filter.reset_state();
         board_temperature_filter.set_steady_state(
             &mut board_temperature_filter_state,
@@ -134,6 +134,8 @@ impl<'a> Board<'a> {
         //    Interrupt handler
         handler!(
             systick_handler = || {
+                self.acquisition_clock_advance();
+
                 // Restart subcycle counter
                 self.subcycle_timer.apply_freq();
                 self.subcycle_timer.resume();
@@ -162,16 +164,17 @@ impl<'a> Board<'a> {
                 deimos_input.phase_delta_ns = 0;
 
                 // Read one coherent ADC group and convert it to the common engineering snapshot.
-                let adc_samples = latest_adc_samples();
+                let adc_sample_group = latest_adc_sample_group();
+                operating_output.sample_time_ns = adc_sample_group.sample_time_ns;
                 let unfiltered_board_temperature_k =
-                    board_temperature_k_f32(&adc_samples, &self.calibration);
+                    board_temperature_k_f32(&adc_sample_group.values, &self.calibration);
                 let filtered_board_temperature_k = board_temperature_filter.step(
                     &mut board_temperature_filter_state,
                     [unfiltered_board_temperature_k],
                 )[0];
                 populate_analog_snapshot_f32(
                     &mut operating_output,
-                    &adc_samples,
+                    &adc_sample_group.values,
                     &self.calibration,
                     filtered_board_temperature_k,
                 );

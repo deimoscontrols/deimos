@@ -1422,7 +1422,7 @@ Phase 6 exit criteria:
   read and a full output/configuration write.
 - At the Phase 4 4 Hz and 5 kHz endpoints, record the loss-of-contact series,
   DAQ margin, reconnect/state-exit status, and on-target MSP high-water mark for
-  complete 75-register reads, 21-register output writes, and three-register
+  complete 79-register reads, 21-register output writes, and three-register
   timing-configuration writes.
 - For the post-baseline investigation, sweep both sampling modes across the
   candidate overlap and record cycle margin, TIM2 cadence, communication-handler

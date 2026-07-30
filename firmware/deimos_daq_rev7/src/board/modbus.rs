@@ -604,7 +604,7 @@ fn process_with_rmodbus(
 
 /// Encode a full snapshot directly into its response payload when possible.
 ///
-/// The complete 75-register read is the synchronized-snapshot use case and the
+/// The complete 79-register read is the synchronized-snapshot use case and the
 /// worst realtime request. Its direct path avoids constructing intermediate
 /// registers and then converting each one back into network byte order.
 /// Uncommon partial reads retain the generic register-slice implementation.

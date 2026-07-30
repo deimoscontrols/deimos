@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+* Rev7 firmware
+    * Add a bounded Modbus/TCP operating path with synchronized engineering-
+      snapshot reads and retained output/configuration writes
+    * Apply calibrations and engineering conversions in firmware for both
+      Deimos UDP and Modbus/TCP operation
+    * Publish coherent double-buffered ADC groups with their board acquisition
+      timestamps
+    * Require calibrated firmware for normal Deimos configuration and Modbus
+      service while retaining identity-first calibration collection
+* deimos
+    * Parse rev7 engineering snapshots and expose `sample_time_ns` as a
+      software-side `f64` output
+    * Add rev7 calibration, Modbus protocol, stress, and timing tools
+* deimos_shared
+    * Add shared rev7 packet/calibration types, engineering calculations,
+      acquisition-clock arithmetic, and the Modbus register map
+
 ## 2026-07-19 0.18.1
 
 * Rev7 hardware

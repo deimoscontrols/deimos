@@ -164,7 +164,7 @@ fn protocol_suite(endpoint: &str) -> TestResult {
     // Closing in the middle of an otherwise valid ADU must not contaminate the
     // framing state retained for the next client.
     let mut stream = connect_with_retry(endpoint, RECONNECT_TIMEOUT)?;
-    let partial = read_request(103, 0, 0x04, 0, 75);
+    let partial = read_request(103, 0, 0x04, 0, SNAPSHOT_INPUT_REGISTER_COUNT);
     stream.write_all(&partial[..9])?;
     stream.shutdown(Shutdown::Both)?;
     drop(stream);
@@ -232,7 +232,13 @@ fn backpressure_suite(endpoint: &str) -> TestResult {
     SockRef::from(&client.stream).set_recv_buffer_size(256)?;
     let mut burst = Vec::with_capacity(12 * 8_192);
     for index in 0..8_192_u16 {
-        burst.extend_from_slice(&read_request(index, 0, 0x04, 0, 75));
+        burst.extend_from_slice(&read_request(
+            index,
+            0,
+            0x04,
+            0,
+            SNAPSHOT_INPUT_REGISTER_COUNT,
+        ));
     }
     client
         .stream
@@ -265,7 +271,7 @@ fn backpressure_suite(endpoint: &str) -> TestResult {
     for index in 0..response_count {
         let response = read_one_adu(&mut client.stream)?;
         validate_response_header(&response, index as u16, 0, 0x04)?;
-        let registers = parse_read_registers(&response, 0x04, 75)?;
+        let registers = parse_read_registers(&response, 0x04, SNAPSHOT_INPUT_REGISTER_COUNT)?;
         let snapshot = snapshot_from_input_registers(&registers)
             .map_err(|error| format!("invalid backpressure snapshot: {error:?}"))?;
         let margin_ns = snapshot.metrics.cycle_time_margin_ns;
@@ -725,7 +731,7 @@ mod tests {
     #[test]
     fn requests_have_consistent_mbap_lengths() {
         for request in [
-            read_request(7, 255, 0x04, 0, 75),
+            read_request(7, 255, 0x04, 0, SNAPSHOT_INPUT_REGISTER_COUNT),
             write_request(8, 0, 3, 6, &[0; 21]).unwrap(),
         ] {
             assert_eq!(

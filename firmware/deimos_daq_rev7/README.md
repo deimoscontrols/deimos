@@ -32,3 +32,21 @@ python firmware/flash.py
 
 Both commands are run from the repository root. `flash.py` selects the board,
 probe, serial number, and MAC address from `firmware/assignments.json`.
+
+Normal rev7 operation publishes one coherent engineering snapshot from both
+the Deimos UDP and Modbus/TCP paths. Its `sample_time_ns` field is the board
+timestamp immediately before the first ADC conversion in the associated raw
+sample group; it does not include a correction for digital-filter group delay.
+The host converts this integer timestamp to `f64` with the other controller
+outputs.
+
+Modbus/TCP is available on port 502 only after a generated calibration is
+embedded. The first supported read or write received while binding selects
+Modbus operation; a read-only client therefore receives the safe output
+defaults at the default 10 Hz rate. The complete synchronized register layout
+and timeout behavior are documented in
+[`plans/MODBUS_REGISTER_MAP.md`](../../plans/MODBUS_REGISTER_MAP.md).
+
+The engineering snapshot is an intentionally breaking rev7 protocol change.
+Flash the corresponding firmware and update the controller software together;
+there is no legacy rev7 packet decoder.

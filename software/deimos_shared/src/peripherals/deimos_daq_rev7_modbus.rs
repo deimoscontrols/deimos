@@ -8,13 +8,13 @@
 //!   \[1\] Modbus Organization, *MODBUS Application Protocol Specification
 //!   V1.1b3*, 2012.
 
-use super::{DAC_CHANNEL_COUNT, ModbusInitialConfig, OperatingSnapshot, PWM_CHANNEL_COUNT};
+use super::{ModbusInitialConfig, OperatingSnapshot, DAC_CHANNEL_COUNT, PWM_CHANNEL_COUNT};
 use crate::states::OperatingMetrics;
 
 /// First input register occupied by the coherent engineering snapshot.
 pub const SNAPSHOT_INPUT_START: u16 = 0;
 /// Number of input registers occupied by one complete engineering snapshot.
-pub const SNAPSHOT_INPUT_REGISTER_COUNT: u16 = 75;
+pub const SNAPSHOT_INPUT_REGISTER_COUNT: u16 = 79;
 /// Number of wire bytes occupied by one complete engineering snapshot register block.
 pub const SNAPSHOT_INPUT_BYTE_COUNT: usize = SNAPSHOT_INPUT_REGISTER_COUNT as usize * 2;
 
@@ -64,7 +64,7 @@ pub enum HoldingWriteError {
 /// Errors encountered while decoding a complete snapshot register block.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SnapshotDecodeError {
-    /// The supplied block does not contain exactly 75 registers.
+    /// The supplied block does not contain exactly 79 registers.
     InvalidLength,
     /// The decoded packet magic or engineering-value invariants are invalid.
     InvalidSnapshot,
@@ -94,7 +94,7 @@ pub fn snapshot_input_registers(
 ///
 /// This is the common encoding source for the register-valued host API and the
 /// firmware's full-snapshot fast path. Writing directly into the response
-/// avoids converting 75 intermediate `u16` values back into network byte order
+/// avoids converting 79 intermediate `u16` values back into network byte order
 /// in the realtime communication interrupt.
 ///
 /// Args:
@@ -123,6 +123,7 @@ pub fn write_snapshot_input_register_bytes(
         &mut position,
         snapshot.metrics.cycle_time_margin_ns as u64,
     );
+    put_u64_bytes(bytes, &mut position, snapshot.sample_time_ns as u64);
 
     put_f32_bytes(bytes, &mut position, snapshot.module_bus_current_a);
     put_f32_bytes(bytes, &mut position, snapshot.module_bus_voltage_v);
@@ -167,6 +168,7 @@ pub fn snapshot_from_input_registers(
             last_input_received_time_ns: take_u64(registers, &mut position) as i64,
             cycle_time_margin_ns: take_u64(registers, &mut position) as i64,
         },
+        sample_time_ns: take_u64(registers, &mut position) as i64,
         module_bus_current_a: take_f32(registers, &mut position),
         module_bus_voltage_v: take_f32(registers, &mut position),
         board_temperature_k: take_f32(registers, &mut position),
@@ -413,6 +415,7 @@ mod tests {
     fn snapshot_registers_are_most_significant_register_first() {
         let mut snapshot = OperatingSnapshot::default();
         snapshot.metrics.id = 0x0123_4567_89ab_cdef;
+        snapshot.sample_time_ns = 0x1122_3344_5566_7788;
         snapshot.module_bus_current_a = 1.0;
         snapshot.encoder = -2;
         snapshot.gpio = 3;
@@ -426,13 +429,15 @@ mod tests {
             ]
         );
         assert_eq!(&registers[2..6], &[0x0123, 0x4567, 0x89ab, 0xcdef]);
-        assert_eq!(&registers[26..28], &[0x3f80, 0x0000]);
-        assert_eq!(&registers[62..66], &[0xffff, 0xffff, 0xffff, 0xfffe]);
-        assert_eq!(registers[74], 3);
+        assert_eq!(&registers[26..30], &[0x1122, 0x3344, 0x5566, 0x7788]);
+        assert_eq!(&registers[30..32], &[0x3f80, 0x0000]);
+        assert_eq!(&registers[66..70], &[0xffff, 0xffff, 0xffff, 0xfffe]);
+        assert_eq!(registers[78], 3);
 
         let decoded = snapshot_from_input_registers(&registers).unwrap();
         assert_eq!(decoded.magic, snapshot.magic);
         assert_eq!(decoded.metrics.id, snapshot.metrics.id);
+        assert_eq!(decoded.sample_time_ns, snapshot.sample_time_ns);
         assert_eq!(decoded.module_bus_current_a.to_bits(), 1.0_f32.to_bits());
         assert_eq!(decoded.encoder, -2);
         assert_eq!(decoded.gpio, 3);

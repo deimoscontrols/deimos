@@ -1,6 +1,7 @@
 use super::*;
 
 use core::{ptr::addr_of_mut, time::Duration};
+use cortex_m::peripheral::scb::SystemHandler;
 use deimos_shared::states::ByteStruct;
 
 use smoltcp::time::Instant;
@@ -50,6 +51,15 @@ impl<'a> Board<'a> {
 
         // Instruction caching
         cp.SCB.enable_icache();
+
+        // SysTick must preempt TIM2: the communication control loop depends on
+        // that ordering, and the bounded acquisition-clock capture relies on a
+        // pending SysTick running between its two attempts. STM32H743 implements
+        // four priority bits, so raw 0x00 and 0x10 select adjacent priorities.
+        unsafe {
+            cp.SCB.set_priority(SystemHandler::SysTick, 0x00);
+            cp.NVIC.set_priority(stm32::interrupt::TIM2, 0x10);
+        }
 
         // Watchdog reboots the board if the board freezes for any reason
         let mut watchdog = IndependentWatchdog::new(dp.IWDG);
