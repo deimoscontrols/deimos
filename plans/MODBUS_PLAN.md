@@ -2,14 +2,17 @@
 
 ## Status
 
-Phases 1 through 4 are implemented. The Phase 1 hardware-test checkpoint is
+Phases 1 through 4 and the Phase 5 acquisition-timestamp implementation are
+complete. The Phase 1 hardware-test checkpoint is
 `e60e8e5`, the Phase 3 handoff checkpoint is `aac4013`, and the Phase 4 handoff
-checkpoint is `362f295`. Results are recorded in
+checkpoint is `362f295`. The Phase 5 timing checkpoint is `f9ac3fa`. Results
+are recorded in
 `plans/MODBUS_PHASE1_REPORT.md`, `plans/MODBUS_PHASE2_REPORT.md`,
 `plans/MODBUS_PHASE3_REPORT.md`, and `plans/MODBUS_PHASE4_REPORT.md`. The
-equipment-assisted identity-first calibration run and physical pre-rev7
-compatibility run remain deferred to the final Phase 5 hardware verification.
-Phase 5 acquisition timestamps and release verification are next.
+Phase 5 timing results and remaining release matrix are recorded in
+`plans/MODBUS_PHASE5_REPORT.md`. Identity-first calibration, the GPIO timing-
+marker comparison, final calibrated engineering checks, and physical pre-rev7
+compatibility remain in the Phase 5 hardware verification.
 
 This is the implementation plan for adding a Modbus/TCP operating mode to
 `firmware/deimos_daq_rev7` while keeping the existing Deimos UDP operating mode.
