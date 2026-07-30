@@ -4,8 +4,9 @@
 #
 # First flash firmware built with `--features stack-watermark`, run the desired
 # on-target workload, then invoke this script while the probe remains attached.
-# The startup painter writes from 0x20000000 through the then-current MSP, so the
-# first non-painted word gives the maximum downward excursion since startup.
+# The startup painter writes from the linker's _stack_end through the
+# then-current MSP, so the first non-painted word gives the maximum downward
+# excursion since startup.
 
 set -euo pipefail
 
@@ -14,7 +15,6 @@ readonly DEFAULT_PROBE="0483:3754:0031003E3033510735393935"
 readonly PROBE="${1:-${DEFAULT_PROBE}}"
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly ELF="${SCRIPT_DIR}/deimos_daq_rev7/target/thumbv7em-none-eabihf/release/deimos_bare_metal"
-readonly STACK_BOTTOM="0x20000000"
 readonly PAINT="cccccccc"
 
 if ! command -v probe-rs >/dev/null 2>&1; then
@@ -28,14 +28,15 @@ if ! command -v nm >/dev/null 2>&1 || [[ ! -f "${ELF}" ]]; then
 fi
 
 readonly STACK_START="$(nm -n "${ELF}" | awk '$3 == "_stack_start" { print "0x" $1 }')"
-if [[ -z "${STACK_START}" ]]; then
-    echo "Instrumented rev7 ELF has no _stack_start symbol" >&2
+readonly STACK_END="$(nm -n "${ELF}" | awk '$3 == "_stack_end" { print "0x" $1 }')"
+if [[ -z "${STACK_START}" || -z "${STACK_END}" ]]; then
+    echo "Instrumented rev7 ELF has no _stack_start or _stack_end symbol" >&2
     exit 1
 fi
-readonly STACK_BYTES=$((STACK_START - STACK_BOTTOM))
+readonly STACK_BYTES=$((STACK_START - STACK_END))
 readonly STACK_WORDS=$((STACK_BYTES / 4))
 
-probe-rs read b32 "${STACK_BOTTOM}" "${STACK_WORDS}" \
+probe-rs read b32 "${STACK_END}" "${STACK_WORDS}" \
     --chip "${CHIP}" \
     --probe "${PROBE}" \
     | awk -v stack_bytes="${STACK_BYTES}" -v paint="${PAINT}" '

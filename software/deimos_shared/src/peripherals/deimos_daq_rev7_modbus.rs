@@ -3,8 +3,12 @@
 //! Addresses are zero-based protocol addresses. Multi-register scalars place
 //! the most-significant 16-bit register first, and each register is transmitted
 //! in Modbus network byte order by the transport layer.
+//!
+//! References:
+//!   \[1\] Modbus Organization, *MODBUS Application Protocol Specification
+//!   V1.1b3*, 2012.
 
-use super::{ModbusInitialConfig, OperatingSnapshot, DAC_CHANNEL_COUNT, PWM_CHANNEL_COUNT};
+use super::{DAC_CHANNEL_COUNT, ModbusInitialConfig, OperatingSnapshot, PWM_CHANNEL_COUNT};
 use crate::states::OperatingMetrics;
 
 /// First input register occupied by the coherent engineering snapshot.
@@ -40,10 +44,13 @@ pub const MODBUS_MAX_CYCLE_RATE_HZ: f32 = 5_000.0;
 
 /// Maximum register count in one standard Modbus read request.
 pub const MODBUS_MAX_READ_REGISTERS: u16 = 125;
+/// Maximum register count in one standard Modbus multiple-write request.
+pub const MODBUS_MAX_WRITE_REGISTERS: u16 = 123;
 /// Maximum writable holding-register span in the rev7 map.
 pub const MAX_HOLDING_WRITE_REGISTERS: usize = 21;
 
 const _: () = assert!(SNAPSHOT_INPUT_REGISTER_COUNT <= MODBUS_MAX_READ_REGISTERS);
+const _: () = assert!(MAX_HOLDING_WRITE_REGISTERS <= MODBUS_MAX_WRITE_REGISTERS as usize);
 
 /// Semantic errors produced while validating a holding-register write.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -312,33 +319,39 @@ fn put_f32(registers: &mut [u16], position: &mut usize, value: f32) {
     put_u32(registers, position, value.to_bits());
 }
 
+/// Append an `f32` array with shape `(N,)` to a register buffer.
 fn put_f32_array<const N: usize>(registers: &mut [u16], position: &mut usize, values: &[f32; N]) {
     for &value in values {
         put_f32(registers, position, value);
     }
 }
 
+/// Append a `u32` array with shape `(N,)` to a register buffer.
 fn put_u32_array<const N: usize>(registers: &mut [u16], position: &mut usize, values: &[u32; N]) {
     for &value in values {
         put_u32(registers, position, value);
     }
 }
 
+/// Append one `u32` to a byte buffer in Modbus network byte order.
 fn put_u32_bytes(bytes: &mut [u8], position: &mut usize, value: u32) {
     bytes[*position..*position + 4].copy_from_slice(&value.to_be_bytes());
     *position += 4;
 }
 
+/// Append one `f32` bit pattern to a byte buffer in Modbus network byte order.
 fn put_f32_bytes(bytes: &mut [u8], position: &mut usize, value: f32) {
     put_u32_bytes(bytes, position, value.to_bits());
 }
 
+/// Append an `f32` array with shape `(N,)` in Modbus network byte order.
 fn put_f32_array_bytes<const N: usize>(bytes: &mut [u8], position: &mut usize, values: &[f32; N]) {
     for &value in values {
         put_f32_bytes(bytes, position, value);
     }
 }
 
+/// Append one `u64` to a byte buffer in Modbus network byte order.
 fn put_u64_bytes(bytes: &mut [u8], position: &mut usize, value: u64) {
     bytes[*position..*position + 8].copy_from_slice(&value.to_be_bytes());
     *position += 8;
@@ -359,6 +372,7 @@ fn take_f32(registers: &[u16], position: &mut usize) -> f32 {
     f32::from_bits(take_u32(registers, position))
 }
 
+/// Decode an `f32` array with shape `(N,)` from consecutive registers.
 fn take_f32_array<const N: usize>(registers: &[u16], position: &mut usize) -> [f32; N] {
     core::array::from_fn(|_| take_f32(registers, position))
 }

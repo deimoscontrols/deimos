@@ -1,11 +1,18 @@
 //! Fixed-storage, cycle-budgeted Modbus/TCP request handling.
+//!
+//! References:
+//!   \[1\] Modbus Organization, *MODBUS Application Protocol Specification
+//!   V1.1b3*, 2012.
+//!   \[2\] Modbus Organization, *MODBUS Messaging on TCP/IP Implementation
+//!   Guide V1.0b*, 2006.
 
 use deimos_shared::peripherals::deimos_daq_rev7::{
     ModbusInitialConfig, OperatingSnapshot,
     modbus::{
         HOLDING_REGISTER_COUNT, MAX_HOLDING_WRITE_REGISTERS, MODBUS_MAX_READ_REGISTERS,
-        SNAPSHOT_INPUT_BYTE_COUNT, SNAPSHOT_INPUT_REGISTER_COUNT, apply_holding_write,
-        holding_registers, snapshot_input_registers, write_snapshot_input_register_bytes,
+        MODBUS_MAX_WRITE_REGISTERS, SNAPSHOT_INPUT_BYTE_COUNT, SNAPSHOT_INPUT_REGISTER_COUNT,
+        apply_holding_write, holding_registers, snapshot_input_registers,
+        write_snapshot_input_register_bytes,
     },
 };
 use rmodbus::{
@@ -490,7 +497,7 @@ fn validate_supported_pdu(request: &[u8]) -> Result<(), ErrorKind> {
             let count = u16::from_be_bytes([request[10], request[11]]);
             let byte_count = usize::from(request[12]);
             if count == 0
-                || count > 123
+                || count > MODBUS_MAX_WRITE_REGISTERS
                 || byte_count != usize::from(count) * 2
                 || request.len() != 13 + byte_count
             {

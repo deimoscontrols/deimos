@@ -12,6 +12,12 @@
 //! introduced externally. The one-minute timeout check is omitted from
 //! `quick`. Except for the intentionally adversarial backpressure test, the
 //! client keeps exactly one request outstanding.
+//!
+//! References:
+//!   \[1\] Modbus Organization, *MODBUS Application Protocol Specification
+//!   V1.1b3*, 2012.
+//!   \[2\] Modbus Organization, *MODBUS Messaging on TCP/IP Implementation
+//!   Guide V1.0b*, 2006.
 
 use std::{
     env,
@@ -26,19 +32,25 @@ use deimos_shared::peripherals::deimos_daq_rev7::{
     ModbusInitialConfig, OperatingSnapshot,
     modbus::{
         HOLDING_CYCLE_PERIOD_NS, HOLDING_LOSS_OF_CONTACT_COUNTER, HOLDING_PWM_DUTY_FRAC,
-        HOLDING_REGISTER_COUNT, SNAPSHOT_INPUT_REGISTER_COUNT, SNAPSHOT_INPUT_START,
-        holding_registers, snapshot_from_input_registers,
+        HOLDING_REGISTER_COUNT, MODBUS_MAX_WRITE_REGISTERS, SNAPSHOT_INPUT_REGISTER_COUNT,
+        SNAPSHOT_INPUT_START, holding_registers, snapshot_from_input_registers,
     },
 };
 use socket2::SockRef;
 
+/// Default rev7 SN3 fallback endpoint in `host:port` form.
 const DEFAULT_ENDPOINT: &str = "169.254.101.34:502";
+/// Maximum duration of one blocking host socket operation.
 const IO_TIMEOUT: Duration = Duration::from_secs(3);
+/// Maximum nominal duration allowed for a board relisten transition.
 const RECONNECT_TIMEOUT: Duration = Duration::from_secs(8);
+/// Observation interval covering the default one-minute application timeout.
 const DEFAULT_TIMEOUT_TEST: Duration = Duration::from_secs(62);
 
+/// Fallible result used by the finite hardware-test suites.
 type TestResult<T = ()> = Result<T, Box<dyn Error>>;
 
+/// Select and run one finite Phase 4 hardware-test suite.
 fn main() -> TestResult {
     let mut args = env::args().skip(1);
     let suite = args.next().unwrap_or_else(|| "quick".to_owned());
@@ -122,7 +134,7 @@ fn protocol_suite(endpoint: &str) -> TestResult {
     parse_read_registers(&response, 0x04, 1)?;
     client.next_transaction = 2;
 
-    expect_exception(&mut client, vec![0x06, 0, 0, 0, 0], 0x01)?;
+    expect_exception(&mut client, &[0x06, 0, 0, 0, 0], 0x01)?;
     expect_exception_for_read(&mut client, 0x04, 0, 0, 0x03)?;
     expect_exception_for_read(&mut client, 0x04, 74, 2, 0x02)?;
 
@@ -539,7 +551,7 @@ fn write_request(
     address: u16,
     values: &[u16],
 ) -> TestResult<Vec<u8>> {
-    if values.is_empty() || values.len() > 123 {
+    if values.is_empty() || values.len() > usize::from(MODBUS_MAX_WRITE_REGISTERS) {
         return Err("FC16 register count must be in 1..=123".into());
     }
     let address = address.to_be_bytes();
@@ -583,6 +595,9 @@ fn validate_response_header(
         return Err("response MBAP fields do not match request".into());
     }
     if response[7] == function | 0x80 {
+        if response.len() < 9 {
+            return Err("truncated Modbus exception response".into());
+        }
         return Err(format!("unexpected Modbus exception code {:#04x}", response[8]).into());
     }
     if response[7] != function {
@@ -626,11 +641,16 @@ fn validate_exception(
     Ok(())
 }
 
-/// Send an arbitrary PDU and require an exception while preserving the stream.
-fn expect_exception(client: &mut ModbusClient, pdu: Vec<u8>, exception: u8) -> TestResult {
+/// Send a nonempty arbitrary PDU and require an exception without losing the stream.
+///
+/// Args:
+///   client: Connected sequential test client.
+///   pdu: Request protocol data unit with shape `(pdu_len,)` in network byte order.
+///   exception: Expected Modbus exception code.
+fn expect_exception(client: &mut ModbusClient, pdu: &[u8], exception: u8) -> TestResult {
     let transaction = client.take_transaction();
-    let function = pdu[0];
-    let request = adu(transaction, 0, 0, &pdu);
+    let function = *pdu.first().ok_or("exception test PDU must not be empty")?;
+    let request = adu(transaction, 0, 0, pdu);
     client.stream.write_all(&request)?;
     let response = read_one_adu(&mut client.stream)?;
     validate_exception(&response, transaction, 0, function, exception)
@@ -683,6 +703,9 @@ fn verify_fresh_connection(endpoint: &str) -> TestResult {
 /// Require the read-only period diagnostic to equal the configured value.
 fn require_cycle_period(registers: &[u16], expected_ns: u32) -> TestResult {
     let index = usize::from(HOLDING_CYCLE_PERIOD_NS);
+    if registers.len() < index + 2 {
+        return Err("holding-register response omits the cycle period".into());
+    }
     let actual = u32::from_be_bytes([
         (registers[index] >> 8) as u8,
         registers[index] as u8,
@@ -719,5 +742,16 @@ mod tests {
         registers[index] = 0x1234;
         registers[index + 1] = 0x5678;
         require_cycle_period(&registers, 0x1234_5678).unwrap();
+    }
+
+    #[test]
+    fn truncated_exception_is_rejected_without_indexing_past_response() {
+        let response = [0, 7, 0, 0, 0, 2, 255, 0x84];
+        assert!(validate_response_header(&response, 7, 255, 0x04).is_err());
+    }
+
+    #[test]
+    fn cycle_period_requires_both_registers() {
+        assert!(require_cycle_period(&[0; 4], 0).is_err());
     }
 }
