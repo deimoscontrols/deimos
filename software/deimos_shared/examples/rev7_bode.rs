@@ -6,13 +6,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use deimos_numerics::control::lti::{
-    design_digital_filter_tf, BodeData, ContinuousTransferFunction, DigitalFilterFamily,
-    DigitalFilterSpec, DiscreteTransferFunction, FilterShape,
-};
+use deimos_numerics::control::lti::{BodeData, ContinuousTransferFunction};
 use deimos_shared::peripherals::deimos_daq_rev7::{
-    adc_analog_frontend_transfer_functions, adc_fractional_delay_transfer_functions,
-    adc_sampled_bode_data, ADC_FILTER_MAX_CUTOFF_RATIO, ADC_FILTER_ORDER, ADC_SAMPLE_RATE_HZ,
+    adc_analog_frontend_transfer_functions, adc_digital_transfer_functions_for_cycle_rate,
+    adc_sampled_bode_data_for_cycle_rate, adc_sampling_policy, AdcSamplingMode, AdcSamplingPolicy,
 };
 use plotly::{
     common::{Anchor, DashType, Font, Line, Mode, Orientation, Title, Visible},
@@ -32,8 +29,8 @@ const REPORT_MAX_WIDTH: &str = "60rem";
 const FREQUENCY_POINTS: usize = 5_000;
 const TRACES_PER_VARIANT: usize = 6;
 const DEFAULT_REPORTING_RATE_HZ: f64 = 1_000.0;
-const REPORTING_RATE_LEVELS_HZ: [f64; 10] = [
-    5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1_000.0, 2_000.0, 5_000.0,
+const REPORTING_RATE_LEVELS_HZ: [f64; 11] = [
+    5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1_000.0, 2_000.0, 3_000.0, 5_000.0,
 ];
 const SALLEN_KEY_CAPACITANCE_F: f64 = 10.0e-9;
 const SALLEN_KEY_100HZ_RESISTANCE_OHMS: f64 = 100.0e3;
@@ -73,7 +70,6 @@ struct FrequencyGrid<'a> {
 
 struct FrontendTransferFunctions<'a> {
     analog: &'a ContinuousTransferFunction<f64>,
-    fractional_delay: &'a DiscreteTransferFunction<f64>,
 }
 
 struct TraceStyle {
@@ -96,7 +92,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let output_dir = parse_args()?;
     fs::create_dir_all(&output_dir)?;
 
-    let sample_rate_hz = ADC_SAMPLE_RATE_HZ;
     let analog_angular_frequencies = logspace(1.0e1, 1.0e6, FREQUENCY_POINTS);
     let analog_frequencies_hz = analog_angular_frequencies
         .iter()
@@ -109,8 +104,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         .collect::<Vec<_>>();
 
     let analog_transfer_functions = adc_analog_frontend_transfer_functions()?;
-    let fractional_delay_transfer_functions =
-        adc_fractional_delay_transfer_functions(sample_rate_hz)?;
     let default_reporting_rate_idx = reporting_rate_index(DEFAULT_REPORTING_RATE_HZ)?;
 
     for theme in themes() {
@@ -118,7 +111,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             let variants = build_variants(
                 &theme,
                 &group,
-                sample_rate_hz,
                 &FrequencyGrid {
                     sampled_frequencies_hz: &sampled_frequencies_hz,
                     analog_angular_frequencies: &analog_angular_frequencies,
@@ -126,7 +118,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                 },
                 &FrontendTransferFunctions {
                     analog: &analog_transfer_functions[group.channel_idx],
-                    fractional_delay: &fractional_delay_transfer_functions[group.channel_idx],
                 },
             )?;
             let plot = build_plot(
@@ -228,24 +219,9 @@ const fn sallen_key_cutoff_hz(resistance_ohms: f64) -> f64 {
     1.0 / (TAU * resistance_ohms * SALLEN_KEY_CAPACITANCE_F)
 }
 
-fn digital_filter_transfer_function(
-    cutoff_ratio: f64,
-    sample_rate_hz: f64,
-) -> Result<DiscreteTransferFunction<f64>, Box<dyn Error>> {
-    Ok(design_digital_filter_tf(&DigitalFilterSpec::new(
-        ADC_FILTER_ORDER,
-        DigitalFilterFamily::Butterworth,
-        FilterShape::Lowpass {
-            cutoff: cutoff_ratio * sample_rate_hz * TAU,
-        },
-        sample_rate_hz,
-    )?)?)
-}
-
 fn build_variants(
     theme: &Theme,
     group: &FrontendGroup,
-    sample_rate_hz: f64,
     frequency_grid: &FrequencyGrid<'_>,
     frontend_transfer_functions: &FrontendTransferFunctions<'_>,
 ) -> Result<Vec<PlotVariant>, Box<dyn Error>> {
@@ -255,22 +231,19 @@ fn build_variants(
     let mut variants = Vec::with_capacity(REPORTING_RATE_LEVELS_HZ.len());
 
     for reporting_rate_hz in REPORTING_RATE_LEVELS_HZ {
-        let cutoff_ratio = cutoff_ratio_for_reporting_rate(reporting_rate_hz, sample_rate_hz);
-        let digital_filter_transfer_function =
-            digital_filter_transfer_function(cutoff_ratio, sample_rate_hz)?;
-        let digital = frontend_transfer_functions
-            .fractional_delay
-            .mul(&digital_filter_transfer_function)?;
-        let digital_bode = digital.bode_data(frequency_grid.sampled_angular_frequencies)?;
-        let combined_bode = adc_sampled_bode_data(
-            cutoff_ratio,
-            sample_rate_hz,
+        let sampling_policy = adc_sampling_policy(reporting_rate_hz).ok_or_else(|| {
+            io::Error::new(io::ErrorKind::InvalidInput, "invalid reporting cycle rate")
+        })?;
+        let digital_bode = adc_digital_transfer_functions_for_cycle_rate(reporting_rate_hz)?
+            [group.channel_idx]
+            .bode_data(frequency_grid.sampled_angular_frequencies)?;
+        let combined_bode = adc_sampled_bode_data_for_cycle_rate(
+            reporting_rate_hz,
             frequency_grid.sampled_frequencies_hz,
         )?[group.channel_idx]
             .clone();
-        let title = plot_title(group);
-        let (shapes, annotations) =
-            reference_marks(theme, group, sample_rate_hz, reporting_rate_hz);
+        let title = plot_title(group, sampling_policy);
+        let (shapes, annotations) = reference_marks(theme, group, sampling_policy);
 
         variants.push(PlotVariant {
             reporting_rate_hz,
@@ -286,10 +259,6 @@ fn build_variants(
     Ok(variants)
 }
 
-fn cutoff_ratio_for_reporting_rate(reporting_rate_hz: f64, sample_rate_hz: f64) -> f64 {
-    (reporting_rate_hz / sample_rate_hz).min(ADC_FILTER_MAX_CUTOFF_RATIO)
-}
-
 fn reporting_rate_index(reporting_rate_hz: f64) -> Result<usize, Box<dyn Error>> {
     REPORTING_RATE_LEVELS_HZ
         .iter()
@@ -299,8 +268,21 @@ fn reporting_rate_index(reporting_rate_hz: f64) -> Result<usize, Box<dyn Error>>
         })
 }
 
-fn plot_title(group: &FrontendGroup) -> String {
-    group.name.to_string()
+fn plot_title(group: &FrontendGroup, sampling_policy: AdcSamplingPolicy) -> String {
+    match sampling_policy.mode {
+        AdcSamplingMode::Oversampled => format!(
+            "{}<br><sup>{} samples/cycle, {} samplerate, {} ADC IIR cutoff</sup>",
+            group.name,
+            sampling_policy.samples_per_cycle,
+            format_frequency(sampling_policy.sample_rate_hz),
+            format_frequency(sampling_policy.iir_cutoff_hz.unwrap()),
+        ),
+        AdcSamplingMode::Direct => format!(
+            "{}<br><sup>1 sample/cycle, {} samplerate, no ADC IIR</sup>",
+            group.name,
+            format_frequency(sampling_policy.sample_rate_hz),
+        ),
+    }
 }
 
 fn format_frequency(frequency_hz: f64) -> String {
@@ -688,16 +670,27 @@ fn layout(theme: &Theme, variant: &PlotVariant) -> Layout {
 fn reference_marks(
     theme: &Theme,
     group: &FrontendGroup,
-    sample_rate_hz: f64,
-    reporting_rate_hz: f64,
+    sampling_policy: AdcSamplingPolicy,
 ) -> (Vec<Shape>, Vec<Annotation>) {
-    let vertical_marks = [
-        (sample_rate_hz, "Samplerate"),
-        (sample_rate_hz / 2.0, "Nyquist"),
-        (reporting_rate_hz, "Reporting rate & digital cutoff"),
-        (reporting_rate_hz / 2.0, "Nyquist of reporting rate"),
-        (group.analog_cutoff_hz, "Analog cutoff"),
-    ];
+    let cycle_rate_hz =
+        sampling_policy.sample_rate_hz / f64::from(sampling_policy.samples_per_cycle);
+    let mut vertical_marks = if sampling_policy.iir_cutoff_hz.is_some() {
+        vec![
+            (sampling_policy.sample_rate_hz, "Samplerate"),
+            (sampling_policy.sample_rate_hz / 2.0, "Samplerate Nyquist"),
+            (cycle_rate_hz, "Reporting rate & ADC IIR cutoff"),
+            (cycle_rate_hz / 2.0, "Reporting-rate Nyquist"),
+        ]
+    } else {
+        vec![
+            (
+                sampling_policy.sample_rate_hz,
+                "Samplerate & reporting rate",
+            ),
+            (sampling_policy.sample_rate_hz / 2.0, "Nyquist"),
+        ]
+    };
+    vertical_marks.push((group.analog_cutoff_hz, "Analog cutoff"));
 
     let mut shapes = Vec::with_capacity(vertical_marks.len() * 2);
     let mut annotations = Vec::with_capacity(vertical_marks.len() * 2);

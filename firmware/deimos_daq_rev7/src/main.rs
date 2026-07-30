@@ -10,9 +10,9 @@ extern crate cortex_m_rt as rt;
 
 use embedded_alloc::LlffHeap as Heap;
 use rt::{entry, exception};
-use stm32h7xx_hal::{interrupt, pac, stm32, timer::Event};
+use stm32h7xx_hal::stm32;
 
-use core::mem::{size_of, MaybeUninit};
+use core::mem::{MaybeUninit, size_of};
 use core::panic::PanicInfo;
 use core::ptr::{addr_of, addr_of_mut, copy_nonoverlapping};
 use core::sync::atomic::compiler_fence;
@@ -20,7 +20,7 @@ use core::sync::atomic::compiler_fence;
 use irq::{handler, scope};
 use smoltcp::{iface::SocketStorage, storage::PacketMetadata};
 
-use crate::board::{subsystems::net::NetStorageStatic, Board};
+use crate::board::{Board, subsystems::net::NetStorageStatic};
 
 #[global_allocator]
 static HEAP: Heap = Heap::empty();
@@ -102,34 +102,17 @@ unsafe fn main() -> ! {
     // Board startup
     let (mut board, mut sampler) = Board::new(store);
 
-    // Set up the sample timer and build its interrupt handler,
-    // waiting until after the sampler timer is configured to enable the
-    // sampling interrupt.
-    sampler.timer.reset_counter(); // Make sure we don't immediately trigger the interrupt during handoff
-    sampler.timer.listen(Event::TimeOut);
-    handler!(sampling_handler = || sampler.sample());
-
     // Phase 4 test images can paint unused MSP memory immediately before the
     // interrupt scopes begin. A debugger later scans the DTCM pattern, so the
     // diagnostic adds no work to either realtime IRQ. Production builds omit it.
     #[cfg(feature = "stack-watermark")]
     cortex_m_stack::repaint_stack();
 
-    scope(|sampling| {
-        scope(|systick_default| {
-            // Set default interrupt handlers
-            systick_default.register(board::interrupts::SysTick, systick_default_handler);
-            sampling.register(board::interrupts::TIM2, sampling_handler);
-
-            // Unmask sample interrupt
-            unsafe {
-                pac::NVIC::unmask(interrupt::TIM2);
-            }
-
-            // Enter the state machine main loop,
-            // which will control the systick interrupt handler
-            board.run();
-        })
+    scope(|systick_default| {
+        // The state machine lends the sampler to the operating SysTick scope;
+        // this outer scope supplies the fallback handler between states.
+        systick_default.register(board::interrupts::SysTick, systick_default_handler);
+        board.run(&mut sampler);
     });
 
     loop {}

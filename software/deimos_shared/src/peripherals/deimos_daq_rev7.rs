@@ -47,11 +47,122 @@ pub const THERMOCOUPLE_CHANNEL_COUNT: usize = 2;
 /// Number of rev7 voltage measurement channels.
 pub const VOLTAGE_CHANNEL_COUNT: usize = 6;
 
-/// ADC sample frequency.
-pub const ADC_SAMPLE_FREQ_HZ: u32 = 33_000;
+/// Target ADC-group rate for synchronous oversampling.
+///
+/// The actual rate is the publishing rate multiplied by the nearest integer
+/// number of samples per cycle, so it moves slightly around this target.
+pub const ADC_OVERSAMPLE_TARGET_HZ: u32 = 9_000;
 
-/// ADC sample frequency as a floating-point rate.
-pub const ADC_SAMPLE_RATE_HZ: f64 = ADC_SAMPLE_FREQ_HZ as f64;
+/// Target ADC-group rate as a floating-point value.
+pub const ADC_OVERSAMPLE_TARGET_RATE_HZ: f64 = ADC_OVERSAMPLE_TARGET_HZ as f64;
+
+/// Minimum ADC groups taken in one synchronously oversampled cycle.
+pub const ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE: u32 = 3;
+
+/// Lowest publishing rate which uses one ADC group per cycle.
+///
+/// Below this compiled, non-protocol setting, the nearest integer sample count
+/// targets [`ADC_OVERSAMPLE_TARGET_HZ`]. At and above it, the firmware omits the
+/// ADC IIR and takes one fractional-delay-corrected group per publishing cycle.
+pub const ADC_SINGLE_SAMPLE_CUTOVER_HZ: u32 = 3_000;
+
+/// Synchronous ADC topology selected for one reporting cycle rate.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AdcSamplingMode {
+    /// Take an integer number of samples near the internal-rate target and run
+    /// both the fractional-delay FIR and ADC IIR on every group.
+    Oversampled,
+    /// Take one sample per reporting cycle and run only the fractional-delay
+    /// FIR.
+    Direct,
+}
+
+/// Derived rev7 sampling and filtering parameters.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AdcSamplingPolicy {
+    /// Selected synchronous acquisition topology.
+    pub mode: AdcSamplingMode,
+    /// ADC groups acquired in each reporting cycle, in `sample/cycle`.
+    pub samples_per_cycle: u32,
+    /// Actual ADC-group samplerate, in `sample/s`.
+    pub sample_rate_hz: f64,
+    /// ADC IIR cutoff, in `Hz`, or `None` when the direct path omits the IIR.
+    pub iir_cutoff_hz: Option<f64>,
+    /// ADC IIR cutoff divided by samplerate, or `None` in direct mode.
+    pub iir_cutoff_ratio: Option<f64>,
+}
+
+/// Derive the rev7 ADC samplerate and filter cutoff from a reporting cycle rate.
+///
+/// Below [`ADC_SINGLE_SAMPLE_CUTOVER_HZ`], the nearest integer sample count
+/// targets [`ADC_OVERSAMPLE_TARGET_HZ`] with a minimum of
+/// [`ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE`]. The ADC IIR cutoff remains at the
+/// reporting cycle rate. At and above the cutover, one sample is acquired per
+/// cycle and the ADC IIR is omitted.
+///
+/// Args:
+///   cycle_rate_hz: Requested reporting cycle rate scalar in `cycle/s`.
+///
+/// Returns:
+///   Derived synchronous sampling policy, or `None` for a non-finite or
+///   non-positive cycle rate or an unrepresentable integer sample count.
+pub fn adc_sampling_policy(cycle_rate_hz: f64) -> Option<AdcSamplingPolicy> {
+    if !cycle_rate_hz.is_finite() || cycle_rate_hz <= 0.0 {
+        return None;
+    }
+
+    if cycle_rate_hz >= f64::from(ADC_SINGLE_SAMPLE_CUTOVER_HZ) {
+        return Some(AdcSamplingPolicy {
+            mode: AdcSamplingMode::Direct,
+            samples_per_cycle: 1,
+            sample_rate_hz: cycle_rate_hz,
+            iir_cutoff_hz: None,
+            iir_cutoff_ratio: None,
+        });
+    }
+
+    // Adding one half before the float-to-integer conversion gives nearest-
+    // integer rounding without requiring a target libm operation.
+    let rounded_samples = ADC_OVERSAMPLE_TARGET_RATE_HZ / cycle_rate_hz + 0.5;
+    if rounded_samples > f64::from(u32::MAX) {
+        return None;
+    }
+    let rounded_samples = rounded_samples as u32;
+    let samples_per_cycle = rounded_samples.max(ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE);
+    let sample_rate_hz = cycle_rate_hz * f64::from(samples_per_cycle);
+    Some(AdcSamplingPolicy {
+        mode: AdcSamplingMode::Oversampled,
+        samples_per_cycle,
+        sample_rate_hz,
+        iir_cutoff_hz: Some(cycle_rate_hz),
+        iir_cutoff_ratio: Some(cycle_rate_hz / sample_rate_hz),
+    })
+}
+
+/// Maximum supported post-quadrature encoder count and pulse-counter edge rate.
+///
+/// This is the fastest rate the configured timer peripherals can count. The
+/// cutover assertions below prove that it cannot move by an ambiguous half of a
+/// 16-bit timer modulus between samples in either synchronous topology.
+pub const COUNTER_MAX_EDGE_RATE_HZ: u32 = 50_000_000;
+
+const _: () = assert!(ADC_OVERSAMPLE_TARGET_HZ > 0);
+const _: () = assert!(ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE > 0);
+const _: () = assert!(
+    ADC_OVERSAMPLE_TARGET_HZ == ADC_SINGLE_SAMPLE_CUTOVER_HZ * ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE
+);
+// Rounding N = target / cycle to the nearest integer gives a minimum nominal
+// internal rate of target * N / (N + 0.5). Its worst case occurs at the minimum
+// N=3 and is 6/7 of target. Including the longest +10% timing correction makes
+// the maximum oversampled interval 77 / (60 * target) seconds. Keep the counter
+// change strictly below half of its 2^16 modulus.
+const _: () = assert!(
+    COUNTER_MAX_EDGE_RATE_HZ as u64 * 77 < (1_u64 << 15) * ADC_OVERSAMPLE_TARGET_HZ as u64 * 60
+);
+// Direct operation's longest interval is 1.1 / cutover.
+const _: () = assert!(
+    COUNTER_MAX_EDGE_RATE_HZ as u64 * 11 < (1_u64 << 15) * ADC_SINGLE_SAMPLE_CUTOVER_HZ as u64 * 10
+);
 
 /// ADC and DAC voltage reference.
 pub const VREF: f32 = 2.5;
@@ -751,6 +862,37 @@ mod packet_tests {
     }
 
     #[test]
+    fn sampling_policy_derives_samplerate_and_iir_cutoff_from_cycle_rate() {
+        let low_rate = adc_sampling_policy(4.0).unwrap();
+        assert_eq!(low_rate.mode, AdcSamplingMode::Oversampled);
+        assert_eq!(low_rate.samples_per_cycle, 2_250);
+        assert_eq!(low_rate.sample_rate_hz, 9_000.0);
+        assert_eq!(low_rate.iir_cutoff_hz, Some(4.0));
+        assert_eq!(low_rate.iir_cutoff_ratio, Some(1.0 / 2_250.0));
+
+        let rounded_rate = adc_sampling_policy(2_500.0).unwrap();
+        assert_eq!(rounded_rate.mode, AdcSamplingMode::Oversampled);
+        assert_eq!(rounded_rate.samples_per_cycle, 4);
+        assert_eq!(rounded_rate.sample_rate_hz, 10_000.0);
+        assert_eq!(rounded_rate.iir_cutoff_hz, Some(2_500.0));
+
+        let below_cutover = adc_sampling_policy(1.0e9 / 333_334.0).unwrap();
+        assert_eq!(below_cutover.mode, AdcSamplingMode::Oversampled);
+        assert_eq!(below_cutover.samples_per_cycle, 3);
+
+        let cutover = adc_sampling_policy(3_000.0).unwrap();
+        assert_eq!(cutover.mode, AdcSamplingMode::Direct);
+        assert_eq!(cutover.samples_per_cycle, 1);
+        assert_eq!(cutover.sample_rate_hz, 3_000.0);
+        assert_eq!(cutover.iir_cutoff_hz, None);
+        assert_eq!(cutover.iir_cutoff_ratio, None);
+
+        assert!(adc_sampling_policy(0.0).is_none());
+        assert!(adc_sampling_policy(f64::NAN).is_none());
+        assert!(adc_sampling_policy(f64::MIN_POSITIVE).is_none());
+    }
+
+    #[test]
     fn packet_magics_are_direction_specific_and_validated() {
         let markers = [
             BINDING_INPUT_MAGIC,
@@ -935,8 +1077,9 @@ pub mod filters {
     use core::fmt;
 
     use super::{
-        ADC_ANALOG_FRONTEND_FILTER_KINDS, ADC_CHANNEL_COUNT, ADC_CLOCK_HZ, ADC_CONVERSION_CYCLES,
-        ADC_FILTER_COUNT, ADC_FILTER_MAX_CUTOFF_RATIO, ADC_FILTER_ORDER, ADC_FILTER_SECTIONS,
+        adc_sampling_policy, AdcSamplingPolicy, ADC_ANALOG_FRONTEND_FILTER_KINDS,
+        ADC_CHANNEL_COUNT, ADC_CLOCK_HZ, ADC_CONVERSION_CYCLES, ADC_FILTER_COUNT,
+        ADC_FILTER_MAX_CUTOFF_RATIO, ADC_FILTER_ORDER, ADC_FILTER_SECTIONS,
         ADC_FRACTIONAL_DELAY_FILTER_TAPS, ADC_SAMPLE_HOLD_CYCLES,
     };
     use deimos_numerics::{
@@ -987,6 +1130,12 @@ pub mod filters {
     /// Transfer functions corresponding to the full rev7 ADC fractional-delay filter bank.
     pub type AdcFractionalDelayTransferFunctionBank =
         [AdcFractionalDelayTransferFunction; ADC_FILTER_COUNT];
+
+    /// Transfer function for one complete rev7 digital ADC filter path.
+    pub type AdcDigitalTransferFunction = DiscreteTransferFunction<f64>;
+
+    /// Transfer functions for all complete rev7 digital ADC filter paths.
+    pub type AdcDigitalTransferFunctionBank = [AdcDigitalTransferFunction; ADC_FILTER_COUNT];
 
     /// Continuous-time transfer function for one rev7 ADC analog front end.
     pub type AdcAnalogFrontendTransferFunction = ContinuousTransferFunction<f64>;
@@ -1117,6 +1266,24 @@ pub mod filters {
         Ok(output.map(|transfer_function| transfer_function.unwrap()))
     }
 
+    /// Build the rev7 digital ADC paths implied by a reporting cycle rate.
+    ///
+    /// Oversampled paths contain the fractional-delay FIR followed by the ADC
+    /// IIR. Direct paths contain only the fractional-delay FIR, matching the
+    /// firmware hot path selected by [`super::adc_sampling_policy`].
+    ///
+    /// Args:
+    ///   cycle_rate_hz: Reporting cycle rate scalar in `cycle/s`.
+    ///
+    /// Returns:
+    ///   Digital transfer-function bank with shape `(ADC_FILTER_COUNT,)`.
+    pub fn adc_digital_transfer_functions_for_cycle_rate(
+        cycle_rate_hz: f64,
+    ) -> Result<AdcDigitalTransferFunctionBank, AdcFilterBuildError> {
+        let policy = validated_sampling_policy(cycle_rate_hz)?;
+        adc_digital_transfer_functions(policy.iir_cutoff_ratio, policy.sample_rate_hz)
+    }
+
     /// Builds continuous-time transfer functions for the rev7 analog voltage front ends.
     ///
     /// The modeled filtered channels are a unity-gain active Sallen-Key low-pass
@@ -1159,12 +1326,31 @@ pub mod filters {
         cutoff_ratio: f64,
         sample_rate_hz: f64,
     ) -> Result<AdcSampledTransferFunctionBank, AdcFilterBuildError> {
+        adc_sampled_transfer_functions_with_iir(Some(cutoff_ratio), sample_rate_hz)
+    }
+
+    /// Build sampled-sequence transfer functions implied by a reporting rate.
+    ///
+    /// Args:
+    ///   cycle_rate_hz: Reporting cycle rate scalar in `cycle/s`.
+    ///
+    /// Returns:
+    ///   Full sampled transfer-function bank with shape `(ADC_CHANNEL_COUNT,)`.
+    pub fn adc_sampled_transfer_functions_for_cycle_rate(
+        cycle_rate_hz: f64,
+    ) -> Result<AdcSampledTransferFunctionBank, AdcFilterBuildError> {
+        let policy = validated_sampling_policy(cycle_rate_hz)?;
+        adc_sampled_transfer_functions_with_iir(policy.iir_cutoff_ratio, policy.sample_rate_hz)
+    }
+
+    fn adc_sampled_transfer_functions_with_iir(
+        iir_cutoff_ratio: Option<f64>,
+        sample_rate_hz: f64,
+    ) -> Result<AdcSampledTransferFunctionBank, AdcFilterBuildError> {
         let sample_time = validate_sample_rate_hz(sample_rate_hz)?;
         let analog_transfer_functions = adc_analog_frontend_transfer_functions()?;
-        let fractional_delay_transfer_functions =
-            adc_fractional_delay_transfer_functions(sample_rate_hz)?;
-        let adc_filter_transfer_function =
-            adc_filter_transfer_function_at_sample_rate(cutoff_ratio, sample_rate_hz)?;
+        let digital_transfer_functions =
+            adc_digital_transfer_functions(iir_cutoff_ratio, sample_rate_hz)?;
 
         let mut output: [Option<AdcSampledTransferFunction>; ADC_CHANNEL_COUNT] =
             core::array::from_fn(|_| None);
@@ -1180,11 +1366,7 @@ pub mod filters {
                 .map_err(LtiError::from)?
                 .to_transfer_function()?;
 
-            output[idx] = Some(
-                sampled_analog
-                    .mul(&fractional_delay_transfer_functions[idx])?
-                    .mul(&adc_filter_transfer_function)?,
-            );
+            output[idx] = Some(sampled_analog.mul(&digital_transfer_functions[idx])?);
         }
 
         Ok(output.map(|transfer_function| transfer_function.unwrap()))
@@ -1203,12 +1385,38 @@ pub mod filters {
         sample_rate_hz: f64,
         frequencies_hz: &[f64],
     ) -> Result<AdcSampledBodeDataBank, AdcFilterBuildError> {
+        adc_sampled_bode_data_with_iir(Some(cutoff_ratio), sample_rate_hz, frequencies_hz)
+    }
+
+    /// Build physical-input-frequency Bode data implied by a reporting rate.
+    ///
+    /// Args:
+    ///   cycle_rate_hz: Reporting cycle rate scalar in `cycle/s`.
+    ///   frequencies_hz: Physical input-frequency grid in `Hz` with shape `(n,)`.
+    ///
+    /// Returns:
+    ///   Full measurement-path Bode bank with shape `(ADC_CHANNEL_COUNT,)`.
+    pub fn adc_sampled_bode_data_for_cycle_rate(
+        cycle_rate_hz: f64,
+        frequencies_hz: &[f64],
+    ) -> Result<AdcSampledBodeDataBank, AdcFilterBuildError> {
+        let policy = validated_sampling_policy(cycle_rate_hz)?;
+        adc_sampled_bode_data_with_iir(
+            policy.iir_cutoff_ratio,
+            policy.sample_rate_hz,
+            frequencies_hz,
+        )
+    }
+
+    fn adc_sampled_bode_data_with_iir(
+        iir_cutoff_ratio: Option<f64>,
+        sample_rate_hz: f64,
+        frequencies_hz: &[f64],
+    ) -> Result<AdcSampledBodeDataBank, AdcFilterBuildError> {
         validate_sample_rate_hz(sample_rate_hz)?;
         let analog_transfer_functions = adc_analog_frontend_transfer_functions()?;
-        let fractional_delay_transfer_functions =
-            adc_fractional_delay_transfer_functions(sample_rate_hz)?;
-        let adc_filter_transfer_function =
-            adc_filter_transfer_function_at_sample_rate(cutoff_ratio, sample_rate_hz)?;
+        let digital_transfer_functions =
+            adc_digital_transfer_functions(iir_cutoff_ratio, sample_rate_hz)?;
         let angular_frequencies: alloc::vec::Vec<f64> = frequencies_hz
             .iter()
             .map(|frequency_hz| frequency_hz * core::f64::consts::TAU)
@@ -1217,13 +1425,44 @@ pub mod filters {
             core::array::from_fn(|_| None);
         for idx in 0..ADC_CHANNEL_COUNT {
             let analog_bode = analog_transfer_functions[idx].bode_data(&angular_frequencies)?;
-            let digital_transfer_function =
-                fractional_delay_transfer_functions[idx].mul(&adc_filter_transfer_function)?;
-            let digital_bode = digital_transfer_function.bode_data(&angular_frequencies)?;
+            let digital_bode = digital_transfer_functions[idx].bode_data(&angular_frequencies)?;
             output[idx] = Some(combine_bode_data(&analog_bode, &digital_bode)?);
         }
 
         Ok(output.map(|bode_data| bode_data.unwrap()))
+    }
+
+    fn adc_digital_transfer_functions(
+        iir_cutoff_ratio: Option<f64>,
+        sample_rate_hz: f64,
+    ) -> Result<AdcDigitalTransferFunctionBank, AdcFilterBuildError> {
+        let fractional_delay_transfer_functions =
+            adc_fractional_delay_transfer_functions(sample_rate_hz)?;
+        let adc_filter_transfer_function = iir_cutoff_ratio
+            .map(|cutoff_ratio| {
+                adc_filter_transfer_function_at_sample_rate(cutoff_ratio, sample_rate_hz)
+            })
+            .transpose()?;
+
+        let mut output: [Option<AdcDigitalTransferFunction>; ADC_CHANNEL_COUNT] =
+            core::array::from_fn(|_| None);
+        for (idx, fractional_delay) in fractional_delay_transfer_functions.into_iter().enumerate() {
+            output[idx] = Some(match &adc_filter_transfer_function {
+                Some(adc_filter) => fractional_delay.mul(adc_filter)?,
+                None => fractional_delay,
+            });
+        }
+        Ok(output.map(|transfer_function| transfer_function.unwrap()))
+    }
+
+    fn validated_sampling_policy(
+        cycle_rate_hz: f64,
+    ) -> Result<AdcSamplingPolicy, AdcFilterBuildError> {
+        adc_sampling_policy(cycle_rate_hz).ok_or_else(|| {
+            AdcFilterBuildError::from(EmbeddedError::InvalidParameter {
+                which: "adc.cycle_rate_hz",
+            })
+        })
     }
 
     fn adc_filter(cutoff_ratio: f64) -> Result<AdcFilter, AdcFilterBuildError> {
@@ -1371,9 +1610,12 @@ pub mod filters {
             let filters = adc_filter_bank(0.1).unwrap();
             let transfer_functions = adc_filter_transfer_functions(0.1).unwrap();
             let fractional_delay_filters =
-                adc_fractional_delay_filter_bank(super::super::ADC_SAMPLE_RATE_HZ).unwrap();
-            let fractional_delay_transfer_functions =
-                adc_fractional_delay_transfer_functions(super::super::ADC_SAMPLE_RATE_HZ).unwrap();
+                adc_fractional_delay_filter_bank(super::super::ADC_OVERSAMPLE_TARGET_RATE_HZ)
+                    .unwrap();
+            let fractional_delay_transfer_functions = adc_fractional_delay_transfer_functions(
+                super::super::ADC_OVERSAMPLE_TARGET_RATE_HZ,
+            )
+            .unwrap();
 
             assert_eq!(filters.len(), ADC_FILTER_COUNT);
             assert_eq!(transfer_functions.len(), ADC_FILTER_COUNT);
@@ -1386,11 +1628,24 @@ pub mod filters {
                 fractional_delay_transfer_functions[0]
                     .domain()
                     .sample_time(),
-                1.0 / super::super::ADC_SAMPLE_RATE_HZ
+                1.0 / super::super::ADC_OVERSAMPLE_TARGET_RATE_HZ
             );
             assert!(!fractional_delay_transfer_functions[0]
                 .numerator()
                 .is_empty());
+        }
+
+        #[test]
+        fn rev7_low_rate_adc_filter_holds_a_primed_steady_state() {
+            let filter = adc_filter_bank(1.0 / 2_250.0).unwrap()[0];
+            let mut state = filter.reset_state();
+            filter.set_steady_state(&mut state, [1.25]);
+
+            for _ in 0..16 {
+                let output = filter.step(&mut state, [1.25])[0];
+                assert!(output.is_finite());
+                assert!((output - 1.25).abs() < 1.0e-5);
+            }
         }
 
         #[test]
@@ -1443,13 +1698,14 @@ pub mod filters {
         #[test]
         fn rev7_adc_sampled_transfer_functions_include_full_filter_chain() {
             let transfer_functions =
-                adc_sampled_transfer_functions(0.1, super::super::ADC_SAMPLE_RATE_HZ).unwrap();
+                adc_sampled_transfer_functions(0.1, super::super::ADC_OVERSAMPLE_TARGET_RATE_HZ)
+                    .unwrap();
 
             assert_eq!(transfer_functions.len(), ADC_CHANNEL_COUNT);
             for transfer_function in transfer_functions {
                 assert_eq!(
                     transfer_function.sample_time(),
-                    1.0 / super::super::ADC_SAMPLE_RATE_HZ
+                    1.0 / super::super::ADC_OVERSAMPLE_TARGET_RATE_HZ
                 );
                 let dc_gain = transfer_function.dc_gain().unwrap();
                 assert!((dc_gain.re - 1.0).abs() < 1.0e-4);
@@ -1460,15 +1716,36 @@ pub mod filters {
         }
 
         #[test]
+        fn cycle_rate_filter_helpers_follow_shared_sampling_policy() {
+            let oversampled = adc_sampled_transfer_functions_for_cycle_rate(1_000.0).unwrap();
+            for transfer_function in oversampled {
+                assert_eq!(transfer_function.sample_time(), 1.0 / 9_000.0);
+            }
+
+            let direct = adc_digital_transfer_functions_for_cycle_rate(5_000.0).unwrap();
+            let fractional = adc_fractional_delay_transfer_functions(5_000.0).unwrap();
+            for (direct, fractional) in direct.iter().zip(fractional.iter()) {
+                assert_eq!(direct.sample_time(), 1.0 / 5_000.0);
+                assert_eq!(direct.numerator(), fractional.numerator());
+                assert_eq!(direct.denominator(), fractional.denominator());
+            }
+
+            assert!(adc_sampled_transfer_functions_for_cycle_rate(0.0).is_err());
+        }
+
+        #[test]
         fn rev7_adc_sampled_bode_data_builds_for_all_channels() {
             let frequencies_hz = [0.0, 10.0, 100.0, 1_000.0];
             let angular_frequencies: alloc::vec::Vec<f64> = frequencies_hz
                 .iter()
                 .map(|frequency_hz| frequency_hz * core::f64::consts::TAU)
                 .collect();
-            let bode_data =
-                adc_sampled_bode_data(0.1, super::super::ADC_SAMPLE_RATE_HZ, &frequencies_hz)
-                    .unwrap();
+            let bode_data = adc_sampled_bode_data(
+                0.1,
+                super::super::ADC_OVERSAMPLE_TARGET_RATE_HZ,
+                &frequencies_hz,
+            )
+            .unwrap();
 
             assert_eq!(bode_data.len(), ADC_CHANNEL_COUNT);
             for channel_bode in bode_data {
@@ -1485,7 +1762,7 @@ pub mod filters {
 
         #[test]
         fn rev7_adc_combined_bode_preserves_high_frequency_analog_attenuation() {
-            let sample_rate_hz = super::super::ADC_SAMPLE_RATE_HZ;
+            let sample_rate_hz = super::super::ADC_OVERSAMPLE_TARGET_RATE_HZ;
             let frequencies_hz = [1_000.0, 10_000.0, 16_000.0, 30_000.0, 100_000.0];
             let angular_frequencies: alloc::vec::Vec<f64> = frequencies_hz
                 .iter()
@@ -1515,12 +1792,15 @@ pub mod filters {
 
 #[cfg(feature = "alloc")]
 pub use filters::{
-    adc_analog_frontend_transfer_functions, adc_filter_bank, adc_filter_transfer_functions,
-    adc_fractional_delay_filter_bank, adc_fractional_delay_transfer_functions,
-    adc_sampled_bode_data, adc_sampled_transfer_functions, AdcAnalogFrontendTransferFunction,
-    AdcAnalogFrontendTransferFunctionBank, AdcFilter, AdcFilterBank, AdcFilterBuildError,
-    AdcFilterState, AdcFilterTransferFunction, AdcFilterTransferFunctionBank,
-    AdcFractionalDelayFilter, AdcFractionalDelayFilterBank, AdcFractionalDelayFilterState,
+    adc_analog_frontend_transfer_functions, adc_digital_transfer_functions_for_cycle_rate,
+    adc_filter_bank, adc_filter_transfer_functions, adc_fractional_delay_filter_bank,
+    adc_fractional_delay_transfer_functions, adc_sampled_bode_data,
+    adc_sampled_bode_data_for_cycle_rate, adc_sampled_transfer_functions,
+    adc_sampled_transfer_functions_for_cycle_rate, AdcAnalogFrontendTransferFunction,
+    AdcAnalogFrontendTransferFunctionBank, AdcDigitalTransferFunction,
+    AdcDigitalTransferFunctionBank, AdcFilter, AdcFilterBank, AdcFilterBuildError, AdcFilterState,
+    AdcFilterTransferFunction, AdcFilterTransferFunctionBank, AdcFractionalDelayFilter,
+    AdcFractionalDelayFilterBank, AdcFractionalDelayFilterState,
     AdcFractionalDelayTransferFunction, AdcFractionalDelayTransferFunctionBank, AdcSampledBodeData,
     AdcSampledBodeDataBank, AdcSampledTransferFunction, AdcSampledTransferFunctionBank,
 };

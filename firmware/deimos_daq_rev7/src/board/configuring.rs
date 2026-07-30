@@ -34,7 +34,6 @@ impl<'a> Board<'a> {
 
         handler!(
             systick_handler = || {
-                self.acquisition_clock_advance();
                 self.time_ns += self.dt_ns as i64;
 
                 // Poll send/recv to process incoming packets
@@ -90,12 +89,6 @@ impl<'a> Board<'a> {
                         self.loss_of_contact_limit = config.loss_of_contact_limit;
                         self.dt_ns = config.dt_ns;
                         timeout_to_operating_ns = config.timeout_to_operating_ns;
-
-                        // Set ADC filter cutoff
-                        let reporting_rate = 1.0 / (self.dt_ns as f64 / 1e9); // Hz
-                        let cutoff_ratio = reporting_rate / (ADC_SAMPLE_FREQ_HZ as f64); // Dimensionless
-                        ADC_CUTOFF_RATIO.store(cutoff_ratio as f32, Ordering::Relaxed);
-                        NEW_ADC_CUTOFF.store(true, Ordering::Relaxed); // Flag for ADC sample loop to update cutoff
 
                         // If we've made it this far, we're done configuring
                         self.led2.set_high();

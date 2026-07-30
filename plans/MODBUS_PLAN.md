@@ -12,7 +12,13 @@ are recorded in
 Phase 5 timing results and remaining release matrix are recorded in
 `plans/MODBUS_PHASE5_REPORT.md`. Identity-first calibration, the GPIO timing-
 marker comparison, final calibrated engineering checks, and physical pre-rev7
-compatibility remain in the Phase 5 hardware verification.
+compatibility remain in the Phase 5 hardware verification. The Phase 6
+rounded-N synchronous implementation is complete in the working tree; its
+shared cycle-rate sampling policy, sampler-owned state cleanup, and policy-based
+Bode regeneration are also complete. Its 4 Hz--5 kHz hardware timing sweep
+remains to be recorded. The earlier
+33 kHz/3x/1x feasibility measurements in `plans/MODBUS_PHASE6_REPORT.md` are
+explicitly retained as an intermediate result rather than the final topology.
 
 This is the implementation plan for adding a Modbus/TCP operating mode to
 `firmware/deimos_daq_rev7` while keeping the existing Deimos UDP operating mode.
@@ -24,8 +30,8 @@ Modbus registers in Modbus mode.
 
 ## Goals
 
-- Publish coherent ADC channel groups rather than copying independently updated
-  ADC atomics.
+- Keep the latest coherent ADC, counter, and frequency group as ordinary state
+  owned and consumed by the single Operating SysTick scope.
 - Associate each published ADC group with its board acquisition timestamp and
   carry that timestamp through the common engineering snapshot.
 - Apply rev7 calibration and hardware-specific engineering conversions in
@@ -39,9 +45,13 @@ Modbus registers in Modbus mode.
   to or re-export them.
 - Add one statically allocated smoltcp TCP socket and its storage before adding
   any Modbus protocol processing.
-- After the baseline is complete, characterize whether a sample-per-cycle path
-  can extend the supported cycle rate while retaining the free-running 33 kHz
-  sampler below a measured, alias-safe cutover.
+- Use one synchronous SysTick owner for acquisition and communication. Below
+  3 kHz, round the number of samples per publishing cycle to target an
+  approximately 9 kHz ADC-group rate; at and above 3 kHz, take one sample per
+  cycle. Do not retain operating-time free-running oversampling.
+- Derive the integer samples-per-cycle, actual samplerate, and optional ADC-IIR
+  cutoff from one shared rev7 cycle-rate policy used by firmware and filter
+  analysis.
 - Reuse the existing operating entrypoint, cycle timer, filter-cutoff policy,
   loss-of-contact counter, output handling, and address-management behavior.
 - Make the eventual difference between Deimos and Modbus operation primarily
@@ -52,11 +62,12 @@ Modbus registers in Modbus mode.
 The following are requirements rather than open design questions:
 
 - Do not add a `NetworkServing` board state.
-- In the baseline free-running mode, do not move ADC filter construction or
-  installation out of the sampling interrupt. The current
-  `ADC_CUTOFF_RATIO`/`NEW_ADC_CUTOFF` handshake remains. A successful Phase 6
-  keeps that path intact; its alternative path has no ADC IIR and configures
-  only the rate-specific fractional-delay filter when its sampling scope starts.
+- Construct and install the selected ADC filters once on entry to Operating,
+  before enabling its SysTick scope. Below 3 kHz, run the ADC IIR at the
+  publishing-rate cutoff using the actual rounded sample count. At and above
+  3 kHz, apply the fractional-delay filter without an ADC IIR. Take one real ADC
+  group at entry and initialize the fractional-delay, ADC-IIR, and board-
+  temperature filter histories to steady state from it before publishing.
 - Do not create independent Modbus publication, filter-cutoff, and timeout
   clocks. The operating cycle is the publication cycle, and the operating cycle
   rate is also used as the ADC filter cutoff exactly as it is in Deimos mode.
@@ -239,11 +250,13 @@ owns outputs at a time.
 The target data flow is:
 
 ```text
-TIM2 sampler at 33 kHz
-    -> publish filtered ADC group and acquisition timestamp into ADC double buffer
+selected acquisition topology
+    -> synchronous SysTick oversampling near 9 kHz below 3 kHz; or
+       synchronous SysTick at one sample per cycle from 3 kHz upward
+    -> update the sampler-owned ADC/counter/frequency group
     -> operating-cycle snapshot publisher
-         - copy coherent ADC group
-         - read counters, frequencies, and digital inputs
+         - borrow the group completed earlier in the same SysTick invocation
+         - read digital inputs
          - apply per-device calibration
          - perform channel engineering conversions
          - advance the 1 Hz board-temperature filter
@@ -255,10 +268,10 @@ TIM2 sampler at 33 kHz
 
 Snapshot publication occurs once per nominal operating cycle in both modes.
 Network reads never advance filters or cause measurements to be recalculated.
-The diagram describes the baseline free-running sampler. If Phase 6 passes its
-measurement gate, the high-rate path invokes the same acquisition/alignment and
-double-buffer publication code once from the SysTick scope immediately before
-the common snapshot publisher; the downstream data path does not change.
+The oversampled topology samples on every SysTick subcycle and invokes the
+common snapshot publisher after its fixed, operating-entry sample count. The
+direct topology samples immediately before every publication. Both update the
+same sampler-owned state; the downstream data path does not change.
 
 ## Engineering snapshot contract
 
@@ -300,7 +313,7 @@ temperatures are included.
 ADC conversion group represented by the snapshot. It is distinct from
 `metrics.cycle_time_ns` and `metrics.sent_time_ns`, which describe snapshot
 publication rather than acquisition. The timestamp and all ADC values are one
-double-buffer payload and therefore always come from the same published sampler
+sampler-owned group and therefore always come from the same completed sampler
 iteration. This field describes the final packet layout; Phases 1--4 use the
 otherwise-identical snapshot without it, and Phase 5 updates the packet length,
 golden encoding, host parser, and Modbus register map together.
@@ -653,78 +666,34 @@ This is a breaking rev7 wire change. Update firmware and software together, and
 update calibration capture configurations and documentation that currently
 refer to `p1.ain*` or intermediate standard-calc names.
 
-## ADC double buffer
+## Sampler-owned latest group
 
-Replace the public `[AtomicF32; ADC_CHANNEL_COUNT]` latest-value array with a
-two-slot atomic abstraction owned by the sampling subsystem, conceptually:
+Phase 1 initially introduced an atomic ADC double buffer because sampling and
+communication lived in separate interrupt scopes. Phase 6 removes that
+ownership boundary: the Operating SysTick now performs acquisition first and
+consumes the result later in the same handler. Remove the superseded static
+buffers, selector, compiler fences, and ADC/counter/frequency atomics rather
+than preserving a handoff which no longer exists.
 
-```rust
-struct AtomicAdcSampleGroup {
-    values: [AtomicF32; ADC_CHANNEL_COUNT],
-    sample_time_lo: AtomicU32,
-    sample_time_hi: AtomicU32,
-}
+`Sampler` owns one ordinary `SampledInputs` value containing the filtered
+`AdcSampleGroup`, `sample_time_ns`, accumulated `i64` encoder and pulse counts,
+and frequency inputs. Sampling updates it in place. The common operating cycle
+borrows it only after the final sample of a publishing cycle and completes
+before another sample can begin. Entry priming populates the same state before
+SysTick is enabled. This sequencing makes partial reads impossible without a
+double buffer, critical section, unsafe interior mutability, or atomic memory
+ordering.
 
-struct AdcSampleDoubleBuffer {
-    buffers: [AtomicAdcSampleGroup; 2],
-    latest: AtomicBool, // false selects slot 0; true selects slot 1
-}
-```
-
-The reader reconstructs an ordinary `AdcSampleGroup` containing the `f32` values
-and `i64 sample_time_ns`. Phase 1 may initially omit the two timestamp words;
-Phase 5 adds them without changing the publication protocol. Split the timestamp
-into two atomic 32-bit words because this Cortex-M target does not provide native
-64-bit atomics.
-
-Required invariants:
-
-- The sampling closure is the only writer and the only context which modifies
-  `latest`.
-- The writer loads `latest` with relaxed ordering, fills the other slot using
-  relaxed atomic stores, executes a release `compiler_fence`, and publishes that
-  slot with one relaxed `AtomicBool` store.
-- The communication closure loads `latest` exactly once with relaxed ordering,
-  executes an acquire `compiler_fence`, and copies every field from the selected
-  slot with relaxed atomic loads. It does not recheck or modify the flag.
-- Compiler fences prevent source-level reordering across publication but emit no
-  Cortex-M hardware memory-barrier instruction. The relaxed `AtomicF32`,
-  `AtomicU32`, and `AtomicBool` accesses compile to the same ordinary aligned
-  loads and stores used by the current handoff.
-- SysTick is the only reader and has higher priority than the TIM2 writer. If it
-  preempts before publication, it reads the previous slot while TIM2 writes the
-  other one. If it preempts after publication, the new slot is complete. TIM2
-  cannot resume and reuse a slot until the reader has finished copying it.
-- In sample-per-cycle mode, the same publication and copy occur sequentially in
-  the SysTick scope and therefore satisfy the same contract.
-- The reader returns an `AdcSampleGroup` by value. It must never return a
-  reference into either static slot which could remain live after the
-  communication interrupt returns.
-- No critical section, interrupt masking, reader flag, reader guard, retry, or
-  unsafe interior mutability is required.
-
-Keep the implementation specific to the current single-core, single-writer,
-single-higher-priority-reader interrupt model. Add a prominent comment that a
-multicore platform, a writer capable of preempting the reader, or an additional
-reader would require a triple buffer or a stronger ownership protocol to
-preserve the no-wait read/write contract.
-
-Update the nominal operating snapshot publisher to use the single-load reader
-API. For filter-update steady-state initialization inside the sampling
-interrupt, use the sampler's own `adc_values` directly rather than going through
-the shared reader API. Do not change where the filter bank is constructed or
-installed.
-
-This double buffer guarantees that all ADC fields copied into one operating
-snapshot came from one completed sampler iteration. Counter/frequency coherence
-retains its current behavior; no additional synchronization is added.
+Transition flags shared between a scoped IRQ and the waiting foreground loop,
+and optional debugger-visible timing watermarks, remain atomic because they
+still cross an ownership boundary. They are not part of sampled-data transfer.
 
 ## ADC acquisition timestamping
 
 Implement acquisition timestamping as an independent fifth phase, after the
 nominal and Modbus operating paths are stable. Use SysTick as both the
 operating-cycle boundary and the within-cycle counter; do not add a TIM5 wrap
-interrupt or transfer TIM5 ownership to the sampling interrupt.
+interrupt.
 
 Maintain a small operating acquisition-clock state containing:
 
@@ -735,54 +704,32 @@ struct AcquisitionClock {
 }
 ```
 
-Initialize `cycle_start_ns` from the board time on operating entry. At the start
-of each higher-priority SysTick communication handler, advance it by the actual
-duration of the completed SysTick interval and record the reload which was
-loaded for the interval that has just started. Derive interval durations from
+Initialize `cycle_start_ns` from the board time on operating entry. Keep the
+clock as ordinary state owned by the scoped Operating SysTick closure. At the
+start of each handler, advance it by the actual duration of the completed
+SysTick interval and record the reload which was loaded for the interval that
+has just started. Derive interval durations from
 the applied timer ticks, including the SysTick `reload = ticks - 1` convention,
 rather than repeatedly adding nominal `dt_ns`; this includes period adjustment
 and timer quantization. Keep the active reload separate from a reload programmed
 later in the handler for the next cycle. This acquisition clock does not change
 the existing cycle labels or phase/period timing-control calculations.
 
-Do not use acquire/release or sequentially consistent atomics to transfer this
-state. SysTick already has higher priority than TIM2. Protect the ordinary
-`AcquisitionClock` copy with a very short interrupt-masked critical section:
-
-1. Check `SCB_ICSR.PENDSTSET`; abandon this attempt if SysTick is already
-   pending.
-2. Copy `AcquisitionClock` and read `SYST_CVR` through
-   `SYST::get_current()` while interrupts remain masked.
-3. Check `PENDSTSET` again. If it became set during the copy, restore interrupts
-   so SysTick runs and retry.
-4. Otherwise restore interrupts and calculate elapsed ticks as
-   `active_reload - current_count` under the verified hardware convention.
-
-Capture the timestamp immediately before starting the first ADC conversion
-group. Bound the operation to two attempts: one normal capture and at most one
-retry after a pending SysTick handler completes. There is no unbounded ISR loop.
-If both attempts fail, publish the group normally with
-`last_sample_time_ns + nominal_sample_period_ns`, where the nominal period is
-derived from the configured sampling timer and rounded to nanoseconds. Do not
-add a validity field, error counter, or downstream conditional path for this
-case. Under the interrupt-priority and deadline assumptions, that fallback
-sample will be superseded by later 33 kHz samples before the next snapshot is
-published. Initialize `last_sample_time_ns` to one nominal sample period before
-the operating-entry acquisition-clock anchor so the fallback is defined even
-before the first successful counter capture.
+Do not use atomics or a critical section to transfer this state: no other IRQ
+accesses it. Capture the timestamp immediately before starting the first ADC
+conversion group as `cycle_start_ns` plus the elapsed SysTick counter ticks.
+The entry-prime group uses the current board time before SysTick is enabled.
 
 Store the resulting `sample_time_ns` and the completed filtered ADC values in
-the same `AdcSampleGroup`, then publish the double-buffer flag. The operating
-snapshot publisher copies that timestamp without rereading any timer. Document
+the same sampler-owned `AdcSampleGroup`. The operating snapshot publisher copies
+that timestamp without rereading any timer. Document
 the timestamp as the acquisition-start instant; do not attempt to compensate it
 for filter group delay.
 
-Add target-independent tests for the counter/reload arithmetic and a small
-model of the capture protocol covering a SysTick pending before the copy,
-between the clock copy and counter read, after the counter read, and on both
-bounded attempts. On hardware, compare timestamps against a GPIO marker around
-the first conversion start and verify monotonic sample timestamps across normal
-cycles and applied phase/period adjustments.
+Add target-independent tests for the counter/reload arithmetic, rounded sample
+counts, and quotient/remainder schedule. On hardware, compare timestamps against
+a GPIO marker around the first conversion start and verify monotonic sample
+timestamps across normal cycles and applied phase/period adjustments.
 
 ## TCP transport scaffold
 
@@ -1034,17 +981,15 @@ minimum observed board/controller cycle margins. Use the initial measurements
 to set the allowed regression tolerance before judging later phases. Any result
 outside that tolerance blocks the phase until it is explained, optimized, or
 explicitly accepted with an updated supported-rate limit. Do not hide a
-performance regression by moving the sample-per-cycle cutover downward.
+performance regression by moving the compiled synchronous cutover or changing
+the selected topology.
 
 The DAQ margin describes the preceding completed cycle, so the first snapshot
 has no margin measurement and retains its packet-default zero. Exclude that
 default if it reaches the dispatched CSV; depending on synchronization, it may
-be consumed before dispatch begins, so retain a nonzero first row. Clear the
-sampling-time accumulator immediately before enabling the operating SysTick so
-the first measured cycle does not subtract work accumulated during Connecting,
-Binding, and Configuring. Use both the remaining minimum and first percentile
-as active firmware-timing gates; Phase 5's acquisition timestamp work is
-independent of this measurement.
+be consumed before dispatch begins, so retain a nonzero first row. Use both the
+remaining minimum and first percentile as active firmware-timing gates; Phase
+5's acquisition timestamp work is independent of this measurement.
 
 ## Implementation phases
 
@@ -1071,8 +1016,8 @@ not supersede that performance gate.
    functions; remove duplicate implementations.
 5. Add `LinearCalibration` and `Rev7Calibration` `ByteStruct` types, binary
    generation, and compile-time inclusion.
-6. Add the ADC double-buffer abstraction and switch the current UDP publisher
-   to it.
+6. Keep coherent sampled values behind one sampler API. Phase 6's single-owner
+   topology stores them as ordinary sampler state with no static handoff.
 7. Add `OperatingSnapshot` and the firmware engineering publisher.
 8. Change the nominal UDP path and host rev7 parser/output names to use final
    engineering measurements.
@@ -1189,13 +1134,10 @@ Phase 4 exit criteria:
 ### Phase 5: ADC acquisition timestamps and release
 
 1. Add the SysTick-based `AcquisitionClock` and update it at the beginning of
-   the higher-priority communication handler using the actual completed
-   interval.
-2. Add the bounded, interrupt-masked TIM2 capture helper with `PENDSTSET`
-   rollover detection, at most two attempts, and nominal-sample-period
-   fallback.
-3. Extend the ADC double-buffer payload with `sample_time_ns` and capture it
-   immediately before the first conversion group.
+   the single Operating handler using the actual completed interval.
+2. Keep the acquisition clock and sampler local to the same SysTick scope.
+3. Store `sample_time_ns` with the ordinary sampler-owned ADC group, capturing
+   it immediately before the first conversion group.
 4. Add `sample_time_ns` to `OperatingSnapshot`, its Modbus register-map input,
    and host parsing/output names.
 5. Add arithmetic/protocol tests, update and rerun snapshot/register-map golden
@@ -1218,12 +1160,9 @@ Phase 5 exit criteria:
 
 - Every engineering snapshot carries the acquisition time of the coherent ADC
   group from which its analog values were calculated.
-- The normal capture path uses no strongly ordered atomics and masks interrupts
-  only for the bounded clock-state/counter snapshot.
-- Counter rollover cannot pair a cycle base with the wrong SysTick interval,
-  and capture performs no more than two attempts.
-- The fallback produces a monotonic nominal-period timestamp without adding a
-  packet-validity field, diagnostic counter, or downstream branch.
+- The normal capture path uses no sampled-data atomics, interrupt masking,
+  retry, or fallback path because timestamp capture and ADC sampling share one
+  interrupt owner.
 - Existing cycle labels, active timing control, operating rates, and TIM5 uses
   remain behaviorally unchanged.
 - Both existing rev7 units complete the identity-first procedure, reject normal
@@ -1232,89 +1171,91 @@ Phase 5 exit criteria:
 - Physical pre-rev7 discovery, binding, configuration, and operation remain
   compatible, with the checkpoint and hardware result archived.
 
-### Phase 6: post-baseline high-rate sample-per-cycle investigation
+### Phase 6: synchronous variable-rate sampling
 
-Treat this as a measurement-gated extension after the complete baseline
-firmware and software are running. Preserve the 33 kHz free-running sampler as
-the default implementation unless the timing and aliasing characterizations
-demonstrate a safe overlap between the two sampling modes.
+Replace operating-time free-running oversampling with one SysTick-owned sampling
+system. The compiled constants in the shared rev7 peripheral module are a 9 kHz
+target internal rate and a 3 kHz direct-sampling cutover; neither is a live or
+protocol-facing setting.
 
-1. Measure the final free-running path after firmware engineering conversions,
-   snapshot timestamping, and both transports are present. Sweep operating
-   rates with full packets and worst-case accepted reads/writes, active Deimos
-   timing corrections, and release-build cache behavior. Record total cycle
-   margin, communication-handler duration, TIM2 latency, and missed or coalesced
-   sample events. Include the canonical 5 kHz loss-of-contact drop benchmark and
-   compare its complete per-second series with the stored pre-change results.
-   Define the highest acceptable free-running cycle rate from these measurements
-   rather than from UDP echo throughput alone.
-2. Extend the existing per-channel analog/digital response analysis to include
-   folded alias contributions for a mode whose ADC sample rate equals its
-   operating cycle rate. Determine the lowest acceptable sample-per-cycle rate
-   from the required bandwidth, analog-filter response, and documented alias
-   error limit. Evaluate approximately 5 kHz as the preferred cutover target;
-   use a lower cutover only if the measured alias performance is acceptable.
-3. Require the acceptable free-running range and sample-per-cycle range to
-   overlap. If they do not, retain the baseline free-running implementation and
-   check in the timing/alias report instead of introducing an unsupported rate
-   gap or silently reducing either safety margin.
-4. If a safe overlap exists, refactor interrupt ownership so operating entry
-   lends the `Sampler` to exactly one IRQ scope. In free-running mode, a
-   TIM2-owned closure samples at 33 kHz. In sample-per-cycle mode, the SysTick
-   communication closure owns the sampler, performs one ADC acquisition and
-   fractional-delay step first, then runs the common snapshot and communication
-   work. Do not share a mutable sampler between simultaneously registered
-   closures or place it behind a runtime lock.
-5. Make both sampling closures publish the same `AdcSampleGroup` through the
-   existing double-buffer writer API. The communication side uses the same
-   single-flag-load reader handoff, engineering-conversion pipeline, timestamp
-   field, and packet construction in both modes. Factor raw acquisition, channel
-   alignment, counter capture, and buffer publication so the closures do not
-   duplicate those operations.
-6. Select the sampling mode once on operating entry from the applied cycle rate;
-   do not branch on it in either steady-state hot path. Reuse the existing
-   operating re-entry for a rate change. Disable and clear TIM2 before lending
-   the sampler to SysTick, and restore its configured 33 kHz timer before
-   lending it back to the TIM2 scope.
-7. Build fractional-delay coefficients for the selected acquisition rate. The
-   free-running path retains its existing IIR bank and 33 kHz sample rate; the
-   sample-per-cycle path applies fractional delay but no ADC IIR. Continue using
-   the separate 1 Hz board-temperature publication filter in both modes.
-8. Define supported maximum post-quadrature encoder count rate and pulse-counter
-   edge rate constants. Add compile-time assertions proving that, at the longest
-   possible direct-mode cycle—including the permitted positive timing
-   adjustment and timer quantization—each counter advances by strictly less than
-   half its `2^16` modulus. Use explicit `2^16` and `2^32` modulus constants in
-   the unrolling implementation and verify the wrap arithmetic at both
-   boundaries.
-9. Characterize the implemented sample-per-cycle path with the same worst-case
-   UDP and Modbus workloads, phase/period corrections, counter inputs, and
-   hardware timing instrumentation. Establish its maximum supported rate and
-   attempt to demonstrate at least 5 kHz operation without violating cycle,
-   sampling, timestamp, aliasing, watchdog, or output-safety requirements.
+Below 3 kHz, choose one integer sample count on Operating entry:
+
+```text
+samples_per_cycle = max(3, round(9_000 * dt_ns / 1_000_000_000))
+actual_sample_rate = samples_per_cycle * publishing_rate
+ADC_IIR_cutoff_ratio = 1 / samples_per_cycle
+```
+
+Implement this once as `adc_sampling_policy` in the shared rev7 peripheral
+module. Firmware, filter-data construction, and the `rev7_bode` example use the
+returned mode, sample count, actual samplerate, and optional IIR cutoff rather
+than repeating the formulas.
+
+At and above 3 kHz, take one sample per cycle and apply fractional delay without
+the ADC IIR. This deliberately places the system cutoff at the sampling rate,
+rather than at Nyquist, to preserve control-loop phase margin. Dynamic magnitude,
+phase, alias, and noise characterization is deferred until it can be automated
+with a programmable signal generator.
+
+1. Remove TIM2 sampling and its IRQ ownership, filter-update handshake,
+   accumulated-time accounting, cross-IRQ acquisition-clock storage, and bounded
+   rollover retry. Connecting, Binding, and Configuring do not sample because no
+   state consumes those values.
+2. On every Operating entry, configure the actual-rate fractional-delay filters
+   and, for oversampling, the ADC IIR bank. Then acquire one real ADC group and
+   initialize the fractional-delay, ADC-IIR, and 1 Hz board-temperature filter
+   histories to steady state from that group before the first output snapshot.
+   This prevents low-cutoff startup transients from reaching the controller.
+3. Select `Oversampled` or `Direct` once from the shared policy result. A Modbus
+   rate change continues to exit and re-enter Operating, so no topology or
+   filter-reconfiguration branch is added to the hot path.
+4. In oversampled operation, divide every nominal or Deimos-corrected publishing
+   interval into `samples_per_cycle` positive SysTick intervals. Use a constant-
+   space quotient/remainder scheduler whose update is bounded O(1); do not store
+   an array proportional to the sample count or loop over it in an IRQ. The
+   intervals sum exactly to the requested cycle and differ by at most one tick.
+5. Sample and advance the local acquisition clock on every SysTick. On sample-
+   only ticks, record timing margin and return after feeding the watchdog. On the
+   final sample, run the common engineering conversion, transport, output,
+   loss-of-contact, and snapshot-publishing cycle, then construct the next
+   corrected schedule. Packet IDs and loss-of-contact accounting advance once
+   per publishing cycle.
+6. Keep separate oversampled-IIR and direct-fractional-only sampling entrypoints
+   so there is no per-channel IIR branch in realtime code. Factor raw ADC
+   acquisition, scaling, counter/frequency capture, and sampled-state update
+   so priming and both steady-state entrypoints do not duplicate those operations.
+7. Keep one ordinary sampler-owned `SampledInputs` value in both topologies. The
+   final sample completes before the common operating cycle borrows it, and its
+   timestamp is captured directly from the SysTick interval owned by that same
+   handler without sampled-data atomics or retry loops.
+8. Retain compile-time counter-rate assertions. The oversampled proof includes
+   nearest-integer sample-count quantization and the longest +10% Deimos timing
+   correction; the direct proof uses the 3 kHz cutover. Both must keep a 50 MHz
+   counter change strictly below half of its `2^16` modulus.
+9. Verify rounded sample-count boundaries, exact tick-sum distribution, timestamp
+   arithmetic, filter priming, clean operating re-entry, and the 3 kHz cutover in
+   target-independent tests where possible. On hardware, sweep 4 Hz through
+   5 kHz and record sample-only and sample-plus-communication margins,
+   loss-of-contact rate, and timestamp monotonicity. Include the canonical
+   10-second 5 kHz steady-window benchmark.
 
 Phase 6 exit criteria:
 
-- The checked-in characterization identifies the highest supported
-  free-running rate, lowest alias-safe sample-per-cycle rate, and maximum
-  sample-per-cycle rate for each relevant operating transport.
-- If a safe overlap exists, one documented cutover selects the mode only at
-  operating entry, and rate re-entry transfers exclusive sampler ownership
-  between IRQ scopes without a steady-state mode branch.
-- Both modes produce the same `AdcSampleGroup` contract and exercise the same
-  communication-side snapshot, engineering-conversion, and packet code.
-- Free-running mode remains behaviorally unchanged below the cutover.
-  Sample-per-cycle mode performs exactly one ADC group and fractional-delay step
-  per cycle and does not run the ADC IIR.
-- Compile-time counter-rate assertions cover the worst direct-mode interval,
-  and boundary tests use the correct power-of-two counter moduli.
-- Hardware tests cover the shortest corrected cycle, maximum supported packets,
-  TIM2 cadence below the cutover, direct-mode cadence above it, and timestamps
-  across both modes.
-- If the ranges do not overlap or the 5 kHz target is not safe, the report states
-  the limiting timing or alias mechanism and the baseline mode remains the only
-  supported implementation; the phase does not weaken an existing limit merely
-  to add the new mode.
+- No rev7 operating or setup state enables TIM2 sampling; the sampler is owned
+  only by the Operating SysTick scope.
+- Rates below 3 kHz use the nearest integer sample count targeting 9 kHz, with a
+  minimum of three; rates at and above 3 kHz use the direct one-sample path.
+- Every corrected oversampled schedule is constant-space, bounded per IRQ, sums
+  exactly to its publishing interval, and differs by no more than one timer tick.
+- A real entry sample establishes steady state for every ADC filter history and
+  the board-temperature filter before the first controller-visible snapshot.
+- Both topologies produce the same coherent timestamped sample-group and common
+  engineering/protocol snapshot without a steady-state topology branch.
+- Compile-time counter bounds and shared scheduling boundary tests pass, and
+  release builds retain positive measured IRQ margin across 4 Hz--5 kHz.
+- Automated magnitude, phase, folded-alias, and noise measurements are recorded
+  as explicitly deferred work pending the programmable signal generator; they
+  do not block this structural and timing phase.
 
 ## Verification matrix
 
@@ -1367,26 +1308,21 @@ Phase 6 exit criteria:
   while the calibration command requires the uncalibrated response and
   continues.
 
-### Double buffer and snapshots
+### Sampled state and snapshots
 
-- Readers never observe a partially written ADC group.
 - Each copied `sample_time_ns` belongs to the same sampler iteration as every
   ADC value in that snapshot.
-- Model tests cover the communication interrupt preempting TIM2 before the
-  relaxed publication store and immediately after it. The reader obtains the
-  complete previous or new generation respectively.
-- The communication reader loads `latest` once, never writes it, and returns a
-  value rather than a reference into static storage.
-- Generated-code inspection confirms the relaxed publication operations and
-  compiler fences do not emit hardware memory barriers or atomic read-modify-
-  write instructions on the firmware target.
-- Filter-update initialization uses the sampling subsystem's own latest
-  `adc_values` without going through the shared reader API.
+- Steady-state sampling and snapshot construction are sequential in one SysTick
+  handler, and the operating cycle borrows ordinary sampler-owned state only
+  after the final sample is complete.
+- The production image contains no static ADC, counter, or frequency atomics,
+  double-buffer selector, or sampled-data compiler fence.
+- Operating-entry initialization uses one real ADC group to set every filter
+  history to steady state before exposing the sampler-owned group.
 - Channel-by-channel conversion tests verify ordering and calibration placement.
 - Snapshot serialization and host parsing agree field-for-field.
 - Acquisition-clock tests cover the verified SysTick reload/count convention,
-  pending-before/pending-during rollover cases, the two-attempt bound, and the
-  nominal-period fallback.
+  rounded sample counts, and exact uniform interval distribution.
 
 ### Operating modes
 
@@ -1401,8 +1337,8 @@ Phase 6 exit criteria:
   TCP socket restarts.
 - Repeated Modbus reads and writes which do not cover output fields preserve
   outputs; explicit zero and nonzero writes replace only the selected outputs.
-- A cycle-rate change produces the documented skipped sample and counter reset;
-  no continuity compensation is attempted.
+- A cycle-rate change produces the documented operating re-entry, filter
+  reprime, and counter reset; no continuity compensation is attempted.
 - Invalid new rates do not alter filters, cycle timing, timeout, or outputs.
 - Rates below the 1 Hz board-filter design threshold select the coefficient-
   level passthrough, retain the branch-free hot path, and have unity response.
@@ -1417,8 +1353,8 @@ Phase 6 exit criteria:
 - Run and archive the canonical 5 kHz/10-second loss-of-contact benchmark after
   every phase and material hot-path change; compare whole-run and final-five-
   second drop rates with the established baseline.
-- Measure TIM2 sample deadline margin while capturing acquisition timestamps
-  and publishing all engineering values.
+- Measure synchronous sample-only and sample-plus-communication deadline margin
+  while capturing acquisition timestamps and publishing all engineering values.
 - Compare `sample_time_ns` with a GPIO acquisition-start marker and verify
   monotonicity across ordinary cycles and active phase/period adjustments.
 - Measure worst-case operating-cycle margin while serving a maximum snapshot
@@ -1427,13 +1363,13 @@ Phase 6 exit criteria:
   DAQ margin, reconnect/state-exit status, and on-target MSP high-water mark for
   complete 79-register reads, 21-register output writes, and three-register
   timing-configuration writes.
-- For the post-baseline investigation, sweep both sampling modes across the
-  candidate overlap and record cycle margin, TIM2 cadence, communication-handler
-  duration, and folded alias response. Include the shortest permitted corrected
-  Deimos cycle and the worst accepted Modbus request.
-- Exercise rate changes across the selected cutover and verify that exactly one
-  IRQ scope owns the sampler, TIM2 is stopped and cleared in sample-per-cycle
-  mode, and both modes publish the same coherent group format.
+- Sweep both synchronous topologies and record publication-cycle, sample-only,
+  and sample-plus-communication margins. Include the minimum operating rate,
+  the 3 kHz boundary, the shortest and longest permitted corrected Deimos
+  subcycles, 5 kHz, and the worst accepted Modbus request.
+- Exercise rate changes across the compiled 3 kHz cutover and verify that the
+  Operating SysTick scope exclusively owns the sampler and both topologies
+  publish the same coherent group format.
 - Verify watchdog feeding and safe-output behavior during network failure.
 
 ## Coordinated rollout
@@ -1472,10 +1408,9 @@ software; the new runtime does not accept that obsolete rev7 layout.
 
 ## Known risks
 
-- The relaxed two-slot publication protocol depends on one core, one writer,
-  and one higher-priority communication reader. A multicore system, another
-  reader, or a writer which can preempt the reader requires a triple buffer or a
-  stronger ownership protocol to preserve no-wait reads and writes.
+- The ordinary sampled-state contract depends on acquisition and publication
+  remaining sequential within one interrupt owner. A future split across IRQs
+  or cores would require a new explicit handoff protocol.
 - The existing filter-rate update resets input counters and skips a sample. A
   writable Modbus cycle rate makes that documented behavior externally
   observable, but rate changes are expected to be rare.
@@ -1497,19 +1432,21 @@ software; the new runtime does not accept that obsolete rev7 layout.
 - A single timeout reset by any accepted Modbus request means read-only polling
   also maintains output authority. This is intentional under the simplified
   one-timeout design and should be documented for integrators.
-- Acquisition timestamps rely on the existing SysTick-higher-than-TIM2 priority
-  relationship and on the communication handler completing before the next
-  SysTick boundary. The bounded fallback prevents this assumption from creating
-  an unbounded sampling-ISR path.
-- The safe free-running timing range and alias-safe sample-per-cycle range may
-  not overlap after all engineering and protocol work is present. Phase 6 is a
-  characterization-gated extension and retains the baseline sampler if there is
-  no overlap.
-- Sample-per-cycle mode makes the ADC cadence follow Deimos period/phase
-  corrections. Its timestamp accuracy, fractional-delay behavior, and control
-  quality must be verified at the maximum permitted corrections rather than
-  inferred from nominal-rate tests.
+- Each synchronous handler must complete before its next sampling boundary.
+  The quotient/remainder scheduler is bounded, but the publishing subcycle also
+  contains engineering and network work and therefore remains the timing limit.
+- Nearest-integer sample counts make the actual oversampling rate move around
+  9 kHz, with the largest relative deviation near the 3 kHz cutover. Filter
+  coefficients use the actual rate and count, and the hardware timing sweep
+  covers sample-count transition boundaries.
+- The system intentionally places its cutoff at the sampling rate, rather than
+  Nyquist, to preserve control-loop phase margin. Magnitude, phase, folded-alias,
+  and noise characteristics remain deferred until automated signal-generator
+  testing is available; this is an explicit control-performance tradeoff.
+- Both synchronous modes make the ADC cadence follow Deimos period/phase
+  corrections. Timestamp accuracy, subcycle distribution, fractional-delay
+  behavior, and control quality must be verified at the maximum permitted
+  corrections rather than inferred from nominal-rate tests.
 - Small costs added across otherwise-correct phases can cumulatively reduce the
   viable control rate. The fixed 5 kHz loss-of-contact benchmark is a phase gate,
-  and a regression must not be concealed by lowering the later sampling-mode
-  cutover.
+  and a regression must not be concealed by moving the sampling cutover.

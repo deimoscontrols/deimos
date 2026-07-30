@@ -9,49 +9,54 @@ use irq::{handler, scope};
 
 use super::modbus::{ModbusSocketBudget, ReceiveStatus};
 
-/// Conservative minimum operating-cycle margin for test-instrumented images.
+/// Conservative minimum publishing-IRQ margin for test-instrumented images.
 ///
-/// One communication IRQ is the only writer, so relaxed load/store semantics
-/// are sufficient and avoid an exclusive-update loop in the measured path.
+/// One SysTick handler is the only writer, so relaxed load/store semantics are
+/// sufficient and avoid an exclusive-update loop in the measured path.
 #[cfg(feature = "timing-watermark")]
 #[unsafe(no_mangle)]
 pub static PHASE4_MIN_CYCLE_MARGIN_NS: core::sync::atomic::AtomicI32 =
     core::sync::atomic::AtomicI32::new(i32::MAX);
 
-/// When an i32 wraps, what is the size of the jump in value?
-/// Counter values will eventually be converted to an f64, so it's useful to think about the implications.
-/// 64-bit float which has integer resolution out to 2**53, so
-/// if the total value exceeds 2**53, individual steps may become unrepresentable,
-/// although the total value will continue to track as close as possible out to 2**62
-/// where the number of wraps will wrap. Only the incoming fully-representable integer
-/// values are used for each update, so there is no accumulation of floating-point error.
-///
-/// Some reference points
-/// * f64 has integer resolution out to 2**53, so this is ok in terms of resolution
-/// * 50MHz is the fastest possible rate that the counter peripherals can reach in any configuration
-/// * 2**53 count is about 5 years at 50MHz before losing exact resolution
-/// * 2**62 count is about 2900 years at 50MHz before wrapping
-const WRAP_SPAN: i64 = 1_i64 << 32;
+/// Minimum oversampled sample-only SysTick margin in an instrumented image.
+#[cfg(feature = "timing-watermark")]
+#[unsafe(no_mangle)]
+pub static PHASE6_MIN_SAMPLE_ONLY_MARGIN_NS: core::sync::atomic::AtomicI32 =
+    core::sync::atomic::AtomicI32::new(i32::MAX);
+
+/// Minimum cycle-owned sample-plus-communication SysTick margin.
+#[cfg(feature = "timing-watermark")]
+#[unsafe(no_mangle)]
+pub static PHASE6_MIN_SAMPLE_COMM_MARGIN_NS: core::sync::atomic::AtomicI32 =
+    core::sync::atomic::AtomicI32::new(i32::MAX);
+
+/// Mutable protocol and conversion state shared by both sampling topologies.
+struct OperatingState {
+    mode: OperatingMode,
+    current_modbus_config: ModbusInitialConfig,
+    output: OperatingSnapshot,
+    input: OperatingRoundtripInput,
+    loss_of_contact_counter: u16,
+    board_temperature_filter: AdcFilter,
+    board_temperature_filter_state: AdcFilterState,
+}
 
 impl<'a> Board<'a> {
-    /// Runs the common engineering-snapshot operating loop for one protocol.
+    /// Run one operating state with a topology selected at entry.
     ///
     /// Args:
-    ///   mode: Per-invocation transport selection and resolved entry values.
+    ///   mode: Transport and resolved entry configuration.
+    ///   sampler: ADC/counter sampler lent exclusively to SysTick for the
+    ///     duration of this invocation.
     ///
     /// Returns:
-    ///   The next persistent board state after timeout or transport failure.
-    pub(super) fn operate(&mut self, mode: OperatingMode) -> BoardState {
-        // Pause systick until we are ready
+    ///   Next persistent state after timeout, transport failure, or rate change.
+    pub(super) fn operate(&mut self, mode: OperatingMode, sampler: &mut Sampler) -> BoardState {
         self.systick.disable_interrupt();
         self.systick.disable_counter();
         self.watchdog.feed();
 
-        // Resolve all mode-specific entry state before enabling the cycle IRQ.
-        // Deimos configuration already installed its period, timeout, and ADC
-        // cutoff. Modbus carries those values explicitly so rate-change
-        // re-entry can preserve the complete output state.
-        let (initial_outputs, mut current_modbus_config) = match mode {
+        let (initial_outputs, current_modbus_config) = match mode {
             OperatingMode::Deimos => (
                 OperatingOutputSettings::default(),
                 ModbusInitialConfig::default(),
@@ -59,58 +64,44 @@ impl<'a> Board<'a> {
             OperatingMode::Modbus(initial_config) => {
                 self.dt_ns = initial_config.dt_ns;
                 self.loss_of_contact_limit = initial_config.loss_of_contact_limit;
-
-                let reporting_rate_hz = 1.0e9 / self.dt_ns as f64;
-                let cutoff_ratio = reporting_rate_hz / ADC_SAMPLE_FREQ_HZ as f64;
-                ADC_CUTOFF_RATIO.store(cutoff_ratio as f32, Ordering::Relaxed);
-                NEW_ADC_CUTOFF.store(true, Ordering::Relaxed);
-
                 (initial_config.outputs, initial_config)
             }
         };
 
-        // A Modbus operating invocation owns the connection selected in
-        // Binding, including across a rate-change re-entry. A vanished session
-        // uses the normal safe-output reconnect path.
+        // Modbus re-entry retains the selected TCP session. A vanished session
+        // uses the ordinary reconnect path and safe output handling.
         if matches!(mode, OperatingMode::Modbus(_)) && !self.net.tcp_is_active() {
             return BoardState::Connecting;
         }
 
-        // Init
-        //    Set status LEDs
         self.led0.set_high();
         self.led1.set_high();
         self.led2.set_high();
         self.led3.set_high();
 
-        //    Set up sub-cycle timer
         self.subcycle_timer
-            .set_timeout(Duration::from_nanos(2 * self.dt_ns as u64)); // Just needs to be at least as long as dt_ns
-        let subcycle_scale = self.subcycle_timer.inner().psc.read().psc().bits() as u64 + 1; // Register values index from 0b0 -> prescale = 1
+            .set_timeout(Duration::from_nanos(2 * u64::from(self.dt_ns)));
+        let subcycle_scale = u64::from(self.subcycle_timer.inner().psc.read().psc().bits()) + 1;
         let subcycle_res_ns =
-            (subcycle_scale * 1_000_000_000 / (self.subcycle_rate_hz as u64)) as u32;
+            (subcycle_scale * 1_000_000_000 / u64::from(self.subcycle_rate_hz)) as u32;
 
-        // Deimos enters with safe defaults; Modbus re-entry restores its last
-        // complete settings without an intermediate output glitch.
         self.set_outputs(&initial_outputs);
-
-        //    Transition flags
         let transition_connecting = AtomicBool::new(false);
         let transition_modbus_reentry = AtomicBool::new(false);
 
-        //    Storage
-        let mut operating_output = OperatingSnapshot::default();
-        let mut deimos_input = OperatingRoundtripInput {
-            outputs: initial_outputs,
-            ..OperatingRoundtripInput::default()
-        };
-        let mut loss_of_contact_persistence_counter = 0;
+        let reporting_rate_hz = 1.0e9 / f64::from(self.dt_ns);
+        let sampling_policy = adc_sampling_policy(reporting_rate_hz).unwrap();
+        sampler.configure_synchronous(
+            sampling_policy.sample_rate_hz,
+            sampling_policy.iir_cutoff_ratio,
+        );
 
-        // Board temperature is the cold-junction estimate and is filtered once per
-        // publishing cycle. Filter construction remains outside the interrupt hot path.
-        let reporting_rate_hz = 1.0e9 / self.dt_ns as f64;
+        // Setup states no longer run a background sampler. Prime every filter
+        // history from one real group before publishing so neither raw channels
+        // nor board-temperature compensation begin with a zero-state transient.
+        sampler.prime_synchronous(self.time_ns);
         let board_temperature_filter = adc_filter_bank(1.0 / reporting_rate_hz).unwrap()[0];
-        let initial_sample_group = latest_adc_sample_group();
+        let initial_sample_group = &sampler.sampled_inputs().adc;
         let initial_board_temperature_k =
             board_temperature_k_f32(&initial_sample_group.values, &self.calibration);
         let mut board_temperature_filter_state = board_temperature_filter.reset_state();
@@ -123,284 +114,398 @@ impl<'a> Board<'a> {
             }],
         );
 
-        // Sampling runs in every board state. Discard time accumulated before
-        // this operating interval so the first completed-cycle margin contains
-        // only work attributable to the new operating session.
-        ACCUMULATED_SAMPLING_TIME_NS.store(0, Ordering::Relaxed);
+        let mut state = OperatingState {
+            mode,
+            current_modbus_config,
+            output: OperatingSnapshot::default(),
+            input: OperatingRoundtripInput {
+                outputs: initial_outputs,
+                ..OperatingRoundtripInput::default()
+            },
+            loss_of_contact_counter: 0,
+            board_temperature_filter,
+            board_temperature_filter_state,
+        };
 
-        // Set up main cycle
-        self.systick_init();
+        match sampling_policy.mode {
+            AdcSamplingMode::Oversampled => self.operate_synchronous_oversampled(
+                sampler,
+                &mut state,
+                &transition_connecting,
+                &transition_modbus_reentry,
+                subcycle_res_ns,
+                sampling_policy.samples_per_cycle,
+            ),
+            AdcSamplingMode::Direct => self.operate_synchronous_direct(
+                sampler,
+                &mut state,
+                &transition_connecting,
+                &transition_modbus_reentry,
+                subcycle_res_ns,
+            ),
+        }
 
-        //    Interrupt handler
-        handler!(
-            systick_handler = || {
-                self.acquisition_clock_advance();
-
-                // Restart subcycle counter
-                self.subcycle_timer.apply_freq();
-                self.subcycle_timer.resume();
-
-                // Increment cycle time
-                self.time_ns += self.dt_ns as i64;
-                let phase_delta_ns = match mode {
-                    OperatingMode::Deimos => deimos_input.phase_delta_ns,
-                    OperatingMode::Modbus(_) => 0,
-                };
-                let end_of_cycle = self.time_ns + self.dt_ns as i64 + phase_delta_ns;
-
-                // If we have lost contact with the controller, go back to connecting
-                let contact_lost =
-                    loss_of_contact_persistence_counter >= self.loss_of_contact_limit;
-                transition_connecting.fetch_or(contact_lost, Ordering::Relaxed);
-
-                // Preemptively increment loss-of-contact counter
-                // so that it increments even if we do not complete the cycle on time
-                // and clear the phase delta so that we do not repeatedly apply the same
-                // delta if we miss an input packet
-                loss_of_contact_persistence_counter =
-                    loss_of_contact_persistence_counter.saturating_add(1);
-                // Only Deimos uses timing corrections. Zero its one-cycle
-                // phase portion while preserving the period adjustment.
-                deimos_input.phase_delta_ns = 0;
-
-                // Read one coherent ADC group and convert it to the common engineering snapshot.
-                let adc_sample_group = latest_adc_sample_group();
-                operating_output.sample_time_ns = adc_sample_group.sample_time_ns;
-                let unfiltered_board_temperature_k =
-                    board_temperature_k_f32(&adc_sample_group.values, &self.calibration);
-                let filtered_board_temperature_k = board_temperature_filter.step(
-                    &mut board_temperature_filter_state,
-                    [unfiltered_board_temperature_k],
-                )[0];
-                populate_analog_snapshot_f32(
-                    &mut operating_output,
-                    &adc_sample_group.values,
-                    &self.calibration,
-                    filtered_board_temperature_k,
-                );
-
-                // Get latest timer input readings
-                // and unwrap from i32 values to one i64
-                let encoder_val = COUNTER_SAMPLES[0].load(Ordering::Relaxed) as i64;
-                let encoder_wraps = COUNTER_WRAPS[0].load(Ordering::Relaxed) as i64;
-                operating_output.encoder = encoder_val + encoder_wraps * WRAP_SPAN;
-
-                let pulse_counter_val = COUNTER_SAMPLES[1].load(Ordering::Relaxed) as i64;
-                let pulse_counter_wraps = COUNTER_WRAPS[1].load(Ordering::Relaxed) as i64;
-                operating_output.pulse_counter =
-                    pulse_counter_val + pulse_counter_wraps * WRAP_SPAN;
-
-                operating_output.frequency_meas[0] = FREQ_SAMPLES[0].load(Ordering::Relaxed);
-                operating_output.frequency_meas[1] = FREQ_SAMPLES[1].load(Ordering::Relaxed);
-                operating_output.gpio = self.read_gpio_inputs();
-                operating_output.metrics.cycle_time_ns = self.time_ns;
-                operating_output.metrics.id = operating_output.metrics.id.wrapping_add(1);
-                operating_output.metrics.sent_time_ns = self.board_time(subcycle_res_ns);
-
-                match mode {
-                    OperatingMode::Deimos => {
-                        // Deimos publishes every snapshot as an unsolicited UDP
-                        // response and requires its bound controller to remain.
-                        let Some(meta) = self.controller else {
-                            transition_connecting.store(true, Ordering::Relaxed);
-                            self.watchdog.feed();
-                            return;
-                        };
-                        match self
-                            .net
-                            .udp_send_with(OperatingSnapshot::BYTE_LEN, meta, |buf| {
-                                operating_output.write_bytes(buf);
-                                OperatingSnapshot::BYTE_LEN
-                            }) {
-                            Ok(_) => {}
-                            Err(_) => {
-                                transition_connecting.store(true, Ordering::Relaxed);
-                                self.watchdog.feed();
-                                return;
-                            }
-                        }
-
-                        for _ in 0..2 {
-                            // Poll at least twice to clear buffered inputs while
-                            // the roundtrip controller converges on phase lock.
-                            self.net.poll(self.board_time(subcycle_res_ns));
-                            match self.net.udp_recv() {
-                                Ok((recv_buf, meta))
-                                    if Some(meta) == self.controller
-                                        && recv_buf.len() == OperatingRoundtripInput::BYTE_LEN =>
-                                {
-                                    let candidate = OperatingRoundtripInput::read_bytes(recv_buf);
-                                    if !candidate.is_valid() {
-                                        continue;
-                                    }
-                                    deimos_input = candidate;
-
-                                    if deimos_input.id > operating_output.metrics.last_input_id {
-                                        operating_output.metrics.last_input_id = deimos_input.id;
-                                        loss_of_contact_persistence_counter = 0;
-                                    }
-                                }
-                                _ => {}
-                            };
-                        }
-
-                        self.systick_adjust(
-                            deimos_input.phase_delta_ns + deimos_input.period_delta_ns,
-                        );
-                    }
-                    OperatingMode::Modbus(_) => {
-                        let mut net_budget = NetPollBudget::modbus_cycle();
-                        self.net
-                            .poll_bounded(self.board_time(subcycle_res_ns), &mut net_budget);
-                        if self.net.tcp_connection_ended() {
-                            transition_connecting.store(true, Ordering::Relaxed);
-                            self.watchdog.feed();
-                            return;
-                        }
-
-                        let mut socket_budget = ModbusSocketBudget::new();
-                        let response_was_pending = self.modbus.response_pending();
-                        if response_was_pending {
-                            if self
-                                .modbus
-                                .send_response(&mut self.net, &mut socket_budget)
-                                .is_err()
-                            {
-                                transition_connecting.store(true, Ordering::Relaxed);
-                                self.watchdog.feed();
-                                return;
-                            }
-                        } else {
-                            let receive_status =
-                                if self.modbus.request_complete() || self.net.tcp_can_recv() {
-                                    self.modbus.receive(&mut self.net, &mut socket_budget)
-                                } else {
-                                    ReceiveStatus::Incomplete
-                                };
-                            match receive_status {
-                                ReceiveStatus::Complete => {
-                                    match self.modbus.process_operating_request(
-                                        &operating_output,
-                                        current_modbus_config,
-                                        loss_of_contact_persistence_counter,
-                                    ) {
-                                        Ok(outcome) => {
-                                            if outcome.accepted {
-                                                let rate_changed =
-                                                    outcome.config.dt_ns != self.dt_ns;
-                                                current_modbus_config = outcome.config;
-                                                self.loss_of_contact_limit =
-                                                    outcome.config.loss_of_contact_limit;
-                                                deimos_input.outputs = outcome.config.outputs;
-                                                operating_output.metrics.last_input_id =
-                                                    u64::from(outcome.transaction_id);
-                                                operating_output
-                                                    .metrics
-                                                    .last_input_received_time_ns =
-                                                    self.board_time(subcycle_res_ns);
-                                                loss_of_contact_persistence_counter = 0;
-                                                if rate_changed {
-                                                    self.modbus.set_reentry_config(outcome.config);
-                                                }
-                                            }
-                                        }
-                                        Err(_) => {
-                                            transition_connecting.store(true, Ordering::Relaxed);
-                                            self.watchdog.feed();
-                                            return;
-                                        }
-                                    }
-                                }
-                                ReceiveStatus::Malformed | ReceiveStatus::Disconnected => {
-                                    transition_connecting.store(true, Ordering::Relaxed);
-                                    self.watchdog.feed();
-                                    return;
-                                }
-                                ReceiveStatus::Incomplete => {}
-                            }
-                            if self.modbus.response_pending()
-                                && self
-                                    .modbus
-                                    .send_response(&mut self.net, &mut socket_budget)
-                                    .is_err()
-                            {
-                                transition_connecting.store(true, Ordering::Relaxed);
-                                self.watchdog.feed();
-                                return;
-                            }
-                        }
-
-                        // A second bounded poll can emit a newly enqueued
-                        // response, but shares the original two-frame budget.
-                        self.net
-                            .poll_bounded(self.board_time(subcycle_res_ns), &mut net_budget);
-                        if self.modbus.reentry_pending() && !self.modbus.response_pending() {
-                            transition_modbus_reentry.store(true, Ordering::Relaxed);
-                        }
-                    }
-                }
-
-                // Apply one complete settings object in either mode. Modbus
-                // reads and writes which omit fields leave this retained value
-                // unchanged across cycles and rate-change re-entry.
-                self.set_outputs(&deimos_input.outputs);
-
-                // Keep operating on the current address and defer fallback-to-DHCP swaps.
-                if self.net.step_address(self.time_ns, AddressMode::Operating)
-                    == AddressStatus::Missing
-                {
-                    transition_connecting.store(true, Ordering::Relaxed);
-                }
-
-                // Get overall cycle timing margin and put it in the output
-                let adc_sample_time_ns =
-                    ACCUMULATED_SAMPLING_TIME_NS.fetch_and(0, Ordering::Relaxed) as i64;
-                operating_output.metrics.cycle_time_margin_ns =
-                    end_of_cycle - self.board_time(subcycle_res_ns) - adc_sample_time_ns;
-                #[cfg(feature = "timing-watermark")]
-                {
-                    let margin_ns = operating_output
-                        .metrics
-                        .cycle_time_margin_ns
-                        .clamp(i64::from(i32::MIN), i64::from(i32::MAX))
-                        as i32;
-                    let minimum = PHASE4_MIN_CYCLE_MARGIN_NS.load(Ordering::Relaxed);
-                    if margin_ns < minimum {
-                        PHASE4_MIN_CYCLE_MARGIN_NS.store(margin_ns, Ordering::Relaxed);
-                    }
-                }
-
-                self.watchdog.feed();
-            }
-        );
-
-        // Create a scope and register the systick interrupt handler.
-        scope(|s| {
-            s.register(interrupts::SysTick, systick_handler);
-
-            let mut transition: bool;
-            'wait_for_transition: loop {
-                transition = transition_connecting.load(Ordering::Relaxed);
-                transition |= transition_modbus_reentry.load(Ordering::Relaxed);
-                if transition {
-                    break 'wait_for_transition;
-                }
-
-                cortex_m::asm::wfi(); // Wait for interrupt
-            }
-        });
+        self.systick.disable_interrupt();
+        self.systick.disable_counter();
 
         if transition_connecting.load(Ordering::Relaxed) {
             BoardState::Connecting
         } else if transition_modbus_reentry.load(Ordering::Relaxed) {
             match self.modbus.take_reentry_config() {
                 Some(config) => BoardState::OperatingModbus(config),
-                // A missing configuration indicates an internal state
-                // invariant violation; reconnect safely instead of panicking.
                 None => BoardState::Connecting,
             }
         } else {
             BoardState::Connecting
         }
     }
+
+    /// Run the rounded number of ADC groups nearest the 9 kHz target.
+    #[allow(clippy::too_many_arguments)]
+    fn operate_synchronous_oversampled(
+        &mut self,
+        sampler: &mut Sampler,
+        state: &mut OperatingState,
+        transition_connecting: &AtomicBool,
+        transition_modbus_reentry: &AtomicBool,
+        subcycle_res_ns: u32,
+        samples_per_cycle: u32,
+    ) {
+        let mut scheduler = self.sample_interval_scheduler(0, samples_per_cycle);
+        let first_reload = scheduler.next_ticks() - 1;
+        self.systick_init_reload(first_reload);
+        let mut acquisition_clock = self.acquisition_clock_init();
+        let systick_tick_period_ns = self.systick_tick_period_ns();
+        let mut samples_remaining = samples_per_cycle;
+
+        handler!(
+            systick_handler = || {
+                acquisition_clock.advance(SYST::get_reload(), systick_tick_period_ns);
+                self.restart_subcycle_timer();
+                let sample_time_ns =
+                    acquisition_clock.timestamp_ns(SYST::get_current(), systick_tick_period_ns);
+                sampler.sample_synchronous_iir(sample_time_ns);
+                samples_remaining -= 1;
+
+                if samples_remaining > 0 {
+                    let next_reload = scheduler.next_ticks() - 1;
+                    self.systick.set_reload(next_reload);
+                    let margin_ns = reload_duration_ns(next_reload, systick_tick_period_ns)
+                        - self.subcycle_elapsed_ns(subcycle_res_ns);
+                    record_sample_only_margin(margin_ns);
+                    self.watchdog.feed();
+                    return;
+                }
+
+                let correction_ns = self.operating_cycle(
+                    state,
+                    sampler.sampled_inputs(),
+                    transition_connecting,
+                    transition_modbus_reentry,
+                    subcycle_res_ns,
+                );
+                scheduler = self.sample_interval_scheduler(correction_ns, samples_per_cycle);
+                let next_reload = scheduler.next_ticks() - 1;
+                self.systick.set_reload(next_reload);
+                samples_remaining = samples_per_cycle;
+                let margin_ns = reload_duration_ns(next_reload, systick_tick_period_ns)
+                    - self.subcycle_elapsed_ns(subcycle_res_ns);
+                state.output.metrics.cycle_time_margin_ns = margin_ns;
+                record_publication_margin(margin_ns);
+                record_sample_comm_margin(margin_ns);
+                self.watchdog.feed();
+            }
+        );
+
+        scope(|s| {
+            s.register(interrupts::SysTick, systick_handler);
+            wait_for_operating_transition(transition_connecting, transition_modbus_reentry);
+        });
+    }
+
+    /// Run one fractional-delay-only ADC group per published snapshot.
+    #[allow(clippy::too_many_arguments)]
+    fn operate_synchronous_direct(
+        &mut self,
+        sampler: &mut Sampler,
+        state: &mut OperatingState,
+        transition_connecting: &AtomicBool,
+        transition_modbus_reentry: &AtomicBool,
+        subcycle_res_ns: u32,
+    ) {
+        self.systick_init();
+        let mut acquisition_clock = self.acquisition_clock_init();
+        let systick_tick_period_ns = self.systick_tick_period_ns();
+
+        handler!(
+            systick_handler = || {
+                acquisition_clock.advance(SYST::get_reload(), systick_tick_period_ns);
+                self.restart_subcycle_timer();
+                let sample_time_ns =
+                    acquisition_clock.timestamp_ns(SYST::get_current(), systick_tick_period_ns);
+                sampler.sample_synchronous_fractional_only(sample_time_ns);
+                let correction_ns = self.operating_cycle(
+                    state,
+                    sampler.sampled_inputs(),
+                    transition_connecting,
+                    transition_modbus_reentry,
+                    subcycle_res_ns,
+                );
+                self.systick_adjust(correction_ns);
+                let margin_ns = self
+                    .systick_interval_duration_ns(correction_ns, systick_tick_period_ns)
+                    - self.subcycle_elapsed_ns(subcycle_res_ns);
+                state.output.metrics.cycle_time_margin_ns = margin_ns;
+                record_publication_margin(margin_ns);
+                record_sample_comm_margin(margin_ns);
+                self.watchdog.feed();
+            }
+        );
+
+        scope(|s| {
+            s.register(interrupts::SysTick, systick_handler);
+            wait_for_operating_transition(transition_connecting, transition_modbus_reentry);
+        });
+    }
+
+    /// Perform the single shared engineering, transport, and output cycle.
+    ///
+    /// Returns:
+    ///   Bounded Deimos timing correction requested for the next publishing
+    ///   interval, in `ns`; Modbus always returns zero.
+    #[inline(never)]
+    fn operating_cycle(
+        &mut self,
+        state: &mut OperatingState,
+        sampled_inputs: &SampledInputs,
+        transition_connecting: &AtomicBool,
+        transition_modbus_reentry: &AtomicBool,
+        subcycle_res_ns: u32,
+    ) -> i64 {
+        self.time_ns += i64::from(self.dt_ns);
+
+        let contact_lost = state.loss_of_contact_counter >= self.loss_of_contact_limit;
+        transition_connecting.fetch_or(contact_lost, Ordering::Relaxed);
+        state.loss_of_contact_counter = state.loss_of_contact_counter.saturating_add(1);
+        state.input.phase_delta_ns = 0;
+
+        let adc_sample_group = &sampled_inputs.adc;
+        state.output.sample_time_ns = adc_sample_group.sample_time_ns;
+        let unfiltered_board_temperature_k =
+            board_temperature_k_f32(&adc_sample_group.values, &self.calibration);
+        let filtered_board_temperature_k = state.board_temperature_filter.step(
+            &mut state.board_temperature_filter_state,
+            [unfiltered_board_temperature_k],
+        )[0];
+        populate_analog_snapshot_f32(
+            &mut state.output,
+            &adc_sample_group.values,
+            &self.calibration,
+            filtered_board_temperature_k,
+        );
+
+        state.output.encoder = sampled_inputs.encoder;
+        state.output.pulse_counter = sampled_inputs.pulse_counter;
+        state.output.frequency_meas = sampled_inputs.frequency_meas;
+        state.output.gpio = self.read_gpio_inputs();
+        state.output.metrics.cycle_time_ns = self.time_ns;
+        state.output.metrics.id = state.output.metrics.id.wrapping_add(1);
+        state.output.metrics.sent_time_ns = self.board_time(subcycle_res_ns);
+
+        match state.mode {
+            OperatingMode::Deimos => {
+                let Some(meta) = self.controller else {
+                    transition_connecting.store(true, Ordering::Relaxed);
+                    return 0;
+                };
+                if self
+                    .net
+                    .udp_send_with(OperatingSnapshot::BYTE_LEN, meta, |buf| {
+                        state.output.write_bytes(buf);
+                        OperatingSnapshot::BYTE_LEN
+                    })
+                    .is_err()
+                {
+                    transition_connecting.store(true, Ordering::Relaxed);
+                    return 0;
+                }
+
+                // Two bounded receives clear buffered inputs while the active
+                // roundtrip timing controller converges on phase lock.
+                for _ in 0..2 {
+                    self.net.poll(self.board_time(subcycle_res_ns));
+                    match self.net.udp_recv() {
+                        Ok((recv_buf, meta))
+                            if Some(meta) == self.controller
+                                && recv_buf.len() == OperatingRoundtripInput::BYTE_LEN =>
+                        {
+                            let candidate = OperatingRoundtripInput::read_bytes(recv_buf);
+                            if !candidate.is_valid() {
+                                continue;
+                            }
+                            state.input = candidate;
+                            if state.input.id > state.output.metrics.last_input_id {
+                                state.output.metrics.last_input_id = state.input.id;
+                                state.loss_of_contact_counter = 0;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            OperatingMode::Modbus(_) => {
+                let mut net_budget = NetPollBudget::modbus_cycle();
+                self.net
+                    .poll_bounded(self.board_time(subcycle_res_ns), &mut net_budget);
+                if self.net.tcp_connection_ended() {
+                    transition_connecting.store(true, Ordering::Relaxed);
+                    return 0;
+                }
+
+                let mut socket_budget = ModbusSocketBudget::new();
+                if self.modbus.response_pending() {
+                    if self
+                        .modbus
+                        .send_response(&mut self.net, &mut socket_budget)
+                        .is_err()
+                    {
+                        transition_connecting.store(true, Ordering::Relaxed);
+                        return 0;
+                    }
+                } else {
+                    let receive_status =
+                        if self.modbus.request_complete() || self.net.tcp_can_recv() {
+                            self.modbus.receive(&mut self.net, &mut socket_budget)
+                        } else {
+                            ReceiveStatus::Incomplete
+                        };
+                    match receive_status {
+                        ReceiveStatus::Complete => match self.modbus.process_operating_request(
+                            &state.output,
+                            state.current_modbus_config,
+                            state.loss_of_contact_counter,
+                        ) {
+                            Ok(outcome) if outcome.accepted => {
+                                let rate_changed = outcome.config.dt_ns != self.dt_ns;
+                                state.current_modbus_config = outcome.config;
+                                self.loss_of_contact_limit = outcome.config.loss_of_contact_limit;
+                                state.input.outputs = outcome.config.outputs;
+                                state.output.metrics.last_input_id =
+                                    u64::from(outcome.transaction_id);
+                                state.output.metrics.last_input_received_time_ns =
+                                    self.board_time(subcycle_res_ns);
+                                state.loss_of_contact_counter = 0;
+                                if rate_changed {
+                                    self.modbus.set_reentry_config(outcome.config);
+                                }
+                            }
+                            Ok(_) => {}
+                            Err(_) => {
+                                transition_connecting.store(true, Ordering::Relaxed);
+                                return 0;
+                            }
+                        },
+                        ReceiveStatus::Malformed | ReceiveStatus::Disconnected => {
+                            transition_connecting.store(true, Ordering::Relaxed);
+                            return 0;
+                        }
+                        ReceiveStatus::Incomplete => {}
+                    }
+                    if self.modbus.response_pending()
+                        && self
+                            .modbus
+                            .send_response(&mut self.net, &mut socket_budget)
+                            .is_err()
+                    {
+                        transition_connecting.store(true, Ordering::Relaxed);
+                        return 0;
+                    }
+                }
+
+                self.net
+                    .poll_bounded(self.board_time(subcycle_res_ns), &mut net_budget);
+                if self.modbus.reentry_pending() && !self.modbus.response_pending() {
+                    transition_modbus_reentry.store(true, Ordering::Relaxed);
+                }
+            }
+        }
+
+        self.set_outputs(&state.input.outputs);
+        if self.net.step_address(self.time_ns, AddressMode::Operating) == AddressStatus::Missing {
+            transition_connecting.store(true, Ordering::Relaxed);
+        }
+
+        match state.mode {
+            OperatingMode::Deimos => state.input.phase_delta_ns + state.input.period_delta_ns,
+            OperatingMode::Modbus(_) => 0,
+        }
+    }
+
+    /// Restart the TIM5 duration counter at the beginning of an IRQ.
+    #[inline]
+    fn restart_subcycle_timer(&mut self) {
+        self.subcycle_timer.apply_freq();
+        self.subcycle_timer.resume();
+    }
+
+    /// Return elapsed handler time measured by TIM5, in `ns`.
+    #[inline]
+    fn subcycle_elapsed_ns(&self, subcycle_res_ns: u32) -> i64 {
+        i64::from(self.subcycle_timer.counter()) * i64::from(subcycle_res_ns)
+    }
+
+    /// Return the applied duration of one corrected publishing interval.
+    fn systick_interval_duration_ns(&self, correction_ns: i64, systick_tick_period_ns: u32) -> i64 {
+        i64::from(self.systick_interval_ticks(correction_ns)) * i64::from(systick_tick_period_ns)
+    }
+}
+
+/// Wait in the foreground until one IRQ requests an operating transition.
+fn wait_for_operating_transition(
+    transition_connecting: &AtomicBool,
+    transition_modbus_reentry: &AtomicBool,
+) {
+    loop {
+        if transition_connecting.load(Ordering::Relaxed)
+            || transition_modbus_reentry.load(Ordering::Relaxed)
+        {
+            return;
+        }
+        cortex_m::asm::wfi();
+    }
+}
+
+/// Convert one SysTick reload (`ticks - 1`) to an interval in `ns`.
+#[inline(always)]
+fn reload_duration_ns(reload: u32, systick_tick_period_ns: u32) -> i64 {
+    i64::from(reload + 1) * i64::from(systick_tick_period_ns)
+}
+
+#[cfg(feature = "timing-watermark")]
+fn record_minimum(target: &core::sync::atomic::AtomicI32, margin_ns: i64) {
+    let margin = margin_ns.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
+    if margin < target.load(Ordering::Relaxed) {
+        target.store(margin, Ordering::Relaxed);
+    }
+}
+
+fn record_publication_margin(margin_ns: i64) {
+    #[cfg(feature = "timing-watermark")]
+    record_minimum(&PHASE4_MIN_CYCLE_MARGIN_NS, margin_ns);
+    #[cfg(not(feature = "timing-watermark"))]
+    let _ = margin_ns;
+}
+
+fn record_sample_only_margin(margin_ns: i64) {
+    #[cfg(feature = "timing-watermark")]
+    record_minimum(&PHASE6_MIN_SAMPLE_ONLY_MARGIN_NS, margin_ns);
+    #[cfg(not(feature = "timing-watermark"))]
+    let _ = margin_ns;
+}
+
+fn record_sample_comm_margin(margin_ns: i64) {
+    #[cfg(feature = "timing-watermark")]
+    record_minimum(&PHASE6_MIN_SAMPLE_COMM_MARGIN_NS, margin_ns);
+    #[cfg(not(feature = "timing-watermark"))]
+    let _ = margin_ns;
 }

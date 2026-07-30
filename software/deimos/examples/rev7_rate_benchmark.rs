@@ -1,31 +1,40 @@
 //! Repeatable high-rate rev7 hardware regression benchmark.
 
-use std::{path::PathBuf, time::Duration};
+use std::{env, path::PathBuf, time::Duration};
 
 use deimos::{
     ChannelFilter, Controller, CsvDispatcher, Dispatcher, LoopMethod, Overflow, Termination,
     controller::context::ControllerCtx, dispatcher::load_csv, peripheral::DeimosDaqRev7,
 };
 
-const RATE_HZ: u32 = 5_000;
-const RUN_SECONDS: u64 = 10;
+const DEFAULT_RATE_HZ: u32 = 5_000;
+const DEFAULT_RUN_SECONDS: u64 = 10;
 const DAQ_SERIAL: u64 = 3;
-const OP_NAME: &str = "rev7_rate_benchmark";
+const OP_NAME_PREFIX: &str = "rev7_rate_benchmark";
 
 fn main() -> Result<(), String> {
+    let rate_hz = env_value("DEIMOS_BENCH_RATE_HZ", DEFAULT_RATE_HZ)?;
+    let run_seconds = env_value("DEIMOS_BENCH_SECONDS", DEFAULT_RUN_SECONDS)?;
+    if rate_hz == 0 || run_seconds == 0 {
+        return Err("Benchmark rate and duration must both be nonzero".to_owned());
+    }
+    let op_name = format!("{OP_NAME_PREFIX}_{rate_hz}hz");
     let output_dir = PathBuf::from("./target/rev7_rate_benchmark");
     std::fs::create_dir_all(&output_dir)
         .map_err(|e| format!("Failed to create benchmark output directory: {e}"))?;
 
     let mut ctx = ControllerCtx::default();
-    ctx.op_name = OP_NAME.to_owned();
+    ctx.op_name = op_name.clone();
     ctx.op_dir = output_dir.clone();
-    ctx.dt_ns = 1_000_000_000 / RATE_HZ;
+    ctx.dt_ns = 1_000_000_000 / rate_hz;
     ctx.loop_method = LoopMethod::Performant;
-    ctx.termination_criteria = Some(Termination::Timeout(Duration::from_secs(RUN_SECONDS)));
+    ctx.termination_criteria = Some(Termination::Timeout(Duration::from_secs(run_seconds)));
     // A loss burst is benchmark data, not a reason to terminate the run early.
     ctx.controller_loss_of_contact_limit = u16::MAX;
-    ctx.peripheral_loss_of_contact_limit = u16::MAX;
+    // Return the board to discovery shortly after each standalone sweep point,
+    // while retaining enough cycles that loss bursts remain benchmark data.
+    ctx.peripheral_loss_of_contact_limit =
+        rate_hz.saturating_mul(2).min(u32::from(u16::MAX)) as u16;
     ctx.use_no_calibrations = true;
 
     let mut controller = Controller::new(ctx);
@@ -50,12 +59,23 @@ fn main() -> Result<(), String> {
 
     controller.run(&None, None)?;
 
-    let csv_path = output_dir.join(format!("{OP_NAME}.csv"));
-    report(&csv_path, ctx_dt_ns())
+    let csv_path = output_dir.join(format!("{op_name}.csv"));
+    report(&csv_path, rate_hz, run_seconds)
 }
 
-fn ctx_dt_ns() -> i64 {
-    (1_000_000_000 / RATE_HZ) as i64
+/// Read one positive integer benchmark override from the environment.
+fn env_value<T>(name: &str, default: T) -> Result<T, String>
+where
+    T: std::str::FromStr,
+    T::Err: std::fmt::Display,
+{
+    match env::var(name) {
+        Ok(value) => value
+            .parse()
+            .map_err(|error| format!("Invalid {name}={value:?}: {error}")),
+        Err(env::VarError::NotPresent) => Ok(default),
+        Err(error) => Err(format!("Could not read {name}: {error}")),
+    }
 }
 
 /// Selects a lower-tail percentile without interpolation.
@@ -77,7 +97,7 @@ fn lower_percentile(mut values: Vec<f64>, numerator: usize, denominator: usize) 
     values[index]
 }
 
-fn report(path: &std::path::Path, dt_ns: i64) -> Result<(), String> {
+fn report(path: &std::path::Path, rate_hz: u32, run_seconds: u64) -> Result<(), String> {
     let csv = load_csv(path)?;
     let indices = csv.required_channel_indices([
         "ctrl.cycle_time_margin_ns",
@@ -96,19 +116,20 @@ fn report(path: &std::path::Path, dt_ns: i64) -> Result<(), String> {
         .try_into()
         .map_err(|_| "Unexpected benchmark channel count".to_owned())?;
 
-    let expected_cycles = RATE_HZ as usize * RUN_SECONDS as usize;
+    let dt_ns = i64::from(1_000_000_000 / rate_hz);
+    let expected_cycles = rate_hz as usize * run_seconds as usize;
     let rows = csv.rows();
     // Dispatch begins after the first in-order response, so a handful of setup
     // cycles may precede the measured window even though the timed loop is 10 s.
-    if rows.len() < expected_cycles.saturating_sub((RATE_HZ / 100) as usize) {
+    if rows.len() < expected_cycles.saturating_sub(((rate_hz / 100) as usize).max(2)) {
         return Err(format!(
             "Benchmark produced {} rows; expected approximately {expected_cycles}",
             rows.len()
         ));
     }
 
-    let mut buckets = [0usize; RUN_SECONDS as usize];
-    let mut bucket_drops = [0usize; RUN_SECONDS as usize];
+    let mut buckets = vec![0usize; run_seconds as usize];
+    let mut bucket_drops = vec![0usize; run_seconds as usize];
     let mut total_drops = 0usize;
     let mut max_burst = 0.0_f64;
     let mut min_ctrl_margin = f64::INFINITY;
@@ -150,12 +171,15 @@ fn report(path: &std::path::Path, dt_ns: i64) -> Result<(), String> {
         previous_snapshot = Some((values[cycle_time_idx], sample_time_ns));
 
         let elapsed = row.timestamp.saturating_sub(start_timestamp);
-        let bucket = (elapsed / 1_000_000_000).clamp(0, RUN_SECONDS as i64 - 1) as usize;
+        let bucket = (elapsed / 1_000_000_000).clamp(0, run_seconds as i64 - 1) as usize;
         buckets[bucket] += 1;
         bucket_drops[bucket] += usize::from(dropped);
     }
 
-    let steady_start = rows.len().saturating_sub((RATE_HZ as usize) * 5);
+    let steady_seconds = run_seconds.min(5);
+    let steady_start = rows
+        .len()
+        .saturating_sub((rate_hz as usize) * steady_seconds as usize);
     let steady_rows = &rows[steady_start..];
     let steady_drops = steady_rows
         .iter()
@@ -185,12 +209,12 @@ fn report(path: &std::path::Path, dt_ns: i64) -> Result<(), String> {
         100,
     );
 
-    println!("rev7 SN{DAQ_SERIAL} {RATE_HZ} Hz / {RUN_SECONDS} s benchmark");
+    println!("rev7 SN{DAQ_SERIAL} {rate_hz} Hz / {run_seconds} s benchmark");
     println!(
         "period_ns={dt_ns}, rows={}, expected={expected_cycles}",
         rows.len()
     );
-    for second in 0..RUN_SECONDS as usize {
+    for second in 0..run_seconds as usize {
         let rate = if buckets[second] == 0 {
             f64::NAN
         } else {

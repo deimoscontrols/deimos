@@ -1,16 +1,79 @@
-//! Counter arithmetic for rev7 ADC acquisition timestamps.
+//! Scheduling and counter arithmetic for rev7 synchronous ADC acquisition.
 //!
 //! The firmware uses SysTick as both the communication-cycle boundary and the
-//! counter within that cycle. This module contains only the target-independent
-//! arithmetic; interrupt priority, masking, and pending-bit handling remain in
-//! the firmware.
+//! counter within each sample interval. This module contains the
+//! target-independent arithmetic used to distribute timer ticks, timestamp a
+//! sample, and unwrap hardware counters. Sampling-policy selection lives in
+//! the parent rev7 peripheral module.
 //!
 //! References:
 //!   \[1\] Arm, *Cortex-M7 Devices Generic User Guide*, DDI 0489D, 2018,
 //!   sections 4.4 and 4.5.
 
-/// Maximum number of clock/counter capture attempts in one sampling interrupt.
-pub const MAX_CAPTURE_ATTEMPTS: usize = 2;
+/// Bounded quotient/remainder distributor for one publishing interval.
+///
+/// Each call to [`Self::next_ticks`] returns one positive sample interval. A
+/// complete schedule contains `sample_count` intervals whose sum is
+/// `total_ticks`; individual intervals differ by at most one SysTick tick. The
+/// remainder accumulator spreads longer intervals across the cycle without an
+/// array sized by the potentially large low-rate sample count.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct UniformIntervalScheduler {
+    base_ticks: u32,
+    remainder: u32,
+    sample_count: u32,
+    error: u32,
+}
+
+impl UniformIntervalScheduler {
+    /// Construct a scheduler for one corrected publishing interval.
+    ///
+    /// Args:
+    ///   total_ticks: Applied publishing interval in SysTick `tick/cycle`.
+    ///   sample_count: Number of ADC groups in the cycle, in `sample/cycle`.
+    pub const fn new(total_ticks: u32, sample_count: u32) -> Self {
+        assert!(sample_count > 0);
+        assert!(total_ticks >= sample_count);
+        Self {
+            base_ticks: total_ticks / sample_count,
+            remainder: total_ticks % sample_count,
+            sample_count,
+            error: 0,
+        }
+    }
+
+    /// Return the next interval in constant time.
+    ///
+    /// Returns:
+    ///   Positive interval length in `tick/sample`.
+    pub fn next_ticks(&mut self) -> u32 {
+        let space_before_wrap = self.sample_count - self.error;
+        if self.remainder >= space_before_wrap {
+            self.error = self.remainder - space_before_wrap;
+            self.base_ticks + 1
+        } else {
+            self.error += self.remainder;
+            self.base_ticks
+        }
+    }
+}
+
+/// Unwrap one 16-bit hardware counter delta into its shortest signed change.
+///
+/// The caller's rate contract must keep the real change strictly below half of
+/// the `2^16` modulus; an exact half-modulus change is inherently ambiguous.
+pub const fn unwrap_u16_delta(previous: u16, latest: u16) -> i32 {
+    const MODULUS: i32 = 1_i32 << 16;
+    const HALF_MODULUS: i32 = MODULUS / 2;
+    let difference = latest as i32 - previous as i32;
+    if difference > HALF_MODULUS {
+        difference - MODULUS
+    } else if difference < -HALF_MODULUS {
+        difference + MODULUS
+    } else {
+        difference
+    }
+}
 
 /// Cycle base and reload value for the SysTick interval currently in progress.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -86,48 +149,6 @@ pub fn completed_interval_ns(active_reload: u32, systick_tick_period_ns: u32) ->
 mod tests {
     use super::*;
 
-    #[derive(Clone, Copy)]
-    enum RolloverPoint {
-        None,
-        PendingBeforeCopy,
-        PendingBetweenClockAndCounter,
-        PendingAfterCounter,
-    }
-
-    #[derive(Clone, Copy)]
-    struct ModeledAttempt {
-        clock: AcquisitionClock,
-        current_count: u32,
-        rollover: RolloverPoint,
-    }
-
-    fn modeled_capture(
-        attempts: [ModeledAttempt; MAX_CAPTURE_ATTEMPTS],
-        last_sample_time_ns: i64,
-        nominal_sample_period_ns: i64,
-        tick_period_ns: u32,
-    ) -> (i64, usize) {
-        for (index, attempt) in attempts.into_iter().enumerate() {
-            match attempt.rollover {
-                RolloverPoint::None => {
-                    return (
-                        attempt
-                            .clock
-                            .timestamp_ns(attempt.current_count, tick_period_ns),
-                        index + 1,
-                    );
-                }
-                RolloverPoint::PendingBeforeCopy
-                | RolloverPoint::PendingBetweenClockAndCounter
-                | RolloverPoint::PendingAfterCounter => {}
-            }
-        }
-        (
-            last_sample_time_ns + nominal_sample_period_ns,
-            MAX_CAPTURE_ATTEMPTS,
-        )
-    }
-
     #[test]
     fn reload_and_counter_arithmetic_includes_ticks_minus_one_convention() {
         let mut clock = AcquisitionClock::new(7_000_000, 49_999);
@@ -141,58 +162,37 @@ mod tests {
     }
 
     #[test]
-    fn pending_before_or_during_capture_retries_with_the_new_interval() {
-        let old = AcquisitionClock::new(1_000_000, 49_999);
-        let new = AcquisitionClock::new(2_000_000, 49_999);
-
-        for rollover in [
-            RolloverPoint::PendingBeforeCopy,
-            RolloverPoint::PendingBetweenClockAndCounter,
-            RolloverPoint::PendingAfterCounter,
-        ] {
-            let (timestamp, attempts) = modeled_capture(
-                [
-                    ModeledAttempt {
-                        clock: old,
-                        current_count: 0,
-                        rollover,
-                    },
-                    ModeledAttempt {
-                        clock: new,
-                        current_count: 39_999,
-                        rollover: RolloverPoint::None,
-                    },
-                ],
-                1_900_000,
-                30_300,
-                20,
-            );
-            assert_eq!(timestamp, 2_200_000);
-            assert_eq!(attempts, 2);
+    fn interval_scheduler_preserves_ticks_and_is_uniform() {
+        for sample_count in 1..=25 {
+            for total_ticks in sample_count..=100 {
+                let mut scheduler = UniformIntervalScheduler::new(total_ticks, sample_count);
+                let mut sum = 0;
+                let mut minimum = u32::MAX;
+                let mut maximum = 0;
+                for _ in 0..sample_count {
+                    let ticks = scheduler.next_ticks();
+                    sum += ticks;
+                    minimum = minimum.min(ticks);
+                    maximum = maximum.max(ticks);
+                }
+                assert_eq!(sum, total_ticks);
+                assert!(minimum > 0);
+                assert!(maximum - minimum <= 1);
+            }
         }
+
+        let mut low_rate = UniformIntervalScheduler::new(12_500_000, 2_250);
+        let mut sum = 0_u32;
+        for _ in 0..2_250 {
+            sum += low_rate.next_ticks();
+        }
+        assert_eq!(sum, 12_500_000);
     }
 
     #[test]
-    fn two_pending_attempts_use_monotonic_nominal_period_fallback() {
-        let clock = AcquisitionClock::new(1_000_000, 49_999);
-        let (timestamp, attempts) = modeled_capture(
-            [
-                ModeledAttempt {
-                    clock,
-                    current_count: 0,
-                    rollover: RolloverPoint::PendingBeforeCopy,
-                },
-                ModeledAttempt {
-                    clock,
-                    current_count: 0,
-                    rollover: RolloverPoint::PendingAfterCounter,
-                },
-            ],
-            1_234_500,
-            30_300,
-            20,
-        );
-        assert_eq!(timestamp, 1_264_800);
-        assert_eq!(attempts, MAX_CAPTURE_ATTEMPTS);
+    fn counter_unrolling_uses_power_of_two_moduli_in_both_directions() {
+        assert_eq!(unwrap_u16_delta(u16::MAX, 0), 1);
+        assert_eq!(unwrap_u16_delta(0, u16::MAX), -1);
+        assert_eq!(unwrap_u16_delta(100, 125), 25);
     }
 }

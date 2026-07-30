@@ -52,13 +52,11 @@ impl<'a> Board<'a> {
         // Instruction caching
         cp.SCB.enable_icache();
 
-        // SysTick must preempt TIM2: the communication control loop depends on
-        // that ordering, and the bounded acquisition-clock capture relies on a
-        // pending SysTick running between its two attempts. STM32H743 implements
-        // four priority bits, so raw 0x00 and 0x10 select adjacent priorities.
+        // SysTick owns both synchronous acquisition and communication while the
+        // board is operating. Give it the highest configurable exception
+        // priority so unrelated peripheral work cannot add sample jitter.
         unsafe {
             cp.SCB.set_priority(SystemHandler::SysTick, 0x00);
-            cp.NVIC.set_priority(stm32::interrupt::TIM2, 0x10);
         }
 
         // Watchdog reboots the board if the board freezes for any reason
@@ -367,18 +365,12 @@ impl<'a> Board<'a> {
             ain19,
         };
 
-        // Set up sampling interrupt
-        let sample_timer =
-            dp.TIM2
-                .timer(ADC_SAMPLE_FREQ_HZ.Hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
-
         let adc = Sampler::new(
             &ccdr.clocks,
             adc1,
             adc2,
             adc3,
             adc_pins,
-            sample_timer,
             encoder,
             pulse_counter,
             frequency_inp0,
@@ -440,7 +432,7 @@ impl<'a> Board<'a> {
         let systick = delay.free();
 
         // Set up sub-cycle timer
-        // TIM2 and TIM5 have 32-bit counters and 16-bit prescalers
+        // TIM5 has a 32-bit counter and 16-bit prescaler.
         let subcycle_rate_hz = TIM5::get_clk(&ccdr.clocks).unwrap().to_Hz();
         let mut subcycle_timer = dp.TIM5.timer(1.Hz(), ccdr.peripheral.TIM5, &ccdr.clocks);
 
