@@ -1,7 +1,7 @@
 //! Compact regular-grid cubic B-spline approximations of the NIST type-K curve.
 //!
 //! Separate forward and inverse splines approximate the NIST ITS-90 reference
-//! function over `-210 degC` to `1260 degC`. Each emitted `f32` spline is
+//! function over `-210 degC` to `1370 degC`. Each emitted `f32` spline is
 //! monotonic and has a validated maximum temperature-equivalent error of
 //! `0.01 K` over its fitted range. Values outside the fitted range use the
 //! corresponding spline endpoint tangent. Both fitting and runtime evaluation
@@ -61,7 +61,7 @@ fn interpolate_regular_bspline(value: f32, start: f32, step: f32, coefficients: 
 
 /// Converts a type-K junction temperature to its NIST-equivalent voltage.
 ///
-/// Values outside `63.15 K` to `1533.15 K` are linearly extrapolated with the
+/// Values outside `63.15 K` to `1643.15 K` are linearly extrapolated with the
 /// fitted spline's endpoint tangent.
 ///
 /// Args:
@@ -138,7 +138,13 @@ mod tests {
 
     #[test]
     fn endpoints_and_linear_extrapolation_are_finite() {
-        for temperature in [50.0, TC_SPLINE_MIN_TEMPERATURE_K, 273.15, 1_000.0, 1_600.0] {
+        for temperature in [
+            50.0,
+            TC_SPLINE_MIN_TEMPERATURE_K,
+            273.15,
+            1_000.0,
+            TC_SPLINE_MAX_TEMPERATURE_K + 50.0,
+        ] {
             let voltage = ktype_voltage_v_f32(temperature);
             assert!(voltage.is_finite());
             assert!(ktype_temperature_k_f32(voltage).is_finite());
@@ -148,7 +154,8 @@ mod tests {
     #[test]
     fn roundtrip_stays_within_fitted_temperature_limit() {
         let mut max_error = 0.0_f32;
-        for index in 0..=147_000 {
+        let steps = ((TC_SPLINE_MAX_TEMPERATURE_K - TC_SPLINE_MIN_TEMPERATURE_K) * 100.0) as usize;
+        for index in 0..=steps {
             let temperature = TC_SPLINE_MIN_TEMPERATURE_K + index as f32 / 100.0;
             let roundtrip = ktype_temperature_k_f32(ktype_voltage_v_f32(temperature));
             max_error = max_error.max((roundtrip - temperature).abs());

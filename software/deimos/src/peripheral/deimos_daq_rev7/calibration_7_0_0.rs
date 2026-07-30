@@ -83,7 +83,7 @@ const RTD_REFERENCE_CURRENT_A: f64 = 250e-6;
 const RTD_FRONTEND_GAIN: f64 = 25.7;
 
 const TC_MIN_REFERENCE_K: f64 = ZERO_C_K - 210.0;
-const TC_MAX_REFERENCE_K: f64 = ZERO_C_K + 1260.0;
+const TC_MAX_REFERENCE_K: f64 = ZERO_C_K + 1370.0;
 const TC_STEP_K: f64 = 10.0;
 const TC_STEP_DETECTION_TOLERANCE_K: f64 = 5.0;
 const MIN_TC_STEP_DURATION_S: f64 = 1.0;
@@ -770,7 +770,7 @@ fn collect_all_channels(
         "RTD channels use manual holds stepping up from -200 C to +800 C in 50 C steps, then back down from +800 C to -200 C during the recording. Each RTD channel records for {RTD_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
-        "Thermocouple channels use a VA710 simulator with manual holds stepping from -200 C to +1250 C and back down to -200 C during the recording. Target 50 K increments below 100 C and 100 K increments above 100 C. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
+        "Thermocouple channels use a VA710 simulator with manual holds stepping from -200 C to +1370 C and back down to -200 C during the recording. Target 50 K increments below 100 C and 100 K increments above 100 C. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
         "Voltage channels use a signal generator measured by the Fluke 707. For each voltage channel, the procedure prompts for {VOLTAGE_HOLD_COUNT} evenly spaced target holds; enter the Fluke voltage once the signal is stable."
@@ -839,7 +839,7 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
         }
         CalibrationKind::Thermocouple => {
             println!(
-                "Ready the VA710 thermocouple simulator at -200 C. During the {} second run, manually step up to +1250 C and back down to -200 C with stable holds, targeting 50 K increments below 100 C and 100 K increments above 100 C.",
+                "Ready the VA710 thermocouple simulator at -200 C. During the {} second run, manually step up to +1370 C and back down to -200 C with stable holds, targeting 50 K increments below 100 C and 100 K increments above 100 C.",
                 channel.capture_seconds(),
             );
             println!(
@@ -3229,6 +3229,15 @@ fn html_escape(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn thermocouple_reference_detector_includes_1370_c_endpoint() {
+        assert_eq!(
+            nearest_thermocouple_reference_k(ZERO_C_K + 1370.0),
+            Some(TC_MAX_REFERENCE_K),
+        );
+        assert_eq!(nearest_thermocouple_reference_k(ZERO_C_K + 1370.01), None,);
+    }
 
     #[test]
     fn zipped_raw_csv_round_trips_through_temp_replay_file() {

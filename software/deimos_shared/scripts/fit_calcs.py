@@ -1,9 +1,20 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.12,<3.13"
+# dependencies = [
+#     "interpn[pydantic]==0.11.2",
+#     "numpy==1.26.4",
+#     "scipy>=1.13,<2",
+# ]
+# ///
 """Generate and validate compact rev7 thermocouple and Pt100 calculations.
 
 The emitted Rust data uses `f32`, so acceptance checks emulate the operation
 rounding of the firmware evaluator rather than validating only the fitted
 `f64` coefficients.
+
+Run from the repository root with:
+    uv run software/deimos_shared/scripts/fit_calcs.py
 
 References:
     [1] IEC 60751, *Industrial platinum resistance thermometers and platinum
@@ -39,10 +50,10 @@ RTD_B = -5.775e-7
 RTD_C = -4.183e-12
 
 TC_MIN_C = -210.0
-TC_MAX_C = 1260.0
+TC_MAX_C = 1370.0
 FIT_SAMPLES_PER_SPAN = 16
 FORWARD_INTERVAL_CANDIDATES = (32, 48, 64, 72, 80, 88, 96, 112)
-INVERSE_INTERVAL_CANDIDATES = (192, 256, 320, 384, 416, 448, 480, 512)
+INVERSE_INTERVAL_CANDIDATES = (192, 256, 320, 384, 416, 448, 480, 512, 544, 576, 608, 640)
 
 # NIST ITS-90 monograph 175 coefficients, with voltage expressed in mV.
 FORWARD_NEGATIVE_C_TO_MV = np.array(

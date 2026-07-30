@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn software_wrappers_are_exact_upcasts() {
-        for temperature_c in (-210..=1260).step_by(10) {
+        for temperature_c in (-210..=1370).step_by(10) {
             let temperature_k = temperature_c as f64 + 273.15;
             let voltage = ktype_voltage_v(temperature_k);
             assert_eq!(voltage, ktype_voltage_v_f32(temperature_k as f32) as f64);

@@ -9,6 +9,8 @@
       Deimos UDP and Modbus/TCP operation
     * Publish coherent double-buffered ADC groups with their board acquisition
       timestamps
+    * Extend the strictly validated type-K spline and thermocouple calibration
+      range through 1370 degC
     * Require calibrated firmware for normal Deimos configuration and Modbus
       service while retaining identity-first calibration collection
 * deimos

@@ -16,13 +16,13 @@ and the NIST ITS-90 type-K reference coefficients (NIST Monograph 175).
 
 ## K-type regular cubic B-splines
 
-- Domain: -210 to 1260 degC (-0.00603460821797 to 0.0510003326086 V)
+- Domain: -210 to 1370 degC (-0.00603460821797 to 0.0548185688959 V)
 - Evaluator: `interpn::MultiBsplineRegular` with its zero-third-derivative ghost-coefficient boundary convention and linearized extrapolation.
 - Fit: Levenberg--Marquardt over 16 samples per span, seeded from the `interpn` spline through exact reference values at its regular grid nodes.
-- Forward: 88 spans / 89 coefficients; f64 maximum 0.00938373376 K-equivalent, emitted-f32 maximum 0.00939837201 K-equivalent, RMS 0.000444701592 K-equivalent.
-- Inverse: 512 spans / 513 coefficients; f64 maximum 0.00901942862 K, emitted-f32 maximum 0.00902328491 K, RMS 0.000209144554 K.
-- Minimum derivatives: forward 1.34282018e-05 V/K, inverse 23446.5 K/V; both are strictly positive.
-- Maximum forward/inverse round-trip error on the dense validation grid: 0.0074005127 K.
+- Forward: 96 spans / 97 coefficients; f64 maximum 0.00899512089 K-equivalent, emitted-f32 maximum 0.00902214996 K-equivalent, RMS 0.000404292087 K-equivalent.
+- Inverse: 544 spans / 545 coefficients; f64 maximum 0.00912052958 K, emitted-f32 maximum 0.00911102295 K, RMS 0.000209227546 K.
+- Minimum derivatives: forward 1.34264847e-05 V/K, inverse 23446.5 K/V; both are strictly positive.
+- Maximum forward/inverse round-trip error on the dense validation grid: 0.00717926025 K.
 
 For each regular span, maximum absolute error was sought with 17 seeds and
 bounded local optimizations between every neighboring seed. Endpoints, knots,
