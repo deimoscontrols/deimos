@@ -370,7 +370,7 @@ impl ModbusTcpServer {
     /// Validate, answer, and optionally consume the one staged request.
     ///
     /// This bounded dispatcher resides in ITCM because continuous full-snapshot
-    /// requests are the worst measured communication workload at 5 kHz.
+    /// requests are the worst supported communication workload at 500 Hz.
     ///
     /// Args:
     ///   snapshot: Latest immutable engineering snapshot.

@@ -38,9 +38,9 @@ pub const HOLDING_GPIO: u16 = 26;
 pub const HOLDING_REGISTER_COUNT: u16 = 27;
 
 /// Slowest supported Modbus publishing rate in `Hz`.
-pub const MODBUS_MIN_CYCLE_RATE_HZ: f32 = 4.0;
+pub const MODBUS_MIN_CYCLE_RATE_HZ: f32 = super::REV7_MIN_CYCLE_RATE_HZ as f32;
 /// Fastest supported Modbus publishing rate in `Hz`.
-pub const MODBUS_MAX_CYCLE_RATE_HZ: f32 = 5_000.0;
+pub const MODBUS_MAX_CYCLE_RATE_HZ: f32 = 500.0;
 
 /// Maximum register count in one standard Modbus read request.
 pub const MODBUS_MAX_READ_REGISTERS: u16 = 125;
@@ -496,17 +496,50 @@ mod tests {
     #[test]
     fn holding_writes_preserve_omitted_fields_and_validate_atomically() {
         let current = ModbusInitialConfig::default();
-        let rate_bits = 2_000.0_f32.to_bits();
+        let rate_bits = MODBUS_MAX_CYCLE_RATE_HZ.to_bits();
         let updated = apply_holding_write(
             current,
             HOLDING_CYCLE_RATE_HZ,
             &[(rate_bits >> 16) as u16, rate_bits as u16, 123],
         )
         .unwrap();
-        assert_eq!(updated.dt_ns, 500_000);
+        assert_eq!(updated.dt_ns, 2_000_000);
         assert_eq!(updated.loss_of_contact_limit, 123);
         assert_eq!(updated.outputs, current.outputs);
 
+        let minimum_rate_bits = MODBUS_MIN_CYCLE_RATE_HZ.to_bits();
+        let minimum = apply_holding_write(
+            current,
+            HOLDING_CYCLE_RATE_HZ,
+            &[(minimum_rate_bits >> 16) as u16, minimum_rate_bits as u16],
+        )
+        .unwrap();
+        assert_eq!(minimum.dt_ns, 200_000_000);
+
+        let excessive_rate_bits = (MODBUS_MAX_CYCLE_RATE_HZ + 1.0).to_bits();
+        assert_eq!(
+            apply_holding_write(
+                current,
+                HOLDING_CYCLE_RATE_HZ,
+                &[
+                    (excessive_rate_bits >> 16) as u16,
+                    excessive_rate_bits as u16,
+                ],
+            ),
+            Err(HoldingWriteError::IllegalDataValue),
+        );
+        let insufficient_rate_bits = (MODBUS_MIN_CYCLE_RATE_HZ - 1.0).to_bits();
+        assert_eq!(
+            apply_holding_write(
+                current,
+                HOLDING_CYCLE_RATE_HZ,
+                &[
+                    (insufficient_rate_bits >> 16) as u16,
+                    insufficient_rate_bits as u16,
+                ],
+            ),
+            Err(HoldingWriteError::IllegalDataValue),
+        );
         assert_eq!(
             apply_holding_write(current, 1, &[0]),
             Err(HoldingWriteError::IllegalDataAddress)

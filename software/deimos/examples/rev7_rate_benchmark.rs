@@ -6,8 +6,9 @@ use deimos::{
     ChannelFilter, Controller, CsvDispatcher, Dispatcher, LoopMethod, Overflow, Termination,
     controller::context::ControllerCtx, dispatcher::load_csv, peripheral::DeimosDaqRev7,
 };
+use deimos_shared::peripherals::deimos_daq_rev7::DEIMOS_MAX_CYCLE_RATE_HZ;
 
-const DEFAULT_RATE_HZ: u32 = 5_000;
+const DEFAULT_RATE_HZ: u32 = DEIMOS_MAX_CYCLE_RATE_HZ;
 const DEFAULT_RUN_SECONDS: u64 = 10;
 const DAQ_SERIAL: u64 = 3;
 const OP_NAME_PREFIX: &str = "rev7_rate_benchmark";
@@ -35,7 +36,9 @@ fn main() -> Result<(), String> {
     // while retaining enough cycles that loss bursts remain benchmark data.
     ctx.peripheral_loss_of_contact_limit =
         rate_hz.saturating_mul(2).min(u32::from(u16::MAX)) as u16;
-    ctx.use_no_calibrations = true;
+    // Exercise the normal operating path, which requires and applies the
+    // calibration embedded in rev7 firmware.
+    ctx.use_no_calibrations = false;
 
     let mut controller = Controller::new(ctx);
     controller

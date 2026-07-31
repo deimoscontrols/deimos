@@ -32,8 +32,9 @@ use deimos_shared::peripherals::deimos_daq_rev7::{
     ModbusInitialConfig, OperatingSnapshot,
     modbus::{
         HOLDING_CYCLE_PERIOD_NS, HOLDING_LOSS_OF_CONTACT_COUNTER, HOLDING_PWM_DUTY_FRAC,
-        HOLDING_REGISTER_COUNT, MODBUS_MAX_WRITE_REGISTERS, SNAPSHOT_INPUT_REGISTER_COUNT,
-        SNAPSHOT_INPUT_START, holding_registers, snapshot_from_input_registers,
+        HOLDING_REGISTER_COUNT, MODBUS_MAX_CYCLE_RATE_HZ, MODBUS_MAX_WRITE_REGISTERS,
+        MODBUS_MIN_CYCLE_RATE_HZ, SNAPSHOT_INPUT_REGISTER_COUNT, SNAPSHOT_INPUT_START,
+        holding_registers, snapshot_from_input_registers,
     },
 };
 use socket2::SockRef;
@@ -201,8 +202,20 @@ fn lifecycle_suite(endpoint: &str) -> TestResult {
 fn endpoint_suite(endpoint: &str) -> TestResult {
     println!("suite=endpoints status=running");
     let mut client = ModbusClient::connect_retry(endpoint)?;
-    run_rate_endpoint(&mut client, 4.0, 240, Duration::from_secs(4), 101)?;
-    run_rate_endpoint(&mut client, 5_000.0, u16::MAX, Duration::from_secs(5), 203)?;
+    run_rate_endpoint(
+        &mut client,
+        MODBUS_MIN_CYCLE_RATE_HZ,
+        240,
+        Duration::from_secs(4),
+        101,
+    )?;
+    run_rate_endpoint(
+        &mut client,
+        MODBUS_MAX_CYCLE_RATE_HZ,
+        u16::MAX,
+        Duration::from_secs(5),
+        203,
+    )?;
 
     // Restore documented defaults before an orderly close. A reconnect would
     // also restore them, but this checks the complete timing FC16 once more.
@@ -225,7 +238,7 @@ fn endpoint_suite(endpoint: &str) -> TestResult {
 fn backpressure_suite(endpoint: &str) -> TestResult {
     println!("suite=backpressure status=running");
     let mut client = ModbusClient::connect_retry(endpoint)?;
-    client.write_timing(5_000.0, u16::MAX, 19)?;
+    client.write_timing(MODBUS_MAX_CYCLE_RATE_HZ, u16::MAX, 19)?;
 
     // Linux doubles small SO_RCVBUF requests internally. The effective buffer
     // is still intentionally much smaller than this finite response burst.

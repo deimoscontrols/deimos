@@ -47,6 +47,21 @@ pub const THERMOCOUPLE_CHANNEL_COUNT: usize = 2;
 /// Number of rev7 voltage measurement channels.
 pub const VOLTAGE_CHANNEL_COUNT: usize = 6;
 
+/// Slowest supported rev7 publishing rate in `cycle/s` in either protocol mode.
+pub const REV7_MIN_CYCLE_RATE_HZ: u32 = 5;
+
+/// Fastest supported Deimos UDP roundtrip rate in `cycle/s`.
+///
+/// Calibrated release-firmware timing measurements retain useful board margin
+/// at this rate; rates near 8.9 kHz reach the measured execution-time limit.
+pub const DEIMOS_MAX_CYCLE_RATE_HZ: u32 = 8_000;
+
+/// Shortest supported Deimos UDP roundtrip period in `ns`.
+pub const DEIMOS_MIN_CYCLE_PERIOD_NS: u32 = 1_000_000_000 / DEIMOS_MAX_CYCLE_RATE_HZ;
+
+/// Longest supported Deimos UDP roundtrip period in `ns`.
+pub const DEIMOS_MAX_CYCLE_PERIOD_NS: u32 = 1_000_000_000 / REV7_MIN_CYCLE_RATE_HZ;
+
 /// Target ADC-group rate for synchronous oversampling.
 ///
 /// The actual rate is the publishing rate multiplied by the nearest integer
@@ -409,10 +424,12 @@ pub mod packets {
         /// Checks the packet marker and currently supported operating settings.
         ///
         /// Returns:
-        ///   `true` for a marked, nonzero-period roundtrip configuration.
+        ///   `true` for a marked roundtrip configuration within the supported
+        ///   Deimos cycle-rate range.
         pub fn is_valid(&self) -> bool {
             self.magic == super::CONFIGURING_INPUT_MAGIC
-                && self.dt_ns != 0
+                && self.dt_ns >= super::DEIMOS_MIN_CYCLE_PERIOD_NS
+                && self.dt_ns <= super::DEIMOS_MAX_CYCLE_PERIOD_NS
                 && matches!(self.mode, Mode::Roundtrip)
         }
     }
@@ -863,12 +880,15 @@ mod packet_tests {
 
     #[test]
     fn sampling_policy_derives_samplerate_and_iir_cutoff_from_cycle_rate() {
-        let low_rate = adc_sampling_policy(4.0).unwrap();
+        let low_rate = adc_sampling_policy(f64::from(REV7_MIN_CYCLE_RATE_HZ)).unwrap();
         assert_eq!(low_rate.mode, AdcSamplingMode::Oversampled);
-        assert_eq!(low_rate.samples_per_cycle, 2_250);
+        assert_eq!(low_rate.samples_per_cycle, 1_800);
         assert_eq!(low_rate.sample_rate_hz, 9_000.0);
-        assert_eq!(low_rate.iir_cutoff_hz, Some(4.0));
-        assert_eq!(low_rate.iir_cutoff_ratio, Some(1.0 / 2_250.0));
+        assert_eq!(
+            low_rate.iir_cutoff_hz,
+            Some(f64::from(REV7_MIN_CYCLE_RATE_HZ)),
+        );
+        assert_eq!(low_rate.iir_cutoff_ratio, Some(1.0 / 1_800.0));
 
         let rounded_rate = adc_sampling_policy(2_500.0).unwrap();
         assert_eq!(rounded_rate.mode, AdcSamplingMode::Oversampled);
@@ -920,8 +940,15 @@ mod packet_tests {
         assert!(!round_trip(binding_output).is_valid());
 
         let mut configuring_input = Rev7ConfiguringInput::from_base(ConfiguringInput::default());
-        configuring_input.dt_ns = 1;
+        configuring_input.dt_ns = DEIMOS_MIN_CYCLE_PERIOD_NS;
         assert!(round_trip(configuring_input).is_valid());
+        configuring_input.dt_ns = DEIMOS_MIN_CYCLE_PERIOD_NS - 1;
+        assert!(!round_trip(configuring_input).is_valid());
+        configuring_input.dt_ns = DEIMOS_MAX_CYCLE_PERIOD_NS;
+        assert!(round_trip(configuring_input).is_valid());
+        configuring_input.dt_ns = DEIMOS_MAX_CYCLE_PERIOD_NS + 1;
+        assert!(!round_trip(configuring_input).is_valid());
+        configuring_input.dt_ns = DEIMOS_MAX_CYCLE_PERIOD_NS;
         configuring_input.magic ^= 1;
         assert!(!round_trip(configuring_input).is_valid());
 
@@ -1722,10 +1749,11 @@ pub mod filters {
                 assert_eq!(transfer_function.sample_time(), 1.0 / 9_000.0);
             }
 
-            let direct = adc_digital_transfer_functions_for_cycle_rate(5_000.0).unwrap();
-            let fractional = adc_fractional_delay_transfer_functions(5_000.0).unwrap();
+            let max_rate_hz = f64::from(super::super::DEIMOS_MAX_CYCLE_RATE_HZ);
+            let direct = adc_digital_transfer_functions_for_cycle_rate(max_rate_hz).unwrap();
+            let fractional = adc_fractional_delay_transfer_functions(max_rate_hz).unwrap();
             for (direct, fractional) in direct.iter().zip(fractional.iter()) {
-                assert_eq!(direct.sample_time(), 1.0 / 5_000.0);
+                assert_eq!(direct.sample_time(), 1.0 / max_rate_hz);
                 assert_eq!(direct.numerator(), fractional.numerator());
                 assert_eq!(direct.denominator(), fractional.denominator());
             }

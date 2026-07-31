@@ -42,6 +42,10 @@ sample group; it does not include a correction for digital-filter group delay.
 The host converts this integer timestamp to `f64` with the other controller
 outputs.
 
+The maximum supported publishing rate is 8 kHz in Deimos UDP roundtrip mode
+and 500 Hz in Modbus/TCP mode. Both modes have a 5 Hz minimum; Modbus
+cycle-rate writes therefore accept 5 through 500 Hz.
+
 Modbus/TCP is available on port 502 only after a generated calibration is
 embedded. The first supported read or write received while binding selects
 Modbus operation; a read-only client therefore receives the safe output

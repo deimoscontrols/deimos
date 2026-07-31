@@ -28,10 +28,44 @@ bytes across all sections, including 24,760 bytes of ITCM, 2,568 bytes of DTCM,
 and 6,832 bytes of BSS.
 
 SN3 was not reflashed during this structural update so its calibration workflow
-would not be disturbed. The final rounded-N 4 Hz--5 kHz timing sweep and all
-dynamic signal-response measurements remain outstanding. Dynamic magnitude,
+would not be disturbed. At that point, the final rounded-N timing sweep and all
+dynamic signal-response measurements remained outstanding. Dynamic magnitude,
 phase, folded-alias, and noise testing is intentionally deferred until a
 programmable signal generator is available.
+
+## Calibrated upper-rate characterization
+
+On 2026-07-31, calibrated SN3 ran the final rounded-N/direct release firmware
+through 10-second Deimos UDP benchmarks above the original 5 kHz limit. The
+benchmark used the normal calibrated operating path, Performant controller
+mode, and the A0:CE:C8:69:F4:6E Ethernet adapter.
+
+| Rate | Minimum board margin | Steady p01 board margin | Final-5-s drop rate | Timestamp result |
+|---:|---:|---:|---:|---|
+| 5.0 kHz | 106.860 us | 115.970 us | 0.00028000 | monotonic |
+| 6.0 kHz | 67.110 us | 76.380 us | 0.05006667 | monotonic |
+| 7.0 kHz | 42.325 us | 45.875 us | 0.05925714 | monotonic |
+| 8.0 kHz | 18.085 us | 23.135 us | 0.01762500 | monotonic |
+| 8.5 kHz | 6.465 us | 10.375 us | 0.05962353 | monotonic |
+| 8.75 kHz | 0.955 us | 11.095 us | 0.01602286 | monotonic |
+| 8.8 kHz | 1.395 us | 6.885 us | 0.01552273 | monotonic |
+| 8.85 kHz | 0.615 us | 5.775 us | 0.05882486 | monotonic |
+| 8.9 kHz | -0.555 us | 5.295 us | 0.01968539 | monotonic |
+| 9.0 kHz | -4.655 us | 2.475 us | 0.05775556 | 18 regressions |
+
+The strict measured deadline crosses between 8.85 and 8.9 kHz. The controller
+margin remained positive through 9 kHz, making firmware execution the limiting
+side. The supported Deimos maximum is therefore 8 kHz, which retains 18.085 us
+of observed worst-case board margin instead of treating the barely positive
+8.85 kHz result as usable headroom. The supported Modbus maximum is separately
+set to 500 Hz to reserve substantially more time for TCP and request processing.
+The common supported minimum is 5 Hz. The 4 Hz measurements below are retained
+as historical characterization outside the supported operating envelope.
+
+Loss-of-contact rates remain bursty and nonmonotonic with board margin, matching
+the previously observed host/Ethernet behavior. The timing decision therefore
+uses board margin and timestamp continuity rather than packet loss alone. CSV
+artifacts are stored under `target/rev7_rate_benchmark/`.
 
 ## Result
 

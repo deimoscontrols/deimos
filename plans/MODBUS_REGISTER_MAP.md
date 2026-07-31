@@ -57,7 +57,7 @@ This makes every accepted multi-output write atomic.
 
 | Address | Count | Access | Type | Field | Valid values |
 | ---: | ---: | --- | --- | --- | --- |
-| 0 | 2 | R/W | `f32` | cycle rate | finite, 4..5000 Hz |
+| 0 | 2 | R/W | `f32` | cycle rate | finite, 5..500 Hz |
 | 2 | 1 | R/W | `u16` | loss-of-contact limit | 1..65535 cycles |
 | 3 | 2 | R | `u32` | current cycle period | ns |
 | 5 | 1 | R | `u16` | current loss counter | cycles |

@@ -24,7 +24,7 @@ hide:
     <dl class="home-hero__facts">
       <div>
         <dt>Cycle rate</dt>
-        <dd>5 Hz - 5 kHz</dd>
+        <dd>5 Hz - 8 kHz</dd>
       </div>
       <div>
         <dt>Inputs</dt>

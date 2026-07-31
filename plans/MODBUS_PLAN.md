@@ -15,8 +15,9 @@ marker comparison, final calibrated engineering checks, and physical pre-rev7
 compatibility remain in the Phase 5 hardware verification. The Phase 6
 rounded-N synchronous implementation is complete in the working tree; its
 shared cycle-rate sampling policy, sampler-owned state cleanup, and policy-based
-Bode regeneration are also complete. Its 4 Hz--5 kHz hardware timing sweep
-remains to be recorded. The earlier
+Bode regeneration are also complete. A calibrated 5--9 kHz timing sweep is
+recorded in `plans/MODBUS_PHASE6_REPORT.md`; it establishes 8 kHz as the
+supported Deimos maximum while retaining useful board margin. The earlier
 33 kHz/3x/1x feasibility measurements in `plans/MODBUS_PHASE6_REPORT.md` are
 explicitly retained as an intermediate result rather than the final topology.
 
@@ -27,6 +28,15 @@ This plan intentionally changes the nominal Deimos operating path before adding
 the Modbus protocol. The shared result is one cycle-driven engineering snapshot
 which is sent as the normal UDP output packet in Deimos mode and exposed through
 Modbus registers in Modbus mode.
+
+## Supported cycle-rate limits
+
+- Both protocol modes have a 5 Hz minimum supported cycle rate.
+- Deimos UDP roundtrip mode supports up to 8 kHz. The canonical forward-looking
+  maximum-rate regression benchmark uses 8 kHz; historical 5 kHz phase results
+  remain valid comparisons at their recorded rate.
+- Modbus/TCP supports 5 through 500 Hz. The lower maximum preserves additional
+  time for bounded TCP and request-processing work.
 
 ## Goals
 
@@ -646,12 +656,12 @@ cycle rates where a 1 Hz second-order low-pass is well-defined, install the
 normal coefficients. At a future sufficiently low cycle rate, install identity
 or passthrough coefficients in the same filter type. The publication hot path
 always invokes the filter and contains no rate-dependent branch. Define the
-cutover from the filter design's valid normalized-frequency range. The present
-timer reload representation already limits operation to roughly 4 Hz, so this
-is a planned fallback rather than a reason to redesign the current timer in this
-work. Use the filter's normal initialization in either case. Any transient from
-a rare cycle-rate change is documented; no continuity or status mechanism is
-added.
+cutover from the filter design's valid normalized-frequency range. The timer
+reload representation can reach roughly 4 Hz, but the documented supported
+minimum is deliberately 5 Hz. This is a planned fallback rather than a reason
+to redesign the current timer in this work. Use the filter's normal
+initialization in either case. Any transient from a rare cycle-rate change is
+documented; no continuity or status mechanism is added.
 
 On the host side, update `DeimosDaqRev7::output_names` and
 `parse_operating_roundtrip` for the engineering packet. Rev7 `standard_calcs`
@@ -952,10 +962,10 @@ each phase and after any material sampling, conversion, serialization, or
 network hot-path change, and check the result into the corresponding phase
 report.
 
-The canonical benchmark is a 5 kHz Deimos UDP roundtrip run lasting 10 seconds
+The canonical benchmark is an 8 kHz Deimos UDP roundtrip run lasting 10 seconds
 in a release build on the same designated rev7 unit, controller host, direct
 network setup, controller loop method, and operating configuration. Record the
-controller's `loss_of_contact_counter` on every one of the expected 50,000
+controller's `loss_of_contact_counter` on every one of the expected 80,000
 cycles. For this benchmark:
 
 - a cycle with `loss_of_contact_counter > 0` is one dropped cycle;
@@ -993,9 +1003,9 @@ remaining minimum and first percentile as active firmware-timing gates; Phase
 
 ## Implementation phases
 
-Every phase exit includes the canonical 5 kHz/10-second hardware regression run
-and comparison with the stored baseline; the functional exit criteria below do
-not supersede that performance gate.
+Every future phase exit includes the canonical 8 kHz/10-second hardware
+regression run and comparison with the stored baseline; the functional exit
+criteria below do not supersede that performance gate.
 
 ### Phase 1: shared nominal-path support, no Modbus protocol
 
@@ -1131,6 +1141,10 @@ Phase 4 exit criteria:
 - The canonical Deimos benchmark remains within its established regression
   tolerance.
 
+The completed Phase 4 measurements above retain their historical 4 Hz and 5 kHz
+endpoints. Future reruns use the current 5 Hz and 500 Hz Modbus endpoints and
+the 8 kHz Deimos maximum-rate benchmark.
+
 ### Phase 5: ADC acquisition timestamps and release
 
 1. Add the SysTick-based `AcquisitionClock` and update it at the beginning of
@@ -1234,10 +1248,10 @@ with a programmable signal generator.
    counter change strictly below half of its `2^16` modulus.
 9. Verify rounded sample-count boundaries, exact tick-sum distribution, timestamp
    arithmetic, filter priming, clean operating re-entry, and the 3 kHz cutover in
-   target-independent tests where possible. On hardware, sweep 4 Hz through
-   5 kHz and record sample-only and sample-plus-communication margins,
+   target-independent tests where possible. On hardware, sweep 5 Hz through
+   8 kHz and record sample-only and sample-plus-communication margins,
    loss-of-contact rate, and timestamp monotonicity. Include the canonical
-   10-second 5 kHz steady-window benchmark.
+   10-second 8 kHz steady-window benchmark.
 
 Phase 6 exit criteria:
 
@@ -1252,7 +1266,7 @@ Phase 6 exit criteria:
 - Both topologies produce the same coherent timestamped sample-group and common
   engineering/protocol snapshot without a steady-state topology branch.
 - Compile-time counter bounds and shared scheduling boundary tests pass, and
-  release builds retain positive measured IRQ margin across 4 Hz--5 kHz.
+  release builds retain positive measured IRQ margin across 5 Hz--8 kHz.
 - Automated magnitude, phase, folded-alias, and noise measurements are recorded
   as explicitly deferred work pending the programmable signal generator; they
   do not block this structural and timing phase.
@@ -1350,7 +1364,7 @@ Phase 6 exit criteria:
 ### Hardware timing
 
 - Compare release image size and SRAM3 use before/after TCP storage.
-- Run and archive the canonical 5 kHz/10-second loss-of-contact benchmark after
+- Run and archive the canonical 8 kHz/10-second loss-of-contact benchmark after
   every phase and material hot-path change; compare whole-run and final-five-
   second drop rates with the established baseline.
 - Measure synchronous sample-only and sample-plus-communication deadline margin
@@ -1366,7 +1380,7 @@ Phase 6 exit criteria:
 - Sweep both synchronous topologies and record publication-cycle, sample-only,
   and sample-plus-communication margins. Include the minimum operating rate,
   the 3 kHz boundary, the shortest and longest permitted corrected Deimos
-  subcycles, 5 kHz, and the worst accepted Modbus request.
+  subcycles, 8 kHz, and the worst accepted 500 Hz Modbus request.
 - Exercise rate changes across the compiled 3 kHz cutover and verify that the
   Operating SysTick scope exclusively owns the sampler and both topologies
   publish the same coherent group format.
@@ -1448,5 +1462,5 @@ software; the new runtime does not accept that obsolete rev7 layout.
   behavior, and control quality must be verified at the maximum permitted
   corrections rather than inferred from nominal-rate tests.
 - Small costs added across otherwise-correct phases can cumulatively reduce the
-  viable control rate. The fixed 5 kHz loss-of-contact benchmark is a phase gate,
+  viable control rate. The fixed 8 kHz loss-of-contact benchmark is a phase gate,
   and a regression must not be concealed by moving the sampling cutover.
