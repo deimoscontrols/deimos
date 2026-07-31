@@ -1367,6 +1367,10 @@ Phase 6 exit criteria:
 - Run and archive the canonical 8 kHz/10-second loss-of-contact benchmark after
   every phase and material hot-path change; compare whole-run and final-five-
   second drop rates with the established baseline.
+- Use `rev7_rate_sweep` for the broader timing curve: run 20 logarithmically
+  spaced 20-second points from 5 Hz through 8 kHz in Performant mode and repeat
+  points below 500 Hz in Efficient mode. Plot final-five-second loss rate,
+  board cycle margin, and host-process CPU use for both modes.
 - Measure synchronous sample-only and sample-plus-communication deadline margin
   while capturing acquisition timestamps and publishing all engineering values.
 - Compare `sample_time_ns` with a GPIO acquisition-start marker and verify

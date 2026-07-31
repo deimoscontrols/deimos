@@ -66,6 +66,7 @@ pyo3 = { version = "0.29.0", features = ["extension-module", "abi3-py311", "gene
 num-dual = "0.13.6"
 rand = "0.10.2"
 ndarray = "0.17.2"
+libc = "0.2.186"
 plotly = "0.14.1"
 rmodbus = "0.12.2"
 
