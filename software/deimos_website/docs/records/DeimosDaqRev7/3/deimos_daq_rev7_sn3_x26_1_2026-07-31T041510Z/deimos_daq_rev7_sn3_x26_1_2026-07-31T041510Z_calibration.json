@@ -1,0 +1,17 @@
+{
+  "model": "deimos_daq_rev7",
+  "serial_number": 3,
+  "channel": "ain19",
+  "signal_name": "p1.voltage_x26_1_V",
+  "datestamp_utc": "2026-07-31T041823Z",
+  "polynomial_order": 1,
+  "polynomial_coefficients": [
+    0.0,
+    1.0
+  ],
+  "r2": 0.9998628874064327,
+  "input_units": "V",
+  "output_units": "V",
+  "accepted_sample_count": 1250,
+  "detected_step_count": 5
+}

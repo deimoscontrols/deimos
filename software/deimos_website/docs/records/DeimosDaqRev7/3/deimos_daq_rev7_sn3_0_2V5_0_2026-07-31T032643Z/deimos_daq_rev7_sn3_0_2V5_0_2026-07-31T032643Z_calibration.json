@@ -3,7 +3,7 @@
   "serial_number": 3,
   "channel": "ain12",
   "signal_name": "p1.voltage_0_2V5_0_V",
-  "datestamp_utc": "2026-07-31T032822Z",
+  "datestamp_utc": "2026-07-31T041821Z",
   "polynomial_order": 1,
   "polynomial_coefficients": [
     0.0,

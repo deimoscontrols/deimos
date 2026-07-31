@@ -62,14 +62,24 @@ const FLUKE_707_CURRENT_ACCURACY_A: f64 = REFERENCE_MAX_A * 0.015 / 100.0 + 2.0e
 const FLUKE_707_VOLTAGE_ACCURACY_READING_FRAC: f64 = 0.015 / 100.0;
 const FLUKE_707_VOLTAGE_ACCURACY_V: f64 = 2.0e-3;
 const VOLTAGE_FIT_ORDER: usize = 1;
-const VOLTAGE_HOLD_COUNT: usize = 4;
 const VOLTAGE_HOLD_SECONDS: f64 = 5.0;
 const MIN_VOLTAGE_HOLD_DURATION_S: f64 = 2.0;
 const VOLTAGE_CAPTURE_SECONDS: u64 = 300;
 const VOLTAGE_0_2V5_MAX_V: f64 = 2.5;
 const VOLTAGE_0_15V_MAX_V: f64 = 15.0;
-const VOLTAGE_X26_MIN_V: f64 = -1.024 / 25.7;
-const VOLTAGE_X26_MAX_V: f64 = (VOLTAGE_0_2V5_MAX_V - 1.024) / 25.7;
+const VOLTAGE_0_2V5_HOLDS_V: [f64; 4] = [
+    0.0,
+    VOLTAGE_0_2V5_MAX_V / 3.0,
+    2.0 * VOLTAGE_0_2V5_MAX_V / 3.0,
+    VOLTAGE_0_2V5_MAX_V,
+];
+const VOLTAGE_0_15V_HOLDS_V: [f64; 4] = [
+    0.0,
+    VOLTAGE_0_15V_MAX_V / 3.0,
+    2.0 * VOLTAGE_0_15V_MAX_V / 3.0,
+    VOLTAGE_0_15V_MAX_V,
+];
+const VOLTAGE_X26_HOLDS_V: [f64; 5] = [-0.035, -0.035 / 2.0, 0.0, 0.055 / 2.0, 0.055];
 
 const ZERO_C_K: f64 = 273.15;
 const RTD_MIN_REFERENCE_K: f64 = ZERO_C_K - 200.0;
@@ -435,11 +445,16 @@ impl CalibrationChannel {
         }
     }
 
-    fn voltage_reference_range_v(self) -> Option<(f64, f64)> {
+    /// Returns the ordered manual calibration targets for a voltage channel.
+    ///
+    /// Returns:
+    ///     Target signal-generator voltages [V, shape: (n_holds,)], or `None`
+    ///     when this is not a voltage channel.
+    fn voltage_reference_targets_v(self) -> Option<&'static [f64]> {
         match self.slug {
-            "0_2V5_0" | "0_2V5_1" => Some((0.0, VOLTAGE_0_2V5_MAX_V)),
-            "0_15V_0" | "0_15V_1" => Some((0.0, VOLTAGE_0_15V_MAX_V)),
-            "x26_0" | "x26_1" => Some((VOLTAGE_X26_MIN_V, VOLTAGE_X26_MAX_V)),
+            "0_2V5_0" | "0_2V5_1" => Some(&VOLTAGE_0_2V5_HOLDS_V),
+            "0_15V_0" | "0_15V_1" => Some(&VOLTAGE_0_15V_HOLDS_V),
+            "x26_0" | "x26_1" => Some(&VOLTAGE_X26_HOLDS_V),
             _ => None,
         }
     }
@@ -780,7 +795,7 @@ fn collect_all_channels(
         "Thermocouple channels use a VA710 simulator with manual holds stepping from -200 C to +1370 C and back down to -200 C during the recording. Below -100 C, hold only at -200 C and -150 C on both ramps; do not stop at intermediate temperatures because doing so can contaminate the widened low-temperature hold data. From -100 C upward, target 50 K increments through +100 C and 100 K increments above +100 C. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
-        "Voltage channels use a signal generator measured by the Fluke 707. For each voltage channel, the procedure prompts for {VOLTAGE_HOLD_COUNT} evenly spaced target holds; enter the Fluke voltage once the signal is stable."
+        "Voltage channels use a signal generator measured by the Fluke 707. The 0-2.5 V and 0-15 V channels use four evenly spaced target holds. Each 25.7x channel uses five holds over -0.035 V to +0.055 V: -0.035, -0.0175 (-0.035/2), 0.0, +0.0275 (+0.055/2), and +0.055 V. Enter the Fluke voltage once the signal is stable."
     );
     println!(
         "Monitor live channels with: cargo run -p deimos_console -- --config {CONSOLE_CONFIG_PATH}"
@@ -874,12 +889,21 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
             });
         }
         CalibrationKind::Voltage => {
-            let (min_v, max_v) = channel
-                .voltage_reference_range_v()
-                .ok_or_else(|| format!("Missing voltage reference range for {}", channel.label))?;
-            println!(
-                "Connect the signal generator to this input and measure it with the Fluke 707. This run will prompt for {VOLTAGE_HOLD_COUNT} target holds from {min_v:.6} V to {max_v:.6} V."
-            );
+            let targets_v = channel.voltage_reference_targets_v().ok_or_else(|| {
+                format!("Missing voltage reference targets for {}", channel.label)
+            })?;
+            if matches!(channel.slug, "x26_0" | "x26_1") {
+                println!(
+                    "Connect the signal generator to this 25.7x input and measure it with the Fluke 707. This run uses five holds over -0.035 V to +0.055 V: -0.035, -0.0175 (-0.035/2), 0.0, +0.0275 (+0.055/2), and +0.055 V."
+                );
+            } else {
+                println!(
+                    "Connect the signal generator to this input and measure it with the Fluke 707. This run will prompt for {} target holds from {:.6} V to {:.6} V.",
+                    targets_v.len(),
+                    targets_v[0],
+                    targets_v[targets_v.len() - 1],
+                );
+            }
         }
     }
     println!("Press Enter to start this run, or type s then Enter to skip it.");
@@ -980,18 +1004,16 @@ fn collect_voltage_reference_windows(
     channel: CalibrationChannel,
     run_start: Instant,
 ) -> Result<Vec<ManualReferenceWindow>, String> {
-    let (min_v, max_v) = channel
-        .voltage_reference_range_v()
-        .ok_or_else(|| format!("Missing voltage reference range for {}", channel.label))?;
-    let mut windows = Vec::with_capacity(VOLTAGE_HOLD_COUNT);
+    let targets_v = channel
+        .voltage_reference_targets_v()
+        .ok_or_else(|| format!("Missing voltage reference targets for {}", channel.label))?;
+    let mut windows = Vec::with_capacity(targets_v.len());
 
-    for hold_idx in 0..VOLTAGE_HOLD_COUNT {
-        let frac = hold_idx as f64 / (VOLTAGE_HOLD_COUNT.saturating_sub(1) as f64);
-        let target_v = min_v + frac * (max_v - min_v);
+    for (hold_idx, target_v) in targets_v.iter().copied().enumerate() {
         println!(
             "Hold {}/{} for {}: tune the signal generator to about {:.6} V. When stable, enter the Fluke 707 measured voltage in V and press Enter.",
             hold_idx + 1,
-            VOLTAGE_HOLD_COUNT,
+            targets_v.len(),
             channel.label,
             target_v,
         );
@@ -1007,7 +1029,7 @@ fn collect_voltage_reference_windows(
         println!(
             "Recording hold {}/{} for {:.1} s at reference {:.9} V.",
             hold_idx + 1,
-            VOLTAGE_HOLD_COUNT,
+            targets_v.len(),
             VOLTAGE_HOLD_SECONDS,
             reference_a,
         );
@@ -3262,6 +3284,19 @@ fn html_escape(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn x26_voltage_channels_use_the_five_requested_holds() {
+        for slug in ["x26_0", "x26_1"] {
+            let channel = channel_for_slug(slug).expect("x26 calibration channel");
+            assert_eq!(
+                channel.voltage_reference_targets_v(),
+                Some(VOLTAGE_X26_HOLDS_V.as_slice()),
+            );
+        }
+
+        assert_eq!(VOLTAGE_X26_HOLDS_V, [-0.035, -0.0175, 0.0, 0.0275, 0.055]);
+    }
 
     #[test]
     fn rtd_reference_detector_keeps_positive_800_c_endpoint_data() {
