@@ -73,7 +73,9 @@ const VOLTAGE_X26_MAX_V: f64 = (VOLTAGE_0_2V5_MAX_V - 1.024) / 25.7;
 
 const ZERO_C_K: f64 = 273.15;
 const RTD_MIN_REFERENCE_K: f64 = ZERO_C_K - 200.0;
-const RTD_MAX_REFERENCE_K: f64 = ZERO_C_K + 800.0;
+// Leave one 10 C detector bin above the requested 800 C endpoint so positive
+// measurement error does not discard the upper half of the endpoint data.
+const RTD_MAX_REFERENCE_K: f64 = ZERO_C_K + 810.0;
 const RTD_STEP_K: f64 = 10.0;
 const RTD_STEP_DETECTION_TOLERANCE_K: f64 = 5.0;
 const MIN_RTD_STEP_DURATION_S: f64 = 0.5;
@@ -82,11 +84,16 @@ const VA720_ACCURACY_K: f64 = 0.33;
 const RTD_REFERENCE_CURRENT_A: f64 = 250e-6;
 const RTD_FRONTEND_GAIN: f64 = 25.7;
 
-const TC_MIN_REFERENCE_K: f64 = ZERO_C_K - 210.0;
-const TC_MAX_REFERENCE_K: f64 = ZERO_C_K + 1370.0;
+const TC_MIN_ACCEPTED_K: f64 = ZERO_C_K - 220.0;
+const TC_LOW_REFERENCE_K: [f64; 2] = [ZERO_C_K - 200.0, ZERO_C_K - 150.0];
+const TC_REGULAR_MIN_REFERENCE_K: f64 = ZERO_C_K - 100.0;
+// Leave one 10 C detector bin above the requested 1370 C endpoint so positive
+// measurement error does not discard the upper half of the endpoint data.
+const TC_MAX_REFERENCE_K: f64 = ZERO_C_K + 1380.0;
 const TC_STEP_K: f64 = 10.0;
+const TC_LOW_STEP_DETECTION_TOLERANCE_K: f64 = 20.0;
 const TC_STEP_DETECTION_TOLERANCE_K: f64 = 5.0;
-const MIN_TC_STEP_DURATION_S: f64 = 1.0;
+const MIN_TC_STEP_DURATION_S: f64 = 3.0;
 const TC_CAPTURE_SECONDS: u64 = 240;
 const VA710_TEMPERATURE_ACCURACY_K: f64 = 0.3;
 const VA710_COLD_JUNCTION_ACCURACY_K: f64 = 0.3;
@@ -770,7 +777,7 @@ fn collect_all_channels(
         "RTD channels use manual holds stepping up from -200 C to +800 C in 50 C steps, then back down from +800 C to -200 C during the recording. Each RTD channel records for {RTD_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
-        "Thermocouple channels use a VA710 simulator with manual holds stepping from -200 C to +1370 C and back down to -200 C during the recording. Target 50 K increments below 100 C and 100 K increments above 100 C. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
+        "Thermocouple channels use a VA710 simulator with manual holds stepping from -200 C to +1370 C and back down to -200 C during the recording. Below -100 C, hold only at -200 C and -150 C on both ramps; do not stop at intermediate temperatures because doing so can contaminate the widened low-temperature hold data. From -100 C upward, target 50 K increments through +100 C and 100 K increments above +100 C. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
         "Voltage channels use a signal generator measured by the Fluke 707. For each voltage channel, the procedure prompts for {VOLTAGE_HOLD_COUNT} evenly spaced target holds; enter the Fluke voltage once the signal is stable."
@@ -839,7 +846,7 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
         }
         CalibrationKind::Thermocouple => {
             println!(
-                "Ready the VA710 thermocouple simulator at -200 C. During the {} second run, manually step up to +1370 C and back down to -200 C with stable holds, targeting 50 K increments below 100 C and 100 K increments above 100 C.",
+                "Ready the VA710 thermocouple simulator at -200 C. During the {} second run, manually step up to +1370 C and back down to -200 C with stable holds. Below -100 C, hold only at -200 C and -150 C on both ramps. Do not stop at any intermediate temperature below -100 C; move continuously through it to avoid contaminating the widened low-temperature hold data. From -100 C upward, target 50 K increments through +100 C and 100 K increments above +100 C.",
                 channel.capture_seconds(),
             );
             println!(
@@ -2257,20 +2264,42 @@ fn nearest_rtd_reference_k(measured_k: f64) -> Option<f64> {
     }
 }
 
+/// Maps a measured calibrator temperature to an accepted thermocouple hold.
+///
+/// The low-temperature holds at -200 and -150 degC use wider bands so that
+/// noisy endpoint data is retained. Starting at -100 degC, the detector uses
+/// the regular 10 K reference grid and a narrower tolerance.
+///
+/// Args:
+///     measured_k: Measured calibrator temperature [K].
+///
+/// Returns:
+///     The accepted reference temperature [K], or `None` outside a hold band.
 fn nearest_thermocouple_reference_k(measured_k: f64) -> Option<f64> {
-    if !(TC_MIN_REFERENCE_K..=TC_MAX_REFERENCE_K).contains(&measured_k) {
+    if !(TC_MIN_ACCEPTED_K..=TC_MAX_REFERENCE_K).contains(&measured_k) {
         return None;
     }
 
-    let reference_k = ZERO_C_K + ((measured_k - ZERO_C_K) / TC_STEP_K).round() * TC_STEP_K;
-
-    if (TC_MIN_REFERENCE_K..=TC_MAX_REFERENCE_K).contains(&reference_k)
-        && (measured_k - reference_k).abs() <= TC_STEP_DETECTION_TOLERANCE_K
-    {
-        Some(reference_k)
-    } else {
-        None
+    // These two non-overlapping bands are the only accepted holds below
+    // -100 degC. In particular, ramp pauses between them are not quantized
+    // onto the regular 10 K grid.
+    for reference_k in TC_LOW_REFERENCE_K {
+        if (measured_k - reference_k).abs() <= TC_LOW_STEP_DETECTION_TOLERANCE_K {
+            return Some(reference_k);
+        }
     }
+
+    if measured_k < TC_REGULAR_MIN_REFERENCE_K - TC_STEP_DETECTION_TOLERANCE_K {
+        return None;
+    }
+
+    let reference_k = (ZERO_C_K + ((measured_k - ZERO_C_K) / TC_STEP_K).round() * TC_STEP_K)
+        // At the -105 degC boundary, round-to-nearest selects -110 degC.
+        // Clamp it back to the first regular reference before testing the
+        // tolerance so the lower half of the -100 degC band remains valid.
+        .clamp(TC_REGULAR_MIN_REFERENCE_K, TC_MAX_REFERENCE_K);
+
+    ((measured_k - reference_k).abs() <= TC_STEP_DETECTION_TOLERANCE_K).then_some(reference_k)
 }
 
 fn no_segments_error(capture: &ChannelCapture) -> String {
@@ -2288,8 +2317,12 @@ fn no_segments_error(capture: &ChannelCapture) -> String {
             capture.channel.min_step_duration_s(),
         ),
         CalibrationKind::Thermocouple => format!(
-            "No stable thermocouple temperature holds found for {} using +/- {:.1} K tolerance and {:.1} s minimum duration",
-            capture.channel.label, TC_STEP_DETECTION_TOLERANCE_K, MIN_TC_STEP_DURATION_S,
+            "No stable thermocouple temperature holds found for {} using +/- {:.1} K at -200/-150 C, +/- {:.1} K on the {:.1} K grid from -100 C upward, and {:.1} s minimum duration",
+            capture.channel.label,
+            TC_LOW_STEP_DETECTION_TOLERANCE_K,
+            TC_STEP_DETECTION_TOLERANCE_K,
+            TC_STEP_K,
+            MIN_TC_STEP_DURATION_S,
         ),
         CalibrationKind::Voltage => format!(
             "No manual voltage reference holds found for {}. The CSV must contain reference_a values from the voltage hold prompts.",
@@ -3231,12 +3264,65 @@ mod tests {
     use super::*;
 
     #[test]
-    fn thermocouple_reference_detector_includes_1370_c_endpoint() {
+    fn rtd_reference_detector_keeps_positive_800_c_endpoint_data() {
         assert_eq!(
-            nearest_thermocouple_reference_k(ZERO_C_K + 1370.0),
+            nearest_rtd_reference_k(ZERO_C_K + 800.01),
+            Some(ZERO_C_K + 800.0),
+        );
+        assert_eq!(
+            nearest_rtd_reference_k(ZERO_C_K + 810.0),
+            Some(RTD_MAX_REFERENCE_K),
+        );
+        assert_eq!(nearest_rtd_reference_k(ZERO_C_K + 810.01), None);
+    }
+
+    #[test]
+    fn thermocouple_reference_detector_keeps_positive_1370_c_endpoint_data() {
+        assert_eq!(
+            nearest_thermocouple_reference_k(ZERO_C_K + 1370.01),
+            Some(ZERO_C_K + 1370.0),
+        );
+        assert_eq!(
+            nearest_thermocouple_reference_k(ZERO_C_K + 1380.0),
             Some(TC_MAX_REFERENCE_K),
         );
-        assert_eq!(nearest_thermocouple_reference_k(ZERO_C_K + 1370.01), None,);
+        assert_eq!(nearest_thermocouple_reference_k(ZERO_C_K + 1380.01), None,);
+    }
+
+    #[test]
+    fn thermocouple_reference_detector_uses_only_the_wide_low_temperature_holds() {
+        assert_eq!(
+            nearest_thermocouple_reference_k(ZERO_C_K - 220.0),
+            Some(ZERO_C_K - 200.0),
+        );
+        assert_eq!(
+            nearest_thermocouple_reference_k(ZERO_C_K - 210.0),
+            Some(ZERO_C_K - 200.0),
+        );
+        assert_eq!(
+            nearest_thermocouple_reference_k(ZERO_C_K - 180.0),
+            Some(ZERO_C_K - 200.0),
+        );
+        assert_eq!(nearest_thermocouple_reference_k(ZERO_C_K - 175.0), None,);
+        assert_eq!(
+            nearest_thermocouple_reference_k(ZERO_C_K - 170.0),
+            Some(ZERO_C_K - 150.0),
+        );
+        assert_eq!(
+            nearest_thermocouple_reference_k(ZERO_C_K - 130.0),
+            Some(ZERO_C_K - 150.0),
+        );
+        assert_eq!(nearest_thermocouple_reference_k(ZERO_C_K - 125.0), None,);
+        assert_eq!(nearest_thermocouple_reference_k(ZERO_C_K - 110.0), None,);
+        assert_eq!(
+            nearest_thermocouple_reference_k(ZERO_C_K - 105.0),
+            Some(ZERO_C_K - 100.0),
+        );
+        assert_eq!(
+            nearest_thermocouple_reference_k(ZERO_C_K - 100.0),
+            Some(ZERO_C_K - 100.0),
+        );
+        assert_eq!(nearest_thermocouple_reference_k(ZERO_C_K - 220.01), None,);
     }
 
     #[test]
