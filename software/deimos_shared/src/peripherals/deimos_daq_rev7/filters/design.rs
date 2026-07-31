@@ -9,6 +9,7 @@ use deimos_numerics::{
     },
 };
 
+/// Builds the fixed-size delta-SOS ADC filter bank used by rev7 firmware.
 pub fn adc_filter_bank(cutoff_ratio: f64) -> Result<AdcFilterBank, AdcFilterBuildError> {
     let filter = adc_filter(cutoff_ratio)?;
     Ok([filter; ADC_FILTER_COUNT])

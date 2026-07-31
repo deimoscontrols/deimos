@@ -56,31 +56,40 @@ pub struct Frontend35MvUncertaintyInputs {
 pub fn frontend_35mv_uncertainty_inputs(input_v: f64) -> Frontend35MvUncertaintyInputs {
     Frontend35MvUncertaintyInputs {
         nominal: [
-            input_v, 2.0e3, 0.0, 0.0, 0.0, 1.024, 0.0, 5.0e-12, 10.0e3, 0.0,
+            input_v, // v
+            2.0e3,   // rg
+            0.0,     // fg
+            0.0,     // voi
+            0.0,     // voo
+            1.024,   // voref
+            0.0,     // voif
+            5.0e-12, // ibf
+            10.0e3,  // rf
+            0.0,     // iovp
         ],
         uncertainty: [
-            0.0,
-            0.01e-2 * 2.0e3,
-            0.03e-2,
-            40.0e-6,
-            200.0e-6,
-            0.05e-2 * 1.024,
-            25.0e-6,
-            5.0e-12,
-            0.01 * 10.0e3,
-            1.0e-9,
+            0.0,             // v
+            0.01e-2 * 2.0e3, // rg
+            0.03e-2,         // fg
+            40.0e-6,         // voi
+            200.0e-6,        // voo
+            0.05e-2 * 1.024, // voref
+            25.0e-6,         // voif
+            5.0e-12,         // ibf
+            0.01 * 10.0e3,   // rf
+            1.0e-9,          // iovp
         ],
         thermal_sensitivity_per_c: [
-            0.0,
-            5.0e-6 * 2.0e3,
-            10.0e-6,
-            0.4e-6,
-            2.0e-6,
-            12.0e-6 * 1.024,
-            0.5e-6,
-            0.0,
-            50.0e-6 * 10.0e3,
-            0.0,
+            0.0,              // v
+            5.0e-6 * 2.0e3,   // rg
+            10.0e-6,          // fg
+            0.4e-6,           // voi
+            2.0e-6,           // voo
+            12.0e-6 * 1.024,  // voref
+            0.5e-6,           // voif
+            0.0,              // ibf
+            50.0e-6 * 10.0e3, // rf
+            0.0,              // iovp
         ],
     }
 }

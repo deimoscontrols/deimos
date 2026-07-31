@@ -18,6 +18,7 @@ use deimos_numerics::{
     },
 };
 
+/// Runtime ADC low-pass filter used by rev7 firmware.
 pub type AdcFilter = FixedDeltaSos<f32, ADC_FILTER_SECTIONS, 1>;
 
 /// Runtime state for one rev7 ADC low-pass filter.

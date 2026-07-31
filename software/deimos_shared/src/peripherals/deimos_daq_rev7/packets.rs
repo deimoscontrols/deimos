@@ -1,4 +1,7 @@
-//! Rev7 binding, configuration, and operating packet definitions.
+//! Rev7 setup packets and calibration image records.
+//!
+//! This module contains the rev7 binding, configuration, and operating packet
+//! definitions.
 
 mod operating;
 
