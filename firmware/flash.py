@@ -3,7 +3,13 @@
 import json
 import re
 from pathlib import Path
+from shutil import copyfile
 from subprocess import check_call
+
+
+CALIBRATION_RECORD_MODELS = {
+    "deimos_daq_rev7": "DeimosDaqRev7",
+}
 
 
 def writemac(fp: Path, mac: str):
@@ -43,6 +49,28 @@ def writesn(fp: Path, sn: str):
         f.write(sn_bytes)
 
 
+def stage_calibration(source: Path, destination: Path) -> bool:
+    """Stage one unit's generated calibration for firmware inclusion.
+
+    A missing source selects the firmware's identity calibration. Removing an
+    existing destination is necessary because all units of a model share the
+    same build input path when multiple probes are flashed in one invocation.
+
+    Args:
+        source: Unit-specific generated `calibration.bin` path.
+        destination: Model-specific firmware `static/calibration.in` path.
+
+    Returns:
+        Whether a generated calibration was staged.
+    """
+    if source.is_file():
+        copyfile(source, destination)
+        return True
+
+    destination.unlink(missing_ok=True)
+    return False
+
+
 if __name__ == "__main__":
     here = Path(__file__).parent
 
@@ -64,6 +92,27 @@ if __name__ == "__main__":
         scriptfp = here / "flash.sh"
         macfp = here / f"{model}/static/macaddr.in"
         snfp = here / f"{model}/static/serialnumber.in"
+
+        calibration_record_model = CALIBRATION_RECORD_MODELS.get(model)
+        if calibration_record_model is not None:
+            calibration_source = (
+                here.parent
+                / "software"
+                / "deimos_website"
+                / "docs"
+                / "records"
+                / calibration_record_model
+                / str(sn)
+                / "calibration.bin"
+            )
+            calibration_destination = here / model / "static" / "calibration.in"
+            if stage_calibration(calibration_source, calibration_destination):
+                print(f"Using calibration {calibration_source}")
+            else:
+                print(
+                    f"No calibration found at {calibration_source}; "
+                    "using the identity calibration"
+                )
 
         print(f"Flashing SN {sn} with MAC {mac} on probe {probe}")
         # Write mac address and sn

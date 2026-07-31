@@ -1,14 +1,15 @@
 # Deimos DAQ rev7 firmware
 
-The calibration image is selected at build time:
+The calibration image is selected by `firmware/flash.py` before each build:
 
-- If `static/calibration.in` is absent, `build.rs` embeds identity affine
-  coefficients and sets `firmware_calibrated = 0`. This is the image to flash
-  immediately before a calibration run.
-- A completed rev7 calibration run writes `calibration.bin` beside its JSON
-  calibration record. Copy that file to `static/calibration.in`, rebuild, and
-  flash the board to install the final coefficients. The completed artifact has
-  `firmware_calibrated = 1`.
+- If the assigned unit has a generated
+  `software/deimos_website/docs/records/DeimosDaqRev7/<serial>/calibration.bin`,
+  the script copies it to `static/calibration.in` before building. The completed
+  artifact has `firmware_calibrated = 1`.
+- If that unit-specific `calibration.bin` is absent, the script removes any
+  previously staged `static/calibration.in`. `build.rs` then embeds identity
+  affine coefficients and sets `firmware_calibrated = 0`. This is the image to
+  flash immediately before a calibration run.
 
 The controller enforces the operational convention: calibration collection
 requires the identity image, while normal Deimos operation requires the final
@@ -16,18 +17,13 @@ calibrated image. Consequently, a stale calibrated image cannot accidentally be
 calibrated a second time, and an identity image cannot silently be used for
 normal operation.
 
-For an identity calibration run:
+For an identity calibration run, make sure the assigned unit's generated
+`calibration.bin` is absent (move an existing artifact aside rather than
+deleting it), then run the flash script. For the final calibrated image, leave
+the generated file in its records directory. In both cases:
 
 ```sh
-rm firmware/deimos_daq_rev7/static/calibration.in
-python firmware/flash.py
-```
-
-For the final calibrated image:
-
-```sh
-cp /path/to/calibration.bin firmware/deimos_daq_rev7/static/calibration.in
-python firmware/flash.py
+uv run python firmware/flash.py
 ```
 
 Both commands are run from the repository root. `flash.py` selects the board,
