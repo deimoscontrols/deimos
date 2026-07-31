@@ -2379,12 +2379,6 @@
 		(uuid "351dcaf0-a3f4-434b-9ea0-2b28f30abf9d")
 	)
 	(junction
-		(at 188.722 258.572)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "35acf262-ff6a-4906-9baf-3d5d3532f4a6")
-	)
-	(junction
 		(at 524.002 46.482)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -2437,12 +2431,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "c359902b-41b9-404b-80e0-357f2bdf00f9")
-	)
-	(junction
-		(at 185.674 263.652)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "f11b4fa7-2632-4c87-9159-327e833fcce3")
 	)
 	(junction
 		(at 524.002 43.942)
@@ -3195,16 +3183,6 @@
 			(type default)
 		)
 		(uuid "5c39bb44-8336-469e-810f-03bfc9a0e69e")
-	)
-	(wire
-		(pts
-			(xy 185.674 263.652) (xy 188.722 263.652)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "63a6dc65-fac8-46ff-a7dc-3a88f2239cb9")
 	)
 	(wire
 		(pts
@@ -7386,81 +7364,6 @@
 			(project "analog_frontend_panel"
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
 					(reference "#PWR1012")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C_Small")
-		(at 188.722 261.112 180)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "80a02639-5f17-4ecf-9832-b46d6c173332")
-		(property "Reference" "C3001"
-			(at 191.262 260.858 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Value" "0.1uF"
-			(at 189.738 263.144 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 188.722 261.112 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 188.722 261.112 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 188.722 261.112 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "660665fb-f5d1-438d-b2f9-ae61503d8aa4")
-		)
-		(pin "2"
-			(uuid "4ed018d5-edd6-4680-aebd-eb42bd18b8dc")
-		)
-		(instances
-			(project "analog_i"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f"
-					(reference "C3001")
-					(unit 1)
-				)
-			)
-			(project "analog_frontend_panel"
-				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
-					(reference "C1002")
 					(unit 1)
 				)
 			)
