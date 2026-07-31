@@ -35,7 +35,7 @@ pub use deimos_shared::peripherals::deimos_daq_rev7::{
     MODEL_NUMBER, VREF,
 };
 use deimos_shared::peripherals::deimos_daq_rev7::{
-    Rev7Calibration,
+    Rev7Calibration, bounded_cycle_timing_correction_ns,
     acquisition::{AcquisitionClock, UniformIntervalScheduler},
     operating_roundtrip::{ModbusInitialConfig, OperatingOutputSettings},
 };
@@ -134,8 +134,11 @@ impl<'a> Board<'a> {
     /// Convert one bounded publishing-interval correction to SysTick ticks.
     fn systick_interval_ticks(&self, delta_ns: i64) -> u32 {
         let c_ck_mhz = self.clocks.c_ck().to_MHz() / 8;
-        let delta_ns_max = (self.dt_ns / 10) as i64;
-        let bounded_delta_ns = delta_ns.clamp(-delta_ns_max, delta_ns_max);
+        // Keep this final clamp at the timer boundary even though each
+        // transport already combines its requested correction through the
+        // same helper. This prevents any future caller from bypassing the
+        // +/-10% execution-margin policy.
+        let bounded_delta_ns = bounded_cycle_timing_correction_ns(self.dt_ns, delta_ns, 0);
         let adjusted_ns = (i64::from(self.dt_ns) + bounded_delta_ns) as u64;
         adjusted_ns
             .saturating_mul(u64::from(c_ck_mhz))

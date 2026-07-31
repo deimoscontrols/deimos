@@ -271,8 +271,8 @@ impl<'a> Board<'a> {
     /// Perform the single shared engineering, transport, and output cycle.
     ///
     /// Returns:
-    ///   Bounded Deimos timing correction requested for the next publishing
-    ///   interval, in `ns`; Modbus always returns zero.
+    ///   Bounded transport timing correction requested for the next publishing
+    ///   interval, in `ns`.
     #[inline(never)]
     fn operating_cycle(
         &mut self,
@@ -436,8 +436,18 @@ impl<'a> Board<'a> {
         }
 
         match state.mode {
-            OperatingMode::Deimos => state.input.phase_delta_ns + state.input.period_delta_ns,
-            OperatingMode::Modbus(_) => 0,
+            OperatingMode::Deimos => bounded_cycle_timing_correction_ns(
+                self.dt_ns,
+                state.input.period_delta_ns,
+                state.input.phase_delta_ns,
+            ),
+            // A rate-changing write exits this Operating invocation. Preserve
+            // its pending one-shot phase term in the re-entry configuration
+            // instead of consuming it on an interval which will be disabled.
+            OperatingMode::Modbus(_) if self.modbus.reentry_pending() => 0,
+            OperatingMode::Modbus(_) => state
+                .current_modbus_config
+                .take_timing_correction_ns(),
         }
     }
 

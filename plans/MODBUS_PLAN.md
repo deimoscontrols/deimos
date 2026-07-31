@@ -9,17 +9,20 @@ checkpoint is `362f295`. The Phase 5 timing checkpoint is `f9ac3fa`. Results
 are recorded in
 `plans/MODBUS_PHASE1_REPORT.md`, `plans/MODBUS_PHASE2_REPORT.md`,
 `plans/MODBUS_PHASE3_REPORT.md`, and `plans/MODBUS_PHASE4_REPORT.md`. The
-Phase 5 timing results and remaining release matrix are recorded in
-`plans/MODBUS_PHASE5_REPORT.md`. Identity-first calibration, the GPIO timing-
-marker comparison, final calibrated engineering checks, and physical pre-rev7
-compatibility remain in the Phase 5 hardware verification. The Phase 6
-rounded-N synchronous implementation is complete in the working tree; its
-shared cycle-rate sampling policy, sampler-owned state cleanup, and policy-based
-Bode regeneration are also complete. A calibrated 5--9 kHz timing sweep is
-recorded in `plans/MODBUS_PHASE6_REPORT.md`; it establishes 8 kHz as the
-supported Deimos maximum while retaining useful board margin. The earlier
-33 kHz/3x/1x feasibility measurements in `plans/MODBUS_PHASE6_REPORT.md` are
-explicitly retained as an intermediate result rather than the final topology.
+Phase 5 timing results and the historical release matrix are recorded in
+`plans/MODBUS_PHASE5_REPORT.md`. SN3 has completed identity-first calibration,
+the calibrated Deimos rate sweep, and the final calibrated Modbus functional,
+endpoint, timeout, backpressure, stack, and timing matrix. The GPIO timing-
+marker comparison, full-range calibrated engineering checks, physical pre-rev7
+compatibility, and rollout of the remaining in-hand rev7 units remain in the
+hardware verification. The Phase 6 rounded-N synchronous implementation is
+complete at `dec7a99`; its shared cycle-rate sampling policy, sampler-owned
+state cleanup, and policy-based Bode regeneration are also complete. The
+calibrated rate sweep and final Modbus matrix are recorded in
+`plans/MODBUS_PHASE6_REPORT.md`; they establish 8 kHz as the supported Deimos
+maximum and verify the 500 Hz Modbus endpoint with positive timing margin. The
+earlier 33 kHz/3x/1x feasibility measurements in that report are explicitly
+retained as an intermediate result rather than the final topology.
 
 This is the implementation plan for adding a Modbus/TCP operating mode to
 `firmware/deimos_daq_rev7` while keeping the existing Deimos UDP operating mode.
@@ -770,6 +773,8 @@ to enter or re-enter Modbus operation:
 struct ModbusInitialConfig {
     dt_ns: u32,
     loss_of_contact_limit: u16,
+    period_delta_ns: i64,
+    phase_delta_ns: i64,
     outputs: OperatingOutputSettings,
 }
 ```
@@ -786,6 +791,7 @@ Modbus request:
 - cycle rate omitted: 10 Hz (`dt_ns = 100_000_000`);
 - timeout omitted: 60 seconds converted to a checked cycle count using the
   applied rate;
+- period and phase deltas omitted: zero;
 - output not written by that request: the corresponding existing safe/default
   output value.
 
@@ -846,7 +852,10 @@ each cycle
 - Reset loss of contact for every syntactically valid, supported, accepted
   Modbus request, whether read or write. Malformed or rejected requests do not
   count as contact.
-- Do not apply Deimos phase/period timing corrections.
+- Apply the writable Modbus period and phase corrections through the same
+  internal `+/-10%` cycle-period clamp used by Deimos. The period term persists
+  until replaced; consume and clear the phase term after one scheduled
+  publication interval.
 - Apply output changes only from a validated write request.
 - Reads never mutate outputs. Repeated reads, and writes which omit some or all
   output fields, retain the last configured PWM, DAC, and GPIO values.
@@ -873,7 +882,8 @@ When an accepted Modbus write changes the cycle rate:
 1. Finish generating/enqueuing the Modbus response.
 2. Capture the latest fully applied output settings.
 3. Build a new `ModbusInitialConfig` containing the new `dt_ns`, current
-   `loss_of_contact_limit`, and captured outputs.
+   `loss_of_contact_limit`, period and pending phase corrections, and captured
+   outputs.
 4. Request the new ADC cutoff using the existing cutoff mailbox.
 5. Exit `operate` and return
    `BoardState::OperatingModbus(initial_config)`.
@@ -1353,6 +1363,9 @@ Phase 6 exit criteria:
   outputs; explicit zero and nonzero writes replace only the selected outputs.
 - A cycle-rate change produces the documented operating re-entry, filter
   reprime, and counter reset; no continuity compensation is attempted.
+- Modbus period corrections persist, phase corrections are consumed once, and
+  their saturating sum is clamped to `+/-10%` of the nominal cycle period before
+  the synchronous schedule is constructed.
 - Invalid new rates do not alter filters, cycle timing, timeout, or outputs.
 - Rates below the 1 Hz board-filter design threshold select the coefficient-
   level passthrough, retain the branch-free hot path, and have unity response.

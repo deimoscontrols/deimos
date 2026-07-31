@@ -7,11 +7,11 @@
 //! ```
 //!
 //! `SUITE` is `quick` (the default), `protocol`, `lifecycle`, `endpoints`,
-//! `backpressure`, `address-hold`, `timeout`, or `all`. `address-hold` keeps a
-//! fallback-address session active for 20 seconds so a DHCP server can be
-//! introduced externally. The one-minute timeout check is omitted from
-//! `quick`. Except for the intentionally adversarial backpressure test, the
-//! client keeps exactly one request outstanding.
+//! `corrections`, `backpressure`, `address-hold`, `timeout`, or `all`.
+//! `address-hold` keeps a fallback-address session active for 20 seconds so a
+//! DHCP server can be introduced externally. The one-minute timeout check is
+//! omitted from `quick`. Except for the intentionally adversarial backpressure
+//! test, the client keeps exactly one request outstanding.
 //!
 //! References:
 //!   \[1\] Modbus Organization, *MODBUS Application Protocol Specification
@@ -31,10 +31,11 @@ use std::{
 use deimos_shared::peripherals::deimos_daq_rev7::{
     ModbusInitialConfig, OperatingSnapshot,
     modbus::{
-        HOLDING_CYCLE_PERIOD_NS, HOLDING_LOSS_OF_CONTACT_COUNTER, HOLDING_PWM_DUTY_FRAC,
-        HOLDING_REGISTER_COUNT, MODBUS_MAX_CYCLE_RATE_HZ, MODBUS_MAX_WRITE_REGISTERS,
-        MODBUS_MIN_CYCLE_RATE_HZ, SNAPSHOT_INPUT_REGISTER_COUNT, SNAPSHOT_INPUT_START,
-        holding_registers, snapshot_from_input_registers,
+        HOLDING_CYCLE_PERIOD_NS, HOLDING_LOSS_OF_CONTACT_COUNTER, HOLDING_PERIOD_DELTA_NS,
+        HOLDING_PHASE_DELTA_NS, HOLDING_PWM_DUTY_FRAC, HOLDING_REGISTER_COUNT,
+        MODBUS_MAX_CYCLE_RATE_HZ, MODBUS_MAX_WRITE_REGISTERS, MODBUS_MIN_CYCLE_RATE_HZ,
+        SNAPSHOT_INPUT_REGISTER_COUNT, SNAPSHOT_INPUT_START, holding_registers,
+        snapshot_from_input_registers,
     },
 };
 use socket2::SockRef;
@@ -67,11 +68,13 @@ fn main() -> TestResult {
             protocol_suite(&endpoint)?;
             lifecycle_suite(&endpoint)?;
             endpoint_suite(&endpoint)?;
+            correction_suite(&endpoint)?;
             backpressure_suite(&endpoint)?;
         }
         "protocol" => protocol_suite(&endpoint)?,
         "lifecycle" => lifecycle_suite(&endpoint)?,
         "endpoints" => endpoint_suite(&endpoint)?,
+        "corrections" => correction_suite(&endpoint)?,
         "backpressure" => backpressure_suite(&endpoint)?,
         "address-hold" => address_hold_suite(&endpoint)?,
         "timeout" => timeout_suite(&endpoint)?,
@@ -79,6 +82,7 @@ fn main() -> TestResult {
             protocol_suite(&endpoint)?;
             lifecycle_suite(&endpoint)?;
             endpoint_suite(&endpoint)?;
+            correction_suite(&endpoint)?;
             backpressure_suite(&endpoint)?;
             timeout_suite(&endpoint)?;
         }
@@ -137,7 +141,16 @@ fn protocol_suite(endpoint: &str) -> TestResult {
 
     expect_exception(&mut client, &[0x06, 0, 0, 0, 0], 0x01)?;
     expect_exception_for_read(&mut client, 0x04, 0, 0, 0x03)?;
-    expect_exception_for_read(&mut client, 0x04, 74, 2, 0x02)?;
+    // Start at the final valid register and extend one register past the
+    // shared snapshot boundary. Deriving this address keeps the malformed
+    // probe valid when the synchronized snapshot gains fields.
+    expect_exception_for_read(
+        &mut client,
+        0x04,
+        SNAPSHOT_INPUT_START + SNAPSHOT_INPUT_REGISTER_COUNT - 1,
+        2,
+        0x02,
+    )?;
 
     // A complete FC16 whose byte count disagrees with its register count is a
     // framed semantic error, so the connection remains usable afterward.
@@ -208,6 +221,7 @@ fn endpoint_suite(endpoint: &str) -> TestResult {
         240,
         Duration::from_secs(4),
         101,
+        0,
     )?;
     run_rate_endpoint(
         &mut client,
@@ -215,6 +229,7 @@ fn endpoint_suite(endpoint: &str) -> TestResult {
         u16::MAX,
         Duration::from_secs(5),
         203,
+        0,
     )?;
 
     // Restore documented defaults before an orderly close. A reconnect would
@@ -223,6 +238,92 @@ fn endpoint_suite(endpoint: &str) -> TestResult {
     let holding = client.read_registers(0x03, 0, HOLDING_REGISTER_COUNT, 11)?;
     require_cycle_period(&holding, 100_000_000)?;
     println!("suite=endpoints status=pass");
+    Ok(())
+}
+
+/// Verify persistent-period, one-shot-phase, and bounded correction behavior.
+///
+/// Args:
+///   endpoint: Board TCP endpoint in `host:port` form.
+fn correction_suite(endpoint: &str) -> TestResult {
+    const RATE_HZ: f32 = 100.0;
+    const DT_NS: i64 = 10_000_000;
+    const CORRECTION_LIMIT_NS: i64 = DT_NS / 10;
+    const STEP_TOLERANCE_NS: i64 = 100_000;
+
+    println!("suite=corrections status=running");
+    let mut client = ModbusClient::connect_retry(endpoint)?;
+    client.write_timing(RATE_HZ, 10_000, 41)?;
+    client.write_corrections(0, 0, 41)?;
+
+    // An extreme period request persists, but the applied interval remains at
+    // the existing +10% clamp. A write occupies the intervening publication
+    // cycle, so the first observed span covers one nominal and one corrected
+    // interval.
+    let baseline = client.read_snapshot(41)?;
+    client.write_corrections(i64::MAX, 0, 41)?;
+    let period_first = client.read_snapshot(41)?;
+    let period_second = client.read_snapshot(41)?;
+    let period_write_span_ns = period_first.sample_time_ns - baseline.sample_time_ns;
+    let persistent_step_ns = period_second.sample_time_ns - period_first.sample_time_ns;
+    require_near(
+        "period write span",
+        period_write_span_ns,
+        2 * DT_NS + CORRECTION_LIMIT_NS,
+        STEP_TOLERANCE_NS,
+    )?;
+    require_near(
+        "persistent period step",
+        persistent_step_ns,
+        DT_NS + CORRECTION_LIMIT_NS,
+        STEP_TOLERANCE_NS,
+    )?;
+    let holding = client.read_registers(0x03, 0, HOLDING_REGISTER_COUNT, 41)?;
+    require_corrections(&holding, i64::MAX, 0)?;
+
+    // Clear the persistent term before taking a phase baseline. The minimum
+    // phase request applies to exactly one following interval and then reads
+    // back as zero.
+    client.write_corrections(0, 0, 41)?;
+    let phase_baseline = client.read_snapshot(41)?;
+    client.write_corrections(0, i64::MIN, 41)?;
+    let phase_first = client.read_snapshot(41)?;
+    let phase_second = client.read_snapshot(41)?;
+    let phase_write_span_ns = phase_first.sample_time_ns - phase_baseline.sample_time_ns;
+    let phase_reset_step_ns = phase_second.sample_time_ns - phase_first.sample_time_ns;
+    require_near(
+        "phase write span",
+        phase_write_span_ns,
+        2 * DT_NS - CORRECTION_LIMIT_NS,
+        STEP_TOLERANCE_NS,
+    )?;
+    require_near(
+        "phase reset step",
+        phase_reset_step_ns,
+        DT_NS,
+        STEP_TOLERANCE_NS,
+    )?;
+    let holding = client.read_registers(0x03, 0, HOLDING_REGISTER_COUNT, 41)?;
+    require_corrections(&holding, 0, 0)?;
+
+    println!(
+        "period_write_span_ns={period_write_span_ns} persistent_step_ns={persistent_step_ns} phase_write_span_ns={phase_write_span_ns} phase_reset_step_ns={phase_reset_step_ns}"
+    );
+
+    // Exercise the shortest allowed interval at the supported 500 Hz endpoint
+    // under continuous complete-snapshot reads.
+    run_rate_endpoint(
+        &mut client,
+        MODBUS_MAX_CYCLE_RATE_HZ,
+        u16::MAX,
+        Duration::from_secs(3),
+        41,
+        i64::MIN,
+    )?;
+
+    client.write_corrections(0, 0, 41)?;
+    client.write_timing(10.0, 600, 41)?;
+    println!("suite=corrections status=pass");
     Ok(())
 }
 
@@ -353,8 +454,10 @@ fn run_rate_endpoint(
     timeout_cycles: u16,
     duration: Duration,
     unit: u8,
+    period_delta_ns: i64,
 ) -> TestResult {
     client.write_timing(rate_hz, timeout_cycles, unit)?;
+    client.write_corrections(period_delta_ns, 0, unit)?;
     let expected_period_ns = (1.0e9_f32 / rate_hz + 0.5) as u32;
     let holding = client.read_registers(0x03, 0, HOLDING_REGISTER_COUNT, unit)?;
     require_cycle_period(&holding, expected_period_ns)?;
@@ -365,7 +468,7 @@ fn run_rate_endpoint(
     let safe = holding_registers(&ModbusInitialConfig::default(), 0);
     client.write_registers(
         HOLDING_PWM_DUTY_FRAC,
-        &safe[usize::from(HOLDING_PWM_DUTY_FRAC)..],
+        &safe[usize::from(HOLDING_PWM_DUTY_FRAC)..usize::from(HOLDING_PERIOD_DELTA_NS)],
         unit,
     )?;
 
@@ -374,12 +477,21 @@ fn run_rate_endpoint(
     let mut first_id = None;
     let mut last_id = 0_u64;
     let mut min_margin_ns = i64::MAX;
+    let mut previous_sample_time_ns = None;
+    let mut min_sample_step_ns = i64::MAX;
+    let mut max_sample_step_ns = i64::MIN;
     // Time and count bounds make a host/network regression terminate cleanly.
     while started.elapsed() < duration && snapshots < 100_000 {
         let snapshot = client.read_snapshot(unit)?;
         first_id.get_or_insert(snapshot.metrics.id);
         last_id = snapshot.metrics.id;
         min_margin_ns = min_margin_ns.min(snapshot.metrics.cycle_time_margin_ns);
+        if let Some(previous) = previous_sample_time_ns {
+            let step_ns = snapshot.sample_time_ns - previous;
+            min_sample_step_ns = min_sample_step_ns.min(step_ns);
+            max_sample_step_ns = max_sample_step_ns.max(step_ns);
+        }
+        previous_sample_time_ns = Some(snapshot.sample_time_ns);
         snapshots += 1;
     }
     let elapsed = started.elapsed();
@@ -389,15 +501,51 @@ fn run_rate_endpoint(
     let holding = client.read_registers(0x03, 0, HOLDING_REGISTER_COUNT, unit)?;
     let loss_counter = holding[usize::from(HOLDING_LOSS_OF_CONTACT_COUNTER)];
     println!(
-        "rate_hz={rate_hz} duration_s={:.3} reads={} reads_per_s={:.1} first_id={} last_id={} min_margin_ns={} loss_counter={}",
+        "rate_hz={rate_hz} period_delta_ns={period_delta_ns} duration_s={:.3} reads={} reads_per_s={:.1} first_id={} last_id={} min_margin_ns={} min_sample_step_ns={} max_sample_step_ns={} loss_counter={}",
         elapsed.as_secs_f64(),
         snapshots,
         snapshots as f64 / elapsed.as_secs_f64(),
         first_id.unwrap_or(0),
         last_id,
         min_margin_ns,
+        min_sample_step_ns,
+        max_sample_step_ns,
         loss_counter,
     );
+    Ok(())
+}
+
+/// Encode one signed 64-bit value in most-significant-register-first order.
+fn i64_registers(value: i64) -> [u16; 4] {
+    let bits = value as u64;
+    [
+        (bits >> 48) as u16,
+        (bits >> 32) as u16,
+        (bits >> 16) as u16,
+        bits as u16,
+    ]
+}
+
+/// Require the holding map to contain the requested timing corrections.
+fn require_corrections(registers: &[u16], period_delta_ns: i64, phase_delta_ns: i64) -> TestResult {
+    let period_start = usize::from(HOLDING_PERIOD_DELTA_NS);
+    let phase_start = usize::from(HOLDING_PHASE_DELTA_NS);
+    if registers.get(period_start..period_start + 4) != Some(&i64_registers(period_delta_ns))
+        || registers.get(phase_start..phase_start + 4) != Some(&i64_registers(phase_delta_ns))
+    {
+        return Err("holding timing corrections do not match the requested values".into());
+    }
+    Ok(())
+}
+
+/// Require one measured acquisition-time span within a symmetric tolerance.
+fn require_near(name: &str, actual_ns: i64, expected_ns: i64, tolerance_ns: i64) -> TestResult {
+    if actual_ns.abs_diff(expected_ns) > tolerance_ns as u64 {
+        return Err(format!(
+            "{name} is {actual_ns} ns, expected {expected_ns} +/- {tolerance_ns} ns"
+        )
+        .into());
+    }
     Ok(())
 }
 
@@ -477,6 +625,19 @@ impl ModbusClient {
     fn write_timing(&mut self, rate_hz: f32, timeout_cycles: u16, unit: u8) -> TestResult {
         let bits = rate_hz.to_bits();
         self.write_registers(0, &[(bits >> 16) as u16, bits as u16, timeout_cycles], unit)
+    }
+
+    /// Atomically replace the persistent period and one-shot phase requests.
+    fn write_corrections(
+        &mut self,
+        period_delta_ns: i64,
+        phase_delta_ns: i64,
+        unit: u8,
+    ) -> TestResult {
+        let mut values = [0_u16; 8];
+        values[..4].copy_from_slice(&i64_registers(period_delta_ns));
+        values[4..].copy_from_slice(&i64_registers(phase_delta_ns));
+        self.write_registers(HOLDING_PERIOD_DELTA_NS, &values, unit)
     }
 
     /// Exchange one request and require its transaction, unit, and function echo.
@@ -746,6 +907,7 @@ mod tests {
         for request in [
             read_request(7, 255, 0x04, 0, SNAPSHOT_INPUT_REGISTER_COUNT),
             write_request(8, 0, 3, 6, &[0; 21]).unwrap(),
+            write_request(9, 0, 3, HOLDING_PERIOD_DELTA_NS, &[0; 8]).unwrap(),
         ] {
             assert_eq!(
                 usize::from(u16::from_be_bytes([request[4], request[5]])),
@@ -772,5 +934,14 @@ mod tests {
     #[test]
     fn cycle_period_requires_both_registers() {
         assert!(require_cycle_period(&[0; 4], 0).is_err());
+    }
+
+    #[test]
+    fn signed_correction_registers_are_most_significant_first() {
+        assert_eq!(
+            i64_registers(0x0123_4567_89ab_cdef),
+            [0x0123, 0x4567, 0x89ab, 0xcdef]
+        );
+        assert_eq!(i64_registers(-2), [0xffff, 0xffff, 0xffff, 0xfffe]);
     }
 }

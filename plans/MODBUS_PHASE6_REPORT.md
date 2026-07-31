@@ -250,3 +250,84 @@ Operating-to-Binding timeout between points, and bounds discovery retries. If
 an Efficient run above 50 Hz fails, it stops probing upward and confirms
 previously completed candidates in descending order to find a reliable
 maximum.
+
+## Final calibrated Modbus matrix
+
+On 2026-07-31, calibrated SN3 ran the bounded `rev7_modbus_phase4` hardware
+harness against the final rounded-N/direct firmware. The first attempt found
+that the harness's malformed-range probe still used the old 75-register
+snapshot boundary. The firmware correctly treated that request as valid after
+the acquisition timestamp expanded the snapshot to 79 registers. The harness
+now derives the final-valid address from `SNAPSHOT_INPUT_REGISTER_COUNT`, so
+future snapshot-layout changes cannot silently invalidate that test.
+
+The complete production-image `all` suite passed:
+
+- fragmented MBAP/PDU delivery, standard exception responses, connection-local
+  rejection of invalid MBAP fields, partial-ADU close, and arbitrary Unit
+  Identifiers;
+- four consecutive close/reconnect cycles followed by a fresh valid session;
+- complete timing and safe-output FC16 writes, complete holding-register reads,
+  and sustained synchronized 79-register FC04 reads at 5 and 500 Hz;
+- a finite 8,192-request pipelined backpressure attempt with every complete
+  request accepted by the host subsequently drained; and
+- the 62-second default application timeout, replacement connection, and
+  rejection of the stale session.
+
+| Production-image workload | Result | Minimum returned board margin | Loss counter |
+|---|---:|---:|---:|
+| 5 Hz, 4.000 s | 20 reads, 5.0 reads/s | 62.260 us | 1 |
+| 500 Hz, 5.002 s | 2,501 reads, 500.0 reads/s | 56.695 us | 1 |
+| Backpressure, 2,688 responses | 0 deadline misses | 34.140 us; p01 40.640 us | 1 |
+
+The same calibration was then flashed with only the test-only stack and timing
+watermarks enabled. The compliant endpoint run measured:
+
+- minimum sample-only margin: 89.345 us;
+- minimum sample-plus-communication margin: 47.530 us;
+- MSP reservation: 88,888 bytes;
+- MSP high-water use: 15,956 bytes; and
+- minimum untouched MSP stack: 72,932 bytes.
+
+After the adversarial backpressure run, the global sample-only and
+sample-plus-communication minima were 89.215 us and 34.270 us respectively.
+MSP high-water use did not increase. All 2,688 responses drained on the same
+connection with zero returned deadline misses and a 40.575 us returned-margin
+first percentile.
+
+Finally, `uv run python firmware/flash.py` restored the ordinary production
+image. The embedded calibration and archived SN3 `calibration.bin` both had
+SHA-256 `15ac3fd3c65df02e89ca0e690b6eb5ee040becb7a50e95b7c5b786f34920a07b`.
+SN3 responded at `169.254.101.34`, port 502 accepted a new connection, and a
+complete synchronized snapshot decoded successfully after the restore.
+
+## Modbus period and phase corrections
+
+The Modbus holding map now appends a signed `i64` persistent period delta at
+registers 27--30 and a signed `i64` one-shot phase delta at registers 31--34.
+Existing register addresses are unchanged. Both values use
+most-significant-register-first order. The firmware saturating-adds them and
+reuses the common internal `+/-10%` nominal-period clamp before constructing
+the next synchronous sample schedule. Consuming a phase correction clears its
+holding-register value; the period value remains until replaced.
+
+Calibrated SN3 passed a focused production-image correction test at 100 Hz:
+
+- an `i64::MAX` period request produced a persistent 11.000 ms interval;
+- an `i64::MIN` phase request produced one shortened interval and then returned
+  to the nominal cadence; and
+- holding-register reads returned the raw persistent period request and zero
+  after phase consumption.
+
+At the 500 Hz supported endpoint, an `i64::MIN` persistent period request was
+clamped to a 1.800 ms interval. The board returned 1,667 complete synchronized
+snapshots in 3.001 seconds with an exact 1.800 ms acquisition-time step and a
+45.010 us minimum returned margin. A test-instrumented repeat measured 42.475 us
+minimum sample-plus-communication margin, 78.030 us minimum sample-only margin,
+and 16,244 bytes of MSP high-water use out of 88,888 bytes.
+
+The complete expanded-map matrix then passed protocol, lifecycle, 5/500 Hz
+endpoint, correction, backpressure, and 62-second timeout suites. The finite
+2,688-response adversarial run drained every accepted response with zero
+reported deadline misses and a 33.100 us minimum returned board margin. The
+ordinary calibrated production image was reflashed after instrumentation.

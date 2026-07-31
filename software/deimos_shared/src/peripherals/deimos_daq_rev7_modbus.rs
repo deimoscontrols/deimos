@@ -4,6 +4,70 @@
 //! the most-significant 16-bit register first, and each register is transmitted
 //! in Modbus network byte order by the transport layer.
 //!
+//! # Input registers (FC04)
+//!
+//! Read address 0, count [`SNAPSHOT_INPUT_REGISTER_COUNT`] (79), to obtain one
+//! coherent engineering snapshot. Partial in-range reads are supported, but a
+//! full-block read is the synchronization contract.
+//!
+//! | Address | Count | Type | Field | Units / shape |
+//! | ---: | ---: | --- | --- | --- |
+//! | 0 | 2 | `u32` | `magic` | `0xD7000002` |
+//! | 2 | 4 | `u64` | `metrics.id` | snapshot count |
+//! | 6 | 4 | `i64` | `metrics.cycle_time_ns` | ns |
+//! | 10 | 4 | `i64` | `metrics.sent_time_ns` | ns |
+//! | 14 | 4 | `u64` | `metrics.last_input_id` | last accepted transaction ID |
+//! | 18 | 4 | `i64` | `metrics.last_input_received_time_ns` | ns |
+//! | 22 | 4 | `i64` | `metrics.cycle_time_margin_ns` | ns |
+//! | 26 | 4 | `i64` | `sample_time_ns` | ADC acquisition-start time, ns |
+//! | 30 | 2 | `f32` | `module_bus_current_a` | A |
+//! | 32 | 2 | `f32` | `module_bus_voltage_v` | V |
+//! | 34 | 2 | `f32` | `board_temperature_k` | K |
+//! | 36 | 8 | `f32[4]` | `current_4_20_a` | A, channels 0..3 |
+//! | 44 | 6 | `f32[3]` | `rtd_resistance_ohm` | ohm, channels 0..2 |
+//! | 50 | 4 | `f32[2]` | `thermocouple_temperature_k` | K, channels 0..1 |
+//! | 54 | 12 | `f32[6]` | `voltage_v` | V, channels 0..5 |
+//! | 66 | 4 | `i64` | `encoder` | counts |
+//! | 70 | 4 | `i64` | `pulse_counter` | counts |
+//! | 74 | 4 | `f32[2]` | `frequency_meas` | Hz, channels 0..1 |
+//! | 78 | 1 | `u16` | `gpio` | input bits 0..1 |
+//!
+//! `sample_time_ns` is captured immediately before the first ADC conversion
+//! group contributing to the published filtered values. It is not corrected
+//! for fractional-delay or low-pass-filter group delay.
+//!
+//! # Holding registers (FC03 / FC16)
+//!
+//! Read address 0, count [`HOLDING_REGISTER_COUNT`] (35), to obtain the complete
+//! current configuration and diagnostic block. FC03 may read any in-range
+//! block. FC16 writes must cover complete scalar fields and remain within one
+//! atomic writable block: base configuration (0..2), outputs (6..26), or timing
+//! corrections (27..34).
+//!
+//! | Address | Count | Access | Type | Field | Valid values |
+//! | ---: | ---: | --- | --- | --- | --- |
+//! | 0 | 2 | R/W | `f32` | cycle rate | finite, 5..500 Hz |
+//! | 2 | 1 | R/W | `u16` | loss-of-contact limit | 1..65535 cycles |
+//! | 3 | 2 | R | `u32` | current cycle period | ns |
+//! | 5 | 1 | R | `u16` | current loss counter | cycles |
+//! | 6 | 8 | R/W | `f32[4]` | PWM duty fractions | finite, 0..1 |
+//! | 14 | 8 | R/W | `u32[4]` | PWM frequencies | nonzero Hz |
+//! | 22 | 4 | R/W | `f32[2]` | DAC voltages | finite, 0..2.5 V |
+//! | 26 | 1 | R/W | `u16` | GPIO outputs | bits 0..3 only |
+//! | 27 | 4 | R/W | `i64` | requested period delta | ns; persistent, internally clamped |
+//! | 31 | 4 | R/W | `i64` | requested phase delta | ns; one cycle, internally clamped |
+//!
+//! Omitted writable fields retain their values, and a rejected write changes
+//! nothing. The requested period delta persists until replaced. The requested
+//! phase delta is consumed by the next scheduled publication interval and then
+//! reads back as zero. Firmware saturating-adds both requests and clamps the
+//! applied correction to +/-10% of the nominal cycle period; raw period values
+//! remain available for readback.
+//!
+//! All `f32` fields use their IEEE-754 bit pattern. Signed integers use two's
+//! complement. Every multi-register value is ordered most-significant register
+//! first.
+//!
 //! References:
 //!   \[1\] Modbus Organization, *MODBUS Application Protocol Specification
 //!   V1.1b3*, 2012.
@@ -34,8 +98,12 @@ pub const HOLDING_PWM_FREQUENCY_HZ: u16 = 14;
 pub const HOLDING_DAC_V: u16 = 22;
 /// Writable GPIO output bit field in the low byte of one register.
 pub const HOLDING_GPIO: u16 = 26;
+/// First register of the persistent requested period correction as `i64` `ns`.
+pub const HOLDING_PERIOD_DELTA_NS: u16 = 27;
+/// First register of the one-cycle requested phase correction as `i64` `ns`.
+pub const HOLDING_PHASE_DELTA_NS: u16 = 31;
 /// Total number of readable holding registers.
-pub const HOLDING_REGISTER_COUNT: u16 = 27;
+pub const HOLDING_REGISTER_COUNT: u16 = 35;
 
 /// Slowest supported Modbus publishing rate in `Hz`.
 pub const MODBUS_MIN_CYCLE_RATE_HZ: f32 = super::REV7_MIN_CYCLE_RATE_HZ as f32;
@@ -195,7 +263,8 @@ pub fn snapshot_from_input_registers(
 /// Encode current Modbus configuration, diagnostics, and outputs as holding registers.
 ///
 /// Args:
-///   config: Current publishing period, timeout count, and retained output settings.
+///   config: Current publishing period, timeout, requested timing corrections,
+///     and retained output settings.
 ///   loss_of_contact_counter: Current number of consecutive cycles without an
 ///     accepted request.
 ///
@@ -225,15 +294,20 @@ pub fn holding_registers(
     position = HOLDING_DAC_V as usize;
     put_f32_array(&mut registers, &mut position, &config.outputs.dac_v);
     registers[HOLDING_GPIO as usize] = u16::from(config.outputs.gpio);
+    position = HOLDING_PERIOD_DELTA_NS as usize;
+    put_u64(&mut registers, &mut position, config.period_delta_ns as u64);
+    position = HOLDING_PHASE_DELTA_NS as usize;
+    put_u64(&mut registers, &mut position, config.phase_delta_ns as u64);
     registers
 }
 
 /// Apply one complete-field holding-register write to a retained configuration.
 ///
-/// The function accepts only the writable configuration range `0..3` or a
-/// contiguous range within the output block `6..27`. Both ends must coincide
-/// with scalar-field boundaries. The candidate is validated in full before it
-/// is returned, so rejected writes cannot partially alter outputs.
+/// The function accepts only the writable base-configuration range `0..3`, a
+/// contiguous range within the output block `6..27`, or a contiguous range
+/// within the timing-correction block `27..35`. Both ends must coincide with
+/// scalar-field boundaries. The candidate is validated in full before it is
+/// returned, so rejected writes cannot partially alter state.
 ///
 /// Args:
 ///   current: Configuration to preserve for omitted fields.
@@ -257,8 +331,12 @@ pub fn apply_holding_write(
 
     let in_config = start < 3 && end <= 3;
     let in_outputs =
-        start >= usize::from(HOLDING_PWM_DUTY_FRAC) && end <= usize::from(HOLDING_REGISTER_COUNT);
-    if !(in_config || in_outputs) || !is_writable_field_start(start) || !is_writable_field_end(end)
+        start >= usize::from(HOLDING_PWM_DUTY_FRAC) && end <= usize::from(HOLDING_PERIOD_DELTA_NS);
+    let in_timing =
+        start >= usize::from(HOLDING_PERIOD_DELTA_NS) && end <= usize::from(HOLDING_REGISTER_COUNT);
+    if !(in_config || in_outputs || in_timing)
+        || !is_writable_field_start(start)
+        || !is_writable_field_end(end)
     {
         return Err(HoldingWriteError::IllegalDataAddress);
     }
@@ -279,6 +357,13 @@ pub fn apply_holding_write(
         if candidate.loss_of_contact_limit == 0 {
             return Err(HoldingWriteError::IllegalDataValue);
         }
+    }
+    if field_is_covered(start, end, HOLDING_PERIOD_DELTA_NS as usize, 4) {
+        candidate.period_delta_ns =
+            read_u64(values, start, HOLDING_PERIOD_DELTA_NS as usize) as i64;
+    }
+    if field_is_covered(start, end, HOLDING_PHASE_DELTA_NS as usize, 4) {
+        candidate.phase_delta_ns = read_u64(values, start, HOLDING_PHASE_DELTA_NS as usize) as i64;
     }
 
     for index in 0..PWM_CHANNEL_COUNT {
@@ -315,6 +400,14 @@ fn put_u32(registers: &mut [u16], position: &mut usize, value: u32) {
     registers[*position] = (value >> 16) as u16;
     registers[*position + 1] = value as u16;
     *position += 2;
+}
+
+fn put_u64(registers: &mut [u16], position: &mut usize, value: u64) {
+    registers[*position] = (value >> 48) as u16;
+    registers[*position + 1] = (value >> 32) as u16;
+    registers[*position + 2] = (value >> 16) as u16;
+    registers[*position + 3] = value as u16;
+    *position += 4;
 }
 
 fn put_f32(registers: &mut [u16], position: &mut usize, value: f32) {
@@ -364,6 +457,14 @@ fn read_u32(values: &[u16], write_start: usize, field_start: usize) -> u32 {
     (u32::from(values[offset]) << 16) | u32::from(values[offset + 1])
 }
 
+fn read_u64(values: &[u16], write_start: usize, field_start: usize) -> u64 {
+    let offset = field_start - write_start;
+    (u64::from(values[offset]) << 48)
+        | (u64::from(values[offset + 1]) << 32)
+        | (u64::from(values[offset + 2]) << 16)
+        | u64::from(values[offset + 3])
+}
+
 fn take_u32(registers: &[u16], position: &mut usize) -> u32 {
     let value = (u32::from(registers[*position]) << 16) | u32::from(registers[*position + 1]);
     *position += 2;
@@ -395,14 +496,14 @@ fn field_is_covered(start: usize, end: usize, field_start: usize, width: usize) 
 fn is_writable_field_start(address: usize) -> bool {
     matches!(
         address,
-        0 | 2 | 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20 | 22 | 24 | 26
+        0 | 2 | 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20 | 22 | 24 | 26 | 27 | 31
     )
 }
 
 fn is_writable_field_end(address: usize) -> bool {
     matches!(
         address,
-        2 | 3 | 8 | 10 | 12 | 14 | 16 | 18 | 20 | 22 | 24 | 26 | 27
+        2 | 3 | 8 | 10 | 12 | 14 | 16 | 18 | 20 | 22 | 24 | 26 | 27 | 31 | 35
     )
 }
 
@@ -489,8 +590,30 @@ mod tests {
         assert_eq!(updated.outputs.gpio, 0x0a);
 
         let registers = holding_registers(&updated, 7);
-        assert_eq!(&registers[6..], &values);
+        assert_eq!(&registers[6..27], &values);
         assert_eq!(registers[HOLDING_LOSS_OF_CONTACT_COUNTER as usize], 7);
+    }
+
+    #[test]
+    fn timing_delta_holding_writes_are_signed_atomic_and_big_endian() {
+        let current = ModbusInitialConfig::default();
+        let values = [
+            0x0123, 0x4567, 0x89ab, 0xcdef, 0xfedc, 0xba98, 0x7654, 0x3210,
+        ];
+        let updated = apply_holding_write(current, HOLDING_PERIOD_DELTA_NS, &values).unwrap();
+        assert_eq!(updated.period_delta_ns, 0x0123_4567_89ab_cdef);
+        assert_eq!(updated.phase_delta_ns, 0xfedc_ba98_7654_3210_u64 as i64);
+
+        let registers = holding_registers(&updated, 0);
+        assert_eq!(&registers[27..35], &values);
+        assert_eq!(
+            apply_holding_write(current, HOLDING_PERIOD_DELTA_NS + 1, &[0; 4]),
+            Err(HoldingWriteError::IllegalDataAddress)
+        );
+        assert_eq!(
+            apply_holding_write(current, HOLDING_GPIO, &[0; 5]),
+            Err(HoldingWriteError::IllegalDataAddress)
+        );
     }
 
     #[test]

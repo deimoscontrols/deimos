@@ -1,3 +1,8 @@
+//! Shared protocol, sampling, calibration, and calculation definitions for the
+//! Deimos DAQ rev7 peripheral.
+//!
+//! See the [`modbus`] module for the complete rev7 Modbus/TCP register map.
+
 pub use operating_roundtrip::*;
 
 #[path = "deimos_daq_rev7_modbus.rs"]
@@ -61,6 +66,13 @@ pub const DEIMOS_MIN_CYCLE_PERIOD_NS: u32 = 1_000_000_000 / DEIMOS_MAX_CYCLE_RAT
 
 /// Longest supported Deimos UDP roundtrip period in `ns`.
 pub const DEIMOS_MAX_CYCLE_PERIOD_NS: u32 = 1_000_000_000 / REV7_MIN_CYCLE_RATE_HZ;
+
+/// Denominator of the maximum absolute per-cycle timing correction.
+///
+/// Both operating transports limit the combined requested period and phase
+/// delta to 10% of the nominal publishing period. This retains execution-time
+/// margin and keeps the synchronous counter-rate proofs below valid.
+pub const MAX_CYCLE_TIMING_CORRECTION_DIVISOR: u32 = 10;
 
 /// Target ADC-group rate for synchronous oversampling.
 ///
@@ -152,6 +164,26 @@ pub fn adc_sampling_policy(cycle_rate_hz: f64) -> Option<AdcSamplingPolicy> {
         iir_cutoff_hz: Some(cycle_rate_hz),
         iir_cutoff_ratio: Some(cycle_rate_hz / sample_rate_hz),
     })
+}
+
+/// Saturating-combine and clamp one requested cycle-timing correction.
+///
+/// Args:
+///   dt_ns: Nominal publishing-cycle duration in `ns`.
+///   period_delta_ns: Persistent period correction in `ns`.
+///   phase_delta_ns: One-cycle phase correction in `ns`.
+///
+/// Returns:
+///   Combined correction in `ns`, limited to `+/-10%` of `dt_ns`.
+pub fn bounded_cycle_timing_correction_ns(
+    dt_ns: u32,
+    period_delta_ns: i64,
+    phase_delta_ns: i64,
+) -> i64 {
+    let limit_ns = i64::from(dt_ns / MAX_CYCLE_TIMING_CORRECTION_DIVISOR);
+    period_delta_ns
+        .saturating_add(phase_delta_ns)
+        .clamp(-limit_ns, limit_ns)
 }
 
 /// Maximum supported post-quadrature encoder count and pulse-counter edge rate.
@@ -677,6 +709,10 @@ pub mod operating_roundtrip {
         pub dt_ns: u32,
         /// Consecutive cycles without an accepted request before shutdown.
         pub loss_of_contact_limit: u16,
+        /// Persistent requested publishing-period correction in `ns`.
+        pub period_delta_ns: i64,
+        /// Requested one-cycle publishing-phase correction in `ns`.
+        pub phase_delta_ns: i64,
         /// Output state to apply on operating entry.
         pub outputs: OperatingOutputSettings,
     }
@@ -687,6 +723,8 @@ pub mod operating_roundtrip {
             Self {
                 dt_ns: MODBUS_DEFAULT_DT_NS,
                 loss_of_contact_limit: MODBUS_DEFAULT_LOSS_OF_CONTACT_LIMIT,
+                period_delta_ns: 0,
+                phase_delta_ns: 0,
                 outputs: OperatingOutputSettings::default(),
             }
         }
@@ -703,6 +741,24 @@ pub mod operating_roundtrip {
         ///   and complete output state.
         pub fn reenter_at_period(self, dt_ns: u32) -> Self {
             Self { dt_ns, ..self }
+        }
+
+        /// Return the bounded requested correction and consume its phase term.
+        ///
+        /// The period term remains active until another Modbus write replaces
+        /// it. The phase term applies to one scheduled publishing interval and
+        /// reads back as zero after this call.
+        ///
+        /// Returns:
+        ///   Combined correction in `ns`, limited to `+/-10%` of `dt_ns`.
+        pub fn take_timing_correction_ns(&mut self) -> i64 {
+            let phase_delta_ns = self.phase_delta_ns;
+            self.phase_delta_ns = 0;
+            super::bounded_cycle_timing_correction_ns(
+                self.dt_ns,
+                self.period_delta_ns,
+                phase_delta_ns,
+            )
         }
     }
 
@@ -913,6 +969,29 @@ mod packet_tests {
     }
 
     #[test]
+    fn timing_correction_saturates_clamps_and_consumes_phase_once() {
+        assert_eq!(
+            bounded_cycle_timing_correction_ns(1_000, i64::MAX, i64::MAX),
+            100
+        );
+        assert_eq!(
+            bounded_cycle_timing_correction_ns(1_000, i64::MIN, i64::MIN),
+            -100
+        );
+
+        let mut config = ModbusInitialConfig {
+            dt_ns: 1_000,
+            period_delta_ns: 20,
+            phase_delta_ns: 30,
+            ..ModbusInitialConfig::default()
+        };
+        assert_eq!(config.take_timing_correction_ns(), 50);
+        assert_eq!(config.period_delta_ns, 20);
+        assert_eq!(config.phase_delta_ns, 0);
+        assert_eq!(config.take_timing_correction_ns(), 20);
+    }
+
+    #[test]
     fn packet_magics_are_direction_specific_and_validated() {
         let markers = [
             BINDING_INPUT_MAGIC,
@@ -1005,6 +1084,8 @@ mod packet_tests {
         assert_eq!(retained_for_reentry, settings);
 
         let initial_config = ModbusInitialConfig {
+            period_delta_ns: 1_000,
+            phase_delta_ns: -250,
             outputs: retained_for_reentry,
             ..ModbusInitialConfig::default()
         };
@@ -1019,6 +1100,11 @@ mod packet_tests {
             reentry_config.loss_of_contact_limit,
             initial_config.loss_of_contact_limit
         );
+        assert_eq!(
+            reentry_config.period_delta_ns,
+            initial_config.period_delta_ns
+        );
+        assert_eq!(reentry_config.phase_delta_ns, initial_config.phase_delta_ns);
         assert_eq!(reentry_config.outputs, settings);
 
         let packet = OperatingRoundtripInput {

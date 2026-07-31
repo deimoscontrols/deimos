@@ -46,6 +46,12 @@ The maximum supported publishing rate is 8 kHz in Deimos UDP roundtrip mode
 and 500 Hz in Modbus/TCP mode. Both modes have a 5 Hz minimum; Modbus
 cycle-rate writes therefore accept 5 through 500 Hz.
 
+Modbus holding registers also accept signed requested period and phase deltas.
+The period term persists, while the phase term applies to one publishing
+interval. Their saturating sum is internally limited to 10% of the nominal
+cycle period in either direction so timing control cannot consume the reserved
+execution margin.
+
 Modbus/TCP is available on port 502 only after a generated calibration is
 embedded. The first supported read or write received while binding selects
 Modbus operation; a read-only client therefore receives the safe output

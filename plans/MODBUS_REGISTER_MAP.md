@@ -50,10 +50,14 @@ contract.
 
 ## Holding registers (FC03 / FC16)
 
+Read address 0, count 35 to obtain the complete current configuration and
+diagnostic block.
+
 FC03 reads any in-range block. FC16 is the only supported write function.
 Writes must begin and end on complete scalar-field boundaries and must stay
-entirely within either the configuration block (0..2) or output block (6..26).
-This makes every accepted multi-output write atomic.
+entirely within the base-configuration block (0..2), output block (6..26), or
+timing-correction block (27..34). This makes every accepted multi-field write
+atomic.
 
 | Address | Count | Access | Type | Field | Valid values |
 | ---: | ---: | --- | --- | --- | --- |
@@ -65,6 +69,8 @@ This makes every accepted multi-output write atomic.
 | 14 | 8 | R/W | `u32[4]` | PWM frequencies | nonzero Hz |
 | 22 | 4 | R/W | `f32[2]` | DAC voltages | finite, 0..2.5 V |
 | 26 | 1 | R/W | `u16` | GPIO outputs | bits 0..3 only |
+| 27 | 4 | R/W | `i64` | requested period delta | ns; persistent, internally clamped |
+| 31 | 4 | R/W | `i64` | requested phase delta | ns; one cycle, internally clamped |
 
 Omitted writable fields retain their last accepted values. Reads never alter
 outputs. A rejected write leaves the complete configuration and output state
@@ -73,14 +79,25 @@ unchanged. Read-only, unsupported, split-field, and cross-gap writes receive
 Data Value` (exception 03).
 
 The first read uses defaults of 10 Hz, 600 loss-of-contact cycles (one minute),
-and safe outputs. A first FC16 write overlays only its included fields on those
-defaults. Each accepted FC03, FC04, or FC16 request resets loss of contact.
+zero timing corrections, and safe outputs. A first FC16 write overlays only its
+included fields on those defaults. Each accepted FC03, FC04, or FC16 request
+resets loss of contact.
+
+The requested period delta persists until another accepted write replaces it.
+The requested phase delta is consumed by the next scheduled publication
+interval and then reads back as zero. Firmware saturating-adds the two signed
+requests and clamps their combined applied correction to `+/-10%` of the
+nominal cycle period. Raw requested values are retained for period readback;
+the clamp is an internal timing-safety boundary rather than a Modbus write
+validation limit.
 
 Changing the cycle rate is a rare maintenance operation. The board enqueues the
-FC16 response, preserves the complete output and timeout state, and re-enters
-the shared operating implementation at the new period. The existing filter
-cutoff update then skips one sampler iteration and resets encoder/pulse-counter
-sampling state. Wait for the write response before issuing another request.
+FC16 response, preserves the complete output, timeout, and timing-correction
+state, and re-enters the shared operating implementation at the new period. A
+pending phase request is consumed once after re-entry rather than on the
+discarded old-rate interval. The existing filter-cutoff update then skips one
+sampler iteration and resets encoder/pulse-counter sampling state. Wait for the
+write response before issuing another request.
 
 ## Framing and bounded service
 
