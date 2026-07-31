@@ -1,14 +1,16 @@
-//! Scheduling and counter arithmetic for rev7 synchronous ADC acquisition.
+//! Scheduling, timestamp, and counter arithmetic for rev7 synchronous acquisition.
 //!
 //! The firmware uses SysTick as both the communication-cycle boundary and the
 //! counter within each sample interval. This module contains the
 //! target-independent arithmetic used to distribute timer ticks, timestamp a
 //! sample, and unwrap hardware counters. Sampling-policy selection lives in
-//! the parent rev7 peripheral module.
+//! the sibling `filters` module.
 //!
 //! References:
 //!   \[1\] Arm, *Cortex-M7 Devices Generic User Guide*, DDI 0489D, 2018,
 //!   sections 4.4 and 4.5.
+
+use super::MAX_CYCLE_TIMING_CORRECTION_DIVISOR;
 
 /// Bounded quotient/remainder distributor for one publishing interval.
 ///
@@ -143,6 +145,26 @@ impl AcquisitionClock {
 ///   Completed interval duration in `ns`.
 pub fn completed_interval_ns(active_reload: u32, systick_tick_period_ns: u32) -> i64 {
     i64::from(active_reload + 1) * i64::from(systick_tick_period_ns)
+}
+
+/// Saturating-combine and clamp one requested cycle-timing correction.
+///
+/// Args:
+///   dt_ns: Nominal publishing-cycle duration in `ns`.
+///   period_delta_ns: Persistent period correction in `ns`.
+///   phase_delta_ns: One-cycle phase correction in `ns`.
+///
+/// Returns:
+///   Combined correction in `ns`, limited to `+/-10%` of `dt_ns`.
+pub fn bounded_cycle_timing_correction_ns(
+    dt_ns: u32,
+    period_delta_ns: i64,
+    phase_delta_ns: i64,
+) -> i64 {
+    let limit_ns = i64::from(dt_ns / MAX_CYCLE_TIMING_CORRECTION_DIVISOR);
+    period_delta_ns
+        .saturating_add(phase_delta_ns)
+        .clamp(-limit_ns, limit_ns)
 }
 
 #[cfg(test)]

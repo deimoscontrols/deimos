@@ -1,8 +1,8 @@
 use deimos_numerics::embedded::fixed::MedianFilter;
 use deimos_shared::peripherals::deimos_daq_rev7::{
     AdcFilter, AdcFilterState, AdcFractionalDelayFilter, AdcFractionalDelayFilterState,
-    FREQUENCY_CHANNEL_COUNT, acquisition::unwrap_u16_delta, adc_filter_bank,
-    adc_fractional_delay_filter_bank,
+    FREQUENCY_CHANNEL_COUNT, adc_filter_bank, adc_fractional_delay_filter_bank,
+    timing::unwrap_u16_delta,
 };
 use nb::block;
 use stm32h7xx_hal::{adc, gpio::Pin, rcc::CoreClocks, stm32::*, timer::GetClk};

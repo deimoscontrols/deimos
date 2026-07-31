@@ -5,8 +5,8 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use irq::{handler, scope};
 
 use deimos_shared::peripherals::PeripheralId;
-use deimos_shared::peripherals::deimos_daq_rev7::{
-    Rev7BindingInput, Rev7BindingOutput, operating_roundtrip::OperatingOutputSettings,
+use deimos_shared::peripherals::deimos_daq_rev7::packets::{
+    OperatingOutputSettings, Rev7BindingInput, Rev7BindingOutput,
 };
 use deimos_shared::states::{ByteStruct, ByteStructLen};
 

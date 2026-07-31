@@ -4,7 +4,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 
 use irq::{handler, scope};
 
-use deimos_shared::peripherals::deimos_daq_rev7::operating_roundtrip::OperatingOutputSettings;
+use deimos_shared::peripherals::deimos_daq_rev7::packets::OperatingOutputSettings;
 
 impl<'a> Board<'a> {
     /// Ensure the board has a usable IPv4 address before entering `Binding`.

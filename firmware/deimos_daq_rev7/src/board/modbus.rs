@@ -7,13 +7,13 @@
 //!   Guide V1.0b*, 2006.
 
 use deimos_shared::peripherals::deimos_daq_rev7::{
-    ModbusInitialConfig, OperatingSnapshot,
     modbus::{
         HOLDING_REGISTER_COUNT, MAX_HOLDING_WRITE_REGISTERS, MODBUS_MAX_READ_REGISTERS,
         MODBUS_MAX_WRITE_REGISTERS, SNAPSHOT_INPUT_BYTE_COUNT, SNAPSHOT_INPUT_REGISTER_COUNT,
         apply_holding_write, holding_registers, snapshot_input_registers,
         write_snapshot_input_register_bytes,
     },
+    packets::{ModbusInitialConfig, OperatingSnapshot},
 };
 use rmodbus::{
     ErrorKind, ModbusProto, VectorTrait,

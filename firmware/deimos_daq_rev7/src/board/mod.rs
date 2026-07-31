@@ -35,9 +35,9 @@ pub use deimos_shared::peripherals::deimos_daq_rev7::{
     MODEL_NUMBER, VREF,
 };
 use deimos_shared::peripherals::deimos_daq_rev7::{
-    Rev7Calibration, bounded_cycle_timing_correction_ns,
-    acquisition::{AcquisitionClock, UniformIntervalScheduler},
-    operating_roundtrip::{ModbusInitialConfig, OperatingOutputSettings},
+    calc::Rev7Calibration,
+    packets::{ModbusInitialConfig, OperatingOutputSettings},
+    timing::{AcquisitionClock, UniformIntervalScheduler, bounded_cycle_timing_correction_ns},
 };
 
 /// Locally administered MAC address
