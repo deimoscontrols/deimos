@@ -207,5 +207,46 @@ This timing report does not close the folded-alias, analog response, GPIO-marker
 timestamp, maximum-rate counter-input, worst-case Modbus packet, or active
 phase-correction checks. Modbus operation was unavailable because SN3 still has
 identity calibrations, as intended before its calibration run. Those checks
-remain deferred; in particular, the free-running path must not be removed based
-on the low-rate 3x timing result alone.
+remained deferred at that checkpoint. The later cycle-owned sampling work and
+calibrated production sweep supersede that checkpoint's provisional warning
+about retaining the free-running path.
+
+## Calibrated production rate sweep
+
+After SN3 was calibrated and flashed with the production image, the
+`rev7_rate_sweep` example ran 20 logarithmically spaced 20-second points from
+5 Hz through 8 kHz in Performant mode. It repeated the 12 grid points below
+500 Hz in Efficient mode. The plotted loss rate, board margin, and host-process
+CPU values use only each run's final five seconds so startup synchronization
+does not dominate the comparison.
+
+Efficient mode completed every requested comparison through its highest tested
+rate of 358.086 Hz. Its final-five-second loss rate was zero at every point and
+its host-process CPU use ranged from 1.10% to 2.67% of one CPU. Performant mode
+used approximately 100% of one CPU, as designed.
+
+| Performant rate | Final-5-s loss rate | Final-5-s minimum board margin |
+|---:|---:|---:|
+| 5.000 Hz | 0 | 68.365 us |
+| 358.086 Hz | 0 | 55.060 us |
+| 778.507 Hz | 0 | 49.880 us |
+| 1,147.891 Hz | 0 | 43.550 us |
+| 1,692.537 Hz | 0 | 54.700 us |
+| 2,495.608 Hz | 0.026605 | 21.115 us |
+| 3,679.717 Hz | 0.035817 | 188.840 us |
+| 5,425.642 Hz | 0.002433 | 95.360 us |
+| 8,000.000 Hz | 0.060423 | 17.715 us |
+
+The margin discontinuity above 3 kHz is the expected transition to the
+sample-per-cycle topology. Every run retained positive settled board margin,
+including 8 kHz. No point produced a sample-time regression or a stale sample
+time on a fresh snapshot.
+
+The interactive results are published as
+`software/deimos_website/docs/assets/rev7_rate_sweep_light.html` and
+`rev7_rate_sweep_dark.html`. The example checkpoints both themes and its
+summary table after every completed point, waits for the board's bounded
+Operating-to-Binding timeout between points, and bounds discovery retries. If
+an Efficient run above 50 Hz fails, it stops probing upward and confirms
+previously completed candidates in descending order to find a reliable
+maximum.

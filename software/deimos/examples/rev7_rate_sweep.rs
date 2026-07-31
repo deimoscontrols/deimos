@@ -18,6 +18,8 @@ mod rev7_rate_benchmark_common;
 use std::{
     env, fs,
     path::{Path, PathBuf},
+    thread,
+    time::Duration,
 };
 
 use deimos_shared::peripherals::deimos_daq_rev7::{
@@ -25,7 +27,7 @@ use deimos_shared::peripherals::deimos_daq_rev7::{
 };
 use plotly::{
     Configuration, Layout, Plot, Scatter,
-    common::{DashType, Line, Mode, Title},
+    common::{DashType, Font, Line, Mode, Title},
     layout::{Axis, AxisType, Legend, Margin},
 };
 use rev7_rate_benchmark_common::{BenchmarkConfig, BenchmarkMode, BenchmarkResult, run_benchmark};
@@ -34,14 +36,53 @@ const RATE_COUNT: usize = 20;
 const DEFAULT_RUN_SECONDS: u64 = 20;
 const EFFICIENT_MAX_EXCLUSIVE_HZ: f64 = 500.0;
 const OP_NAME_PREFIX: &str = "rev7_rate_sweep";
+const SUMMARY_FILENAME: &str = "rev7_rate_sweep_summary.csv";
+const STATUS_FILENAME: &str = "rev7_rate_sweep_status.txt";
+const WEBSITE_ASSET_DIR: &str = "./software/deimos_website/docs/assets";
+const POINT_REENTRY_DELAY: Duration = Duration::from_millis(2_200);
+const DISCOVERY_ATTEMPTS: usize = 2;
+
+struct Theme {
+    suffix: &'static str,
+    color_scheme: &'static str,
+    paper_background: &'static str,
+    plot_background: &'static str,
+    foreground: &'static str,
+    grid: &'static str,
+    performant: &'static str,
+    efficient: &'static str,
+}
+
+fn themes() -> [Theme; 2] {
+    [
+        Theme {
+            suffix: "light",
+            color_scheme: "light",
+            paper_background: "#ffffff",
+            plot_background: "#ffffff",
+            foreground: "#171922",
+            grid: "#d8deea",
+            performant: "#0072B2",
+            efficient: "#D55E00",
+        },
+        Theme {
+            suffix: "dark",
+            color_scheme: "dark",
+            paper_background: "#2b2f3a",
+            plot_background: "#2b2f3a",
+            foreground: "#f2f0f6",
+            grid: "#47404f",
+            performant: "#56B4E9",
+            efficient: "#E69F00",
+        },
+    ]
+}
 
 fn main() -> Result<(), String> {
     let run_seconds = env_value("DEIMOS_SWEEP_SECONDS", DEFAULT_RUN_SECONDS)?;
     let output_dir = PathBuf::from("./target/rev7_rate_sweep");
     fs::create_dir_all(&output_dir)
         .map_err(|e| format!("Failed to create sweep output directory: {e}"))?;
-    let summary_path = output_dir.join("rev7_rate_sweep_summary.csv");
-    let plot_path = output_dir.join("rev7_rate_sweep.html");
     let rates = logspace(
         f64::from(REV7_MIN_CYCLE_RATE_HZ),
         f64::from(DEIMOS_MAX_CYCLE_RATE_HZ),
@@ -55,54 +96,144 @@ fn main() -> Result<(), String> {
                 .count(),
     );
 
-    for (point, rate_hz) in rates.into_iter().enumerate() {
-        run_point(
-            &mut results,
+    // Complete the full firmware timing curve even if the later Efficient
+    // characterization finds a host-loop limit.
+    for (point, rate_hz) in rates.iter().copied().enumerate() {
+        let result = acquire_point(
             point,
             rate_hz,
             run_seconds,
             BenchmarkMode::Performant,
             &output_dir,
+            "primary",
         )?;
-        if rate_hz < EFFICIENT_MAX_EXCLUSIVE_HZ {
-            run_point(
-                &mut results,
+        record_result(&mut results, result, &output_dir)?;
+    }
+
+    let efficient_candidates = rates
+        .iter()
+        .copied()
+        .enumerate()
+        .filter(|(_, rate_hz)| *rate_hz < EFFICIENT_MAX_EXCLUSIVE_HZ)
+        .collect::<Vec<_>>();
+    let mut efficient_successes = Vec::with_capacity(efficient_candidates.len());
+    let mut first_failed_rate_hz = None;
+    for (point, rate_hz) in efficient_candidates {
+        match acquire_point(
+            point,
+            rate_hz,
+            run_seconds,
+            BenchmarkMode::Efficient,
+            &output_dir,
+            "primary",
+        ) {
+            Ok(result) => {
+                record_result(&mut results, result, &output_dir)?;
+                efficient_successes.push((point, rate_hz));
+            }
+            Err(error) if rate_hz > 50.0 => {
+                eprintln!(
+                    "Efficient mode failed at {rate_hz:.6} Hz; lowering its maximum: {error}"
+                );
+                first_failed_rate_hz = Some(rate_hz);
+                break;
+            }
+            Err(error) => return Err(error),
+        }
+    }
+
+    let efficient_max_reliable_hz = if first_failed_rate_hz.is_some() {
+        let mut confirmed = None;
+        // Each candidate is attempted at most once more. A failed confirmation
+        // removes that point from the published comparison before stepping
+        // down to the next completed rate.
+        for (point, rate_hz) in efficient_successes.into_iter().rev() {
+            match acquire_point(
                 point,
                 rate_hz,
                 run_seconds,
                 BenchmarkMode::Efficient,
                 &output_dir,
-            )?;
+                "confirm",
+            ) {
+                Ok(result) => {
+                    record_result(&mut results, result, &output_dir)?;
+                    confirmed = Some(rate_hz);
+                    break;
+                }
+                Err(error) => {
+                    eprintln!(
+                        "Efficient confirmation failed at {rate_hz:.6} Hz; stepping down: {error}"
+                    );
+                    remove_result(
+                        &mut results,
+                        BenchmarkMode::Efficient,
+                        period_ns(rate_hz)?,
+                        &output_dir,
+                    )?;
+                }
+            }
         }
-    }
+        confirmed
+    } else {
+        efficient_successes.last().map(|(_, rate_hz)| *rate_hz)
+    };
 
-    println!("wrote {}", summary_path.display());
-    println!("wrote {}", plot_path.display());
+    write_status(&output_dir, efficient_max_reliable_hz, first_failed_rate_hz)?;
+    publish_website_assets(&output_dir)?;
+    println!("wrote {}", output_dir.join(SUMMARY_FILENAME).display());
+    for theme in themes() {
+        println!(
+            "wrote {}",
+            output_dir
+                .join(format!("{OP_NAME_PREFIX}_{}.html", theme.suffix))
+                .display()
+        );
+    }
+    println!("published sweep plots to {WEBSITE_ASSET_DIR}");
     Ok(())
 }
 
-/// Acquire one point and checkpoint the updated aggregate artifacts.
-fn run_point(
-    results: &mut Vec<BenchmarkResult>,
+/// Acquire one point without changing the aggregate result set.
+fn acquire_point(
     point: usize,
     rate_hz: f64,
     run_seconds: u64,
     mode: BenchmarkMode,
     output_dir: &Path,
-) -> Result<(), String> {
-    let result = run_benchmark(&BenchmarkConfig {
+    attempt: &str,
+) -> Result<BenchmarkResult, String> {
+    let config = BenchmarkConfig {
         rate_hz,
         run_seconds,
         mode,
-        op_name: format!("{OP_NAME_PREFIX}_{point:02}_{}", mode.name()),
+        op_name: format!("{OP_NAME_PREFIX}_{point:02}_{}_{attempt}", mode.name()),
         output_dir: output_dir.to_owned(),
-    })?;
-    result.print_summary();
-    results.push(result);
-    // Update both aggregate artifacts after every point so an interrupted
-    // eleven-minute sweep still leaves a usable partial result.
-    write_summary(results, &output_dir.join("rev7_rate_sweep_summary.csv"))?;
-    write_plot(results, &output_dir.join("rev7_rate_sweep.html"))
+    };
+    for discovery_attempt in 0..DISCOVERY_ATTEMPTS {
+        match run_benchmark(&config) {
+            Ok(result) => {
+                result.print_summary();
+                // The firmware returns from Operating only after its two-second
+                // peripheral loss-of-contact timeout. Keep the next discovery
+                // scan from consuming the final operating response.
+                thread::sleep(POINT_REENTRY_DELAY);
+                return Ok(result);
+            }
+            Err(error)
+                if discovery_attempt + 1 < DISCOVERY_ATTEMPTS
+                    && error.contains("Required peripherals not found") =>
+            {
+                eprintln!(
+                    "Discovery attempt {} failed at {rate_hz:.6} Hz; waiting for Binding: {error}",
+                    discovery_attempt + 1
+                );
+                thread::sleep(POINT_REENTRY_DELAY);
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    unreachable!("bounded discovery loop either returns a result or an error")
 }
 
 /// Construct an inclusive logarithmically spaced rate grid.
@@ -148,6 +279,55 @@ where
     }
 }
 
+fn period_ns(rate_hz: f64) -> Result<u32, String> {
+    if !rate_hz.is_finite() || rate_hz <= 0.0 {
+        return Err(format!("Invalid sweep rate {rate_hz}"));
+    }
+    let period_ns = (1e9_f64 / rate_hz).round() as u32;
+    (period_ns != 0)
+        .then_some(period_ns)
+        .ok_or_else(|| format!("Sweep rate {rate_hz} Hz produces a zero period"))
+}
+
+/// Insert or replace one mode/rate result and checkpoint aggregate artifacts.
+fn record_result(
+    results: &mut Vec<BenchmarkResult>,
+    result: BenchmarkResult,
+    output_dir: &Path,
+) -> Result<(), String> {
+    if let Some(index) = results
+        .iter()
+        .position(|existing| existing.mode == result.mode && existing.period_ns == result.period_ns)
+    {
+        results[index] = result;
+    } else {
+        results.push(result);
+    }
+    results.sort_by(|left, right| {
+        left.rate_hz
+            .total_cmp(&right.rate_hz)
+            .then_with(|| left.mode.cmp(&right.mode))
+    });
+    checkpoint_results(results, output_dir)
+}
+
+/// Remove an Efficient point that failed its reliability confirmation.
+fn remove_result(
+    results: &mut Vec<BenchmarkResult>,
+    mode: BenchmarkMode,
+    period_ns: u32,
+    output_dir: &Path,
+) -> Result<(), String> {
+    results.retain(|result| !(result.mode == mode.name() && result.period_ns == period_ns));
+    checkpoint_results(results, output_dir)
+}
+
+/// Rewrite all recoverable aggregate artifacts after a result-set change.
+fn checkpoint_results(results: &[BenchmarkResult], output_dir: &Path) -> Result<(), String> {
+    write_summary(results, &output_dir.join(SUMMARY_FILENAME))?;
+    write_plots(results, output_dir)
+}
+
 /// Rewrite the aggregate point table so partial sweeps remain self-contained.
 fn write_summary(results: &[BenchmarkResult], path: &Path) -> Result<(), String> {
     let mut writer = csv::Writer::from_path(path)
@@ -160,6 +340,44 @@ fn write_summary(results: &[BenchmarkResult], path: &Path) -> Result<(), String>
     writer
         .flush()
         .map_err(|e| format!("Failed to flush summary CSV {}: {e}", path.display()))
+}
+
+/// Record the observed Efficient ceiling and the first failed probe.
+fn write_status(
+    output_dir: &Path,
+    efficient_max_reliable_hz: Option<f64>,
+    first_failed_rate_hz: Option<f64>,
+) -> Result<(), String> {
+    let max_rate = efficient_max_reliable_hz
+        .map(|rate| format!("{rate:.6}"))
+        .unwrap_or_else(|| "none".to_owned());
+    let failed_rate = first_failed_rate_hz
+        .map(|rate| format!("{rate:.6}"))
+        .unwrap_or_else(|| "none".to_owned());
+    fs::write(
+        output_dir.join(STATUS_FILENAME),
+        format!(
+            "efficient_max_reliable_hz={max_rate}\nfirst_failed_efficient_rate_hz={failed_rate}\n"
+        ),
+    )
+    .map_err(|error| format!("Failed to write sweep status: {error}"))
+}
+
+/// Copy final aggregate artifacts into the website's static asset directory.
+fn publish_website_assets(output_dir: &Path) -> Result<(), String> {
+    let asset_dir = Path::new(WEBSITE_ASSET_DIR);
+    fs::create_dir_all(asset_dir)
+        .map_err(|error| format!("Failed to create website asset directory: {error}"))?;
+    for theme in themes() {
+        let filename = format!("{OP_NAME_PREFIX}_{}.html", theme.suffix);
+        fs::copy(output_dir.join(&filename), asset_dir.join(&filename))
+            .map_err(|error| format!("Failed to publish {filename}: {error}"))?;
+    }
+    for filename in [SUMMARY_FILENAME, STATUS_FILENAME] {
+        fs::copy(output_dir.join(filename), asset_dir.join(filename))
+            .map_err(|error| format!("Failed to publish {filename}: {error}"))?;
+    }
+    Ok(())
 }
 
 /// Select one finite metric series for a controller mode.
@@ -198,33 +416,60 @@ fn trace(
 }
 
 /// Build a logarithmic publishing-rate axis.
-fn rate_axis(title: &str) -> Axis {
+fn rate_axis(theme: &Theme, title: &str) -> Axis {
     Axis::new()
         .title(Title::with_text(title))
         .type_(AxisType::Log)
+        .color(theme.foreground)
+        .show_line(true)
+        .line_color(theme.foreground)
+        .line_width(1)
         .show_grid(true)
+        .grid_color(theme.grid)
+        .grid_width(1)
+        .zero_line(true)
+        .zero_line_color(theme.grid)
         .auto_margin(true)
+        .tick_font(Font::new().color(theme.foreground))
 }
 
 /// Build one linear metric axis over a normalized vertical domain.
-fn value_axis(title: &str, domain: &[f64]) -> Axis {
+fn value_axis(theme: &Theme, title: &str, domain: &[f64]) -> Axis {
     Axis::new()
         .title(Title::with_text(title))
         .domain(domain)
+        .color(theme.foreground)
+        .show_line(true)
+        .line_color(theme.foreground)
+        .line_width(1)
         .show_grid(true)
+        .grid_color(theme.grid)
+        .grid_width(1)
+        .zero_line(true)
+        .zero_line_color(theme.grid)
         .auto_margin(true)
+        .tick_font(Font::new().color(theme.foreground))
 }
 
-/// Rewrite the interactive aggregate plot from all completed points.
-fn write_plot(results: &[BenchmarkResult], path: &Path) -> Result<(), String> {
-    const PERFORMANT_COLOR: &str = "#0072B2";
-    const EFFICIENT_COLOR: &str = "#D55E00";
+/// Rewrite light and dark interactive plots from all completed points.
+fn write_plots(results: &[BenchmarkResult], output_dir: &Path) -> Result<(), String> {
+    for theme in themes() {
+        let plot = build_plot(results, &theme);
+        write_themed_html(
+            &plot,
+            &output_dir.join(format!("{OP_NAME_PREFIX}_{}.html", theme.suffix)),
+            &theme,
+        )?;
+    }
+    Ok(())
+}
 
+fn build_plot(results: &[BenchmarkResult], theme: &Theme) -> Plot {
     let mut plot = Plot::new();
     plot.set_configuration(Configuration::new().responsive(true).display_logo(false));
     for (mode, label, color) in [
-        (BenchmarkMode::Performant, "Performant", PERFORMANT_COLOR),
-        (BenchmarkMode::Efficient, "Efficient", EFFICIENT_COLOR),
+        (BenchmarkMode::Performant, "Performant", theme.performant),
+        (BenchmarkMode::Efficient, "Efficient", theme.efficient),
     ] {
         plot.add_trace(trace(
             results,
@@ -270,29 +515,53 @@ fn write_plot(results: &[BenchmarkResult], path: &Path) -> Result<(), String> {
                 "Rev7 rate sweep: final-five-second measurements",
             ))
             .height(1100)
+            .font(Font::new().color(theme.foreground))
+            .paper_background_color(theme.paper_background)
+            .plot_background_color(theme.plot_background)
             .margin(Margin::new().left(90).right(40).top(80).bottom(70))
-            .legend(Legend::new().x(1.01).y(1.0))
+            .legend(
+                Legend::new()
+                    .font(Font::new().color(theme.foreground))
+                    .x(1.01)
+                    .y(1.0),
+            )
             .x_axis(
-                rate_axis("Cycle rate [Hz]")
+                rate_axis(theme, "Cycle rate [Hz]")
                     .domain(&[0.0, 0.88])
                     .anchor("y"),
             )
-            .y_axis(value_axis("Loss rate [dropped cycle / cycle]", &[0.70, 1.0]).anchor("x"))
+            .y_axis(
+                value_axis(theme, "Loss rate [dropped cycle / cycle]", &[0.70, 1.0]).anchor("x"),
+            )
             .x_axis2(
-                rate_axis("Cycle rate [Hz]")
+                rate_axis(theme, "Cycle rate [Hz]")
                     .domain(&[0.0, 0.88])
                     .anchor("y2"),
             )
-            .y_axis2(value_axis("Board cycle margin [us]", &[0.35, 0.63]).anchor("x2"))
+            .y_axis2(value_axis(theme, "Board cycle margin [us]", &[0.35, 0.63]).anchor("x2"))
             .x_axis3(
-                rate_axis("Cycle rate [Hz]")
+                rate_axis(theme, "Cycle rate [Hz]")
                     .domain(&[0.0, 0.88])
                     .anchor("y3"),
             )
-            .y_axis3(value_axis("Host-process CPU [% of one CPU]", &[0.0, 0.28]).anchor("x3")),
+            .y_axis3(
+                value_axis(theme, "Host-process CPU [% of one CPU]", &[0.0, 0.28]).anchor("x3"),
+            ),
     );
-    fs::write(path, plot.to_html())
-        .map_err(|e| format!("Failed to write sweep plot {}: {e}", path.display()))
+    plot
+}
+
+fn write_themed_html(plot: &Plot, path: &Path, theme: &Theme) -> Result<(), String> {
+    let page_style = format!(
+        "<style>:root {{ color-scheme: {}; }} \
+         html, body {{ margin: 0; background: {}; }}</style>",
+        theme.color_scheme, theme.paper_background
+    );
+    let html = plot
+        .to_html()
+        .replace("</head>", &format!("{page_style}\n</head>"));
+    fs::write(path, html)
+        .map_err(|error| format!("Failed to write sweep plot {}: {error}", path.display()))
 }
 
 #[cfg(test)]

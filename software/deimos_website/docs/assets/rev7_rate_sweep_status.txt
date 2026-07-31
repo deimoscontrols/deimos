@@ -1,0 +1,2 @@
+efficient_max_reliable_hz=358.085583
+first_failed_efficient_rate_hz=none
