@@ -25,10 +25,13 @@ stateDiagram-v2
 
     [*] --> Connecting:::a
     Connecting --> Binding:::a : IP addr acquired
-    Binding --> Configuring:::a : Bound
-    Configuring --> OperatingRoundtrip:::a : Configured
+    Binding --> Configuring:::a : Deimos bound
+    Binding --> OperatingModbus:::a : Modbus requested
+    Configuring --> OperatingDeimos:::a : Configured
     Configuring --> Connecting : Timeout
-    OperatingRoundtrip --> Connecting : Loss of Contact
+    OperatingDeimos --> Connecting : Loss of contact
+    OperatingModbus --> Connecting : Loss of contact
+    OperatingModbus --> OperatingModbus : Cycle rate changed
 
 ```
 
@@ -81,14 +84,24 @@ The behaviors of each state are
     * Waiting for operation configuration (cycle frequency, etc)
     * Typically lasts 1-10ms
 
--    `OperatingRoundtrip`
+-    `OperatingDeimos`
 
     ---
 
     * Outputs under active control
+    * UDP sense/respond/act roundtrips with the Deimos controller
     * Cycling at configured frequency
     * Asserting all outputs and reading all inputs at every cycle
     * Typically lasts 100ms-292yr
+
+-    `OperatingModbus`
+
+    ---
+
+    * Outputs retain their last accepted Modbus values between requests
+    * Cycling and publishing coherent engineering snapshots at the configured frequency
+    * FC23 provides the recommended synchronized sense/respond/act transaction
+    * Returns to `Connecting` after loss of contact
 
 </div>
 
