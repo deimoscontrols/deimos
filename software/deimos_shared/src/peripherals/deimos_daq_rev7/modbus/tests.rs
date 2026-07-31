@@ -4,6 +4,16 @@ use super::*;
 use crate::peripherals::deimos_daq_rev7::OPERATING_SNAPSHOT_MAGIC;
 
 #[test]
+fn synchronized_holding_snapshot_window_is_disjoint_and_complete() {
+    assert!(HOLDING_SNAPSHOT_START >= HOLDING_REGISTER_COUNT);
+    assert_eq!(
+        HOLDING_SNAPSHOT_REGISTER_COUNT,
+        SNAPSHOT_INPUT_REGISTER_COUNT
+    );
+    assert_eq!(MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION, 0x17);
+}
+
+#[test]
 fn snapshot_registers_are_most_significant_register_first() {
     let mut snapshot = OperatingSnapshot::default();
     snapshot.metrics.id = 0x0123_4567_89ab_cdef;

@@ -10,8 +10,9 @@
 //! `corrections`, `backpressure`, `address-hold`, `timeout`, or `all`.
 //! `address-hold` keeps a fallback-address session active for 20 seconds so a
 //! DHCP server can be introduced externally. The one-minute timeout check is
-//! omitted from `quick`. Except for the intentionally adversarial backpressure
-//! test, the client keeps exactly one request outstanding.
+//! omitted from `quick`. Except for the finite two-request protocol check and
+//! the intentionally adversarial backpressure test, the client keeps exactly
+//! one request outstanding.
 //!
 //! References:
 //!   \[1\] Modbus Organization, *MODBUS Application Protocol Specification
@@ -31,11 +32,13 @@ use std::{
 use deimos_shared::peripherals::deimos_daq_rev7::{
     ModbusInitialConfig, OperatingSnapshot,
     modbus::{
-        HOLDING_CYCLE_PERIOD_NS, HOLDING_LOSS_OF_CONTACT_COUNTER, HOLDING_PERIOD_DELTA_NS,
-        HOLDING_PHASE_DELTA_NS, HOLDING_PWM_DUTY_FRAC, HOLDING_REGISTER_COUNT,
-        MODBUS_MAX_CYCLE_RATE_HZ, MODBUS_MAX_WRITE_REGISTERS, MODBUS_MIN_CYCLE_RATE_HZ,
-        SNAPSHOT_INPUT_REGISTER_COUNT, SNAPSHOT_INPUT_START, holding_registers,
-        snapshot_from_input_registers,
+        HOLDING_CYCLE_PERIOD_NS, HOLDING_GPIO, HOLDING_LOSS_OF_CONTACT_COUNTER,
+        HOLDING_PERIOD_DELTA_NS, HOLDING_PHASE_DELTA_NS, HOLDING_PWM_DUTY_FRAC,
+        HOLDING_REGISTER_COUNT, HOLDING_SNAPSHOT_REGISTER_COUNT, HOLDING_SNAPSHOT_START,
+        MODBUS_MAX_CYCLE_RATE_HZ, MODBUS_MAX_READ_REGISTERS, MODBUS_MAX_READ_WRITE_WRITE_REGISTERS,
+        MODBUS_MAX_WRITE_REGISTERS, MODBUS_MIN_CYCLE_RATE_HZ,
+        MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION, SNAPSHOT_INPUT_REGISTER_COUNT,
+        SNAPSHOT_INPUT_START, holding_registers, snapshot_from_input_registers,
     },
 };
 use socket2::SockRef;
@@ -118,7 +121,7 @@ fn address_hold_suite(endpoint: &str) -> TestResult {
     Ok(())
 }
 
-/// Exercise fragmented, rejected, and connection-resetting request forms.
+/// Exercise fragmented, rejected, pipelined, and connection-resetting requests.
 ///
 /// Args:
 ///   endpoint: Board TCP endpoint in `host:port` form.
@@ -160,6 +163,66 @@ fn protocol_suite(endpoint: &str) -> TestResult {
     let response = read_one_adu(&mut client.stream)?;
     validate_exception(&response, transaction, 0, 0x10, 0x03)?;
     client.read_registers(0x04, 0, 1, 7)?;
+
+    // FC23 is the synchronized control contract: apply one complete writable
+    // block and return the snapshot captured at the start of that board cycle.
+    let snapshot = client.read_write_snapshot(HOLDING_GPIO, &[0], 37)?;
+    if snapshot.magic == 0 {
+        return Err("FC23 returned an uninitialized snapshot".into());
+    }
+
+    // Place two complete FC23 requests in one TCP segment. Both must be drained
+    // during one publication and therefore return the exact same latched sample.
+    let first_transaction = client.take_transaction();
+    let second_transaction = client.take_transaction();
+    let mut pipeline = read_write_request(
+        first_transaction,
+        0,
+        HOLDING_SNAPSHOT_START,
+        HOLDING_SNAPSHOT_REGISTER_COUNT,
+        HOLDING_GPIO,
+        &[0],
+    )?;
+    pipeline.extend_from_slice(&read_write_request(
+        second_transaction,
+        255,
+        HOLDING_SNAPSHOT_START,
+        HOLDING_SNAPSHOT_REGISTER_COUNT,
+        HOLDING_GPIO,
+        &[0],
+    )?);
+    client.stream.write_all(&pipeline)?;
+    let first_response = read_one_adu(&mut client.stream)?;
+    let second_response = read_one_adu(&mut client.stream)?;
+    validate_response_header(
+        &first_response,
+        first_transaction,
+        0,
+        MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION,
+    )?;
+    validate_response_header(
+        &second_response,
+        second_transaction,
+        255,
+        MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION,
+    )?;
+    let first_snapshot = snapshot_from_input_registers(&parse_read_registers(
+        &first_response,
+        MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION,
+        HOLDING_SNAPSHOT_REGISTER_COUNT,
+    )?)
+    .map_err(|error| format!("invalid first pipelined FC23 snapshot: {error:?}"))?;
+    let second_snapshot = snapshot_from_input_registers(&parse_read_registers(
+        &second_response,
+        MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION,
+        HOLDING_SNAPSHOT_REGISTER_COUNT,
+    )?)
+    .map_err(|error| format!("invalid second pipelined FC23 snapshot: {error:?}"))?;
+    if first_snapshot.metrics.id != second_snapshot.metrics.id
+        || first_snapshot.sample_time_ns != second_snapshot.sample_time_ns
+    {
+        return Err("two queued FC23 requests were not served from one cycle snapshot".into());
+    }
     drop(client);
 
     // Nonzero protocol IDs and impossible MBAP lengths cannot be resynchronized
@@ -329,10 +392,10 @@ fn correction_suite(endpoint: &str) -> TestResult {
 
 /// Fill the peer receive window, then verify bounded recovery through reconnect.
 ///
-/// This is the only suite which deliberately violates the normal one-request-
-/// outstanding rule. It creates finite pipelined traffic while the host does
-/// not consume responses, forcing the board to retain a response under TCP
-/// transmit backpressure instead of spinning or accepting unbounded work.
+/// Unlike the two-request protocol check, this suite creates a large finite
+/// pipeline while the host does not consume responses, forcing the board to
+/// retain a response under TCP transmit backpressure instead of spinning or
+/// accepting unbounded work.
 ///
 /// Args:
 ///   endpoint: Board TCP endpoint in `host:port` form.
@@ -440,7 +503,7 @@ fn timeout_suite(endpoint: &str) -> TestResult {
     Ok(())
 }
 
-/// Collect sustained full-snapshot reads at one configured publishing rate.
+/// Collect sustained synchronized FC23 control roundtrips at one publishing rate.
 ///
 /// Args:
 ///   client: Connected single-outstanding-request client.
@@ -448,6 +511,11 @@ fn timeout_suite(endpoint: &str) -> TestResult {
 ///   timeout_cycles: Application-contact timeout in publishing cycles.
 ///   duration: Minimum sustained test duration.
 ///   unit: Arbitrary Unit Identifier to echo.
+///   period_delta_ns: Persistent requested period correction, in `ns`.
+///
+/// Returns:
+///   `Ok(())` after the complete timed endpoint run passes its snapshot,
+///   timing-margin, and loss-of-contact checks.
 fn run_rate_endpoint(
     client: &mut ModbusClient,
     rate_hz: f32,
@@ -466,11 +534,9 @@ fn run_rate_endpoint(
     // from the shared safe default so this hardware stress test cannot energize
     // an output accidentally.
     let safe = holding_registers(&ModbusInitialConfig::default(), 0);
-    client.write_registers(
-        HOLDING_PWM_DUTY_FRAC,
-        &safe[usize::from(HOLDING_PWM_DUTY_FRAC)..usize::from(HOLDING_PERIOD_DELTA_NS)],
-        unit,
-    )?;
+    let safe_outputs =
+        &safe[usize::from(HOLDING_PWM_DUTY_FRAC)..usize::from(HOLDING_PERIOD_DELTA_NS)];
+    client.write_registers(HOLDING_PWM_DUTY_FRAC, safe_outputs, unit)?;
 
     let started = Instant::now();
     let mut snapshots = 0_u64;
@@ -482,7 +548,7 @@ fn run_rate_endpoint(
     let mut max_sample_step_ns = i64::MIN;
     // Time and count bounds make a host/network regression terminate cleanly.
     while started.elapsed() < duration && snapshots < 100_000 {
-        let snapshot = client.read_snapshot(unit)?;
+        let snapshot = client.read_write_snapshot(HOLDING_PWM_DUTY_FRAC, safe_outputs, unit)?;
         first_id.get_or_insert(snapshot.metrics.id);
         last_id = snapshot.metrics.id;
         min_margin_ns = min_margin_ns.min(snapshot.metrics.cycle_time_margin_ns);
@@ -605,6 +671,45 @@ impl ModbusClient {
         )?;
         snapshot_from_input_registers(&registers)
             .map_err(|error| format!("invalid snapshot: {error:?}").into())
+    }
+
+    /// Atomically write one control block and return this cycle's snapshot.
+    ///
+    /// Args:
+    ///   write_address: Zero-based first writable holding-register address.
+    ///   values: Complete writable field block with shape `(write_count,)`.
+    ///   unit: Arbitrary one-byte Modbus Unit Identifier to echo.
+    ///
+    /// Returns:
+    ///   Validated beginning-of-cycle engineering snapshot from the FC23 read.
+    fn read_write_snapshot(
+        &mut self,
+        write_address: u16,
+        values: &[u16],
+        unit: u8,
+    ) -> TestResult<OperatingSnapshot> {
+        let transaction = self.take_transaction();
+        let request = read_write_request(
+            transaction,
+            unit,
+            HOLDING_SNAPSHOT_START,
+            HOLDING_SNAPSHOT_REGISTER_COUNT,
+            write_address,
+            values,
+        )?;
+        let response = self.exchange(
+            &request,
+            transaction,
+            unit,
+            MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION,
+        )?;
+        let registers = parse_read_registers(
+            &response,
+            MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION,
+            HOLDING_SNAPSHOT_REGISTER_COUNT,
+        )?;
+        snapshot_from_input_registers(&registers)
+            .map_err(|error| format!("invalid FC23 snapshot: {error:?}").into())
     }
 
     /// Write one contiguous holding-register span and validate its echo.
@@ -743,6 +848,64 @@ fn write_request(
         pdu.extend_from_slice(&value.to_be_bytes());
     }
     Ok(adu(transaction, protocol, unit, &pdu))
+}
+
+/// Build one bounded FC23 read/write holding-register ADU.
+///
+/// Args:
+///   transaction: Modbus/TCP transaction identifier.
+///   unit: One-byte Modbus Unit Identifier.
+///   read_address: Zero-based first holding-register read address.
+///   read_count: Read span length, in 16-bit registers.
+///   write_address: Zero-based first holding-register write address.
+///   values: Write-register values with shape `(write_count,)`.
+///
+/// Returns:
+///   Complete network-byte-order ADU, or an error when either count is outside
+///   the standard FC23 bounds.
+///
+/// References:
+///   \[1\] Modbus Organization, *MODBUS Application Protocol Specification
+///   V1.1b3*, section 6.17, 2012.
+fn read_write_request(
+    transaction: u16,
+    unit: u8,
+    read_address: u16,
+    read_count: u16,
+    write_address: u16,
+    values: &[u16],
+) -> TestResult<Vec<u8>> {
+    if read_count == 0 || read_count > MODBUS_MAX_READ_REGISTERS {
+        return Err("FC23 read register count must be in 1..=125".into());
+    }
+    if values.is_empty() {
+        return Err("FC23 write register count must be nonzero".into());
+    }
+    if values.len() > usize::from(MODBUS_MAX_READ_WRITE_WRITE_REGISTERS) {
+        return Err("FC23 write register count must be in 1..=121".into());
+    }
+
+    let read_address = read_address.to_be_bytes();
+    let read_count = read_count.to_be_bytes();
+    let write_address = write_address.to_be_bytes();
+    let write_count = (values.len() as u16).to_be_bytes();
+    let mut pdu = Vec::with_capacity(10 + values.len() * 2);
+    pdu.extend_from_slice(&[
+        MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION,
+        read_address[0],
+        read_address[1],
+        read_count[0],
+        read_count[1],
+        write_address[0],
+        write_address[1],
+        write_count[0],
+        write_count[1],
+        (values.len() * 2) as u8,
+    ]);
+    for value in values {
+        pdu.extend_from_slice(&value.to_be_bytes());
+    }
+    Ok(adu(transaction, 0, unit, &pdu))
 }
 
 /// Read exactly one MBAP-length-delimited response ADU.
@@ -908,12 +1071,47 @@ mod tests {
             read_request(7, 255, 0x04, 0, SNAPSHOT_INPUT_REGISTER_COUNT),
             write_request(8, 0, 3, 6, &[0; 21]).unwrap(),
             write_request(9, 0, 3, HOLDING_PERIOD_DELTA_NS, &[0; 8]).unwrap(),
+            read_write_request(
+                10,
+                37,
+                HOLDING_SNAPSHOT_START,
+                HOLDING_SNAPSHOT_REGISTER_COUNT,
+                HOLDING_PWM_DUTY_FRAC,
+                &[0; 21],
+            )
+            .unwrap(),
         ] {
             assert_eq!(
                 usize::from(u16::from_be_bytes([request[4], request[5]])),
                 request.len() - 6
             );
         }
+    }
+
+    #[test]
+    fn read_write_request_uses_standard_fc23_field_order() {
+        let request = read_write_request(0x1234, 0xab, 0x0100, 79, 6, &[0x1122, 0x3344]).unwrap();
+        assert_eq!(request[7], MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION);
+        assert_eq!(&request[8..17], &[0x01, 0x00, 0x00, 79, 0, 6, 0, 2, 4]);
+        assert_eq!(&request[17..], &[0x11, 0x22, 0x33, 0x44]);
+    }
+
+    #[test]
+    fn read_write_request_enforces_protocol_count_bounds() {
+        assert!(read_write_request(1, 0, 0, 0, 6, &[0]).is_err());
+        assert!(read_write_request(1, 0, 0, MODBUS_MAX_READ_REGISTERS + 1, 6, &[0]).is_err());
+        assert!(read_write_request(1, 0, 0, 1, 6, &[]).is_err());
+        assert!(
+            read_write_request(
+                1,
+                0,
+                0,
+                1,
+                6,
+                &vec![0; usize::from(MODBUS_MAX_READ_WRITE_WRITE_REGISTERS) + 1],
+            )
+            .is_err()
+        );
     }
 
     #[test]

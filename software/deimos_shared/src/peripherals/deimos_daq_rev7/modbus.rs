@@ -36,13 +36,13 @@
 //! group contributing to the published filtered values. It is not corrected
 //! for fractional-delay or low-pass-filter group delay.
 //!
-//! # Holding registers (FC03 / FC16)
+//! # Holding registers (FC03 / FC16 / FC23)
 //!
 //! Read address 0, count [`HOLDING_REGISTER_COUNT`] (35), to obtain the complete
 //! current configuration and diagnostic block. FC03 may read any in-range
-//! block. FC16 writes must cover complete scalar fields and remain within one
-//! atomic writable block: base configuration (0..2), outputs (6..26), or timing
-//! corrections (27..34).
+//! block. FC16 and the write portion of FC23 must cover complete scalar fields
+//! and remain within one atomic writable block: base configuration (0..2),
+//! outputs (6..26), or timing corrections (27..34).
 //!
 //! | Address | Count | Access | Type | Field | Valid values |
 //! | ---: | ---: | --- | --- | --- | --- |
@@ -56,6 +56,23 @@
 //! | 26 | 1 | R/W | `u16` | GPIO outputs | bits 0..3 only |
 //! | 27 | 4 | R/W | `i64` | requested period delta | ns; persistent, internally clamped |
 //! | 31 | 4 | R/W | `i64` | requested phase delta | ns; one cycle, internally clamped |
+//!
+//! The coherent engineering snapshot is also mirrored into the read-only
+//! holding-register window beginning at [`HOLDING_SNAPSHOT_START`] (`0x0100`).
+//! Its 79-register field layout is identical to the FC04 input-register table,
+//! with `0x0100` added to each address.
+//!
+//! # Synchronized control (FC23)
+//!
+//! FC23 Read/Write Multiple Registers is the recommended cyclic-control
+//! interface. Its write block atomically updates one writable holding-register
+//! block, while its read block returns the coherent snapshot mirror at address
+//! `0x0100`, count 79. The returned snapshot was captured at the beginning of
+//! the same publishing cycle; the newly written outputs are applied after the
+//! request is accepted. This matches the Deimos sense/respond/act cycle.
+//! If two queued ADUs are serviced in one publishing cycle, both read the same
+//! immutable snapshot. Their accepted writes compose in TCP stream order, and
+//! firmware applies only the final retained output state after request service.
 //!
 //! Omitted writable fields retain their values, and a rejected write changes
 //! nothing. The requested period delta persists until replaced. The requested
@@ -108,8 +125,16 @@ pub const HOLDING_GPIO: u16 = 26;
 pub const HOLDING_PERIOD_DELTA_NS: u16 = 27;
 /// First register of the one-cycle requested phase correction as `i64` `ns`.
 pub const HOLDING_PHASE_DELTA_NS: u16 = 31;
-/// Total number of readable holding registers.
+/// Number of holding registers in the configuration and diagnostic block.
 pub const HOLDING_REGISTER_COUNT: u16 = 35;
+
+/// First holding register of the read-only coherent engineering snapshot mirror.
+pub const HOLDING_SNAPSHOT_START: u16 = 0x0100;
+/// Number of holding registers occupied by the coherent engineering snapshot mirror.
+pub const HOLDING_SNAPSHOT_REGISTER_COUNT: u16 = SNAPSHOT_INPUT_REGISTER_COUNT;
+
+/// Function code for standard Read/Write Multiple Registers (FC23).
+pub const MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION: u8 = 0x17;
 
 /// Slowest supported Modbus publishing rate in `Hz`.
 pub const MODBUS_MIN_CYCLE_RATE_HZ: f32 = super::REV7_MIN_CYCLE_RATE_HZ as f32;
@@ -120,11 +145,19 @@ pub const MODBUS_MAX_CYCLE_RATE_HZ: f32 = 500.0;
 pub const MODBUS_MAX_READ_REGISTERS: u16 = 125;
 /// Maximum register count in one standard Modbus multiple-write request.
 pub const MODBUS_MAX_WRITE_REGISTERS: u16 = 123;
+/// Maximum write-register count in one standard FC23 request.
+pub const MODBUS_MAX_READ_WRITE_WRITE_REGISTERS: u16 = 121;
 /// Maximum writable holding-register span in the rev7 map.
 pub const MAX_HOLDING_WRITE_REGISTERS: usize = 21;
 
 const _: () = assert!(SNAPSHOT_INPUT_REGISTER_COUNT <= MODBUS_MAX_READ_REGISTERS);
+const _: () = assert!(HOLDING_SNAPSHOT_REGISTER_COUNT <= MODBUS_MAX_READ_REGISTERS);
+const _: () = assert!(
+    HOLDING_SNAPSHOT_START as u32 + HOLDING_SNAPSHOT_REGISTER_COUNT as u32 <= u16::MAX as u32 + 1
+);
 const _: () = assert!(MAX_HOLDING_WRITE_REGISTERS <= MODBUS_MAX_WRITE_REGISTERS as usize);
+const _: () =
+    assert!(MAX_HOLDING_WRITE_REGISTERS <= MODBUS_MAX_READ_WRITE_WRITE_REGISTERS as usize);
 
 /// Semantic errors produced while validating a holding-register write.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

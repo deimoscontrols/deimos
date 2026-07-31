@@ -7,7 +7,7 @@ use deimos_shared::peripherals::deimos_daq_rev7::*;
 use deimos_shared::states::{ByteStruct, ByteStructLen};
 use irq::{handler, scope};
 
-use super::modbus::{ModbusSocketBudget, ReceiveStatus};
+use super::modbus::{MAX_ADUS_PER_CYCLE, ModbusSocketBudget, ReceiveStatus};
 
 /// Conservative minimum publishing-IRQ margin for test-instrumented images.
 ///
@@ -363,16 +363,25 @@ impl<'a> Board<'a> {
                 }
 
                 let mut socket_budget = ModbusSocketBudget::new();
-                if self.modbus.response_pending() {
-                    if self
-                        .modbus
-                        .send_response(&mut self.net, &mut socket_budget)
-                        .is_err()
-                    {
-                        transition_connecting.store(true, Ordering::Relaxed);
-                        return 0;
+                // Keep the published snapshot immutable while draining both
+                // requests. Contact metadata is committed only after service,
+                // so two FC23 responses in this cycle expose the same sample.
+                let mut last_accepted_request = None;
+                for _ in 0..MAX_ADUS_PER_CYCLE {
+                    if self.modbus.response_pending() {
+                        if self
+                            .modbus
+                            .send_response(&mut self.net, &mut socket_budget)
+                            .is_err()
+                        {
+                            transition_connecting.store(true, Ordering::Relaxed);
+                            return 0;
+                        }
+                        if self.modbus.response_pending() {
+                            break;
+                        }
                     }
-                } else {
+
                     let receive_status =
                         if self.modbus.request_complete() || self.net.tcp_can_recv() {
                             self.modbus.receive(&mut self.net, &mut socket_budget)
@@ -390,10 +399,10 @@ impl<'a> Board<'a> {
                                 state.current_modbus_config = outcome.config;
                                 self.loss_of_contact_limit = outcome.config.loss_of_contact_limit;
                                 state.input.outputs = outcome.config.outputs;
-                                state.output.metrics.last_input_id =
-                                    u64::from(outcome.transaction_id);
-                                state.output.metrics.last_input_received_time_ns =
-                                    self.board_time(subcycle_res_ns);
+                                last_accepted_request = Some((
+                                    u64::from(outcome.transaction_id),
+                                    self.board_time(subcycle_res_ns),
+                                ));
                                 state.loss_of_contact_counter = 0;
                                 if rate_changed {
                                     self.modbus.set_reentry_config(outcome.config);
@@ -409,7 +418,7 @@ impl<'a> Board<'a> {
                             transition_connecting.store(true, Ordering::Relaxed);
                             return 0;
                         }
-                        ReceiveStatus::Incomplete => {}
+                        ReceiveStatus::Incomplete => break,
                     }
                     if self.modbus.response_pending()
                         && self
@@ -420,6 +429,16 @@ impl<'a> Board<'a> {
                         transition_connecting.store(true, Ordering::Relaxed);
                         return 0;
                     }
+                    // Backpressure preserves the response for a later cycle.
+                    // A rate change exits through the existing operating
+                    // entrypoint, so neither condition may consume another ADU.
+                    if self.modbus.response_pending() || self.modbus.reentry_pending() {
+                        break;
+                    }
+                }
+                if let Some((transaction_id, received_time_ns)) = last_accepted_request {
+                    state.output.metrics.last_input_id = transaction_id;
+                    state.output.metrics.last_input_received_time_ns = received_time_ns;
                 }
 
                 self.net
@@ -445,9 +464,7 @@ impl<'a> Board<'a> {
             // its pending one-shot phase term in the re-entry configuration
             // instead of consuming it on an interval which will be disabled.
             OperatingMode::Modbus(_) if self.modbus.reentry_pending() => 0,
-            OperatingMode::Modbus(_) => state
-                .current_modbus_config
-                .take_timing_correction_ns(),
+            OperatingMode::Modbus(_) => state.current_modbus_config.take_timing_correction_ns(),
         }
     }
 

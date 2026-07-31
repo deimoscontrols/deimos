@@ -1,5 +1,11 @@
 //! Fixed-storage, cycle-budgeted Modbus/TCP request handling.
 //!
+//! Each publishing cycle processes at most two complete ADUs. Each ADU may use
+//! at most two socket receives and two socket transmits, while a shared cycle
+//! budget enforces the aggregate limit. FC23 is decoded locally because the
+//! selected rmodbus release does not yet implement it; framing, register-map
+//! validation, exception encoding, and response storage remain shared.
+//!
 //! References:
 //!   \[1\] Modbus Organization, *MODBUS Application Protocol Specification
 //!   V1.1b3*, 2012.
@@ -8,10 +14,12 @@
 
 use deimos_shared::peripherals::deimos_daq_rev7::{
     modbus::{
-        HOLDING_REGISTER_COUNT, MAX_HOLDING_WRITE_REGISTERS, MODBUS_MAX_READ_REGISTERS,
-        MODBUS_MAX_WRITE_REGISTERS, SNAPSHOT_INPUT_BYTE_COUNT, SNAPSHOT_INPUT_REGISTER_COUNT,
-        apply_holding_write, holding_registers, snapshot_input_registers,
-        write_snapshot_input_register_bytes,
+        HOLDING_REGISTER_COUNT, HOLDING_SNAPSHOT_REGISTER_COUNT, HOLDING_SNAPSHOT_START,
+        MAX_HOLDING_WRITE_REGISTERS, MODBUS_MAX_READ_REGISTERS,
+        MODBUS_MAX_READ_WRITE_WRITE_REGISTERS, MODBUS_MAX_WRITE_REGISTERS,
+        MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION, SNAPSHOT_INPUT_BYTE_COUNT,
+        SNAPSHOT_INPUT_REGISTER_COUNT, SNAPSHOT_INPUT_START, apply_holding_write,
+        holding_registers, snapshot_input_registers, write_snapshot_input_register_bytes,
     },
     packets::{ModbusInitialConfig, OperatingSnapshot},
 };
@@ -31,10 +39,16 @@ const MBAP_PREFIX_LEN: usize = 6;
 const MIN_MBAP_LENGTH: usize = 2;
 /// Highest MBAP length accepted by rmodbus's fixed frame representation.
 const MAX_MBAP_LENGTH: usize = MODBUS_ADU_CAPACITY - MBAP_PREFIX_LEN;
-/// Maximum socket receive calls in one publishing cycle.
-const MAX_RX_CALLS_PER_CYCLE: u8 = 2;
-/// Maximum socket transmit calls in one publishing cycle.
-const MAX_TX_CALLS_PER_CYCLE: u8 = 2;
+/// Maximum complete request ADUs processed in one publishing cycle.
+pub(super) const MAX_ADUS_PER_CYCLE: usize = 2;
+/// Maximum socket receive calls needed to stage one ADU.
+const MAX_RX_CALLS_PER_ADU: u8 = 2;
+/// Maximum socket transmit calls used to enqueue one response ADU.
+const MAX_TX_CALLS_PER_ADU: u8 = 2;
+/// Maximum socket receive calls across both ADUs in one publishing cycle.
+const MAX_RX_CALLS_PER_CYCLE: u8 = MAX_RX_CALLS_PER_ADU * MAX_ADUS_PER_CYCLE as u8;
+/// Maximum socket transmit calls across both ADUs in one publishing cycle.
+const MAX_TX_CALLS_PER_CYCLE: u8 = MAX_TX_CALLS_PER_ADU * MAX_ADUS_PER_CYCLE as u8;
 
 /// Remaining socket operations available to one binding or operating cycle.
 pub(super) struct ModbusSocketBudget {
@@ -45,7 +59,10 @@ pub(super) struct ModbusSocketBudget {
 }
 
 impl ModbusSocketBudget {
-    /// Build the fixed two-receive/two-transmit per-cycle allowance.
+    /// Build the fixed allowance for two bounded ADUs per publishing cycle.
+    ///
+    /// Returns:
+    ///   Budget initialized to four receive and four transmit socket calls.
     pub(super) fn new() -> Self {
         Self {
             rx_calls: MAX_RX_CALLS_PER_CYCLE,
@@ -232,7 +249,7 @@ impl ModbusTcpServer {
             return ReceiveStatus::Incomplete;
         }
 
-        for _ in 0..MAX_RX_CALLS_PER_CYCLE {
+        for _ in 0..MAX_RX_CALLS_PER_ADU {
             if budget.rx_calls == 0 {
                 break;
             }
@@ -278,7 +295,7 @@ impl ModbusTcpServer {
         net: &mut Net<'_>,
         budget: &mut ModbusSocketBudget,
     ) -> Result<(), ()> {
-        for _ in 0..MAX_TX_CALLS_PER_CYCLE {
+        for _ in 0..MAX_TX_CALLS_PER_ADU {
             if !self.response_pending() || budget.tx_calls == 0 {
                 break;
             }
@@ -415,13 +432,24 @@ impl ModbusTcpServer {
         self.request[6] = 1;
         self.response.clear();
         self.response_offset = 0;
-        let processed = process_with_rmodbus(
-            &self.request[..self.request_len],
-            &mut self.response,
-            snapshot,
-            config,
-            loss_of_contact_counter,
-        );
+        let request = &self.request[..self.request_len];
+        let processed = if function == MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION {
+            Ok(process_read_write_multiple_registers(
+                request,
+                &mut self.response,
+                snapshot,
+                config,
+                loss_of_contact_counter,
+            ))
+        } else {
+            process_with_rmodbus(
+                request,
+                &mut self.response,
+                snapshot,
+                config,
+                loss_of_contact_counter,
+            )
+        };
         self.request[6] = unit_id;
         let (accepted, updated_config) = processed.map_err(|_| ())?;
         if self.response.len > 6 {
@@ -469,8 +497,8 @@ impl ModbusTcpServer {
 /// Validate supported request lengths and protocol-defined register counts.
 ///
 /// The caller has already required an eight-byte minimum ADU, so indexing the
-/// unit and function bytes is safe. FC16 byte iteration is consequently bounded
-/// by the fixed 256-byte request buffer.
+/// unit and function bytes is safe. FC16 and FC23 value iteration is
+/// consequently bounded by the fixed 256-byte request buffer.
 ///
 /// Args:
 ///   request: Complete request ADU with shape `(request_len,)`.
@@ -505,6 +533,24 @@ fn validate_supported_pdu(request: &[u8]) -> Result<(), ErrorKind> {
             }
             Ok(())
         }
+        MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION => {
+            if request.len() < 17 {
+                return Err(ErrorKind::IllegalDataValue);
+            }
+            let read_count = u16::from_be_bytes([request[10], request[11]]);
+            let write_count = u16::from_be_bytes([request[14], request[15]]);
+            let byte_count = usize::from(request[16]);
+            if read_count == 0
+                || read_count > MODBUS_MAX_READ_REGISTERS
+                || write_count == 0
+                || write_count > MODBUS_MAX_READ_WRITE_WRITE_REGISTERS
+                || byte_count != usize::from(write_count) * 2
+                || request.len() != 17 + byte_count
+            {
+                return Err(ErrorKind::IllegalDataValue);
+            }
+            Ok(())
+        }
         _ => Err(ErrorKind::IllegalFunction),
     }
 }
@@ -516,7 +562,7 @@ fn validate_supported_pdu(request: &[u8]) -> Result<(), ErrorKind> {
 ///
 /// Args:
 ///   request: Complete, normalized-unit request ADU with shape `(request_len,)`.
-///   response: Fixed response storage.
+///   response: Fixed response storage with capacity `(MODBUS_ADU_CAPACITY,)`.
 ///   snapshot: Latest immutable engineering snapshot.
 ///   config: Complete retained configuration before the request.
 ///   loss_of_contact_counter: Current unanswered-cycle count.
@@ -539,7 +585,16 @@ fn process_with_rmodbus(
 
     match function {
         ModbusFunction::GetInputs => {
-            if queue_snapshot_response(request, response, snapshot, address, count).is_err() {
+            if queue_snapshot_response(
+                request,
+                response,
+                snapshot,
+                SNAPSHOT_INPUT_START,
+                address,
+                count,
+            )
+            .is_err()
+            {
                 set_exception_response(
                     request,
                     response,
@@ -553,8 +608,17 @@ fn process_with_rmodbus(
             }
         }
         ModbusFunction::GetHoldings => {
-            let registers = holding_registers(&config, loss_of_contact_counter);
-            if queue_read_response(request, response, &registers, address, count).is_err() {
+            if queue_holding_response(
+                request,
+                response,
+                snapshot,
+                &config,
+                loss_of_contact_counter,
+                address,
+                count,
+            )
+            .is_err()
+            {
                 set_exception_response(
                     request,
                     response,
@@ -589,16 +653,185 @@ fn process_with_rmodbus(
                     Ok((true, updated_config))
                 }
                 Err(error) => {
-                    let error = match error {
-                        deimos_shared::peripherals::deimos_daq_rev7::modbus::HoldingWriteError::IllegalDataAddress => ErrorKind::IllegalDataAddress,
-                        deimos_shared::peripherals::deimos_daq_rev7::modbus::HoldingWriteError::IllegalDataValue => ErrorKind::IllegalDataValue,
-                    };
+                    let error = holding_write_error_kind(error);
                     set_exception_response(request, response, request[6], function.byte(), error);
                     Ok((false, config))
                 }
             }
         }
         _ => Err(ErrorKind::IllegalFunction),
+    }
+}
+
+/// Apply an FC23 holding-register write and return one holding-register view.
+///
+/// The read range is validated before the candidate write is applied, so every
+/// exception leaves the complete retained configuration unchanged. FC23 is
+/// parsed explicitly because rmodbus 0.12 does not represent function `0x17`.
+///
+/// Args:
+///   request: Complete normalized-unit FC23 ADU with shape `(request_len,)`.
+///   response: Fixed response storage.
+///   snapshot: Coherent snapshot captured before request processing this cycle.
+///   config: Complete retained configuration before the request.
+///   loss_of_contact_counter: Current unanswered-cycle count.
+///
+/// Returns:
+///   Whether the request was accepted and the resulting complete configuration.
+///
+/// References:
+///   \[1\] Modbus Organization, *MODBUS Application Protocol Specification
+///   V1.1b3*, section 6.17, 2012.
+// FUTURE: Use rmodbus's FC23 implementation once the library provides one.
+fn process_read_write_multiple_registers(
+    request: &[u8],
+    response: &mut FixedResponse,
+    snapshot: &OperatingSnapshot,
+    config: ModbusInitialConfig,
+    loss_of_contact_counter: u16,
+) -> (bool, ModbusInitialConfig) {
+    // FC23 places the read range before the write range and byte-count field.
+    // validate_supported_pdu has already established every indexed byte and
+    // bounded the corresponding register counts.
+    let read_address = u16::from_be_bytes([request[8], request[9]]);
+    let read_count = u16::from_be_bytes([request[10], request[11]]);
+    let write_address = u16::from_be_bytes([request[12], request[13]]);
+    let write_count = u16::from_be_bytes([request[14], request[15]]);
+
+    if !holding_read_range_is_valid(read_address, read_count)
+        || usize::from(write_count) > MAX_HOLDING_WRITE_REGISTERS
+    {
+        set_exception_response(
+            request,
+            response,
+            request[6],
+            MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION,
+            ErrorKind::IllegalDataAddress,
+        );
+        return (false, config);
+    }
+
+    // The rev7 writable map is narrower than the protocol maximum, so one
+    // fixed stack array covers every accepted FC23 write without allocation.
+    let mut values = [0_u16; MAX_HOLDING_WRITE_REGISTERS];
+    for (index, pair) in request[17..].chunks_exact(2).enumerate() {
+        values[index] = u16::from_be_bytes([pair[0], pair[1]]);
+    }
+    let updated_config =
+        match apply_holding_write(config, write_address, &values[..usize::from(write_count)]) {
+            Ok(updated_config) => updated_config,
+            Err(error) => {
+                set_exception_response(
+                    request,
+                    response,
+                    request[6],
+                    MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION,
+                    holding_write_error_kind(error),
+                );
+                return (false, config);
+            }
+        };
+
+    // Standard FC23 reads holding registers after applying the write. The
+    // configuration view therefore uses updated_config, while the snapshot
+    // mirror still refers to the immutable beginning-of-cycle measurement.
+    if queue_holding_response(
+        request,
+        response,
+        snapshot,
+        &updated_config,
+        loss_of_contact_counter,
+        read_address,
+        read_count,
+    )
+    .is_err()
+    {
+        set_exception_response(
+            request,
+            response,
+            request[6],
+            MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION,
+            ErrorKind::IllegalDataAddress,
+        );
+        (false, config)
+    } else {
+        (true, updated_config)
+    }
+}
+
+/// Map a shared holding-write validation error to its standard protocol error.
+///
+/// Args:
+///   error: Shared semantic error produced by atomic register-map validation.
+///
+/// Returns:
+///   Equivalent rmodbus error used to encode the Modbus exception response.
+fn holding_write_error_kind(
+    error: deimos_shared::peripherals::deimos_daq_rev7::modbus::HoldingWriteError,
+) -> ErrorKind {
+    match error {
+        deimos_shared::peripherals::deimos_daq_rev7::modbus::HoldingWriteError::IllegalDataAddress => {
+            ErrorKind::IllegalDataAddress
+        }
+        deimos_shared::peripherals::deimos_daq_rev7::modbus::HoldingWriteError::IllegalDataValue => {
+            ErrorKind::IllegalDataValue
+        }
+    }
+}
+
+/// Return whether a read lies wholly within one supported holding-register window.
+///
+/// Args:
+///   address: Zero-based first holding-register address.
+///   count: Requested span length, in 16-bit registers.
+///
+/// Returns:
+///   Whether the complete span lies within either the configuration block or
+///   the read-only coherent-snapshot mirror, without crossing their gap.
+fn holding_read_range_is_valid(address: u16, count: u16) -> bool {
+    let start = u32::from(address);
+    let end = start + u32::from(count);
+    (start < u32::from(HOLDING_REGISTER_COUNT) && end <= u32::from(HOLDING_REGISTER_COUNT))
+        || (start >= u32::from(HOLDING_SNAPSHOT_START)
+            && end
+                <= u32::from(HOLDING_SNAPSHOT_START) + u32::from(HOLDING_SNAPSHOT_REGISTER_COUNT))
+}
+
+/// Encode one supported configuration or snapshot holding-register range.
+///
+/// Args:
+///   request: Complete request ADU with shape `(request_len,)` supplying header
+///     and function fields.
+///   response: Fixed response storage with capacity `(MODBUS_ADU_CAPACITY,)`.
+///   snapshot: Immutable beginning-of-cycle engineering snapshot.
+///   config: Complete configuration visible to this read.
+///   loss_of_contact_counter: Current unanswered-cycle count, in cycles.
+///   address: Zero-based first holding-register address.
+///   count: Requested span length, in 16-bit registers.
+///
+/// Returns:
+///   `Ok(())` after encoding one in-range view, or `IllegalDataAddress`.
+fn queue_holding_response(
+    request: &[u8],
+    response: &mut FixedResponse,
+    snapshot: &OperatingSnapshot,
+    config: &ModbusInitialConfig,
+    loss_of_contact_counter: u16,
+    address: u16,
+    count: u16,
+) -> Result<(), ErrorKind> {
+    if address < HOLDING_SNAPSHOT_START {
+        let registers = holding_registers(config, loss_of_contact_counter);
+        queue_read_response(request, response, &registers, address, count)
+    } else {
+        queue_snapshot_response(
+            request,
+            response,
+            snapshot,
+            HOLDING_SNAPSHOT_START,
+            address,
+            count,
+        )
     }
 }
 
@@ -610,10 +843,12 @@ fn process_with_rmodbus(
 /// Uncommon partial reads retain the generic register-slice implementation.
 ///
 /// Args:
-///   request: Complete request ADU supplying header and function fields.
-///   response: Fixed response storage.
+///   request: Complete request ADU with shape `(request_len,)` supplying header
+///     and function fields.
+///   response: Fixed response storage with capacity `(MODBUS_ADU_CAPACITY,)`.
 ///   snapshot: Latest immutable engineering snapshot.
-///   address: Zero-based first requested register.
+///   map_start: Absolute first register of this snapshot view.
+///   address: Absolute first requested register.
 ///   count: Number of requested registers.
 ///
 /// Returns:
@@ -622,11 +857,21 @@ fn queue_snapshot_response(
     request: &[u8],
     response: &mut FixedResponse,
     snapshot: &OperatingSnapshot,
+    map_start: u16,
     address: u16,
     count: u16,
 ) -> Result<(), ErrorKind> {
-    if address != 0 || count != SNAPSHOT_INPUT_REGISTER_COUNT {
-        return queue_partial_snapshot_response(request, response, snapshot, address, count);
+    let relative_address = address
+        .checked_sub(map_start)
+        .ok_or(ErrorKind::IllegalDataAddress)?;
+    if relative_address != 0 || count != SNAPSHOT_INPUT_REGISTER_COUNT {
+        return queue_partial_snapshot_response(
+            request,
+            response,
+            snapshot,
+            relative_address,
+            count,
+        );
     }
 
     let response_len = 9 + SNAPSHOT_INPUT_BYTE_COUNT;
@@ -641,6 +886,16 @@ fn queue_snapshot_response(
 }
 
 /// Encode an uncommon partial snapshot through the shared register-valued map.
+///
+/// Args:
+///   request: Complete request ADU supplying header and function fields.
+///   response: Fixed response storage.
+///   snapshot: Immutable engineering snapshot to encode.
+///   address: Snapshot-relative first register address.
+///   count: Requested span length, in 16-bit registers.
+///
+/// Returns:
+///   `Ok(())` after encoding the in-range span, or `IllegalDataAddress`.
 #[inline(never)]
 fn queue_partial_snapshot_response(
     request: &[u8],

@@ -864,11 +864,12 @@ each cycle
   to `Connecting` still applies safe outputs. This intentional reliability
   stance differs from Deimos roundtrip operation.
 
-Document one outstanding Modbus request per connection. This avoids needing to
-preserve partial or pipelined application frames across a rare cycle-rate
-re-entry.
+Recommend one outstanding FC23 request per connection for deterministic cyclic
+control. The bounded server may process two complete ADUs per publishing cycle
+so a short pipeline or backlog can drain; a rate-changing request stops that
+cycle's drain after its response is enqueued.
 
-The bounded one-ADU receive buffer is owned by `Board` or `Net` so the complete
+The bounded one-ADU staging buffer is owned by `Board` or `Net` so the complete
 first request survives the `Binding -> OperatingModbus` transition. After
 common operating initialization, the first normal operating cycle publishes a
 snapshot, processes that request, and sends its normal response. This lets a
@@ -908,19 +909,19 @@ matches the documentation.
 After phase-one support is stable:
 
 - Add `rmodbus` with default features disabled and fixed-size response storage.
-- Accumulate at most one bounded TCP ADU, handling partial TCP reads, invalid
-  MBAP lengths, transmit backpressure, disconnect, and relisten. Require clients
-  to wait for each response before sending the next request. In every
-  Modbus-capable cycle, perform at most two TCP receive-buffer calls, two TCP
-  transmit-buffer calls, two Ethernet frame receives, and two Ethernet frame
-  transmits. Parse at most one complete ADU; do not use resynchronization scans
-  or any unbounded packet-draining loop.
+- Accumulate at most one bounded TCP ADU at a time, handling partial TCP reads,
+  invalid MBAP lengths, transmit backpressure, disconnect, and relisten. In
+  every Modbus-capable cycle, perform at most four TCP receive-buffer calls,
+  four TCP transmit-buffer calls, two Ethernet frame receives, and two Ethernet
+  frame transmits. Parse at most two complete ADUs; do not use resynchronization
+  scans or any unbounded packet-draining loop.
 - Define a zero-based register map tested alongside the `OperatingSnapshot`
   definition.
 - Support function code 04 for the immutable latest-snapshot input registers,
-  function code 03 for reading configuration/output holding registers, and
-  function code 16 for writing complete configuration/output fields or groups.
-  Other data-access function codes are unsupported initially.
+  function code 03 for reading configuration/output holding registers, function
+  code 16 for writing complete configuration/output fields or groups, and
+  function code 23 for writing one such block while reading the read-only
+  snapshot mirror from holding address `0x0100`.
 - Lay out the snapshot so it fits in one standard Modbus read and document that
   clients should read the full block in one request for a synchronized sample.
   Add a size assertion against the protocol's register-count limit.
@@ -1114,24 +1115,25 @@ Phase 3 exit criteria:
   cutoff; clients wait for the response before issuing another request.
 - Requests using any Unit Identifier, including `0` and `255`, are accepted and
   responses echo the identifier unchanged.
-- Each Modbus-capable cycle performs no more than two socket receives, two
+- Each Modbus-capable cycle performs no more than four socket receives, four
   socket transmits, two Ethernet-frame receives, two Ethernet-frame transmits,
-  and one complete ADU parse.
+  and two complete ADU parses.
 - One minute without accepted requests at the default configuration returns the
   board to `Connecting` and safe outputs through the existing transition path.
 
 ### Phase 4: Modbus/TCP hardening (complete)
 
-1. Exercise malformed and partial-read Modbus TCP frames. Document that clients
-   keep only one request outstanding; behavior for pipelined requests is not
-   guaranteed.
+1. Exercise malformed and partial-read Modbus TCP frames. Recommend that cyclic
+   clients keep one FC23 request outstanding; verify bounded two-ADU draining
+   for transient pipelining.
 2. Test disconnect/reconnect, DHCP/fallback address changes during an active
    session, deliberately stalled clients with TX backpressure, and an
    uninterrupted 60-second default loss-of-contact timeout.
-3. Run the hardware matrix at the supported 4 Hz and 5 kHz endpoints. At each
-   endpoint, sustain complete 75-register FC04 snapshot reads, complete
-   21-register output-block FC16 writes, and complete three-register timing-
-   configuration FC16 writes. Retain the one-request-outstanding client rule.
+3. Run the hardware matrix at the supported rate endpoints. At each endpoint,
+   sustain recommended FC23 output-block/snapshot roundtrips as well as
+   complete FC04 reads and FC16 configuration writes. Keep one request
+   outstanding during ordinary cyclic tests and separately verify the bounded
+   two-request drain.
 4. For every matrix case, capture DAQ cycle-time margin, loss-of-contact count,
    reconnect or operating-state exits, and the on-target MSP stack high-water
    mark. Run the canonical 5 kHz/10-second Deimos benchmark on the final Phase 4
@@ -1353,9 +1355,9 @@ Phase 6 exit criteria:
 - Deimos loss-of-contact and timing synchronization behavior remains intact.
 - Modbus default configuration resolves to 10 Hz and 600 cycles.
 - An uncalibrated image never listens on port 502 and cannot enter Modbus mode.
-- A valid FC03 or FC04 read or FC16 write can select Modbus mode from Binding;
-  the triggering request receives its response after the first operating
-  snapshot is published.
+- A valid FC03 or FC04 read, FC16 write, or FC23 read/write can select Modbus
+  mode from Binding; the triggering request receives its response after the
+  first operating snapshot is published.
 - Timeout counter resets only on accepted requests.
 - Re-entry preserves PWM, DAC, and GPIO outputs. The client can reconnect if the
   TCP socket restarts.
@@ -1369,7 +1371,7 @@ Phase 6 exit criteria:
 - Invalid new rates do not alter filters, cycle timing, timeout, or outputs.
 - Rates below the 1 Hz board-filter design threshold select the coefficient-
   level passthrough, retain the branch-free hot path, and have unity response.
-- Register-map golden vectors cover FC03/FC04/FC16, network byte order, and
+- Register-map golden vectors cover FC03/FC04/FC16/FC23, network byte order, and
   most-significant-register-first `f32`, 32-bit, and 64-bit values.
 - Unit-Identifier tests cover representative values including `0` and `255`
   and verify that each is accepted and echoed unchanged in its response.
