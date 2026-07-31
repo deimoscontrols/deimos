@@ -17,10 +17,16 @@ calibrated image. Consequently, a stale calibrated image cannot accidentally be
 calibrated a second time, and an identity image cannot silently be used for
 normal operation.
 
-For an identity calibration run, make sure the assigned unit's generated
-`calibration.bin` is absent (move an existing artifact aside rather than
-deleting it), then run the flash script. For the final calibrated image, leave
-the generated file in its records directory. In both cases:
+For an identity calibration run, use `--nocal`. This overrides an existing
+generated calibration and removes any staged `static/calibration.in` before
+building:
+
+```sh
+uv run python firmware/flash.py --nocal
+```
+
+For the final calibrated image, leave the generated file in its records
+directory and run:
 
 ```sh
 uv run python firmware/flash.py

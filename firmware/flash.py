@@ -2,6 +2,7 @@
 
 import json
 import re
+from argparse import ArgumentParser
 from pathlib import Path
 from shutil import copyfile
 from subprocess import check_call
@@ -10,6 +11,17 @@ from subprocess import check_call
 CALIBRATION_RECORD_MODELS = {
     "deimos_daq_rev7": "DeimosDaqRev7",
 }
+
+
+def parse_args():
+    """Parse firmware flashing command-line arguments."""
+    parser = ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--nocal",
+        action="store_true",
+        help="flash identity/uncalibrated firmware even if calibration.bin exists",
+    )
+    return parser.parse_args()
 
 
 def writemac(fp: Path, mac: str):
@@ -72,6 +84,7 @@ def stage_calibration(source: Path, destination: Path) -> bool:
 
 
 if __name__ == "__main__":
+    args = parse_args()
     here = Path(__file__).parent
 
     # Load association between probes and boards
@@ -106,7 +119,10 @@ if __name__ == "__main__":
                 / "calibration.bin"
             )
             calibration_destination = here / model / "static" / "calibration.in"
-            if stage_calibration(calibration_source, calibration_destination):
+            if args.nocal:
+                calibration_destination.unlink(missing_ok=True)
+                print("Calibration disabled by --nocal; using the identity calibration")
+            elif stage_calibration(calibration_source, calibration_destination):
                 print(f"Using calibration {calibration_source}")
             else:
                 print(
