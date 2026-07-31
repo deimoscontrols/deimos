@@ -133,6 +133,21 @@ fn frontend_35mv<D: DualNum<f64> + Copy>(x: SVector<D, INPUT_COUNT>) -> D {
     opa196_3khz_filt(vf, x[6], x[7], x[8], x[9])
 }
 
+// As of rev 7.0.1, 2026-07-12
+//   | Component                    | Nominal Value | Error Rating | Thermal Sensitivity |
+//   |------------------------------|---------------|--------------|---------------------|
+//   | Amp gain set resistor        | 2 kohm        | 0.01%        | 5 ppm/C             |
+//   | Amp gain                     | derived       | 0.03%        | 10 ppm/C            |
+//   | Amp input offset             | 0 V           | 40 uV        | 0.4 uV/C            |
+//   | Amp output offset            | 0 V           | 200 uV       | 2 uV/C              |
+//   | Amp input bias current       | 35 nA         | 5 nA         |                     |
+//   | Voltage reference for ADC    | 2.5 V         | 0.02%        | 2 ppm/C             |
+//   | Voltage ref. for amp offset  | 1.024 V       | 0.05%        | 12 ppm/C            |
+//   | Filter resistor              | 10 kohm       | 1%           | 50 ppm/C             |
+//   | OVP jfet clamp leakage       | 1 nA @ 15V    |              |                     |
+//   | Filter amp input offset      | 0 V           | 25 uV        | 0.5 uV/C            |
+//   | Filter amp input bias current| 5pA           | 5 pA         |                     |
+
 /// Linearized uncertainty and thermal sensitivity in output voltage of
 /// the +/-35mV frontend at a given input voltage.
 fn frontend_35mv_uncertainty(
