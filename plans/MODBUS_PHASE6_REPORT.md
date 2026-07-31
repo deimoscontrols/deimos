@@ -253,7 +253,7 @@ maximum.
 
 ## Final calibrated Modbus matrix
 
-On 2026-07-31, calibrated SN3 ran the bounded `rev7_modbus_phase4` hardware
+On 2026-07-31, calibrated SN3 ran the bounded `rev7_modbus_test` hardware
 harness against the final rounded-N/direct firmware. The first attempt found
 that the harness's malformed-range probe still used the old 75-register
 snapshot boundary. The firmware correctly treated that request as valid after

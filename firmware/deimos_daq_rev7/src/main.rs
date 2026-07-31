@@ -102,9 +102,10 @@ unsafe fn main() -> ! {
     // Board startup
     let (mut board, mut sampler) = Board::new(store);
 
-    // Phase 4 test images can paint unused MSP memory immediately before the
-    // interrupt scopes begin. A debugger later scans the DTCM pattern, so the
-    // diagnostic adds no work to either realtime IRQ. Production builds omit it.
+    // Stack-watermark test images can paint unused MSP memory immediately
+    // before the interrupt scopes begin. A debugger later scans the DTCM
+    // pattern, so the diagnostic adds no work to either realtime IRQ.
+    // Production builds omit it.
     #[cfg(feature = "stack-watermark")]
     cortex_m_stack::repaint_stack();
 

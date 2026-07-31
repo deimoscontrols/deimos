@@ -14,9 +14,9 @@ readonly PROBE="${1:-${DEFAULT_PROBE}}"
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly ELF="${SCRIPT_DIR}/deimos_daq_rev7/target/thumbv7em-none-eabihf/release/deimos_bare_metal"
 readonly SYMBOLS=(
-    "PHASE4_MIN_CYCLE_MARGIN_NS"
-    "PHASE6_MIN_SAMPLE_ONLY_MARGIN_NS"
-    "PHASE6_MIN_SAMPLE_COMM_MARGIN_NS"
+    "MIN_PUBLISHING_CYCLE_MARGIN_NS"
+    "MIN_SAMPLE_ONLY_MARGIN_NS"
+    "MIN_SAMPLE_COMM_MARGIN_NS"
 )
 
 if ! command -v probe-rs >/dev/null 2>&1 || ! command -v nm >/dev/null 2>&1; then

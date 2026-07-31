@@ -15,19 +15,19 @@ use super::modbus::{ModbusSocketBudget, ReceiveStatus};
 /// sufficient and avoid an exclusive-update loop in the measured path.
 #[cfg(feature = "timing-watermark")]
 #[unsafe(no_mangle)]
-pub static PHASE4_MIN_CYCLE_MARGIN_NS: core::sync::atomic::AtomicI32 =
+pub static MIN_PUBLISHING_CYCLE_MARGIN_NS: core::sync::atomic::AtomicI32 =
     core::sync::atomic::AtomicI32::new(i32::MAX);
 
 /// Minimum oversampled sample-only SysTick margin in an instrumented image.
 #[cfg(feature = "timing-watermark")]
 #[unsafe(no_mangle)]
-pub static PHASE6_MIN_SAMPLE_ONLY_MARGIN_NS: core::sync::atomic::AtomicI32 =
+pub static MIN_SAMPLE_ONLY_MARGIN_NS: core::sync::atomic::AtomicI32 =
     core::sync::atomic::AtomicI32::new(i32::MAX);
 
 /// Minimum cycle-owned sample-plus-communication SysTick margin.
 #[cfg(feature = "timing-watermark")]
 #[unsafe(no_mangle)]
-pub static PHASE6_MIN_SAMPLE_COMM_MARGIN_NS: core::sync::atomic::AtomicI32 =
+pub static MIN_SAMPLE_COMM_MARGIN_NS: core::sync::atomic::AtomicI32 =
     core::sync::atomic::AtomicI32::new(i32::MAX);
 
 /// Mutable protocol and conversion state shared by both sampling topologies.
@@ -501,21 +501,21 @@ fn record_minimum(target: &core::sync::atomic::AtomicI32, margin_ns: i64) {
 
 fn record_publication_margin(margin_ns: i64) {
     #[cfg(feature = "timing-watermark")]
-    record_minimum(&PHASE4_MIN_CYCLE_MARGIN_NS, margin_ns);
+    record_minimum(&MIN_PUBLISHING_CYCLE_MARGIN_NS, margin_ns);
     #[cfg(not(feature = "timing-watermark"))]
     let _ = margin_ns;
 }
 
 fn record_sample_only_margin(margin_ns: i64) {
     #[cfg(feature = "timing-watermark")]
-    record_minimum(&PHASE6_MIN_SAMPLE_ONLY_MARGIN_NS, margin_ns);
+    record_minimum(&MIN_SAMPLE_ONLY_MARGIN_NS, margin_ns);
     #[cfg(not(feature = "timing-watermark"))]
     let _ = margin_ns;
 }
 
 fn record_sample_comm_margin(margin_ns: i64) {
     #[cfg(feature = "timing-watermark")]
-    record_minimum(&PHASE6_MIN_SAMPLE_COMM_MARGIN_NS, margin_ns);
+    record_minimum(&MIN_SAMPLE_COMM_MARGIN_NS, margin_ns);
     #[cfg(not(feature = "timing-watermark"))]
     let _ = margin_ns;
 }

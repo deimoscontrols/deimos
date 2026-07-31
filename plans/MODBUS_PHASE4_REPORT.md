@@ -9,7 +9,7 @@ Benchmark adapter: CDC-NCM `A0:CE:C8:69:F4:6E`
 
 ## Implemented scope
 
-- Added `rev7_modbus_phase4`, a finite host-side hardware harness for malformed
+- Added `rev7_modbus_test`, a finite host-side hardware harness for malformed
   framing, fragmented delivery, lifecycle, endpoint, backpressure, address-
   transition, and timeout tests. Ordinary suites keep exactly one request
   outstanding. Only the explicitly adversarial backpressure suite pipelines a

@@ -1,9 +1,9 @@
-//! Phase 4 Modbus/TCP lifecycle and stress checks for a calibrated rev7 DAQ.
+//! Modbus/TCP lifecycle and stress checks for a calibrated rev7 DAQ.
 //!
 //! Run with:
 //!
 //! ```text
-//! cargo run -p deimos --example rev7_modbus_phase4 -- [SUITE] [IP[:PORT]]
+//! cargo run -p deimos --example rev7_modbus_test -- [SUITE] [IP[:PORT]]
 //! ```
 //!
 //! `SUITE` is `quick` (the default), `protocol`, `lifecycle`, `endpoints`,
@@ -52,16 +52,16 @@ const DEFAULT_TIMEOUT_TEST: Duration = Duration::from_secs(62);
 /// Fallible result used by the finite hardware-test suites.
 type TestResult<T = ()> = Result<T, Box<dyn Error>>;
 
-/// Select and run one finite Phase 4 hardware-test suite.
+/// Select and run one finite Modbus/TCP hardware-test suite.
 fn main() -> TestResult {
     let mut args = env::args().skip(1);
     let suite = args.next().unwrap_or_else(|| "quick".to_owned());
     let endpoint = normalize_endpoint(args.next().unwrap_or_else(|| DEFAULT_ENDPOINT.to_owned()));
     if args.next().is_some() {
-        return Err("usage: rev7_modbus_phase4 [SUITE] [IP[:PORT]]".into());
+        return Err("usage: rev7_modbus_test [SUITE] [IP[:PORT]]".into());
     }
 
-    println!("phase4_suite={suite}");
+    println!("modbus_suite={suite}");
     println!("endpoint={endpoint}");
     match suite.as_str() {
         "quick" => {
@@ -86,9 +86,9 @@ fn main() -> TestResult {
             backpressure_suite(&endpoint)?;
             timeout_suite(&endpoint)?;
         }
-        _ => return Err(format!("unknown Phase 4 suite {suite:?}").into()),
+        _ => return Err(format!("unknown Modbus/TCP suite {suite:?}").into()),
     }
-    println!("phase4_result=pass");
+    println!("modbus_result=pass");
     Ok(())
 }
 

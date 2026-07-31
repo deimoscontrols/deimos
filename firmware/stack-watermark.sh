@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Read the Phase 4 test image's painted DTCM stack and report observed MSP use.
+# Read a stack-watermark test image's painted DTCM stack and report observed MSP use.
 #
 # First flash firmware built with `--features stack-watermark`, run the desired
 # on-target workload, then invoke this script while the probe remains attached.

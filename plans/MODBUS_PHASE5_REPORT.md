@@ -109,7 +109,7 @@ The production image grew by 268 bytes from the Phase 4 handoff:
   enabled console/integration tests, and doctests; the desktop smoke test
   remains ignored. The two known numerics test-import warnings remain.
 - `cargo check -p deimos --examples`: passed.
-- `cargo test -p deimos --example rev7_modbus_phase4`: four passed.
+- `cargo test -p deimos --example rev7_modbus_test`: four passed.
 - `cargo test -p deimos --example rev7_modbus_client`: passed.
 - Rev7 `cargo build --release`: passed without a warning.
 - The pinned stack-size report, formatting of changed sources, packet/register
