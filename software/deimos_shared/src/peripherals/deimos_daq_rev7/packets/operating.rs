@@ -6,6 +6,8 @@ use byte_struct::{ByteStruct, ByteStructLen, ByteStructUnspecifiedByteOrder};
 
 use crate::OperatingMetrics;
 
+use super::super::{MODBUS_DEFAULT_DT_NS, MODBUS_DEFAULT_LOSS_OF_CONTACT_LIMIT};
+
 /// Complete rev7 output state shared by Deimos and Modbus operating modes.
 ///
 /// Fixed-size array fields state their wire shapes below. The struct is
@@ -62,11 +64,6 @@ impl OperatingOutputSettings {
             && self.gpio & !0x0f == 0
     }
 }
-
-/// Default Modbus publishing period, corresponding to 10 Hz.
-pub const MODBUS_DEFAULT_DT_NS: u32 = 100_000_000;
-/// Default one-minute Modbus contact timeout at 10 Hz.
-pub const MODBUS_DEFAULT_LOSS_OF_CONTACT_LIMIT: u16 = 600;
 
 /// Fully resolved values needed to enter or re-enter Modbus operation.
 ///
