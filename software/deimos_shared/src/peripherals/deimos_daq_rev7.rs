@@ -125,8 +125,16 @@ pub const ADC_SINGLE_SAMPLE_CUTOVER_HZ: u32 = 3_000;
 /// 16-bit timer modulus between samples in either synchronous topology.
 pub const COUNTER_MAX_EDGE_RATE_HZ: u32 = 50_000_000;
 
+/// Maximum age of the latest valid frequency-input capture in `ns`.
+///
+/// The current timer configuration has a usable lower limit near `400 Hz`.
+/// Holding a valid capture for `10 ms` tolerates several missing sampling
+/// observations while ensuring that a stopped input returns promptly to zero.
+pub const FREQUENCY_INPUT_VALID_TIMEOUT_NS: i64 = 10_000_000;
+
 const _: () = assert!(ADC_OVERSAMPLE_TARGET_HZ > 0);
 const _: () = assert!(ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE > 0);
+const _: () = assert!(FREQUENCY_INPUT_VALID_TIMEOUT_NS > 0);
 const _: () = assert!(
     ADC_OVERSAMPLE_TARGET_HZ == ADC_SINGLE_SAMPLE_CUTOVER_HZ * ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE
 );

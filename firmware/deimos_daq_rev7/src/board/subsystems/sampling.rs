@@ -1,8 +1,7 @@
-use deimos_numerics::embedded::fixed::MedianFilter;
 use deimos_shared::peripherals::deimos_daq_rev7::{
     AdcFilter, AdcFilterState, AdcFractionalDelayFilter, AdcFractionalDelayFilterState,
-    FREQUENCY_CHANNEL_COUNT, adc_filter_bank, adc_fractional_delay_filter_bank,
-    timing::unwrap_u16_delta,
+    FREQUENCY_CHANNEL_COUNT, FREQUENCY_INPUT_VALID_TIMEOUT_NS, adc_filter_bank,
+    adc_fractional_delay_filter_bank, timing::unwrap_u16_delta,
 };
 use nb::block;
 use stm32h7xx_hal::{adc, gpio::Pin, rcc::CoreClocks, stm32::*, timer::GetClk};
@@ -68,6 +67,65 @@ impl Unroller {
     }
 }
 
+/// Latest valid period-capture result for one frequency input.
+///
+/// A nonzero capture refreshes the retained frequency. Polls without a new
+/// capture leave it unchanged until its age reaches
+/// [`FREQUENCY_INPUT_VALID_TIMEOUT_NS`], at which point it returns to zero.
+///
+/// References:
+///   \[1\] STMicroelectronics, *RM0433 STM32H742, STM32H743/753 and
+///   STM32H750 Value Line advanced Arm-based 32-bit MCUs*, general-purpose
+///   timer status and capture/compare register descriptions.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct FrequencyInputState {
+    /// Board time when the latest nonzero period was observed, in `ns`.
+    last_valid_capture_time_ns: i64,
+    /// Most recently calculated valid frequency in `Hz`, or zero after timeout.
+    latest_frequency_hz: f32,
+}
+
+impl FrequencyInputState {
+    /// Discard the retained capture at an operating ownership change.
+    fn reset(&mut self) {
+        *self = Self::default();
+    }
+
+    /// Consume one optional newly captured period and apply the validity timeout.
+    ///
+    /// Args:
+    ///   captured_period: Newly captured edge period in `timer tick`, or `None`
+    ///     when `CC1IF` did not indicate a new capture.
+    ///   sample_time_ns: Board time at which the capture register is observed,
+    ///     in `ns`.
+    ///   frequency_scaling: Timer tick rate in `tick/s`.
+    ///
+    /// Returns:
+    ///   Latest valid frequency in `Hz`, or zero before the first valid capture
+    ///   and after the capture-validity timeout.
+    #[inline(always)]
+    fn update(
+        &mut self,
+        captured_period: Option<u16>,
+        sample_time_ns: i64,
+        frequency_scaling: f32,
+    ) -> f32 {
+        if let Some(period) = captured_period
+            && period != 0
+        {
+            self.latest_frequency_hz = frequency_scaling / period as f32;
+            self.last_valid_capture_time_ns = sample_time_ns;
+        }
+
+        if sample_time_ns.wrapping_sub(self.last_valid_capture_time_ns)
+            >= FREQUENCY_INPUT_VALID_TIMEOUT_NS
+        {
+            self.latest_frequency_hz = 0.0;
+        }
+        self.latest_frequency_hz
+    }
+}
+
 pub struct AdcPins {
     pub ain0: Pin<'F', 3>,
     pub ain1: Pin<'F', 4>,
@@ -111,8 +169,8 @@ pub struct Sampler {
     // Counter and frequency
     pub encoder: (TIM1, Unroller),
     pub pulse_counter: (TIM8, Unroller),
-    pub pwmi0: (TIM4, MedianFilter<u16, 3>),
-    pub pwmi1: (TIM15, MedianFilter<u16, 3>),
+    pub pwmi0: (TIM4, FrequencyInputState),
+    pub pwmi1: (TIM15, FrequencyInputState),
     pub frequency_scaling: f32,
 }
 
@@ -203,8 +261,8 @@ impl Sampler {
             sampled_inputs,
             encoder: (encoder, Unroller::new(0)),
             pulse_counter: (pulse_counter, Unroller::new(0)),
-            pwmi0: (pwmi0, MedianFilter::<u16, 3>::new(0)),
-            pwmi1: (pwmi1, MedianFilter::<u16, 3>::new(0)),
+            pwmi0: (pwmi0, FrequencyInputState::default()),
+            pwmi1: (pwmi1, FrequencyInputState::default()),
             frequency_scaling,
         }
     }
@@ -238,10 +296,12 @@ impl Sampler {
     fn reset_counter_inputs(&mut self) {
         self.pwmi0.0.cnt.reset();
         self.pwmi0.0.ccr1().reset();
+        self.pwmi0.0.sr.reset();
         self.pwmi1.0.cnt.reset();
         self.pwmi1.0.ccr1().reset();
-        self.pwmi0.1 = MedianFilter::<u16, 3>::new(0);
-        self.pwmi1.1 = MedianFilter::<u16, 3>::new(0);
+        self.pwmi1.0.sr.reset();
+        self.pwmi0.1.reset();
+        self.pwmi1.1.reset();
 
         self.encoder.0.cnt.reset();
         self.pulse_counter.0.cnt.reset(); // Does not use a compare-and-capture
@@ -426,31 +486,34 @@ impl Sampler {
         let pulse_counter_val: u16 = self.pulse_counter.0.cnt.read().cnt().bits().into();
         self.sampled_inputs.pulse_counter = self.pulse_counter.1.update(pulse_counter_val);
 
-        // PWM input readings use a median filter on the raw counter value
-        // in order to filter out the semi-random values produced when the incoming signal
-        // is at a lower frequency than what the timer can track
+        // In input-capture mode, reading CCR1 after observing CC1IF consumes
+        // that flag. Polling the flag first prevents an empty or previously
+        // consumed register value from replacing the latest valid frequency.
+        let fcnt0 = self
+            .pwmi0
+            .0
+            .sr
+            .read()
+            .cc1if()
+            .bit_is_set()
+            .then(|| self.pwmi0.0.ccr1().read().ccr().bits());
+        self.sampled_inputs.frequency_meas[0] =
+            self.pwmi0
+                .1
+                .update(fcnt0, sample_time_ns, self.frequency_scaling);
 
-        // FREQ0
-        let pwmi0_freq_val;
-        let fcnt0_raw = self.pwmi0.0.ccr1().read().ccr().bits();
-        let fcnt0 = self.pwmi0.1.update(fcnt0_raw);
-        if fcnt0 < 1 {
-            pwmi0_freq_val = 0.0;
-        } else {
-            pwmi0_freq_val = self.frequency_scaling / fcnt0 as f32;
-        }
-        self.sampled_inputs.frequency_meas[0] = pwmi0_freq_val;
-
-        // FREQ1
-        let pwmi1_val;
-        let fcnt1_raw = self.pwmi1.0.ccr1().read().ccr().bits();
-        let fcnt1 = self.pwmi1.1.update(fcnt1_raw);
-        if fcnt1 < 1 {
-            pwmi1_val = 0.0;
-        } else {
-            pwmi1_val = self.frequency_scaling / fcnt1 as f32;
-        }
-        self.sampled_inputs.frequency_meas[1] = pwmi1_val;
+        let fcnt1 = self
+            .pwmi1
+            .0
+            .sr
+            .read()
+            .cc1if()
+            .bit_is_set()
+            .then(|| self.pwmi1.0.ccr1().read().ccr().bits());
+        self.sampled_inputs.frequency_meas[1] =
+            self.pwmi1
+                .1
+                .update(fcnt1, sample_time_ns, self.frequency_scaling);
     }
 
     /// Borrow the group most recently completed by this sampler.
