@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 use pyo3::prelude::*;
 
 use crate::py_peripheral_methods;
-pub mod calibration_7_0_0;
 
 /// Schema version for the shared fields in a rev7 calibration record.
 pub const CURRENT_CAL_SCHEMA_VERSION: u16 = 1;
@@ -172,8 +171,8 @@ impl Peripheral for DeimosDaqRev7 {
     fn output_names(&self) -> Vec<String> {
         let mut names = vec![
             "sample_time_ns".to_owned(),
-            "module_bus_current_A".to_owned(),
-            "module_bus_voltage_V".to_owned(),
+            "bus_current_A".to_owned(),
+            "bus_voltage_V".to_owned(),
             "board_temperature_K".to_owned(),
         ];
         for i in 0..CURRENT_4_20_CHANNEL_COUNT {

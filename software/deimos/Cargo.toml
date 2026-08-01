@@ -46,7 +46,6 @@ typetag = "^0.2"
 serde_json = { version = "^1", features = ["preserve_order"] }
 csv = "^1.4.0"
 postcard = { version = "1", features = ["alloc"] }
-zip = "^8"
 
 # Timescale DB / Postgres interface
 postgres = "^0.19.10"
@@ -68,6 +67,7 @@ ndarray = "0.17.2"
 libc = "0.2.186"
 plotly = "0.14.1"
 rmodbus = "0.12.2"
+zip = "^8"
 
 [features]
 # default = ["python"]  # For development
