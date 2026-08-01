@@ -35,6 +35,7 @@ impl<'a> Board<'a> {
         handler!(
             systick_handler = || {
                 self.time_ns += self.dt_ns as i64;
+                let mut configuration_response = None;
 
                 // Poll send/recv to process incoming packets
                 self.net.poll(self.time_ns);
@@ -78,30 +79,42 @@ impl<'a> Board<'a> {
                     // Parse received config
                     if recv_buf.len() == ConfiguringInput::BYTE_LEN {
                         let config = ConfiguringInput::read_bytes(recv_buf);
-                        if !config.is_valid() {
+                        let Some(acknowledgement) = config.validation_acknowledgement() else {
+                            // A same-sized datagram without our marker is stale or
+                            // unrelated traffic, so do not dignify it with a response.
                             self.watchdog.feed();
                             return;
+                        };
+                        if acknowledgement != AcknowledgeConfiguration::Ack {
+                            // Reject a marked but unsupported configuration explicitly,
+                            // while remaining in Configuring for a corrected request.
+                            configuration_response = Some(acknowledgement);
+                        } else {
+                            // Mark the time
+                            configured_time_ns = self.time_ns;
+
+                            // Parse and apply configuration
+                            self.loss_of_contact_limit = config.loss_of_contact_limit;
+                            self.dt_ns = config.dt_ns;
+                            timeout_to_operating_ns = config.timeout_to_operating_ns;
+
+                            // If we've made it this far, we're done configuring
+                            self.led2.set_high();
+                            configured = true;
+                            self.systick_init(); // Set new systick freq _after_ fully configured
                         }
-                        // Mark the time
-                        configured_time_ns = self.time_ns;
-
-                        // Parse and apply configuration
-                        self.loss_of_contact_limit = config.loss_of_contact_limit;
-                        self.dt_ns = config.dt_ns;
-                        timeout_to_operating_ns = config.timeout_to_operating_ns;
-
-                        // If we've made it this far, we're done configuring
-                        self.led2.set_high();
-                        configured = true;
-                        self.systick_init(); // Set new systick freq _after_ fully configured
                     }
                 }
 
                 if configured {
+                    configuration_response = Some(AcknowledgeConfiguration::Ack);
+                }
+
+                if let Some(acknowledgement) = configuration_response {
                     if let Some(meta) = self.controller {
-                        // Acknowledge configuration
+                        // Acknowledge or explicitly reject this configuration.
                         let ack = ConfiguringOutput::new(
-                            AcknowledgeConfiguration::Ack,
+                            acknowledgement,
                             self.calibration.is_calibrated(),
                         );
                         match self

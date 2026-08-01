@@ -287,6 +287,28 @@ impl Peripheral for DeimosDaqRev7 {
         ConfiguringOutput::BYTE_LEN
     }
 
+    fn validate_configuring(&self, base: BaseConfiguringInput) -> Result<(), String> {
+        let config = ConfiguringInput::from_base(base);
+        if config.is_valid() {
+            return Ok(());
+        }
+
+        match config.validation_acknowledgement() {
+            Some(AcknowledgeConfiguration::NakDtTooSmall) => Err(format!(
+                "Rev7 dt_ns={} is shorter than the supported minimum {} ns (maximum cycle rate {} Hz)",
+                config.dt_ns, DEIMOS_MIN_CYCLE_PERIOD_NS, DEIMOS_MAX_CYCLE_RATE_HZ,
+            )),
+            Some(AcknowledgeConfiguration::NakDtTooLarge) => Err(format!(
+                "Rev7 dt_ns={} exceeds the supported maximum {} ns (minimum cycle rate {} Hz)",
+                config.dt_ns, DEIMOS_MAX_CYCLE_PERIOD_NS, MIN_CYCLE_RATE_HZ,
+            )),
+            Some(response) => Err(format!(
+                "Rev7 configuration was rejected with unexpected response {response:?}",
+            )),
+            None => Err("Rev7 configuration has an invalid packet marker".to_owned()),
+        }
+    }
+
     fn emit_configuring(&self, base: BaseConfiguringInput, bytes: &mut [u8]) {
         ConfiguringInput::from_base(base).write_bytes(bytes);
     }
@@ -327,6 +349,26 @@ mod tests {
         let mut record = CalRecord::default();
         record.voltage_cals[0].slope = f64::NAN;
         assert!(record.firmware_calibration(true).is_err());
+    }
+
+    #[test]
+    fn configuring_validation_reports_rev7_limits_before_transmission() {
+        let peripheral = DeimosDaqRev7::default();
+        let mut config = BaseConfiguringInput {
+            dt_ns: DEIMOS_MIN_CYCLE_PERIOD_NS,
+            ..BaseConfiguringInput::default()
+        };
+        assert!(peripheral.validate_configuring(config).is_ok());
+
+        config.dt_ns = DEIMOS_MIN_CYCLE_PERIOD_NS - 1;
+        let error = peripheral.validate_configuring(config).unwrap_err();
+        assert!(error.contains("shorter than the supported minimum"));
+        assert!(error.contains(&DEIMOS_MIN_CYCLE_PERIOD_NS.to_string()));
+
+        config.dt_ns = DEIMOS_MAX_CYCLE_PERIOD_NS + 1;
+        let error = peripheral.validate_configuring(config).unwrap_err();
+        assert!(error.contains("exceeds the supported maximum"));
+        assert!(error.contains(&DEIMOS_MAX_CYCLE_PERIOD_NS.to_string()));
     }
 
     #[test]

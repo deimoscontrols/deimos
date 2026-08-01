@@ -102,17 +102,34 @@ fn packet_magics_are_direction_specific_and_validated() {
     assert!(!round_trip(binding_output).is_valid());
 
     let mut configuring_input = packets::ConfiguringInput::from_base(ConfiguringInput::default());
+    assert_eq!(packets::ConfiguringInput::BYTE_LEN, 14);
     configuring_input.dt_ns = DEIMOS_MIN_CYCLE_PERIOD_NS;
     assert!(round_trip(configuring_input).is_valid());
+    assert_eq!(
+        round_trip(configuring_input).validation_acknowledgement(),
+        Some(AcknowledgeConfiguration::Ack),
+    );
     configuring_input.dt_ns = DEIMOS_MIN_CYCLE_PERIOD_NS - 1;
     assert!(!round_trip(configuring_input).is_valid());
+    assert_eq!(
+        round_trip(configuring_input).validation_acknowledgement(),
+        Some(AcknowledgeConfiguration::NakDtTooSmall),
+    );
     configuring_input.dt_ns = DEIMOS_MAX_CYCLE_PERIOD_NS;
     assert!(round_trip(configuring_input).is_valid());
     configuring_input.dt_ns = DEIMOS_MAX_CYCLE_PERIOD_NS + 1;
     assert!(!round_trip(configuring_input).is_valid());
+    assert_eq!(
+        round_trip(configuring_input).validation_acknowledgement(),
+        Some(AcknowledgeConfiguration::NakDtTooLarge),
+    );
     configuring_input.dt_ns = DEIMOS_MAX_CYCLE_PERIOD_NS;
     configuring_input.magic ^= 1;
     assert!(!round_trip(configuring_input).is_valid());
+    assert_eq!(
+        round_trip(configuring_input).validation_acknowledgement(),
+        None,
+    );
 
     let mut configuring_output = ConfiguringOutput::new(AcknowledgeConfiguration::Ack, false);
     assert!(round_trip(configuring_output).is_valid());

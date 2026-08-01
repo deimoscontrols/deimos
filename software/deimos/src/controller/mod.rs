@@ -797,6 +797,13 @@ impl Controller {
 
             // Transmit Configuring packet.
             let mut buf = [0_u8; SOCKET_BUFFER_LEN];
+            if let Err(err) = p.validate_configuring(config_input) {
+                error!("Invalid configuration for peripheral {}: {err}", ps.name);
+                ps.conn_state = ConnState::Disconnected {
+                    deadline: reconnect_deadline,
+                };
+                return true;
+            }
             p.emit_configuring(config_input, &mut buf[..num_to_write]);
             let send_result = socket_orchestrator.send(meta.socket_id, pid, &buf[..num_to_write]);
 
@@ -1120,6 +1127,20 @@ impl Controller {
                 loss_of_contact_limit: self.ctx.peripheral_loss_of_contact_limit,
                 mode: Mode::Roundtrip,
             };
+            // Validate every device before sending any configuration packets, so
+            // one device's descriptive software error cannot leave peers entering
+            // Operating from a partially transmitted configuration set.
+            for addr in addresses.iter() {
+                let (sid, pid) = addr;
+                let peripheral = bound_peripherals
+                    .get(&(*sid, *pid))
+                    .ok_or(format!("Did not find {pid:?} in bound peripherals."))?;
+                peripheral
+                    .validate_configuring(config_input)
+                    .map_err(|err| {
+                        format!("Invalid configuration for peripheral at {addr:?}: {err}")
+                    })?;
+            }
             //     Track configuring window deadlines for peripherals that receive config packets.
             let configuring_deadline = start_of_operating_countdown
                 + Duration::from_millis(self.ctx.configuring_timeout_ms as u64);

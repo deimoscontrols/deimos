@@ -179,6 +179,19 @@ pub trait Peripheral: Send + Sync + Debug {
         ConfiguringOutput::BYTE_LEN
     }
 
+    /// Validates a configuration before it is serialized and transmitted.
+    ///
+    /// Args:
+    ///   base_config: Device-independent configuration requested by the controller.
+    ///
+    /// Returns:
+    ///   `Ok(())` when the peripheral can accept the configuration, or a
+    ///   descriptive error before any packet is sent. Older peripherals retain
+    ///   their existing hardware-side validation behavior by default.
+    fn validate_configuring(&self, _base_config: ConfiguringInput) -> Result<(), String> {
+        Ok(())
+    }
+
     /// Generate bytes for a packet to send to the peripheral based on some input values
     fn emit_configuring(&self, base_config: ConfiguringInput, bytes: &mut [u8]) {
         let num_to_write = self.configuring_input_size();

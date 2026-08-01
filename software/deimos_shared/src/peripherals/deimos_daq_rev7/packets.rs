@@ -12,7 +12,7 @@ use byte_struct::{ByteStruct, ByteStructLen, ByteStructUnspecifiedByteOrder};
 
 use crate::{
     peripherals::PeripheralId,
-    states::{AcknowledgeConfiguration, ConfiguringInput as BaseConfiguringInput, Mode},
+    states::{AcknowledgeConfiguration, ConfiguringInput as BaseConfiguringInput},
 };
 
 /// Rev7-specific binding request. Older hardware continues to use the generic request.
@@ -100,8 +100,6 @@ pub struct ConfiguringInput {
     pub magic: u32,
     /// Nominal operating-cycle duration in `ns`.
     pub dt_ns: u32,
-    /// Requested operating protocol mode.
-    pub mode: Mode,
     /// Delay from accepted configuration to operating entry in `ns`.
     pub timeout_to_operating_ns: u32,
     /// Consecutive missed cycles allowed before loss-of-contact shutdown.
@@ -120,22 +118,39 @@ impl ConfiguringInput {
         Self {
             magic: super::CONFIGURING_INPUT_MAGIC,
             dt_ns: base.dt_ns,
-            mode: base.mode,
             timeout_to_operating_ns: base.timeout_to_operating_ns,
             loss_of_contact_limit: base.loss_of_contact_limit,
         }
     }
 
-    /// Checks the packet marker and currently supported operating settings.
+    /// Checks the packet marker and supported Deimos cycle period.
     ///
     /// Returns:
-    ///   `true` for a marked roundtrip configuration within the supported
-    ///   Deimos cycle-rate range.
+    ///   `true` for a marked configuration within the supported Deimos
+    ///   cycle-rate range.
     pub fn is_valid(&self) -> bool {
-        self.magic == super::CONFIGURING_INPUT_MAGIC
-            && self.dt_ns >= super::DEIMOS_MIN_CYCLE_PERIOD_NS
-            && self.dt_ns <= super::DEIMOS_MAX_CYCLE_PERIOD_NS
-            && matches!(self.mode, Mode::Roundtrip)
+        matches!(
+            self.validation_acknowledgement(),
+            Some(AcknowledgeConfiguration::Ack)
+        )
+    }
+
+    /// Classifies a marked configuration request for its protocol response.
+    ///
+    /// Returns:
+    ///   `None` when the packet marker is invalid and the datagram should be
+    ///   ignored, or the specific acknowledgment to send for a marked request.
+    pub fn validation_acknowledgement(&self) -> Option<AcknowledgeConfiguration> {
+        if self.magic != super::CONFIGURING_INPUT_MAGIC {
+            return None;
+        }
+        if self.dt_ns < super::DEIMOS_MIN_CYCLE_PERIOD_NS {
+            return Some(AcknowledgeConfiguration::NakDtTooSmall);
+        }
+        if self.dt_ns > super::DEIMOS_MAX_CYCLE_PERIOD_NS {
+            return Some(AcknowledgeConfiguration::NakDtTooLarge);
+        }
+        Some(AcknowledgeConfiguration::Ack)
     }
 }
 

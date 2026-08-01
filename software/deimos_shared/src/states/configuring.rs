@@ -1,6 +1,7 @@
-/// Configuration I/O is the same for all devices.
-/// If further configuration for a custom device is
-/// required, it must be implemented outside this system.
+//! Legacy generic configuration packets used by pre-rev7 peripherals.
+//!
+//! Newer peripherals may wrap or replace these fields with a model-specific
+//! packet. In particular, rev7 does not carry the legacy [`Mode`] selector.
 use crate::enum_with_unknown;
 use byte_struct::*;
 pub use byte_struct::{ByteStruct, ByteStructLen};
@@ -12,7 +13,7 @@ pub struct ConfiguringInput {
     /// Sample / control time step
     pub dt_ns: u32,
 
-    /// Buffering mode vs. roundtrip control mode
+    /// Legacy buffering-mode selector retained for pre-rev7 peripherals.
     pub mode: Mode,
 
     /// Delay before entering Operating,
@@ -61,6 +62,7 @@ impl ByteStruct for AcknowledgeConfiguration {
 }
 
 enum_with_unknown!(
+    /// Legacy pre-rev7 operating-mode selection.
     #[derive(Default)]
     #[non_exhaustive]
     pub enum Mode(u8) {

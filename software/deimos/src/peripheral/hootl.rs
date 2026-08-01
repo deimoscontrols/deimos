@@ -181,6 +181,10 @@ impl Peripheral for HootlPeripheral {
         self.inner.configuring_output_size()
     }
 
+    fn validate_configuring(&self, base_config: ConfiguringInput) -> Result<(), String> {
+        self.inner.validate_configuring(base_config)
+    }
+
     fn emit_configuring(&self, base_config: ConfiguringInput, bytes: &mut [u8]) {
         self.inner.emit_configuring(base_config, bytes);
     }
@@ -570,19 +574,20 @@ impl HootlRunner {
                     }
 
                     if let Some((size, _addr)) = self.transport.recv_packet(&mut buf) {
-                        let out = if self.config.peripheral_id.model_number == REV7_MODEL_NUMBER {
+                        let (out, acknowledged) = if self.config.peripheral_id.model_number
+                            == REV7_MODEL_NUMBER
+                        {
                             if size != Rev7ConfiguringInput::BYTE_LEN {
                                 continue;
                             }
                             let request = Rev7ConfiguringInput::read_bytes(&buf[..size]);
-                            if !request.is_valid() {
+                            let Some(acknowledgement) = request.validation_acknowledgement() else {
                                 continue;
-                            }
-                            let response =
-                                Rev7ConfiguringOutput::new(AcknowledgeConfiguration::Ack, true);
+                            };
+                            let response = Rev7ConfiguringOutput::new(acknowledgement, true);
                             let mut out = vec![0u8; Rev7ConfiguringOutput::BYTE_LEN];
                             response.write_bytes(&mut out);
-                            out
+                            (out, acknowledgement == AcknowledgeConfiguration::Ack)
                         } else {
                             if size != ConfiguringInput::BYTE_LEN {
                                 continue;
@@ -592,7 +597,7 @@ impl HootlRunner {
                             };
                             let mut out = vec![0u8; ConfiguringOutput::BYTE_LEN];
                             response.write_bytes(&mut out);
-                            out
+                            (out, true)
                         };
 
                         let send_status = self.transport.send_packet(
@@ -605,6 +610,13 @@ impl HootlRunner {
                                 "HOOTL runner failed to send configuring response: {send_status:?}"
                             );
                             break;
+                        }
+
+                        if !acknowledged {
+                            info!(
+                                "HOOTL driver rejected config; remaining in Configuring for another request."
+                            );
+                            continue;
                         }
 
                         // Transition to operating
