@@ -111,7 +111,7 @@ pub struct Sampler {
     // Counter and frequency
     pub encoder: (TIM1, Unroller),
     pub pulse_counter: (TIM8, Unroller),
-    pub pwmi0: (TIM4, MedianFilter<u16, 3>, MedianFilter<u16, 3>),
+    pub pwmi0: (TIM4, MedianFilter<u16, 3>),
     pub pwmi1: (TIM15, MedianFilter<u16, 3>),
     pub frequency_scaling: f32,
 }
@@ -203,11 +203,7 @@ impl Sampler {
             sampled_inputs,
             encoder: (encoder, Unroller::new(0)),
             pulse_counter: (pulse_counter, Unroller::new(0)),
-            pwmi0: (
-                pwmi0,
-                MedianFilter::<u16, 3>::new(0),
-                MedianFilter::<u16, 3>::new(0),
-            ),
+            pwmi0: (pwmi0, MedianFilter::<u16, 3>::new(0)),
             pwmi1: (pwmi1, MedianFilter::<u16, 3>::new(0)),
             frequency_scaling,
         }
