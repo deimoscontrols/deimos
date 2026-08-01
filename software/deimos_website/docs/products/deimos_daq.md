@@ -21,7 +21,7 @@ found under permissive licenses in the [Deimos project repository](https://githu
 | Feature | Performance |
 |---------|-------------|
 | Comm. Medium | Ethernet. |
-| Cycle Rate | 5 Hz - 8 kHz in Deimos roundtrip mode; up to 500 Hz over Modbus/TCP. |
+| Cycle Rate | 5 Hz - 8 kHz in Deimos synchronized mode (UDP). <br>5 Hz - 500 Hz over Modbus/TCP. |
 | Multi-Unit Time Sync | ~1 microsecond (100ns typ.) |
 | Sample Jitter | 0.01% of Δt |
 | Voltage Reference | 0.02% accuracy, 2.5V, ultra-low thermal sensitivity. |

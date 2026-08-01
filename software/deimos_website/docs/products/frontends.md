@@ -3,8 +3,27 @@ hide:
 - toc
 ---
 
+## :material-chart-bell-curve:{ .lg .middle } Frontends
 
-# Deimos DAQ - Frontend Dynamics
+Each analog input has a filter pipeline that improves data quality while
+accommodating bandwidth requirements for common applications.
+
+Digital filters are adapted internally for the reporting rate.
+
+See [the frontends page](./frontends.md) for dynamic response
+charts for each frontend type for a given reporting rate.
+
+| Kind | Frontend Cutoff | Target Use-Cases |
+|------|----------|------------------|
+| Board temperature | 100Hz | - Cold-junction correction.<br>- System health. |
+| Bus voltage | No frontend | System health. |
+| Bus current | No frontend | System health. |
+| 0-2.5V | 3kHz | General-purpose |
+| 0-15V | 3kHz | 0-10V sensor inputs. |
+| 25.7x | 1kHz | Low-noise measurement of small signals. |
+| 3-Wire Resistance | 3kHz | - Pt100 RTD temperature.<br>- 100-ohm strain gauges.|
+| K-type Thermocouple | 1kHz | Fast responses and high maximum temperature. |
+| 4-20mA | 3kHz | - Pressure transducers.<br>- Valve angle feedback.
 
   <div class="bode-plot-frame">
     <div class="bode-plot-loader" aria-label="Loading Bode plot"></div>
