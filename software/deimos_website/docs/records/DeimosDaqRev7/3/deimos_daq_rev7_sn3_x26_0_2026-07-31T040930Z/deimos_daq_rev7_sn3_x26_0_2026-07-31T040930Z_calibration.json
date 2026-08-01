@@ -2,7 +2,7 @@
   "model": "deimos_daq_rev7",
   "serial_number": 3,
   "channel": "ain18",
-  "signal_name": "p1.voltage_x26_0_V",
+  "signal_name": "p1.35mV_0_V",
   "datestamp_utc": "2026-07-31T041823Z",
   "polynomial_order": 1,
   "polynomial_coefficients": [

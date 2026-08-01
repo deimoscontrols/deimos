@@ -2,7 +2,7 @@
   "model": "deimos_daq_rev7",
   "serial_number": 3,
   "channel": "0_2V5_1",
-  "signal_name": "p1.voltage_0_2V5_1_V",
+  "signal_name": "p1.2V5_1_V",
   "calibrator_cold_junction_temperature_k": null,
   "manual_reference_windows": [
     {

@@ -7,7 +7,7 @@
       "source": "/home/jlogan/git/deimos/software/deimos/../deimos_website/docs/records/DeimosDaqRev7/3/deimos_daq_rev7_sn3_0_15V_1_2026-07-31T034946Z/deimos_daq_rev7_sn3_0_15V_1_2026-07-31T034946Z_replay.csv",
       "channel_label": "0-15 V channel 1 (ain17)",
       "channel": "ain17",
-      "signal_name": "p1.voltage_0_15_1_V",
+      "signal_name": "p1.15V_1_V",
       "detected_step_count": 4,
       "accepted_sample_count": 1000,
       "error_units": "V",

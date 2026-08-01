@@ -2,7 +2,7 @@
   "model": "deimos_daq_rev7",
   "serial_number": 3,
   "channel": "ain6",
-  "signal_name": "p1.current_4_20_3_A",
+  "signal_name": "p1.4_20_3_A",
   "datestamp_utc": "2026-07-31T041822Z",
   "reference_resistor_ohm": 75.0,
   "polynomial_order": 1,

@@ -7,7 +7,7 @@
       "source": "/home/jlogan/git/deimos/software/deimos/../deimos_website/docs/records/DeimosDaqRev7/3/deimos_daq_rev7_sn3_x26_0_2026-07-31T040930Z/deimos_daq_rev7_sn3_x26_0_2026-07-31T040930Z_replay.csv",
       "channel_label": "x26 voltage channel 0 (ain18)",
       "channel": "ain18",
-      "signal_name": "p1.voltage_x26_0_V",
+      "signal_name": "p1.35mV_0_V",
       "detected_step_count": 5,
       "accepted_sample_count": 1250,
       "error_units": "V",

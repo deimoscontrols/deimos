@@ -7,7 +7,7 @@
       "source": "/home/jlogan/git/deimos/software/deimos/../deimos_website/docs/records/DeimosDaqRev7/3/deimos_daq_rev7_sn3_4_20_mA_0_2026-07-31T014949Z/deimos_daq_rev7_sn3_4_20_mA_0_2026-07-31T014949Z_replay.csv",
       "channel_label": "4-20 mA channel 0 (ain3)",
       "channel": "ain3",
-      "signal_name": "p1.current_4_20_0_A",
+      "signal_name": "p1.4_20_0_A",
       "detected_step_count": 9,
       "accepted_sample_count": 2242,
       "error_units": "uA",
