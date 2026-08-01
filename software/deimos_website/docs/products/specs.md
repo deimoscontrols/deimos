@@ -8,6 +8,18 @@ hide:
 Specifications refer to performance including applied calibrations.<br>
 Values are preliminary and may be adjusted as further test data is collected.
 
+| Feature | Performance |
+|---------|-------------|
+| Comm. Medium | Ethernet. |
+| Power Supply | 24V DC 1A |
+| Cycle Rate | 5 Hz - 8 kHz in Deimos synchronized mode (UDP). <br>5 Hz - 500 Hz over Modbus/TCP. |
+| Multi-Unit Time Sync | ~1 microsecond (100ns typ.) |
+| Sample Jitter | 0.01% of Δt |
+| Voltage Reference | 0.02% accuracy, 2.5V, ultra-low thermal sensitivity. |
+| ADCs | 16-bit SAR, self-calibrating on every bootup. |
+| Internal Samplerate | Nominal 9kHz delayed-simultaneous sampling.<br>Adjusted to synchronize with the reporting rate. |
+| Onboard Filtering | Every analog channel has:<br>- Active analog filter.<br>- Digital anti-aliasing filter.<br>- Digital sample synchronization filter. |
+
 ## :material-controller-classic:{ .lg .middle } Outputs
 
 | Kind | Range | Resolution | Notes |
@@ -22,7 +34,7 @@ Values are preliminary and may be adjusted as further test data is collected.
 |------|-------|----------|------------|-------|
 | :material-lightning-bolt: 2x Voltage, 1x Gain | 0-2.5V | 0.04% | 38uV | Single-ended.<br>40V tolerance.  |
 | :material-lightning-bolt: 2x Voltage, (1/6)x Gain | 0-15V | 0.02% | 228uV | Single-ended.<br>40V tolerance.<br>12kOhm divider; 0.6mA max leakage. |
-| :material-lightning-bolt: 2x Voltage, 25.7x Gain | -39 to +57mV | 0.04% | 1.5uV | Single-ended.<br>40V tolerance. |
+| :material-lightning-bolt: 2x Voltage, 25.7x Gain | ±35mV | 0.04% | 1.5uV | Single-ended.<br>40V tolerance. |
 | :material-fire: 2x K-Type Thermocouple | 73-1543K | 0.5K near room temp | 0.03K | Cold-junction compensated.<br>Material-matched connector. |
 | :material-snowflake: 3x 3-Wire Resistance (RTD, strain, etc) | 73-1073K | 0.1K near room temp | 0.02K | Specs refer to use with Pt100 RTD.<br>Also compatible with 100-ohm strain gauges. |
 | :fontawesome-solid-gauge-high: 4x 4-20mA | 0-33mA | 0.04% | 0.8uA | 24V excitation.<br>2 or 3-wire.<br>Short-circuit protected. |

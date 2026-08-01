@@ -24,7 +24,7 @@ charts for each frontend type for a given reporting rate.
 | Bus current | No frontend | System health. |
 | 0-2.5V | 3kHz | General-purpose |
 | 0-15V | 3kHz | 0-10V sensor inputs. |
-| 25.7x | 1kHz | Low-noise measurement of small signals. |
+| ±35mV | 1kHz | Low-noise measurement of small signals. |
 | 3-Wire Resistance | 3kHz | - Pt100 RTD temperature.<br>- 100-ohm strain gauges.|
 | K-type Thermocouple | 1kHz | Fast responses and high maximum temperature. |
 | 4-20mA | 3kHz | - Pressure transducers.<br>- Valve angle feedback.

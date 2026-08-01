@@ -10,22 +10,12 @@ hide:
 
 <!-- <img src="../../assets/DSC02285.jpg" alt="Deimos DAQ hardware" class="product-splash-image zoomable-image"> -->
 
-<img src="../../assets/daq.svg" alt="Deimos DAQ hardware" class="product-splash-image zoomable-image">
-
 The Deimos DAQ boasts a set of 22 input channels and 10 output channels,
 all available together and operated simultaneously on every cycle.
 
 Fully open-source, the Deimos DAQ's design files, firmware, and control program can all be
 found under permissive licenses in the [Deimos project repository](https://github.com/deimoscontrols/deimos).
 
-| Feature | Performance |
-|---------|-------------|
-| Comm. Medium | Ethernet. |
-| Cycle Rate | 5 Hz - 8 kHz in Deimos synchronized mode (UDP). <br>5 Hz - 500 Hz over Modbus/TCP. |
-| Multi-Unit Time Sync | ~1 microsecond (100ns typ.) |
-| Sample Jitter | 0.01% of Δt |
-| Voltage Reference | 0.02% accuracy, 2.5V, ultra-low thermal sensitivity. |
-| ADCs | 16-bit SAR, self-calibrating on every bootup. |
-| Internal Samplerate | Nominal 9kHz delayed-simultaneous sampling.<br>Adjusted to synchronize with the reporting rate. |
-| Onboard Filtering | Every analog channel has:<br>- Active analog filter.<br>- Digital anti-aliasing filter.<br>- Digital sample synchronization filter. |
-| Power Supply | 24V DC 1A |
+See the [specs](./specs.md) for steady performance, and [frontends](./frontends.md) for dynamic characteristics.
+
+<img src="../../assets/daq.svg" alt="Deimos DAQ hardware" class="product-splash-image zoomable-image">
