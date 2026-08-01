@@ -171,26 +171,21 @@ impl Peripheral for DeimosDaqRev7 {
     fn output_names(&self) -> Vec<String> {
         let mut names = vec![
             "sample_time_ns".to_owned(),
-            "bus_current_A".to_owned(),
-            "bus_voltage_V".to_owned(),
-            "board_temperature_K".to_owned(),
+            "bus_A".to_owned(),
+            "bus_V".to_owned(),
+            "board_temp_K".to_owned(),
         ];
         for i in 0..CURRENT_4_20_CHANNEL_COUNT {
-            names.push(format!("current_4_20_{i}_A"));
+            names.push(format!("4_20_{i}_A"));
         }
         for i in 0..RTD_CHANNEL_COUNT {
-            names.push(format!("rtd_{i}_resistance_ohm"));
+            names.push(format!("res_{i}_ohm"));
         }
         for i in 0..THERMOCOUPLE_CHANNEL_COUNT {
-            names.push(format!("thermocouple_{i}_temperature_K"));
+            names.push(format!("tc_{i}_K"));
         }
         for name in [
-            "voltage_0_2V5_0_V",
-            "voltage_0_2V5_1_V",
-            "voltage_0_15_0_V",
-            "voltage_0_15_1_V",
-            "voltage_x26_0_V",
-            "voltage_x26_1_V",
+            "2V5_0_V", "2V5_1_V", "15V_0_V", "15V_1_V", "35mV_0_V", "35mV_1_V",
         ] {
             names.push(name.to_owned());
         }
