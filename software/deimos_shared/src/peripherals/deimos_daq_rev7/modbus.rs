@@ -135,8 +135,6 @@ pub const HOLDING_SNAPSHOT_REGISTER_COUNT: u16 = SNAPSHOT_INPUT_REGISTER_COUNT;
 /// Function code for standard Read/Write Multiple Registers (FC23).
 pub const MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION: u8 = 0x17;
 
-/// Slowest supported Modbus publishing rate in `Hz`.
-pub const MODBUS_MIN_CYCLE_RATE_HZ: f32 = super::REV7_MIN_CYCLE_RATE_HZ as f32;
 /// Fastest supported Modbus publishing rate in `Hz`.
 pub const MODBUS_MAX_CYCLE_RATE_HZ: f32 = 500.0;
 

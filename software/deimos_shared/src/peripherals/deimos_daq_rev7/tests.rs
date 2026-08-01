@@ -15,13 +15,13 @@ where
 
 #[test]
 fn sampling_policy_derives_samplerate_and_iir_cutoff_from_cycle_rate() {
-    let low_rate = adc_sampling_policy(f64::from(REV7_MIN_CYCLE_RATE_HZ)).unwrap();
+    let low_rate = adc_sampling_policy(f64::from(MIN_CYCLE_RATE_HZ)).unwrap();
     assert_eq!(low_rate.mode, AdcSamplingMode::Oversampled);
     assert_eq!(low_rate.samples_per_cycle, 1_800);
     assert_eq!(low_rate.sample_rate_hz, 9_000.0);
     assert_eq!(
         low_rate.iir_cutoff_hz,
-        Some(f64::from(REV7_MIN_CYCLE_RATE_HZ) * 0.4),
+        Some(f64::from(MIN_CYCLE_RATE_HZ) * 0.4),
     );
     assert_eq!(low_rate.iir_cutoff_ratio, Some(0.4 / 1_800.0));
 
@@ -88,12 +88,12 @@ fn packet_magics_are_direction_specific_and_validated() {
         assert!(!markers[..index].contains(marker));
     }
 
-    let mut binding_input = Rev7BindingInput::new(1_000);
+    let mut binding_input = BindingInput::new(1_000);
     assert!(round_trip(binding_input).is_valid());
     binding_input.magic ^= 1;
     assert!(!round_trip(binding_input).is_valid());
 
-    let mut binding_output = Rev7BindingOutput::new(PeripheralId {
+    let mut binding_output = BindingOutput::new(PeripheralId {
         model_number: MODEL_NUMBER,
         serial_number: 3,
     });
@@ -101,7 +101,7 @@ fn packet_magics_are_direction_specific_and_validated() {
     binding_output.peripheral_id.model_number ^= 1;
     assert!(!round_trip(binding_output).is_valid());
 
-    let mut configuring_input = Rev7ConfiguringInput::from_base(ConfiguringInput::default());
+    let mut configuring_input = packets::ConfiguringInput::from_base(ConfiguringInput::default());
     configuring_input.dt_ns = DEIMOS_MIN_CYCLE_PERIOD_NS;
     assert!(round_trip(configuring_input).is_valid());
     configuring_input.dt_ns = DEIMOS_MIN_CYCLE_PERIOD_NS - 1;
@@ -114,7 +114,7 @@ fn packet_magics_are_direction_specific_and_validated() {
     configuring_input.magic ^= 1;
     assert!(!round_trip(configuring_input).is_valid());
 
-    let mut configuring_output = Rev7ConfiguringOutput::new(AcknowledgeConfiguration::Ack, false);
+    let mut configuring_output = ConfiguringOutput::new(AcknowledgeConfiguration::Ack, false);
     assert!(round_trip(configuring_output).is_valid());
     configuring_output.firmware_calibrated = 2;
     assert!(!round_trip(configuring_output).is_valid());
@@ -137,7 +137,7 @@ fn packet_magics_are_direction_specific_and_validated() {
 
 #[test]
 fn calibration_binary_round_trips_without_protocol_magic() {
-    let mut calibration = Rev7Calibration::default();
+    let mut calibration = Calibration::default();
     calibration.firmware_calibrated = 1;
     calibration.voltage_cals[4] = LinearCalibration {
         slope: 1.25,
@@ -149,7 +149,7 @@ fn calibration_binary_round_trips_without_protocol_magic() {
     assert!(decoded.is_calibrated());
     assert_eq!(decoded.voltage_cals[4].slope, 1.25);
     assert_eq!(decoded.voltage_cals[4].offset, -0.125);
-    assert_eq!(Rev7Calibration::BYTE_LEN, 1 + ADC_CHANNEL_COUNT * 8);
+    assert_eq!(Calibration::BYTE_LEN, 1 + ADC_CHANNEL_COUNT * 8);
 }
 
 #[test]
@@ -229,7 +229,7 @@ fn engineering_conversion_preserves_channel_order_and_calibration_placement() {
     samples[16] = TC_FRONTEND_OFFSET_V + TC_FRONTEND_GAIN * 0.01;
     samples[17] = TC_FRONTEND_OFFSET_V - TC_FRONTEND_GAIN * 0.005;
 
-    let mut calibration = Rev7Calibration::default();
+    let mut calibration = Calibration::default();
     calibration.voltage_cals[3] = LinearCalibration {
         slope: 2.0,
         offset: 0.15,

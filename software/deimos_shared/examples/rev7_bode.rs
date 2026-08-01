@@ -10,7 +10,7 @@ use deimos_numerics::control::lti::{BodeData, ContinuousTransferFunction};
 use deimos_shared::peripherals::deimos_daq_rev7::{
     adc_analog_frontend_transfer_functions, adc_digital_transfer_functions_for_cycle_rate,
     adc_sampled_bode_data_for_cycle_rate, adc_sampling_policy, AdcSamplingMode, AdcSamplingPolicy,
-    ADC_OVERSAMPLE_TARGET_RATE_HZ, DEIMOS_MAX_CYCLE_RATE_HZ, REV7_MIN_CYCLE_RATE_HZ,
+    ADC_OVERSAMPLE_TARGET_RATE_HZ, DEIMOS_MAX_CYCLE_RATE_HZ, MIN_CYCLE_RATE_HZ,
 };
 use plotly::{
     common::{Anchor, DashType, Font, Line, Mode, Orientation, Title, Visible},
@@ -164,13 +164,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 ///   Interactive samplerate plot, or a sampling-policy construction error.
 fn build_samplerate_plot(theme: &Theme) -> Result<Plot, Box<dyn Error>> {
     let mut reporting_rates_hz = logspace(
-        f64::from(REV7_MIN_CYCLE_RATE_HZ),
+        f64::from(MIN_CYCLE_RATE_HZ),
         f64::from(DEIMOS_MAX_CYCLE_RATE_HZ),
         SAMPLERATE_POINTS,
     );
     // Pin values which can move by an ulp through log10/powf so the plot and
     // hover data include the exact supported endpoints.
-    reporting_rates_hz[0] = f64::from(REV7_MIN_CYCLE_RATE_HZ);
+    reporting_rates_hz[0] = f64::from(MIN_CYCLE_RATE_HZ);
     reporting_rates_hz[SAMPLERATE_POINTS - 1] = f64::from(DEIMOS_MAX_CYCLE_RATE_HZ);
     let policies = reporting_rates_hz
         .iter()

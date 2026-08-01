@@ -77,8 +77,8 @@ pub const THERMOCOUPLE_CHANNEL_COUNT: usize = 2;
 /// Number of rev7 voltage measurement channels.
 pub const VOLTAGE_CHANNEL_COUNT: usize = 6;
 
-/// Slowest supported rev7 publishing rate in `cycle/s` in either protocol mode.
-pub const REV7_MIN_CYCLE_RATE_HZ: u32 = 5;
+/// Slowest supported publishing rate in `cycle/s` in either protocol mode.
+pub const MIN_CYCLE_RATE_HZ: u32 = 5;
 
 /// Fastest supported Deimos UDP roundtrip rate in `cycle/s`.
 ///
@@ -90,7 +90,7 @@ pub const DEIMOS_MAX_CYCLE_RATE_HZ: u32 = 8_000;
 pub const DEIMOS_MIN_CYCLE_PERIOD_NS: u32 = 1_000_000_000 / DEIMOS_MAX_CYCLE_RATE_HZ;
 
 /// Longest supported Deimos UDP roundtrip period in `ns`.
-pub const DEIMOS_MAX_CYCLE_PERIOD_NS: u32 = 1_000_000_000 / REV7_MIN_CYCLE_RATE_HZ;
+pub const DEIMOS_MAX_CYCLE_PERIOD_NS: u32 = 1_000_000_000 / MIN_CYCLE_RATE_HZ;
 
 /// Denominator of the maximum absolute per-cycle timing correction.
 ///

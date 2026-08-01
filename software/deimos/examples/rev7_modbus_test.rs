@@ -30,15 +30,15 @@ use std::{
 };
 
 use deimos_shared::peripherals::deimos_daq_rev7::{
-    ModbusInitialConfig, OperatingSnapshot,
+    MIN_CYCLE_RATE_HZ, ModbusInitialConfig, OperatingSnapshot,
     modbus::{
         HOLDING_CYCLE_PERIOD_NS, HOLDING_GPIO, HOLDING_LOSS_OF_CONTACT_COUNTER,
         HOLDING_PERIOD_DELTA_NS, HOLDING_PHASE_DELTA_NS, HOLDING_PWM_DUTY_FRAC,
         HOLDING_REGISTER_COUNT, HOLDING_SNAPSHOT_REGISTER_COUNT, HOLDING_SNAPSHOT_START,
         MODBUS_MAX_CYCLE_RATE_HZ, MODBUS_MAX_READ_REGISTERS, MODBUS_MAX_READ_WRITE_WRITE_REGISTERS,
-        MODBUS_MAX_WRITE_REGISTERS, MODBUS_MIN_CYCLE_RATE_HZ,
-        MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION, SNAPSHOT_INPUT_REGISTER_COUNT,
-        SNAPSHOT_INPUT_START, holding_registers, snapshot_from_input_registers,
+        MODBUS_MAX_WRITE_REGISTERS, MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION,
+        SNAPSHOT_INPUT_REGISTER_COUNT, SNAPSHOT_INPUT_START, holding_registers,
+        snapshot_from_input_registers,
     },
 };
 use socket2::SockRef;
@@ -280,7 +280,7 @@ fn endpoint_suite(endpoint: &str) -> TestResult {
     let mut client = ModbusClient::connect_retry(endpoint)?;
     run_rate_endpoint(
         &mut client,
-        MODBUS_MIN_CYCLE_RATE_HZ,
+        MIN_CYCLE_RATE_HZ as f32,
         240,
         Duration::from_secs(4),
         101,

@@ -5,14 +5,14 @@
 
 mod operating;
 
-pub use super::calc::{LinearCalibration, Rev7Calibration};
+pub use super::calc::{Calibration, LinearCalibration};
 pub use operating::*;
 
 use byte_struct::{ByteStruct, ByteStructLen, ByteStructUnspecifiedByteOrder};
 
 use crate::{
     peripherals::PeripheralId,
-    states::{AcknowledgeConfiguration, ConfiguringInput, Mode},
+    states::{AcknowledgeConfiguration, ConfiguringInput as BaseConfiguringInput, Mode},
 };
 
 /// Rev7-specific binding request. Older hardware continues to use the generic request.
@@ -20,14 +20,14 @@ use crate::{
 /// Fields are serialized contiguously in little-endian order.
 #[derive(ByteStruct, Clone, Copy, Debug, Default)]
 #[byte_struct_le]
-pub struct Rev7BindingInput {
+pub struct BindingInput {
     /// Direction- and state-specific packet marker.
     pub magic: u32,
     /// Maximum configuring-state inactivity duration in `ms`.
     pub configuring_timeout_ms: u16,
 }
 
-impl Rev7BindingInput {
+impl BindingInput {
     /// Builds a binding request with the required rev7 packet marker.
     ///
     /// Args:
@@ -57,14 +57,14 @@ impl Rev7BindingInput {
 /// Fields are serialized contiguously in little-endian order.
 #[derive(ByteStruct, Clone, Copy, Debug, Default)]
 #[byte_struct_le]
-pub struct Rev7BindingOutput {
+pub struct BindingOutput {
     /// Direction- and state-specific packet marker.
     pub magic: u32,
     /// Model and serial-number identity of the responding board.
     pub peripheral_id: PeripheralId,
 }
 
-impl Rev7BindingOutput {
+impl BindingOutput {
     /// Builds a binding response with the required rev7 packet marker.
     ///
     /// Args:
@@ -95,7 +95,7 @@ impl Rev7BindingOutput {
 /// Fields are serialized contiguously in little-endian order.
 #[derive(ByteStruct, Clone, Copy, Debug, Default)]
 #[byte_struct_le]
-pub struct Rev7ConfiguringInput {
+pub struct ConfiguringInput {
     /// Direction- and state-specific packet marker.
     pub magic: u32,
     /// Nominal operating-cycle duration in `ns`.
@@ -108,7 +108,7 @@ pub struct Rev7ConfiguringInput {
     pub loss_of_contact_limit: u16,
 }
 
-impl Rev7ConfiguringInput {
+impl ConfiguringInput {
     /// Adds the rev7 packet marker to a generic configuration request.
     ///
     /// Args:
@@ -116,7 +116,7 @@ impl Rev7ConfiguringInput {
     ///
     /// Returns:
     ///   Equivalent rev7-specific request.
-    pub fn from_base(base: ConfiguringInput) -> Self {
+    pub fn from_base(base: BaseConfiguringInput) -> Self {
         Self {
             magic: super::CONFIGURING_INPUT_MAGIC,
             dt_ns: base.dt_ns,
@@ -144,7 +144,7 @@ impl Rev7ConfiguringInput {
 /// Fields are serialized contiguously in little-endian order.
 #[derive(ByteStruct, Clone, Copy, Debug, Default)]
 #[byte_struct_le]
-pub struct Rev7ConfiguringOutput {
+pub struct ConfiguringOutput {
     /// Direction- and state-specific packet marker.
     pub magic: u32,
     /// Firmware acceptance or rejection of the configuration.
@@ -153,7 +153,7 @@ pub struct Rev7ConfiguringOutput {
     pub firmware_calibrated: u8,
 }
 
-impl Rev7ConfiguringOutput {
+impl ConfiguringOutput {
     /// Builds a configuration response with a canonical calibration flag.
     ///
     /// Args:

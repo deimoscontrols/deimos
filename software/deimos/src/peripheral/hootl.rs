@@ -17,9 +17,10 @@ use deimos_shared::OperatingMetrics;
 use deimos_shared::PERIPHERAL_RX_PORT;
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::peripherals::deimos_daq_rev7::{
+    BindingInput as Rev7BindingInput, BindingOutput as Rev7BindingOutput,
+    ConfiguringInput as Rev7ConfiguringInput, ConfiguringOutput as Rev7ConfiguringOutput,
     MODEL_NUMBER as REV7_MODEL_NUMBER, OperatingRoundtripInput as Rev7OperatingInput,
-    OperatingSnapshot as Rev7OperatingSnapshot, Rev7BindingInput, Rev7BindingOutput,
-    Rev7ConfiguringInput, Rev7ConfiguringOutput,
+    OperatingSnapshot as Rev7OperatingSnapshot,
 };
 use deimos_shared::states::{
     AcknowledgeConfiguration, BindingInput, BindingOutput, ByteStruct, ByteStructLen,

@@ -56,7 +56,7 @@ impl LinearCalibration {
 /// records whether the coefficients were produced by the calibration procedure.
 #[derive(ByteStruct, Clone, Copy, Debug)]
 #[byte_struct_le]
-pub struct Rev7Calibration {
+pub struct Calibration {
     /// Status encoded as `0` for identity or `1` for procedurally calibrated.
     pub firmware_calibrated: u8,
     /// Sensed-voltage calibrations with shape `(ADC_CHANNEL_COUNT,)` and
@@ -64,7 +64,7 @@ pub struct Rev7Calibration {
     pub voltage_cals: [LinearCalibration; super::ADC_CHANNEL_COUNT],
 }
 
-impl Default for Rev7Calibration {
+impl Default for Calibration {
     fn default() -> Self {
         Self {
             firmware_calibrated: 0,
@@ -73,7 +73,7 @@ impl Default for Rev7Calibration {
     }
 }
 
-impl Rev7Calibration {
+impl Calibration {
     /// Reports whether this image contains procedurally generated coefficients.
     ///
     /// Returns:
@@ -108,7 +108,7 @@ impl Rev7Calibration {
 #[inline]
 pub fn board_temperature_k_f32(
     samples: &[f32; ADC_CHANNEL_COUNT],
-    calibration: &Rev7Calibration,
+    calibration: &Calibration,
 ) -> f32 {
     let sensed_v = calibration.voltage_cals[2].apply(samples[2] / RTD_FRONTEND_GAIN);
     crate::calcs::pt100_temperature_k_f32(sensed_v / RTD_REFERENCE_CURRENT_A)
@@ -131,7 +131,7 @@ pub fn board_temperature_k_f32(
 pub fn populate_analog_snapshot_f32(
     output: &mut OperatingSnapshot,
     samples: &[f32; ADC_CHANNEL_COUNT],
-    calibration: &Rev7Calibration,
+    calibration: &Calibration,
     filtered_board_temperature_k: f32,
 ) {
     output.module_bus_current_a = samples[0] * MODULE_BUS_CURRENT_SCALE;

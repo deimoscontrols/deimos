@@ -22,9 +22,7 @@ use std::{
     time::Duration,
 };
 
-use deimos_shared::peripherals::deimos_daq_rev7::{
-    DEIMOS_MAX_CYCLE_RATE_HZ, REV7_MIN_CYCLE_RATE_HZ,
-};
+use deimos_shared::peripherals::deimos_daq_rev7::{DEIMOS_MAX_CYCLE_RATE_HZ, MIN_CYCLE_RATE_HZ};
 use plotly::{
     Configuration, Layout, Plot, Scatter,
     common::{DashType, Font, Line, Mode, Title},
@@ -84,7 +82,7 @@ fn main() -> Result<(), String> {
     fs::create_dir_all(&output_dir)
         .map_err(|e| format!("Failed to create sweep output directory: {e}"))?;
     let rates = logspace(
-        f64::from(REV7_MIN_CYCLE_RATE_HZ),
+        f64::from(MIN_CYCLE_RATE_HZ),
         f64::from(DEIMOS_MAX_CYCLE_RATE_HZ),
         RATE_COUNT,
     );

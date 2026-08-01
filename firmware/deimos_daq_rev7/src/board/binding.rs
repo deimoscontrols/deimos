@@ -6,7 +6,7 @@ use irq::{handler, scope};
 
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::peripherals::deimos_daq_rev7::packets::{
-    OperatingOutputSettings, Rev7BindingInput, Rev7BindingOutput,
+    BindingInput, BindingOutput, OperatingOutputSettings,
 };
 use deimos_shared::states::{ByteStruct, ByteStructLen};
 
@@ -97,24 +97,24 @@ impl<'a> Board<'a> {
 
                 // Check for a controller trying to bind
                 if let Ok((recv_buf, meta)) = self.net.udp_recv()
-                    && recv_buf.len() == Rev7BindingInput::BYTE_LEN
+                    && recv_buf.len() == BindingInput::BYTE_LEN
                 {
-                    let binding_input = Rev7BindingInput::read_bytes(recv_buf);
+                    let binding_input = BindingInput::read_bytes(recv_buf);
                     if binding_input.is_valid() {
                         // Store the controller's address
                         self.controller = Some(meta);
                         self.configuring_timeout_ms = binding_input.configuring_timeout_ms;
 
                         // Respond to the controller
-                        let binding_response = Rev7BindingOutput::new(PeripheralId {
+                        let binding_response = BindingOutput::new(PeripheralId {
                             model_number: MODEL_NUMBER,
                             serial_number: SERIAL_NUMBER,
                         });
                         match self
                             .net
-                            .udp_send_with(Rev7BindingOutput::BYTE_LEN, meta, |buf| {
+                            .udp_send_with(BindingOutput::BYTE_LEN, meta, |buf| {
                                 binding_response.write_bytes(buf);
-                                Rev7BindingOutput::BYTE_LEN
+                                BindingOutput::BYTE_LEN
                             }) {
                             Ok(_) => {}
                             Err(_) => {

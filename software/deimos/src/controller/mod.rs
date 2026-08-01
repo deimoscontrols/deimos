@@ -23,7 +23,9 @@ use crate::{
     peripheral::{HootlRunHandle, HootlTransport, Peripheral, PluginMap, parse_binding},
 };
 use deimos_numerics::embedded::fixed::MedianFilter;
-use deimos_shared::peripherals::deimos_daq_rev7::{Rev7BindingInput, Rev7BindingOutput};
+use deimos_shared::peripherals::deimos_daq_rev7::{
+    BindingInput as Rev7BindingInput, BindingOutput as Rev7BindingOutput,
+};
 use deimos_shared::states::*;
 
 use crate::calc::{CalcOrchestrator, FieldName, PeripheralInputName};
@@ -1791,7 +1793,7 @@ mod test {
     use super::*;
     use crate::peripheral::{DeimosDaqRev7, analog_i_rev_2::AnalogIRev2};
     use deimos_shared::{
-        peripherals::deimos_daq_rev7::Rev7ConfiguringOutput,
+        peripherals::deimos_daq_rev7::ConfiguringOutput as Rev7ConfiguringOutput,
         states::{AcknowledgeConfiguration, ByteStruct, ByteStructLen, ConfiguringOutput},
     };
 

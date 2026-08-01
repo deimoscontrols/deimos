@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn rev7_adc_filter_helpers_build_full_banks() {
+fn adc_filter_helpers_build_full_banks() {
     let filters = adc_filter_bank(0.1).unwrap();
     let transfer_functions = adc_filter_transfer_functions(0.1).unwrap();
     let fractional_delay_filters =
@@ -29,7 +29,7 @@ fn rev7_adc_filter_helpers_build_full_banks() {
 }
 
 #[test]
-fn rev7_low_rate_adc_filter_holds_a_primed_steady_state() {
+fn low_rate_adc_filter_holds_a_primed_steady_state() {
     let filter = adc_filter_bank(1.0 / 2_250.0).unwrap()[0];
     let mut state = filter.reset_state();
     filter.set_steady_state(&mut state, [1.25]);
@@ -42,7 +42,7 @@ fn rev7_low_rate_adc_filter_holds_a_primed_steady_state() {
 }
 
 #[test]
-fn rev7_adc_analog_frontend_transfer_functions_match_channel_mapping() {
+fn adc_analog_frontend_transfer_functions_match_channel_mapping() {
     let transfer_functions = adc_analog_frontend_transfer_functions().unwrap();
 
     assert_eq!(transfer_functions.len(), ADC_CHANNEL_COUNT);
@@ -89,7 +89,7 @@ fn rev7_adc_analog_frontend_transfer_functions_match_channel_mapping() {
 }
 
 #[test]
-fn rev7_adc_sampled_transfer_functions_include_full_filter_chain() {
+fn adc_sampled_transfer_functions_include_full_filter_chain() {
     let transfer_functions =
         adc_sampled_transfer_functions(0.1, super::super::ADC_OVERSAMPLE_TARGET_RATE_HZ).unwrap();
 
@@ -127,7 +127,7 @@ fn cycle_rate_filter_helpers_follow_shared_sampling_policy() {
 }
 
 #[test]
-fn rev7_adc_sampled_bode_data_builds_for_all_channels() {
+fn adc_sampled_bode_data_builds_for_all_channels() {
     let frequencies_hz = [0.0, 10.0, 100.0, 1_000.0];
     let angular_frequencies: alloc::vec::Vec<f64> = frequencies_hz
         .iter()
@@ -154,7 +154,7 @@ fn rev7_adc_sampled_bode_data_builds_for_all_channels() {
 }
 
 #[test]
-fn rev7_adc_combined_bode_preserves_high_frequency_analog_attenuation() {
+fn adc_combined_bode_preserves_high_frequency_analog_attenuation() {
     let sample_rate_hz = super::super::ADC_OVERSAMPLE_TARGET_RATE_HZ;
     let frequencies_hz = [1_000.0, 10_000.0, 16_000.0, 30_000.0, 100_000.0];
     let angular_frequencies: alloc::vec::Vec<f64> = frequencies_hz

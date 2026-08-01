@@ -1,6 +1,6 @@
 //! Holding-register encoding and validated atomic writes.
 
-use super::super::{ModbusInitialConfig, DAC_CHANNEL_COUNT, PWM_CHANNEL_COUNT};
+use super::super::{ModbusInitialConfig, DAC_CHANNEL_COUNT, MIN_CYCLE_RATE_HZ, PWM_CHANNEL_COUNT};
 use super::{codec::*, *};
 
 /// Encode current Modbus configuration, diagnostics, and outputs as holding registers.
@@ -88,7 +88,8 @@ pub fn apply_holding_write(
     if field_is_covered(start, end, HOLDING_CYCLE_RATE_HZ as usize, 2) {
         let rate_hz = f32::from_bits(read_u32(values, start, HOLDING_CYCLE_RATE_HZ as usize));
         if !rate_hz.is_finite()
-            || !(MODBUS_MIN_CYCLE_RATE_HZ..=MODBUS_MAX_CYCLE_RATE_HZ).contains(&rate_hz)
+            || rate_hz < MIN_CYCLE_RATE_HZ as f32
+            || rate_hz > MODBUS_MAX_CYCLE_RATE_HZ
         {
             return Err(HoldingWriteError::IllegalDataValue);
         }

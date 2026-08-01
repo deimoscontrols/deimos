@@ -20,7 +20,7 @@ use stm32h7xx_hal::{
 impl<'a> Board<'a> {
     /// Configure power, clocks, and peripherals
     pub fn new(store: &'a mut NetStorageStatic<'a>) -> (Self, Sampler) {
-        let calibration = Rev7Calibration::read_bytes(include_bytes!(concat!(
+        let calibration = Calibration::read_bytes(include_bytes!(concat!(
             env!("OUT_DIR"),
             "/calibration.in"
         )));

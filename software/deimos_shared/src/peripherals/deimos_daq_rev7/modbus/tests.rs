@@ -1,4 +1,4 @@
-use super::super::{ModbusInitialConfig, OperatingSnapshot};
+use super::super::{ModbusInitialConfig, OperatingSnapshot, MIN_CYCLE_RATE_HZ};
 use super::codec::{put_f32, put_u32};
 use super::*;
 use crate::peripherals::deimos_daq_rev7::OPERATING_SNAPSHOT_MAGIC;
@@ -131,7 +131,7 @@ fn holding_writes_preserve_omitted_fields_and_validate_atomically() {
     assert_eq!(updated.loss_of_contact_limit, 123);
     assert_eq!(updated.outputs, current.outputs);
 
-    let minimum_rate_bits = MODBUS_MIN_CYCLE_RATE_HZ.to_bits();
+    let minimum_rate_bits = (MIN_CYCLE_RATE_HZ as f32).to_bits();
     let minimum = apply_holding_write(
         current,
         HOLDING_CYCLE_RATE_HZ,
@@ -152,7 +152,7 @@ fn holding_writes_preserve_omitted_fields_and_validate_atomically() {
         ),
         Err(HoldingWriteError::IllegalDataValue),
     );
-    let insufficient_rate_bits = (MODBUS_MIN_CYCLE_RATE_HZ - 1.0).to_bits();
+    let insufficient_rate_bits = (MIN_CYCLE_RATE_HZ as f32 - 1.0).to_bits();
     assert_eq!(
         apply_holding_write(
             current,

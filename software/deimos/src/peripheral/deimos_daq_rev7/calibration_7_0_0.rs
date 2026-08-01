@@ -35,8 +35,8 @@ use crate::{
     peripheral::Peripheral,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
+use deimos_shared::peripherals::deimos_daq_rev7::Calibration;
 use deimos_shared::peripherals::deimos_daq_rev7::MODEL_NUMBER;
-use deimos_shared::peripherals::deimos_daq_rev7::Rev7Calibration;
 use deimos_shared::states::{ByteStruct, ByteStructLen};
 
 use super::{CalRecord, CalRecordCore, DeimosDaqRev7, LinearCal};
@@ -1607,7 +1607,7 @@ fn write_full_cal_record(
     fs::write(&path, json).map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
 
     let firmware_calibration = record.firmware_calibration(true)?;
-    let mut firmware_bytes = vec![0_u8; Rev7Calibration::BYTE_LEN];
+    let mut firmware_bytes = vec![0_u8; Calibration::BYTE_LEN];
     firmware_calibration.write_bytes(&mut firmware_bytes);
     let firmware_path = summary_dir.join("calibration.bin");
     fs::write(&firmware_path, firmware_bytes)

@@ -34,7 +34,7 @@ pub use deimos_shared::peripherals::deimos_daq_rev7::{
     ADC_CHANNEL_COUNT, ADC_IIR_CUTOFF_TO_REPORT_RATE, ADC_OVERSAMPLE_TARGET_HZ, MODEL_NUMBER, VREF,
 };
 use deimos_shared::peripherals::deimos_daq_rev7::{
-    calc::Rev7Calibration,
+    calc::Calibration,
     packets::{ModbusInitialConfig, OperatingOutputSettings},
     timing::{AcquisitionClock, UniformIntervalScheduler, bounded_cycle_timing_correction_ns},
 };
@@ -94,7 +94,7 @@ pub struct Board<'a> {
     modbus: ModbusTcpServer,
 
     // Embedded measurement calibration.
-    pub calibration: Rev7Calibration,
+    pub calibration: Calibration,
 
     // I/O
     pub outputs: Outputs,

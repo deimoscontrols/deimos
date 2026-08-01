@@ -6,7 +6,7 @@ use crate::{
 use deimos_shared::{
     OperatingMetrics,
     peripherals::{PeripheralId, deimos_daq_rev7::*},
-    states::{AcknowledgeConfiguration, ConfiguringInput},
+    states::{AcknowledgeConfiguration, ConfiguringInput as BaseConfiguringInput},
 };
 use std::{collections::BTreeMap, time::SystemTime};
 
@@ -117,12 +117,12 @@ impl CalRecord {
     /// Returns:
     ///   Validated fixed-layout firmware calibration record, or an error if a
     ///   narrowed coefficient is nonfinite or has zero slope.
-    pub fn firmware_calibration(&self, calibrated: bool) -> Result<Rev7Calibration, String> {
+    pub fn firmware_calibration(&self, calibrated: bool) -> Result<Calibration, String> {
         let voltage_cals = self.voltage_cals.map(|cal| LinearCalibration {
             slope: cal.slope as f32,
             offset: cal.offset as f32,
         });
-        let calibration = Rev7Calibration {
+        let calibration = Calibration {
             firmware_calibrated: u8::from(calibrated),
             voltage_cals,
         };
@@ -286,22 +286,22 @@ impl Peripheral for DeimosDaqRev7 {
     }
 
     fn configuring_input_size(&self) -> usize {
-        Rev7ConfiguringInput::BYTE_LEN
+        ConfiguringInput::BYTE_LEN
     }
 
     fn configuring_output_size(&self) -> usize {
-        Rev7ConfiguringOutput::BYTE_LEN
+        ConfiguringOutput::BYTE_LEN
     }
 
-    fn emit_configuring(&self, base: ConfiguringInput, bytes: &mut [u8]) {
-        Rev7ConfiguringInput::from_base(base).write_bytes(bytes);
+    fn emit_configuring(&self, base: BaseConfiguringInput, bytes: &mut [u8]) {
+        ConfiguringInput::from_base(base).write_bytes(bytes);
     }
 
     fn parse_configuring(&self, bytes: &[u8]) -> Result<Option<bool>, String> {
-        if bytes.len() != Rev7ConfiguringOutput::BYTE_LEN {
+        if bytes.len() != ConfiguringOutput::BYTE_LEN {
             return Err("Invalid rev7 configuring response length".to_owned());
         }
-        let response = Rev7ConfiguringOutput::read_bytes(bytes);
+        let response = ConfiguringOutput::read_bytes(bytes);
         if !response.is_valid() {
             return Err("Invalid rev7 configuring response magic or calibration flag".to_owned());
         }

@@ -3,7 +3,7 @@ use super::*;
 use core::sync::atomic::{AtomicBool, Ordering};
 use deimos_shared::{
     peripherals::deimos_daq_rev7::packets::{
-        OperatingOutputSettings, Rev7ConfiguringInput, Rev7ConfiguringOutput,
+        ConfiguringInput, ConfiguringOutput, OperatingOutputSettings,
     },
     states::{AcknowledgeConfiguration, ByteStruct, ByteStructLen},
 };
@@ -76,8 +76,8 @@ impl<'a> Board<'a> {
                     };
 
                     // Parse received config
-                    if recv_buf.len() == Rev7ConfiguringInput::BYTE_LEN {
-                        let config = Rev7ConfiguringInput::read_bytes(recv_buf);
+                    if recv_buf.len() == ConfiguringInput::BYTE_LEN {
+                        let config = ConfiguringInput::read_bytes(recv_buf);
                         if !config.is_valid() {
                             self.watchdog.feed();
                             return;
@@ -100,15 +100,15 @@ impl<'a> Board<'a> {
                 if configured {
                     if let Some(meta) = self.controller {
                         // Acknowledge configuration
-                        let ack = Rev7ConfiguringOutput::new(
+                        let ack = ConfiguringOutput::new(
                             AcknowledgeConfiguration::Ack,
                             self.calibration.is_calibrated(),
                         );
                         match self
                             .net
-                            .udp_send_with(Rev7ConfiguringOutput::BYTE_LEN, meta, |buf| {
+                            .udp_send_with(ConfiguringOutput::BYTE_LEN, meta, |buf| {
                                 ack.write_bytes(buf);
-                                Rev7ConfiguringOutput::BYTE_LEN
+                                ConfiguringOutput::BYTE_LEN
                             }) {
                             Ok(_) => {}
                             Err(_) => {
