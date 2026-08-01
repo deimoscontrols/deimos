@@ -10,6 +10,7 @@ use deimos_numerics::control::lti::{BodeData, ContinuousTransferFunction};
 use deimos_shared::peripherals::deimos_daq_rev7::{
     adc_analog_frontend_transfer_functions, adc_digital_transfer_functions_for_cycle_rate,
     adc_sampled_bode_data_for_cycle_rate, adc_sampling_policy, AdcSamplingMode, AdcSamplingPolicy,
+    ADC_OVERSAMPLE_TARGET_RATE_HZ, DEIMOS_MAX_CYCLE_RATE_HZ, REV7_MIN_CYCLE_RATE_HZ,
 };
 use plotly::{
     common::{Anchor, DashType, Font, Line, Mode, Orientation, Title, Visible},
@@ -27,10 +28,11 @@ const PHASE_DOMAIN_START: f64 = 0.0;
 const PHASE_DOMAIN_END: f64 = 0.43;
 const REPORT_MAX_WIDTH: &str = "60rem";
 const FREQUENCY_POINTS: usize = 5_000;
+const SAMPLERATE_POINTS: usize = 5_000;
 const TRACES_PER_VARIANT: usize = 6;
 const DEFAULT_REPORTING_RATE_HZ: f64 = 1_000.0;
-const REPORTING_RATE_LEVELS_HZ: [f64; 11] = [
-    5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1_000.0, 2_000.0, 3_000.0, 5_000.0,
+const REPORTING_RATE_LEVELS_HZ: [f64; 12] = [
+    5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1_000.0, 2_000.0, 3_000.0, 5_000.0, 8_000.0,
 ];
 const SALLEN_KEY_CAPACITANCE_F: f64 = 10.0e-9;
 const SALLEN_KEY_100HZ_RESISTANCE_OHMS: f64 = 100.0e3;
@@ -138,9 +140,132 @@ fn main() -> Result<(), Box<dyn Error>> {
             )?;
             println!("wrote {}", html_path.display());
         }
+
+        let samplerate_plot = build_samplerate_plot(&theme)?;
+        let html_path = output_dir.join(format!("rev7_samplerate_{}.html", theme.suffix));
+        write_simple_plot_html(&samplerate_plot, &html_path, &theme)?;
+        println!("wrote {}", html_path.display());
     }
 
     Ok(())
+}
+
+/// Builds the exact internal samplerate selected across the supported Deimos
+/// reporting-rate range.
+///
+/// The plotted values come from the shared sampling-policy function used by
+/// firmware, so changes to its integer samples-per-cycle calculation are
+/// reflected in the generated documentation rather than duplicated here.
+///
+/// Args:
+///   theme: Website color and background styling.
+///
+/// Returns:
+///   Interactive samplerate plot, or a sampling-policy construction error.
+fn build_samplerate_plot(theme: &Theme) -> Result<Plot, Box<dyn Error>> {
+    let mut reporting_rates_hz = logspace(
+        f64::from(REV7_MIN_CYCLE_RATE_HZ),
+        f64::from(DEIMOS_MAX_CYCLE_RATE_HZ),
+        SAMPLERATE_POINTS,
+    );
+    // Pin values which can move by an ulp through log10/powf so the plot and
+    // hover data include the exact supported endpoints.
+    reporting_rates_hz[0] = f64::from(REV7_MIN_CYCLE_RATE_HZ);
+    reporting_rates_hz[SAMPLERATE_POINTS - 1] = f64::from(DEIMOS_MAX_CYCLE_RATE_HZ);
+    let policies = reporting_rates_hz
+        .iter()
+        .map(|&reporting_rate_hz| {
+            adc_sampling_policy(reporting_rate_hz).ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidInput, "invalid reporting cycle rate")
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let samplerates_hz = policies
+        .iter()
+        .map(|policy| policy.sample_rate_hz)
+        .collect::<Vec<_>>();
+    let hover_templates = reporting_rates_hz
+        .iter()
+        .zip(&policies)
+        .map(|(&reporting_rate_hz, policy)| {
+            format!(
+                "Reporting rate: {}<br>Internal samplerate: {}<br>Samples/cycle: {}<extra></extra>",
+                format_frequency(reporting_rate_hz),
+                format_frequency(policy.sample_rate_hz),
+                policy.samples_per_cycle,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let mut plot = Plot::new();
+    plot.set_configuration(Configuration::new().responsive(true).display_logo(false));
+    plot.add_trace(
+        Scatter::new(reporting_rates_hz.clone(), samplerates_hz)
+            .mode(Mode::Lines)
+            .name("Internal samplerate")
+            .hover_template_array(hover_templates)
+            .line(Line::new().color(theme.foreground).width(2.0)),
+    );
+    plot.add_trace(
+        Scatter::new(
+            reporting_rates_hz,
+            vec![ADC_OVERSAMPLE_TARGET_RATE_HZ; SAMPLERATE_POINTS],
+        )
+        .mode(Mode::Lines)
+        .name("9 kHz target")
+        .line(
+            Line::new()
+                .color(theme.foreground)
+                .dash(DashType::Dash)
+                .width(1.5),
+        ),
+    );
+
+    let direct_cutover_hz = ADC_OVERSAMPLE_TARGET_RATE_HZ / 2.0;
+    plot.set_layout(
+        Layout::new()
+            .title(Title::with_text(
+                "Deimos DAQ Rev7 Internal Samplerate<br><sup>Synchronous integer samples per reporting cycle</sup>",
+            ))
+            .auto_size(true)
+            .height(HEIGHT)
+            .font(Font::new().color(theme.foreground))
+            .legend(
+                Legend::new()
+                    .font(Font::new().color(theme.foreground))
+                    .orientation(Orientation::Horizontal)
+                    .x(0.0)
+                    .x_anchor(Anchor::Left)
+                    .y(1.02)
+                    .y_anchor(Anchor::Bottom),
+            )
+            .margin(
+                Margin::new()
+                    .left(65)
+                    .right(30)
+                    .top(90)
+                    .bottom(65)
+                    .auto_expand(true),
+            )
+            .paper_background_color(theme.paper_background)
+            .plot_background_color(theme.plot_background)
+            .x_axis(axis(theme, "Reporting rate [Hz]", true))
+            .y_axis(
+                axis(theme, "Internal samplerate [sample/s]", false)
+                    .range(AxisRange::new(0.0, 9_500.0)),
+            )
+            .shapes(vec![vertical_line(theme, direct_cutover_hz, "x", 0.0, 1.0)])
+            .annotations(vec![vertical_annotation(
+                theme,
+                direct_cutover_hz,
+                "x",
+                1.0,
+                Anchor::Top,
+                "1× sampling transition",
+            )]),
+    );
+
+    Ok(plot)
 }
 
 fn parse_args() -> Result<PathBuf, Box<dyn Error>> {
@@ -480,6 +605,66 @@ fn write_interactive_html(
         plot_id = plot_id,
         report_max_width = REPORT_MAX_WIDTH,
         states_json = states_json,
+    );
+
+    fs::write(path, html)?;
+    Ok(())
+}
+
+/// Writes a responsive themed plot without the reporting-rate slider used by
+/// the Bode plots.
+///
+/// Args:
+///   plot: Fully configured Plotly figure.
+///   path: Destination HTML file path.
+///   theme: Website color and background styling.
+///
+/// Returns:
+///   Success, or a filesystem error while writing the document.
+fn write_simple_plot_html(plot: &Plot, path: &Path, theme: &Theme) -> Result<(), Box<dyn Error>> {
+    let inline_plot = plot.to_inline_html(Some("rev7-samplerate-plot"));
+    let html = format!(
+        r#"<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
+    <style>
+        :root {{ color-scheme: {color_scheme}; }}
+        html, body {{ margin: 0; background: {background}; }}
+        body {{
+            color: {foreground};
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }}
+        .rev7-plot-shell {{
+            box-sizing: border-box;
+            width: 100%;
+            max-width: {report_max_width};
+            min-height: {height}px;
+            margin: 0 auto;
+            padding: 0 clamp(0.25rem, 2vw, 1rem);
+            background: {background};
+            border-left: 1px solid {border};
+            border-right: 1px solid {border};
+        }}
+        .rev7-plot-shell .plotly-graph-div {{
+            width: 100% !important;
+            height: {height}px !important;
+        }}
+    </style>
+</head>
+<body>
+    <div class="rev7-plot-shell">{inline_plot}</div>
+</body>
+</html>
+"#,
+        background = theme.paper_background,
+        border = theme.border,
+        color_scheme = theme.color_scheme,
+        foreground = theme.foreground,
+        height = HEIGHT,
+        inline_plot = inline_plot,
+        report_max_width = REPORT_MAX_WIDTH,
     );
 
     fs::write(path, html)?;
