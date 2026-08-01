@@ -19,8 +19,6 @@ use deimos::peripheral::DeimosDaqRev7;
 use deimos::*;
 use tracing::info;
 
-mod common;
-
 fn main() {
     // Set op name
     // None -> Let the controller set the name of the op automatically
@@ -46,7 +44,6 @@ fn main() {
 
     // Define idle controller
     let mut ctx = ControllerCtx::default();
-    common::add_website_record_store(&mut ctx);
     ctx.op_name = op_name;
     ctx.dt_ns = dt_ns;
     ctx.op_dir = op_dir.clone();

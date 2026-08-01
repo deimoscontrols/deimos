@@ -345,8 +345,6 @@ pub fn run_benchmark(config: &BenchmarkConfig) -> Result<BenchmarkResult, String
     ctx.peripheral_loss_of_contact_limit = (actual_rate_hz * 2.0)
         .round()
         .clamp(1.0, f64::from(u16::MAX)) as u16;
-    // Exercise the normal calibrated operating path.
-    ctx.use_no_calibrations = false;
 
     let mut controller = Controller::new(ctx);
     controller

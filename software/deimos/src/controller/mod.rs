@@ -20,10 +20,7 @@ use crate::{
     SOCKET_BUFFER_LEN,
     calc::Calc,
     logging,
-    peripheral::{
-        HootlRunHandle, HootlTransport, Peripheral, PluginMap, calibration::query_cals,
-        parse_binding,
-    },
+    peripheral::{HootlRunHandle, HootlTransport, Peripheral, PluginMap, parse_binding},
 };
 use deimos_numerics::embedded::fixed::MedianFilter;
 use deimos_shared::peripherals::deimos_daq_rev7::{Rev7BindingInput, Rev7BindingOutput};
@@ -209,56 +206,8 @@ impl Controller {
             return Err(format!("Peripheral name `{name}` is duplicated"));
         }
 
-        // Resolve the calibration artifact before initializing standard calcs
-        // because the peripheral owns how its calibration record is applied.
-        let slug = p.slug();
-        let cals = if !p.requires_host_calibration_artifact() {
-            info!(
-                peripheral = name,
-                slug, "Peripheral calibration is embedded in firmware."
-            );
-            String::new()
-        } else if self.ctx.use_no_calibrations {
-            info!(
-                peripheral = name,
-                slug, "Calibration lookup disabled; using peripheral default calibration."
-            );
-            p.default_cals()?
-        } else {
-            match query_cals(
-                &slug,
-                &self.ctx.calibration_local_sources,
-                self.ctx.calibration_offline_only,
-            )? {
-                Some(cals) => {
-                    info!(
-                        peripheral = name,
-                        slug, "Using discovered calibration record for peripheral."
-                    );
-                    cals
-                }
-                None if self.ctx.calibration_allow_missing => {
-                    info!(
-                        peripheral = name,
-                        slug, "No calibration record found; using peripheral default calibration."
-                    );
-                    p.default_cals()?
-                }
-                None => {
-                    warn!(
-                        peripheral = name,
-                        slug,
-                        "No calibration record found and missing calibrations are not allowed."
-                    );
-                    return Err(format!(
-                        "No calibration record found for peripheral `{name}` with slug `{slug}`"
-                    ));
-                }
-            }
-        };
-
         // Add the standard set of calcs that come with this peripheral, if any.
-        let calcs = p.standard_calcs(name, &cals)?;
+        let calcs = p.standard_calcs(name);
         self.orchestrator.add_calcs(calcs)?;
         // Register the peripheral
         self.peripherals.insert(name.to_owned(), p);
@@ -899,7 +848,7 @@ impl Controller {
             match validate_configuring_response(
                 peripheral.as_ref(),
                 payload,
-                self.ctx.use_no_calibrations,
+                self.ctx.calibration_run,
             ) {
                 Ok(()) => {
                     ps.acknowledged_configuration = true;
@@ -1230,7 +1179,7 @@ impl Controller {
                                 match validate_configuring_response(
                                     p.as_ref(),
                                     &rxbuf[..amt],
-                                    self.ctx.use_no_calibrations,
+                                    self.ctx.calibration_run,
                                 ) {
                                     Ok(()) => {
                                         let ps = controller_state
@@ -1888,7 +1837,7 @@ mod test {
     }
 
     #[test]
-    fn pre_rev7_configuration_does_not_gain_a_calibration_requirement() {
+    fn pre_rev7_configuration_ignores_firmware_calibration_policy() {
         let peripheral = AnalogIRev2 { serial_number: 1 };
         let response = ConfiguringOutput {
             acknowledge: AcknowledgeConfiguration::Ack,
@@ -1897,18 +1846,5 @@ mod test {
         response.write_bytes(&mut bytes);
         assert!(validate_configuring_response(&peripheral, &bytes, false).is_ok());
         assert!(validate_configuring_response(&peripheral, &bytes, true).is_ok());
-    }
-
-    #[test]
-    fn rev7_registration_does_not_require_a_duplicate_host_calibration() {
-        let mut controller = Controller::default();
-        controller
-            .add_peripheral(
-                "p1",
-                Box::new(DeimosDaqRev7 {
-                    serial_number: 999_999,
-                }),
-            )
-            .unwrap();
     }
 }

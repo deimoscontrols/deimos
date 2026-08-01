@@ -32,14 +32,14 @@ use crate::{
     calc::{ktype_corrected_temp_k, ktype_voltage_v, pt100_resistance_ohm, pt100_temp_k},
     dispatcher::{ReportingDispatcher, load_csv},
     math::{polyfit, polyval},
-    peripheral::{Peripheral, calibration::CalRecordCore},
+    peripheral::Peripheral,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use deimos_shared::peripherals::deimos_daq_rev7::MODEL_NUMBER;
 use deimos_shared::peripherals::deimos_daq_rev7::Rev7Calibration;
 use deimos_shared::states::{ByteStruct, ByteStructLen};
 
-use super::{CalRecord, DeimosDaqRev7, LinearCal};
+use super::{CalRecord, CalRecordCore, DeimosDaqRev7, LinearCal};
 use serde::{Deserialize, Serialize};
 use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
@@ -1055,7 +1055,7 @@ fn controller_context(
     ctx.op_dir = op_dir;
     ctx.dt_ns = (1e9_f64 / RATE_HZ).round() as u32;
     ctx.loop_method = LoopMethod::Performant;
-    ctx.use_no_calibrations = true;
+    ctx.calibration_run = true;
     ctx.termination_criteria = Some(Termination::Timeout(Duration::from_secs(
         channel.capture_seconds(),
     )));
@@ -1373,8 +1373,6 @@ fn replay_calibration_run(raw_path: &Path) -> Result<PathBuf, String> {
     ctx.op_dir = op_dir.clone();
     ctx.dt_ns = (1e9_f64 / RATE_HZ).round() as u32;
     ctx.loop_method = LoopMethod::Performant;
-    ctx.use_no_calibrations = true;
-
     let mut controller = Controller::new(ctx);
     controller.add_peripheral(
         PERIPHERAL_NAME,

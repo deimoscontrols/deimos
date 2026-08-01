@@ -42,15 +42,12 @@ use deimos::{
 
 use tracing::info;
 
-mod common;
-
 fn main() {
     // Clear sockets
     let _ = std::fs::remove_dir_all("./sock");
 
     // Start building up controller settings
     let mut ctx = ControllerCtx::default();
-    common::add_website_record_store(&mut ctx);
     ctx.op_name = "ipc_example".to_string();
 
     // Set control rate
@@ -203,15 +200,7 @@ impl Peripheral for IpcMockup {
 
     /// Get a standard set of calcs that convert the raw outputs
     /// into a useable format.
-    fn standard_calcs(
-        &self,
-        _name: &str,
-        cals: &str,
-    ) -> Result<BTreeMap<String, Box<dyn Calc>>, String> {
-        if !cals.is_empty() {
-            return Err(format!("{} does not support calibration data", self.kind()));
-        }
-
-        Ok(BTreeMap::new())
+    fn standard_calcs(&self, _name: &str) -> BTreeMap<String, Box<dyn Calc>> {
+        BTreeMap::new()
     }
 }

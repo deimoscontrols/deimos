@@ -188,16 +188,8 @@ impl Peripheral for HootlPeripheral {
         self.inner.parse_configuring(bytes)
     }
 
-    fn requires_host_calibration_artifact(&self) -> bool {
-        self.inner.requires_host_calibration_artifact()
-    }
-
-    fn standard_calcs(
-        &self,
-        name: &str,
-        cals: &str,
-    ) -> Result<BTreeMap<String, Box<dyn Calc>>, String> {
-        self.inner.standard_calcs(name, cals)
+    fn standard_calcs(&self, name: &str) -> BTreeMap<String, Box<dyn Calc>> {
+        self.inner.standard_calcs(name)
     }
 }
 

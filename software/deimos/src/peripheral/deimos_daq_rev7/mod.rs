@@ -1,11 +1,14 @@
-use super::{Peripheral, calibration::CalRecordCore};
-use crate::calc::{Calc, RtdPt100};
+use super::Peripheral;
+use crate::{
+    calc::{Calc, RtdPt100},
+    fmt_time,
+};
 use deimos_shared::{
     OperatingMetrics,
     peripherals::{PeripheralId, deimos_daq_rev7::*},
     states::{AcknowledgeConfiguration, ConfiguringInput},
 };
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, time::SystemTime};
 
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +17,64 @@ use pyo3::prelude::*;
 
 use crate::py_peripheral_methods;
 pub mod calibration_7_0_0;
+
+/// Schema version for the shared fields in a rev7 calibration record.
+pub const CURRENT_CAL_SCHEMA_VERSION: u16 = 1;
+
+/// Procedure and instrument provenance for a generated rev7 calibration.
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct CalRecordCore {
+    /// Schema version for these shared top-level fields.
+    pub schema_version: u16,
+    /// Peripheral implementation kind.
+    pub peripheral_kind: String,
+    /// Numeric peripheral model identifier.
+    pub model_number: u64,
+    /// Unit serial number.
+    pub serial_number: u64,
+    /// Calibration procedure identifier.
+    pub procedure: String,
+    /// Version of the calibration procedure that produced this record.
+    pub procedure_version: u16,
+    /// UTC timestamp when this record was generated.
+    pub generated_at_utc: String,
+    /// Records-folder references for calibrators used by the procedure.
+    pub calibrators: Vec<String>,
+}
+
+impl CalRecordCore {
+    /// Construct calibration-record provenance using the current schema version.
+    ///
+    /// Args:
+    ///   peripheral_kind: Stable software type name for the calibrated device.
+    ///   model_number: Numeric peripheral model identifier.
+    ///   serial_number: Unit serial number.
+    ///   procedure: Calibration procedure identifier.
+    ///   procedure_version: Version of the calibration procedure.
+    ///   calibrators: Records-folder references for instruments used by the procedure.
+    ///
+    /// Returns:
+    ///   Provenance populated with the current UTC generation timestamp.
+    pub fn new(
+        peripheral_kind: impl Into<String>,
+        model_number: u64,
+        serial_number: u64,
+        procedure: impl Into<String>,
+        procedure_version: u16,
+        calibrators: Vec<String>,
+    ) -> Self {
+        Self {
+            schema_version: CURRENT_CAL_SCHEMA_VERSION,
+            peripheral_kind: peripheral_kind.into(),
+            model_number,
+            serial_number,
+            procedure: procedure.into(),
+            procedure_version,
+            generated_at_utc: fmt_time(SystemTime::now()),
+            calibrators,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 /// Human-readable affine sensed-voltage calibration.
@@ -250,16 +311,8 @@ impl Peripheral for DeimosDaqRev7 {
         }
     }
 
-    fn requires_host_calibration_artifact(&self) -> bool {
-        false
-    }
-
     /// The firmware now publishes all engineering conversions except external RTD temperature.
-    fn standard_calcs(
-        &self,
-        name: &str,
-        _cals: &str,
-    ) -> Result<BTreeMap<String, Box<dyn Calc>>, String> {
+    fn standard_calcs(&self, name: &str) -> BTreeMap<String, Box<dyn Calc>> {
         let mut calcs: BTreeMap<String, Box<dyn Calc>> = BTreeMap::new();
         for i in 0..RTD_CHANNEL_COUNT {
             calcs.insert(
@@ -267,12 +320,7 @@ impl Peripheral for DeimosDaqRev7 {
                 RtdPt100::new(format!("{name}.rtd_{i}_resistance_ohm"), true),
             );
         }
-        Ok(calcs)
-    }
-
-    fn default_cals(&self) -> Result<String, String> {
-        serde_json::to_string(&CalRecord::default())
-            .map_err(|e| format!("Failed to serialize default rev7 cals: {e}"))
+        calcs
     }
 }
 

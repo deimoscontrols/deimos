@@ -30,8 +30,6 @@ pub use deimos_daq_rev7::DeimosDaqRev7;
 pub mod hootl;
 pub use hootl::{HootlDriver, HootlPeripheral, HootlRunHandle, HootlTransport};
 
-pub mod calibration;
-
 pub use deimos_shared::peripherals::PeripheralId;
 
 /// Parse a binding response to the corresponding peripheral type
@@ -205,27 +203,8 @@ pub trait Peripheral: Send + Sync + Debug {
         }
     }
 
-    /// Reports whether host setup must resolve a software-side calibration artifact.
-    ///
-    /// Returns:
-    ///   `false` for devices whose complete calibration is embedded in firmware;
-    ///   the default is `true` for older peripherals.
-    fn requires_host_calibration_artifact(&self) -> bool {
-        true
-    }
-
     /// Get a standard set of calcs that convert the raw outputs into a useable format.
-    /// If provided, `cals` should be the json-serialized calibration artifact
-    /// for this peripheral.
-    ///
-    /// # Errors
-    ///
-    /// * On failure to parse provided calibration data
-    fn standard_calcs(
-        &self,
-        name: &str,
-        cals: &str,
-    ) -> Result<BTreeMap<String, Box<dyn Calc>>, String>;
+    fn standard_calcs(&self, name: &str) -> BTreeMap<String, Box<dyn Calc>>;
 
     /// The type name.
     ///
@@ -238,14 +217,8 @@ pub trait Peripheral: Send + Sync + Debug {
         t.to_string()
     }
 
-    /// Route slug for peripheral-related data like calibrations.
+    /// Route slug for peripheral records and generated artifacts.
     fn slug(&self) -> String {
         format!("{}/{}", self.kind(), self.id().serial_number)
-    }
-
-    /// Default (identity) calibration data for use during calibration procedures
-    /// before real values have been produced.
-    fn default_cals(&self) -> Result<String, String> {
-        Ok("".to_string())
     }
 }
