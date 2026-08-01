@@ -187,25 +187,26 @@ Each component of the system is defined in a Rust **Trait** object, allowing sea
 
 ## :material-account-hard-hat-outline:{ .lg } Safety & Reliability
 
-Deimos DAQs are built with an eye to longevity, reliability, and best-effort protection of user hardware.
+Deimos DAQs are built with an eye to longevity and reliability.
 Notable reliability features include
 
 * Ultra-lean firmware
     * No operating system, dynamic memory allocation, threading, mutexes, or event-driven interrupts.
     * No over-the-air updates (or self-reprogramming capability of any kind).
-    * Only timer-driven interrupts w/ processor atomics for sharing resources.
+    * Only a single timer-driven interrupt.
 * Independent watchdog interrupt & well-defined hardfault behavior
     * In the unlikely case of an unexpected internal error, rather than freezing in a given output state,
     the DAQ will reboot and return to an idle state with outputs set to their default (low) values.
     * Reboot will occur even if the processing state has frozen due to a fully separate watchdog.
 * Input overvoltage protection & electrostatic discharge protection.
-* All long-life ceramic capacitors; no short-lived electrolytics!
-* Generous cycle timing margin (~85%).
+* All long-life ceramic capacitors; no short-lived electrolytics.
+* Generous and tested cycle timing margin.
 * Minimal use of memory-unsafe programming.
     * Firmware: memory-unsafe access only as strictly necessary for register access & memory-mapped I/O.
     * Software: zero memory-unsafe operations.
 
-With that said, the Deimos ecosystem is neither intended nor certified for safety-critical applications.
+With that said, the Deimos ecosystem is neither intended nor certified for safety-critical applications,
+and must never be used for systems that pose a safety hazard.
 
 ----
 
@@ -215,7 +216,7 @@ Deimos DAQs use wired ethernet for communication. No special networking equipmen
 
 All of the most common network configurations are supported:
 
-* Direct: Connect directly to a control computer's ethernet port.
+* Direct: Connect directly to a control computer's ethernet port, treating it as a static network.
 * Static: Self-assemble IP addresses on a static network without a router.
 * Dynamic: IP addresses assigned by a router/DHCP server.
 
@@ -223,20 +224,18 @@ All of the most common network configurations are supported:
 
 ## :octicons-unlock-16:{ .lg } Security
 
-The Deimos ecosystem takes security to be a physical concern - similar to most data acquisition and SCADA systems,
-modules on the network will bind to any controller without authentication and all traffic is unencrypted.
+Put simply, there is none.
 
-Put another way - these are _not_ IoT devices! They use ethernet for its excellent data transfer properties, not
-with any intent to connect to the global internet.
+The Deimos ecosystem takes security to be a physical concern. Similar to most data acquisition and SCADA systems, modules on the network will bind to any controller without authentication and all traffic is unencrypted.
 
-Control networks are assumed to be airgapped, and no consideration whatsoever is given to preventing unauthorized access,
-except that all units ship with MAC addresses in the locally-administered (non-routable) block. This means that they are **not
-accessible from outside the local network** if the network's switching hardware is conformant. However, while this provides
-a thin layer of protection, it is far from a guarantee - network switching hardware is often compromised and may be reconfigured
-maliciously to forward traffic to and from an attacker.
+These are _not_ IoT devices. They use ethernet for its excellent data transfer properties, not with any intent to connect to the global internet.
 
-The only hardware on the network should be the control server, switching gear, and the DAQs.
+Control networks are assumed to be isolated, and there is no concept of unauthorized access; authorized access is any access by any controller that can reach the DAQ.
+
+As such, the only hardware on the network should be the control server, switching gear, and the DAQs.
 This protects the network from unexpected congestion during operations, prevents MAC address collisions with
 unrelated hardware that may also use the locally-administered block, and reduces opportunities for unauthorized access.
 
-Physical mitigations are simple: untrusted individuals and unrelated hardware should not be given access to the control network.
+Physical mitigations are simple: untrusted individuals and unrelated hardware should not be given access to the control network. The use of an untagged VLAN or airgapped network is recommended for further network isolation.
+
+In addition, Deimos DAQ firmware is unlocked, and while it does not provide a mechanism to replace the firmware over ethernet, it is easy for anyone with physical access to the DAQ to replace the firmware and cause permanent, arbitrary changes in behavior.
