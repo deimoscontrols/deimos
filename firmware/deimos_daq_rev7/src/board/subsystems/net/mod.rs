@@ -217,7 +217,7 @@ impl<'a> Net<'a> {
     /// Builds the Ethernet interface, sockets, and address state machine.
     ///
     /// The TCP socket and its backing storage are reserved here but remain
-    /// closed until the Modbus operating path explicitly calls [`Self::tcp_listen`].
+    /// closed until `Binding` enables the Modbus listener on calibrated boards.
     ///
     /// Args:
     ///   store: Static socket metadata and payload storage.
