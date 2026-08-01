@@ -8,7 +8,11 @@ hide:
 Each analog input has a filter pipeline that improves data quality while
 accommodating bandwidth requirements for common applications.
 
-Digital filters are adapted internally for the reporting rate.
+Digital IIR filters are adapted internally to target a cutoff frequency of 0.4x the
+Nyquist frequency of the reporting rate up to 4500Hz reporting rate.
+
+Above 4500Hz reporting rate, the digital antialiasing filter is disabled
+and antialiasing relies on frontend analog cutoff.
 
 See [the frontends page](./frontends.md) for dynamic response
 charts for each frontend type for a given reporting rate.
