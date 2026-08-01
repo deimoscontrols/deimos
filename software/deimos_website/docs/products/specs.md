@@ -1,8 +1,3 @@
----
-hide:
-- toc
----
-
 # Deimos DAQ - Specs
 
 Specifications refer to performance including applied calibrations.<br>
@@ -43,3 +38,27 @@ Values are preliminary and may be adjusted as further test data is collected.
 | :material-square-wave: 1x Pulse Counter | 400Hz-1MHz |  | 1 | 64-bit accumulator |
 | :material-square-wave: 1x Encoder | |  | | Signed 64-bit accumulator, forward/backward counting. |
 | :material-thermometer: Diagnostics | ||| Bus current.<br>Bus voltage.<br>Board / cold-junction temp. |
+
+## :material-gauge-full:{ .lg .middle } Benchmarks
+
+The operating space of the Deimos DAQ is one-dimensional: all internal changes vary only with
+the choice of cycle rate.
+
+The following benchmark data is collected using a consumer laptop host machine
+running ubuntu linux with a low-latency usb-to-ethernet adapter.
+
+Networking hardware with added latency can limit maximum cycle rate. As a result,
+this system performance is typical, but is not guaranteed.
+
+<div class="bode-plot-frame rate-sweep-plot-frame">
+  <div class="bode-plot-loader" aria-label="Loading rate sweep benchmark plot"></div>
+  <iframe
+    class="bode-plot"
+    src="../../assets/rev7_rate_sweep_light.html"
+    data-theme-src-dark="../../assets/rev7_rate_sweep_dark.html"
+    data-theme-src-light="../../assets/rev7_rate_sweep_light.html"
+    title="Deimos DAQ Rev7 cycle-rate benchmark"
+    loading="lazy"
+    onload="this.closest('.bode-plot-frame').classList.add('bode-plot-frame--loaded')"
+  ></iframe>
+</div>

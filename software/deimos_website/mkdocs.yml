@@ -110,7 +110,7 @@ nav:
   - Deimos DAQ: 
     - Overview: products/deimos_daq.md
     - Specs: products/specs.md
-    - Frontends: products/frontends.md
+    - Dynamics: products/dynamics.md
     - Calibration Reports: records/index.md
   - System: system.md
   - Contact: contact.md

@@ -415,6 +415,10 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
     margin: 1.5rem 0;
 }
 
+.rate-sweep-plot-frame {
+    height: 1100px;
+}
+
 .bode-plot {
     display: block;
     width: 100%;
