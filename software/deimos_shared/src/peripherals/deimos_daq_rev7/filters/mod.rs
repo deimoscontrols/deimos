@@ -1,9 +1,6 @@
 //! Rev7 sampling policy and measurement-filter construction.
 
-use super::{
-    ADC_IIR_CUTOFF_TO_REPORT_RATE, ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE,
-    ADC_OVERSAMPLE_TARGET_RATE_HZ, ADC_SINGLE_SAMPLE_CUTOVER_HZ,
-};
+use super::{ADC_IIR_CUTOFF_TO_REPORT_RATE, ADC_OVERSAMPLE_TARGET_RATE_HZ};
 
 #[cfg(feature = "alloc")]
 use super::{
@@ -42,12 +39,12 @@ pub struct AdcSamplingPolicy {
 
 /// Derive the rev7 ADC samplerate and filter cutoff from a reporting cycle rate.
 ///
-/// Below [`ADC_SINGLE_SAMPLE_CUTOVER_HZ`], the nearest integer sample count
-/// targets [`super::ADC_OVERSAMPLE_TARGET_HZ`] with a minimum of
-/// [`ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE`]. The ADC IIR cutoff is the Nyquist
-/// frequency of the reporting stream, as specified by
-/// [`ADC_IIR_CUTOFF_TO_REPORT_RATE`]. At and above the cutover, one sample is
-/// acquired per cycle and the ADC IIR is omitted.
+/// The integer part of [`super::ADC_OVERSAMPLE_TARGET_HZ`] divided by the
+/// reporting rate determines the sample count. Two or more samples use the ADC
+/// IIR at the fixed reporting-rate fraction specified by
+/// [`ADC_IIR_CUTOFF_TO_REPORT_RATE`]. When only one complete sample fits below
+/// the target, the direct path acquires one sample and omits the IIR. This
+/// naturally places the nominal topology transition at `4.5 kHz`.
 ///
 /// Args:
 ///   cycle_rate_hz: Requested reporting cycle rate scalar in `cycle/s`.
@@ -60,7 +57,13 @@ pub fn adc_sampling_policy(cycle_rate_hz: f64) -> Option<AdcSamplingPolicy> {
         return None;
     }
 
-    if cycle_rate_hz >= f64::from(ADC_SINGLE_SAMPLE_CUTOVER_HZ) {
+    let samples_per_cycle = ADC_OVERSAMPLE_TARGET_RATE_HZ / cycle_rate_hz;
+    if samples_per_cycle > f64::from(u32::MAX) {
+        return None;
+    }
+    let samples_per_cycle = samples_per_cycle as u32;
+
+    if samples_per_cycle < 2 {
         return Some(AdcSamplingPolicy {
             mode: AdcSamplingMode::Direct,
             samples_per_cycle: 1,
@@ -70,14 +73,6 @@ pub fn adc_sampling_policy(cycle_rate_hz: f64) -> Option<AdcSamplingPolicy> {
         });
     }
 
-    // Adding one half before the float-to-integer conversion gives nearest-
-    // integer rounding without requiring a target libm operation.
-    let rounded_samples = ADC_OVERSAMPLE_TARGET_RATE_HZ / cycle_rate_hz + 0.5;
-    if rounded_samples > f64::from(u32::MAX) {
-        return None;
-    }
-    let rounded_samples = rounded_samples as u32;
-    let samples_per_cycle = rounded_samples.max(ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE);
     let sample_rate_hz = cycle_rate_hz * f64::from(samples_per_cycle);
     let iir_cutoff_hz = cycle_rate_hz * ADC_IIR_CUTOFF_TO_REPORT_RATE;
     Some(AdcSamplingPolicy {

@@ -31,8 +31,7 @@ use subsystems::output::*;
 use subsystems::sampling::*;
 
 pub use deimos_shared::peripherals::deimos_daq_rev7::{
-    ADC_CHANNEL_COUNT, ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE, ADC_OVERSAMPLE_TARGET_HZ,
-    MODEL_NUMBER, VREF,
+    ADC_CHANNEL_COUNT, ADC_IIR_CUTOFF_TO_REPORT_RATE, ADC_OVERSAMPLE_TARGET_HZ, MODEL_NUMBER, VREF,
 };
 use deimos_shared::peripherals::deimos_daq_rev7::{
     calc::Rev7Calibration,

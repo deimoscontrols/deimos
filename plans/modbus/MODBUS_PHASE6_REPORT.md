@@ -5,15 +5,15 @@ Date: 2026-07-30
 > **Intermediate characterization:** The 33 kHz/3x/1x topology described below
 > was used to establish the timing feasibility of synchronous sampling. It has
 > since been superseded by the current Phase 6 plan and implementation:
-> rounded-N synchronous oversampling targeting 9 kHz below 3 kHz, and direct 1x
-> synchronous sampling at and above 3 kHz. The measurements remain useful as
-> historical timing evidence but are not a characterization of the final
-> rounded-N implementation.
+> truncated-N synchronous oversampling at or below a 9 kHz target, a `0.4`
+> reporting-rate ADC-IIR cutoff, and a natural 1x transition near 4.5 kHz. The
+> measurements remain useful as historical timing evidence but are not a
+> characterization of the final truncated-N implementation.
 
 ## Superseding implementation verification
 
-The rounded-N implementation builds and passes target-independent scheduling
-tests, including the 4 Hz case (`2,250` samples/cycle), nearest-integer boundary
+The truncated-N implementation builds and passes target-independent scheduling
+tests, including the 4 Hz case (`1,800` samples/cycle), integer boundary
 selection, exact quotient/remainder tick sums, and a primed steady-state ADC
 filter at the 4 Hz cutoff ratio. Firmware and filter analysis now use the same
 shared cycle-rate policy. Because sampling and publication share one SysTick

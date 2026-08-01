@@ -508,7 +508,7 @@ fn timeout_suite(endpoint: &str) -> TestResult {
 /// Args:
 ///   client: Connected single-outstanding-request client.
 ///   rate_hz: Requested publishing rate in `Hz`; the oversampled ADC-filter
-///     cutoff is half this value.
+///     cutoff is `0.4` times this value.
 ///   timeout_cycles: Application-contact timeout in publishing cycles.
 ///   duration: Minimum sustained test duration.
 ///   unit: Arbitrary Unit Identifier to echo.

@@ -15,7 +15,7 @@ the calibrated Deimos rate sweep, and the final calibrated Modbus functional,
 endpoint, timeout, backpressure, stack, and timing matrix. The GPIO timing-
 marker comparison, full-range calibrated engineering checks, physical pre-rev7
 compatibility, and rollout of the remaining in-hand rev7 units remain in the
-hardware verification. The Phase 6 rounded-N synchronous implementation is
+hardware verification. The Phase 6 truncated-N synchronous implementation is
 complete at `dec7a99`; its shared cycle-rate sampling policy, sampler-owned
 state cleanup, and policy-based Bode regeneration are also complete. The
 calibrated rate sweep and final Modbus matrix are recorded in
@@ -58,10 +58,10 @@ Modbus registers in Modbus mode.
   to or re-export them.
 - Add one statically allocated smoltcp TCP socket and its storage before adding
   any Modbus protocol processing.
-- Use one synchronous SysTick owner for acquisition and communication. Below
-  3 kHz, round the number of samples per publishing cycle to target an
-  approximately 9 kHz ADC-group rate; at and above 3 kHz, take one sample per
-  cycle. Do not retain operating-time free-running oversampling.
+- Use one synchronous SysTick owner for acquisition and communication. Take the
+  integer number of complete samples per publishing cycle which fit below a
+  9 kHz ADC-group target. This naturally changes from 2x to 1x near 4.5 kHz.
+  Do not retain operating-time free-running oversampling.
 - Derive the integer samples-per-cycle, actual samplerate, and optional ADC-IIR
   cutoff from one shared rev7 cycle-rate policy used by firmware and filter
   analysis.
@@ -76,15 +76,16 @@ The following are requirements rather than open design questions:
 
 - Do not add a `NetworkServing` board state.
 - Construct and install the selected ADC filters once on entry to Operating,
-  before enabling its SysTick scope. Below 3 kHz, run the ADC IIR at the
-  reporting-rate Nyquist cutoff using the actual rounded sample count. At and
-  above 3 kHz, apply the fractional-delay filter without an ADC IIR. Take one real ADC
-  group at entry and initialize the fractional-delay, ADC-IIR, and board-
+  before enabling its SysTick scope. When at least two samples fit below the
+  9 kHz target, run the ADC IIR at `0.4` times the reporting rate using the
+  actual integer sample count. In the 1x path, apply the fractional-delay filter
+  without an ADC IIR. Take one real ADC group at entry and initialize the
+  fractional-delay, ADC-IIR, and board-
   temperature filter histories to steady state from it before publishing.
 - Do not create independent Modbus publication, filter-cutoff, and timeout
   clocks. The operating cycle is the publication cycle, and the operating cycle
-  rate determines the ADC filter cutoff as half the cycle rate, exactly as it
-  does in Deimos mode.
+  rate determines the ADC filter cutoff as `0.4` times the cycle rate, exactly
+  as it does in Deimos mode.
 - Use the existing loss-of-contact cycle count as the only connection timeout.
 - Default Modbus operation to 10 Hz and a one-minute timeout when the first
   accepted Modbus request does not write those fields. At 10 Hz the default
@@ -265,8 +266,8 @@ The target data flow is:
 
 ```text
 selected acquisition topology
-    -> synchronous SysTick oversampling near 9 kHz below 3 kHz; or
-       synchronous SysTick at one sample per cycle from 3 kHz upward
+    -> synchronous SysTick oversampling without exceeding the 9 kHz target; or
+       synchronous SysTick at one sample per cycle above roughly 4.5 kHz
     -> update the sampler-owned ADC/counter/frequency group
     -> operating-cycle snapshot publisher
          - borrow the group completed earlier in the same SysTick invocation
@@ -1201,15 +1202,16 @@ Phase 5 exit criteria:
 
 Replace operating-time free-running oversampling with one SysTick-owned sampling
 system. The compiled constants in the shared rev7 peripheral module are a 9 kHz
-target internal rate and a 3 kHz direct-sampling cutover; neither is a live or
-protocol-facing setting.
+target internal rate and a `0.4` reporting-rate ADC-IIR cutoff; neither is a live
+or protocol-facing setting. The sample-count calculation itself determines the
+topology transition near 4.5 kHz.
 
-Below 3 kHz, choose one integer sample count on Operating entry:
+Choose one integer sample count on Operating entry:
 
 ```text
-samples_per_cycle = max(3, round(9_000 * dt_ns / 1_000_000_000))
+samples_per_cycle = max(1, floor(9_000 * dt_ns / 1_000_000_000))
 actual_sample_rate = samples_per_cycle * publishing_rate
-ADC_IIR_cutoff_ratio = 1 / (2 * samples_per_cycle)
+ADC_IIR_cutoff_ratio = 0.4 / samples_per_cycle  # only when samples_per_cycle >= 2
 ```
 
 Implement this once as `adc_sampling_policy` in the shared rev7 peripheral
@@ -1217,9 +1219,9 @@ module. Firmware, filter-data construction, and the `rev7_bode` example use the
 returned mode, sample count, actual samplerate, and optional IIR cutoff rather
 than repeating the formulas.
 
-At and above 3 kHz, take one sample per cycle and apply fractional delay without
-the ADC IIR. Below the cutover, place the second-order Butterworth cutoff at the
-Nyquist frequency of the reporting stream. Dynamic magnitude, phase, alias, and
+When the calculation yields one sample per cycle, apply fractional delay without
+the ADC IIR. With two or more samples, place the second-order Butterworth cutoff
+at `0.4` times the reporting rate. Dynamic magnitude, phase, alias, and
 noise characterization is deferred until it can be automated with a
 programmable signal generator.
 
@@ -1255,12 +1257,14 @@ programmable signal generator.
    timestamp is captured directly from the SysTick interval owned by that same
    handler without sampled-data atomics or retry loops.
 8. Retain compile-time counter-rate assertions. The oversampled proof includes
-   nearest-integer sample-count quantization and the longest +10% Deimos timing
-   correction; the direct proof uses the 3 kHz cutover. Both must keep a 50 MHz
-   counter change strictly below half of its `2^16` modulus.
-9. Verify rounded sample-count boundaries, exact tick-sum distribution, timestamp
-   arithmetic, filter priming, clean operating re-entry, and the 3 kHz cutover in
-   target-independent tests where possible. On hardware, sweep 5 Hz through
+   truncated sample-count quantization and the longest +10% Deimos timing
+   correction; the direct proof derives its boundary from half the 9 kHz
+   target. Both must keep a 50 MHz counter change strictly below half of its
+   `2^16` modulus.
+9. Verify integer sample-count boundaries, exact tick-sum distribution,
+   timestamp arithmetic, filter priming, clean operating re-entry, and the
+   natural 4.5 kHz transition in target-independent tests where possible. On
+   hardware, sweep 5 Hz through
    8 kHz and record sample-only and sample-plus-communication margins,
    loss-of-contact rate, and timestamp monotonicity. Include the canonical
    10-second 8 kHz steady-window benchmark.
@@ -1269,8 +1273,8 @@ Phase 6 exit criteria:
 
 - No rev7 operating or setup state enables TIM2 sampling; the sampler is owned
   only by the Operating SysTick scope.
-- Rates below 3 kHz use the nearest integer sample count targeting 9 kHz, with a
-  minimum of three; rates at and above 3 kHz use the direct one-sample path.
+- Integer sample counts do not exceed the 9 kHz target; counts of two or more use
+  the oversampled-IIR path, while a count of one uses the direct path.
 - Every corrected oversampled schedule is constant-space, bounded per IRQ, sums
   exactly to its publishing interval, and differs by no more than one timer tick.
 - A real entry sample establishes steady state for every ADC filter history and
@@ -1398,9 +1402,9 @@ Phase 6 exit criteria:
   timing-configuration writes.
 - Sweep both synchronous topologies and record publication-cycle, sample-only,
   and sample-plus-communication margins. Include the minimum operating rate,
-  the 3 kHz boundary, the shortest and longest permitted corrected Deimos
+  the natural 4.5 kHz boundary, the shortest and longest permitted corrected Deimos
   subcycles, 8 kHz, and the worst accepted 500 Hz Modbus request.
-- Exercise rate changes across the compiled 3 kHz cutover and verify that the
+- Exercise rate changes across the naturally derived 4.5 kHz transition and verify that the
   Operating SysTick scope exclusively owns the sampler and both topologies
   publish the same coherent group format.
 - Verify watchdog feeding and safe-output behavior during network failure.
@@ -1468,12 +1472,12 @@ software; the new runtime does not accept that obsolete rev7 layout.
 - Each synchronous handler must complete before its next sampling boundary.
   The quotient/remainder scheduler is bounded, but the publishing subcycle also
   contains engineering and network work and therefore remains the timing limit.
-- Nearest-integer sample counts make the actual oversampling rate move around
-  9 kHz, with the largest relative deviation near the 3 kHz cutover. Filter
+- Truncated integer sample counts keep the actual oversampling rate at or below
+  9 kHz, with the largest relative deviation near the 4.5 kHz transition. Filter
   coefficients use the actual rate and count, and the hardware timing sweep
   covers sample-count transition boundaries.
-- The oversampled path places its second-order Butterworth cutoff at the
-  reporting-rate Nyquist frequency. Magnitude, phase, folded-alias, and noise
+- The oversampled path places its second-order Butterworth cutoff at `0.4` times
+  the reporting rate. Magnitude, phase, folded-alias, and noise
   characteristics remain deferred until automated signal-generator testing is
   available; this is an explicit fixed bandwidth/phase compromise rather than
   a claim of complete antialiasing.

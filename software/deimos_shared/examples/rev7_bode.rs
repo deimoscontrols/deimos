@@ -679,10 +679,8 @@ fn reference_marks(
             (sampling_policy.sample_rate_hz, "Samplerate"),
             (sampling_policy.sample_rate_hz / 2.0, "Samplerate Nyquist"),
             (cycle_rate_hz, "Reporting rate"),
-            (
-                sampling_policy.iir_cutoff_hz.unwrap(),
-                "Reporting-rate Nyquist & ADC IIR cutoff",
-            ),
+            (cycle_rate_hz / 2.0, "Reporting-rate Nyquist"),
+            (sampling_policy.iir_cutoff_hz.unwrap(), "ADC IIR cutoff"),
         ]
     } else {
         vec![

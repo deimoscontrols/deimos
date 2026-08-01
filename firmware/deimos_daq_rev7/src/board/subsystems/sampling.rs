@@ -7,7 +7,7 @@ use nb::block;
 use stm32h7xx_hal::{adc, gpio::Pin, rcc::CoreClocks, stm32::*, timer::GetClk};
 
 use crate::board::{
-    ADC_CHANNEL_COUNT, ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE, ADC_OVERSAMPLE_TARGET_HZ, VREF,
+    ADC_CHANNEL_COUNT, ADC_IIR_CUTOFF_TO_REPORT_RATE, ADC_OVERSAMPLE_TARGET_HZ, VREF,
 };
 
 /// One coherent, filtered ADC group owned by the operating SysTick sampler.
@@ -221,7 +221,7 @@ impl Sampler {
 
         // Low-pass filters
         // Operating entry replaces these coefficients before the first sample.
-        let cutoff_ratio = 1.0 / f64::from(ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE);
+        let cutoff_ratio = ADC_IIR_CUTOFF_TO_REPORT_RATE / 2.0;
         let adc_filters = adc_filter_bank(cutoff_ratio).unwrap();
         let adc_filter_states = [adc_filters[0].reset_state(); ADC_CHANNEL_COUNT];
         let sampled_inputs = SampledInputs {
@@ -313,8 +313,8 @@ impl Sampler {
     ///
     /// Args:
     ///   sample_rate_hz: ADC-group rate in `sample/s`.
-    ///   iir_cutoff_ratio: Reporting-rate Nyquist cutoff divided by the
-    ///     ADC-group rate, or `None` when the direct path will not step the IIR.
+    ///   iir_cutoff_ratio: ADC IIR cutoff divided by the ADC-group rate, or
+    ///     `None` when the direct path will not step the IIR.
     pub fn configure_synchronous(&mut self, sample_rate_hz: f64, iir_cutoff_ratio: Option<f64>) {
         if let Some(cutoff_ratio) = iir_cutoff_ratio {
             self.update_cutoff(cutoff_ratio);

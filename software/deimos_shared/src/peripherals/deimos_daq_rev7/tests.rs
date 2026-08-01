@@ -21,25 +21,28 @@ fn sampling_policy_derives_samplerate_and_iir_cutoff_from_cycle_rate() {
     assert_eq!(low_rate.sample_rate_hz, 9_000.0);
     assert_eq!(
         low_rate.iir_cutoff_hz,
-        Some(f64::from(REV7_MIN_CYCLE_RATE_HZ) / 2.0),
+        Some(f64::from(REV7_MIN_CYCLE_RATE_HZ) * 0.4),
     );
-    assert_eq!(low_rate.iir_cutoff_ratio, Some(0.5 / 1_800.0));
+    assert_eq!(low_rate.iir_cutoff_ratio, Some(0.4 / 1_800.0));
 
-    let rounded_rate = adc_sampling_policy(2_500.0).unwrap();
-    assert_eq!(rounded_rate.mode, AdcSamplingMode::Oversampled);
-    assert_eq!(rounded_rate.samples_per_cycle, 4);
-    assert_eq!(rounded_rate.sample_rate_hz, 10_000.0);
-    assert_eq!(rounded_rate.iir_cutoff_hz, Some(1_250.0));
-    assert_eq!(rounded_rate.iir_cutoff_ratio, Some(0.125));
+    let intermediate_rate = adc_sampling_policy(2_500.0).unwrap();
+    assert_eq!(intermediate_rate.mode, AdcSamplingMode::Oversampled);
+    assert_eq!(intermediate_rate.samples_per_cycle, 3);
+    assert_eq!(intermediate_rate.sample_rate_hz, 7_500.0);
+    assert_eq!(intermediate_rate.iir_cutoff_hz, Some(1_000.0));
+    assert_eq!(intermediate_rate.iir_cutoff_ratio, Some(2.0 / 15.0));
 
-    let below_cutover = adc_sampling_policy(1.0e9 / 333_334.0).unwrap();
+    // Adjacent integer-nanosecond periods straddle the natural 4.5 kHz
+    // topology transition implied by the 9 kHz target.
+    let below_cutover = adc_sampling_policy(1.0e9 / 222_223.0).unwrap();
     assert_eq!(below_cutover.mode, AdcSamplingMode::Oversampled);
-    assert_eq!(below_cutover.samples_per_cycle, 3);
+    assert_eq!(below_cutover.samples_per_cycle, 2);
+    assert_eq!(below_cutover.iir_cutoff_ratio, Some(0.2));
 
-    let cutover = adc_sampling_policy(3_000.0).unwrap();
+    let cutover = adc_sampling_policy(1.0e9 / 222_222.0).unwrap();
     assert_eq!(cutover.mode, AdcSamplingMode::Direct);
     assert_eq!(cutover.samples_per_cycle, 1);
-    assert_eq!(cutover.sample_rate_hz, 3_000.0);
+    assert_eq!(cutover.sample_rate_hz, 1.0e9 / 222_222.0);
     assert_eq!(cutover.iir_cutoff_hz, None);
     assert_eq!(cutover.iir_cutoff_ratio, None);
 

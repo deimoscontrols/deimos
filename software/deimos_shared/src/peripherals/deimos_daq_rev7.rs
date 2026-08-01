@@ -101,29 +101,19 @@ pub const MAX_CYCLE_TIMING_CORRECTION_DIVISOR: u32 = 10;
 
 /// Target ADC-group rate for synchronous oversampling.
 ///
-/// The actual rate is the publishing rate multiplied by the nearest integer
-/// number of samples per cycle, so it moves slightly around this target.
+/// The actual rate is the publishing rate multiplied by the integer number of
+/// complete samples which fit below this target.
 pub const ADC_OVERSAMPLE_TARGET_HZ: u32 = 9_000;
 
 /// Target ADC-group rate as a floating-point value.
 pub const ADC_OVERSAMPLE_TARGET_RATE_HZ: f64 = ADC_OVERSAMPLE_TARGET_HZ as f64;
 
-/// Minimum ADC groups taken in one synchronously oversampled cycle.
-pub const ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE: u32 = 3;
-
 /// ADC IIR cutoff divided by the reporting rate in the oversampled path.
 ///
-/// A ratio of one half places the second-order Butterworth filter's `-3 dB`
-/// frequency at the Nyquist frequency of the published sample stream. This is
-/// a fixed acquisition policy, not a live protocol setting.
-pub const ADC_IIR_CUTOFF_TO_REPORT_RATE: f64 = 0.5;
-
-/// Lowest publishing rate which uses one ADC group per cycle.
-///
-/// Below this compiled, non-protocol setting, the nearest integer sample count
-/// targets [`ADC_OVERSAMPLE_TARGET_HZ`]. At and above it, the firmware omits the
-/// ADC IIR and takes one fractional-delay-corrected group per publishing cycle.
-pub const ADC_SINGLE_SAMPLE_CUTOVER_HZ: u32 = 3_000;
+/// A ratio of `0.4` leaves transition bandwidth below the reporting stream's
+/// Nyquist frequency while retaining less phase lag than a lower cutoff. This
+/// is a fixed acquisition policy, not a live protocol setting.
+pub const ADC_IIR_CUTOFF_TO_REPORT_RATE: f64 = 0.4;
 
 /// Maximum supported post-quadrature encoder count and pulse-counter edge rate.
 ///
@@ -140,24 +130,21 @@ pub const COUNTER_MAX_EDGE_RATE_HZ: u32 = 50_000_000;
 pub const FREQUENCY_INPUT_VALID_TIMEOUT_NS: i64 = 10_000_000;
 
 const _: () = assert!(ADC_OVERSAMPLE_TARGET_HZ > 0);
-const _: () = assert!(ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE > 0);
 const _: () = assert!(ADC_IIR_CUTOFF_TO_REPORT_RATE > 0.0);
 const _: () = assert!(ADC_IIR_CUTOFF_TO_REPORT_RATE <= 0.5);
 const _: () = assert!(FREQUENCY_INPUT_VALID_TIMEOUT_NS > 0);
-const _: () = assert!(
-    ADC_OVERSAMPLE_TARGET_HZ == ADC_SINGLE_SAMPLE_CUTOVER_HZ * ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE
-);
-// Rounding N = target / cycle to the nearest integer gives a minimum nominal
-// internal rate of target * N / (N + 0.5). Its worst case occurs at the minimum
-// N=3 and is 6/7 of target. Including the longest +10% timing correction makes
-// the maximum oversampled interval 77 / (60 * target) seconds. Keep the counter
+// Truncating N = target / cycle gives a minimum nominal internal rate of
+// target * N / (N + 1). Its worst case occurs at the minimum N=2 and is 2/3 of
+// target. Including the longest +10% timing correction makes the maximum
+// oversampled interval 33 / (20 * target) seconds. Keep the counter
 // change strictly below half of its 2^16 modulus.
 const _: () = assert!(
-    COUNTER_MAX_EDGE_RATE_HZ as u64 * 77 < (1_u64 << 15) * ADC_OVERSAMPLE_TARGET_HZ as u64 * 60
+    COUNTER_MAX_EDGE_RATE_HZ as u64 * 33 < (1_u64 << 15) * ADC_OVERSAMPLE_TARGET_HZ as u64 * 20
 );
-// Direct operation's longest interval is 1.1 / cutover.
+// Direct operation begins above target / 2. Its longest interval is therefore
+// 2.2 / target after the +10% timing correction.
 const _: () = assert!(
-    COUNTER_MAX_EDGE_RATE_HZ as u64 * 11 < (1_u64 << 15) * ADC_SINGLE_SAMPLE_CUTOVER_HZ as u64 * 10
+    COUNTER_MAX_EDGE_RATE_HZ as u64 * 11 < (1_u64 << 15) * ADC_OVERSAMPLE_TARGET_HZ as u64 * 5
 );
 
 /// ADC and DAC voltage reference.
@@ -171,6 +158,8 @@ pub const ADC_FILTER_SECTIONS: usize = 1;
 
 /// Conservative upper cutoff ratio used by the firmware ADC filters.
 pub const ADC_FILTER_MAX_CUTOFF_RATIO: f64 = 0.4;
+
+const _: () = assert!(ADC_IIR_CUTOFF_TO_REPORT_RATE <= ADC_FILTER_MAX_CUTOFF_RATIO * 2.0);
 
 /// Rev7 ADC fractional-delay filters use third-order Lagrange FIR interpolation.
 pub const ADC_FRACTIONAL_DELAY_FILTER_TAPS: usize = 3;
