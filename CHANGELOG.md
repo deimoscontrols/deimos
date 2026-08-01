@@ -25,7 +25,7 @@ Firmware overhaul for the Rev7 DAQ.
 * deimos_shared
     * Add `calcs` module with new thermocouple and RTD functions optimized for firmware
         * Use verified regular grid B-spline fit for thermocouple inverse function
-        * For RTDs, use IEC 60751 Callender-Van-Dusen function fit to the ITS-90 data
+        * For RTDs, use IEC 60751 Callender-Van Dusen function fit to the ITS-90 data
             * This mitigates the problems from the tables being published with 2 decimals
     * Refactor rev7 peripheral module and add modules for modbus and sampler timing arithmetic
 * deimos
