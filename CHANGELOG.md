@@ -14,6 +14,7 @@ Firmware overhaul for the Rev7 DAQ.
         * 9kHz synchronous oversampling up to 3kHz
         * Synchronous sampling from 3kHz to 8kHz
         * This gives lower jitter and more well-posed cycle timing margin than high-frequency oversampling
+        * Now have only one systick timer-driven interrupt; TIM2 interrupt removed entirely
     * Add modbus support
     * Characterize cycle timing margin and stack usage
     * Add packet magic numbers and validation
