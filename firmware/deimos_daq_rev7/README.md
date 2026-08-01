@@ -57,7 +57,7 @@ embedded. The first supported read or write received while binding selects
 Modbus operation; a read-only client therefore receives the safe output
 defaults at the default 10 Hz rate. Synchronous controllers should use FC23 to
 write one complete control block and read the coherent snapshot mirror at
-holding address `0x0100`, count 79, in one ADU. The server processes at most two
+holding address `0x0100`, count 75, in one ADU. The server processes at most two
 complete ADUs per publishing cycle so transient queued traffic can drain while
 IRQ work stays bounded. The complete synchronized register layout and timeout
 behavior are documented in

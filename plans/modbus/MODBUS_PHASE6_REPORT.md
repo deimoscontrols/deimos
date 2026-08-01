@@ -261,6 +261,10 @@ the acquisition timestamp expanded the snapshot to 79 registers. The harness
 now derives the final-valid address from `SNAPSHOT_INPUT_REGISTER_COUNT`, so
 future snapshot-layout changes cannot silently invalidate that test.
 
+This dated run predates removal of the redundant rev7 `cycle_time_ns` field;
+the current snapshot is 75 registers, and the same constant-derived tests now
+exercise that boundary.
+
 The complete production-image `all` suite passed:
 
 - fragmented MBAP/PDU delivery, standard exception responses, connection-local

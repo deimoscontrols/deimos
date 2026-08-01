@@ -95,7 +95,6 @@ impl PeripheralState {
         // Metric names are pretty manual
         let mut mnames = Vec::new();
         for orig in [
-            "cycle_time_ns",
             "cycle_time_margin_ns",
             "raw_timing_delta_ns",
             "filtered_timing_delta_ns",
@@ -130,13 +129,12 @@ impl PeripheralState {
     }
 
     pub fn write_metric_values(&self, out: &mut [f64]) {
-        out[0] = self.metrics.operating_metrics.cycle_time_ns as f64;
-        out[1] = self.metrics.operating_metrics.cycle_time_margin_ns as f64;
-        out[2] = self.metrics.raw_timing_delta_ns;
-        out[3] = self.metrics.filtered_timing_delta_ns;
-        out[4] = self.metrics.requested_period_delta_ns;
-        out[5] = self.metrics.requested_phase_delta_ns;
-        out[6] = self.metrics.loss_of_contact_counter;
-        out[7] = self.metrics.cycle_lag_count;
+        out[0] = self.metrics.operating_metrics.cycle_time_margin_ns as f64;
+        out[1] = self.metrics.raw_timing_delta_ns;
+        out[2] = self.metrics.filtered_timing_delta_ns;
+        out[3] = self.metrics.requested_period_delta_ns;
+        out[4] = self.metrics.requested_phase_delta_ns;
+        out[5] = self.metrics.loss_of_contact_counter;
+        out[6] = self.metrics.cycle_lag_count;
     }
 }

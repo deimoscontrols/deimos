@@ -4,8 +4,6 @@ use core::default::Default;
 
 use byte_struct::{ByteStruct, ByteStructLen, ByteStructUnspecifiedByteOrder};
 
-use crate::OperatingMetrics;
-
 use super::super::{MODBUS_DEFAULT_DT_NS, MODBUS_DEFAULT_LOSS_OF_CONTACT_LIMIT};
 
 /// Complete rev7 output state shared by Deimos and Modbus operating modes.
@@ -190,6 +188,26 @@ impl OperatingRoundtripInput {
     }
 }
 
+/// Rev7 publication and connection-health metrics carried in each snapshot.
+///
+/// Unlike the legacy common operating metrics, this record omits the redundant
+/// nominal cycle timestamp. Snapshot ordering uses `id`, while acquisition and
+/// publication timing use the two explicit timestamps.
+#[derive(ByteStruct, Clone, Copy, Debug, Default)]
+#[byte_struct_le]
+pub struct OperatingSnapshotMetrics {
+    /// Monotonically wrapping snapshot/publication identifier.
+    pub id: u64,
+    /// Board time immediately before the snapshot is queued, in `ns`.
+    pub sent_time_ns: i64,
+    /// ID of the last accepted controller input or Modbus transaction.
+    pub last_input_id: u64,
+    /// Board time when the last accepted input was received, in `ns`.
+    pub last_input_received_time_ns: i64,
+    /// Time remaining before the next scheduled cycle, in `ns`.
+    pub cycle_time_margin_ns: i64,
+}
+
 /// Coherent engineering-unit snapshot published by both operating transports.
 ///
 /// Analog values are the final firmware-converted outputs except for the
@@ -202,7 +220,7 @@ pub struct OperatingSnapshot {
     /// Direction- and state-specific packet marker.
     pub magic: u32,
     /// Board timing, packet-ID, and loss-of-contact metrics.
-    pub metrics: OperatingMetrics,
+    pub metrics: OperatingSnapshotMetrics,
     /// Board time immediately before acquisition of the published ADC group, in `ns`.
     ///
     /// This is the acquisition-start instant and is not corrected for the
@@ -238,7 +256,7 @@ impl Default for OperatingSnapshot {
     fn default() -> Self {
         Self {
             magic: super::super::OPERATING_SNAPSHOT_MAGIC,
-            metrics: OperatingMetrics::default(),
+            metrics: OperatingSnapshotMetrics::default(),
             sample_time_ns: 0,
             module_bus_current_a: 0.0,
             module_bus_voltage_v: 0.0,

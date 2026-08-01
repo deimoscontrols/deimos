@@ -6,7 +6,7 @@
 //!
 //! # Input registers (FC04)
 //!
-//! Read address 0, count [`SNAPSHOT_INPUT_REGISTER_COUNT`] (79), to obtain one
+//! Read address 0, count [`SNAPSHOT_INPUT_REGISTER_COUNT`] (75), to obtain one
 //! coherent engineering snapshot. Partial in-range reads are supported, but a
 //! full-block read is the synchronization contract.
 //!
@@ -14,23 +14,22 @@
 //! | ---: | ---: | --- | --- | --- |
 //! | 0 | 2 | `u32` | `magic` | `0xD7000002` |
 //! | 2 | 4 | `u64` | `metrics.id` | snapshot count |
-//! | 6 | 4 | `i64` | `metrics.cycle_time_ns` | ns |
-//! | 10 | 4 | `i64` | `metrics.sent_time_ns` | ns |
-//! | 14 | 4 | `u64` | `metrics.last_input_id` | last accepted transaction ID |
-//! | 18 | 4 | `i64` | `metrics.last_input_received_time_ns` | ns |
-//! | 22 | 4 | `i64` | `metrics.cycle_time_margin_ns` | ns |
-//! | 26 | 4 | `i64` | `sample_time_ns` | ADC acquisition-start time, ns |
-//! | 30 | 2 | `f32` | `module_bus_current_a` | A |
-//! | 32 | 2 | `f32` | `module_bus_voltage_v` | V |
-//! | 34 | 2 | `f32` | `board_temperature_k` | K |
-//! | 36 | 8 | `f32[4]` | `current_4_20_a` | A, channels 0..3 |
-//! | 44 | 6 | `f32[3]` | `rtd_resistance_ohm` | ohm, channels 0..2 |
-//! | 50 | 4 | `f32[2]` | `thermocouple_temperature_k` | K, channels 0..1 |
-//! | 54 | 12 | `f32[6]` | `voltage_v` | V, channels 0..5 |
-//! | 66 | 4 | `i64` | `encoder` | counts |
-//! | 70 | 4 | `i64` | `pulse_counter` | counts |
-//! | 74 | 4 | `f32[2]` | `frequency_meas` | Hz, channels 0..1 |
-//! | 78 | 1 | `u16` | `gpio` | input bits 0..1 |
+//! | 6 | 4 | `i64` | `metrics.sent_time_ns` | ns |
+//! | 10 | 4 | `u64` | `metrics.last_input_id` | last accepted transaction ID |
+//! | 14 | 4 | `i64` | `metrics.last_input_received_time_ns` | ns |
+//! | 18 | 4 | `i64` | `metrics.cycle_time_margin_ns` | ns |
+//! | 22 | 4 | `i64` | `sample_time_ns` | ADC acquisition-start time, ns |
+//! | 26 | 2 | `f32` | `module_bus_current_a` | A |
+//! | 28 | 2 | `f32` | `module_bus_voltage_v` | V |
+//! | 30 | 2 | `f32` | `board_temperature_k` | K |
+//! | 32 | 8 | `f32[4]` | `current_4_20_a` | A, channels 0..3 |
+//! | 40 | 6 | `f32[3]` | `rtd_resistance_ohm` | ohm, channels 0..2 |
+//! | 46 | 4 | `f32[2]` | `thermocouple_temperature_k` | K, channels 0..1 |
+//! | 50 | 12 | `f32[6]` | `voltage_v` | V, channels 0..5 |
+//! | 62 | 4 | `i64` | `encoder` | counts |
+//! | 66 | 4 | `i64` | `pulse_counter` | counts |
+//! | 70 | 4 | `f32[2]` | `frequency_meas` | Hz, channels 0..1 |
+//! | 74 | 1 | `u16` | `gpio` | input bits 0..1 |
 //!
 //! `sample_time_ns` is captured immediately before the first ADC conversion
 //! group contributing to the published filtered values. It is not corrected
@@ -59,7 +58,7 @@
 //!
 //! The coherent engineering snapshot is also mirrored into the read-only
 //! holding-register window beginning at [`HOLDING_SNAPSHOT_START`] (`0x0100`).
-//! Its 79-register field layout is identical to the FC04 input-register table,
+//! Its 75-register field layout is identical to the FC04 input-register table,
 //! with `0x0100` added to each address.
 //!
 //! # Synchronized control (FC23)
@@ -67,7 +66,7 @@
 //! FC23 Read/Write Multiple Registers is the recommended cyclic-control
 //! interface. Its write block atomically updates one writable holding-register
 //! block, while its read block returns the coherent snapshot mirror at address
-//! `0x0100`, count 79. The returned snapshot was captured at the beginning of
+//! `0x0100`, count 75. The returned snapshot was captured at the beginning of
 //! the same publishing cycle; the newly written outputs are applied after the
 //! request is accepted. This matches the Deimos sense/respond/act cycle.
 //! If two queued ADUs are serviced in one publishing cycle, both read the same
@@ -101,7 +100,7 @@ pub use snapshot::{
 /// First input register occupied by the coherent engineering snapshot.
 pub const SNAPSHOT_INPUT_START: u16 = 0;
 /// Number of input registers occupied by one complete engineering snapshot.
-pub const SNAPSHOT_INPUT_REGISTER_COUNT: u16 = 79;
+pub const SNAPSHOT_INPUT_REGISTER_COUNT: u16 = 75;
 /// Number of wire bytes occupied by one complete engineering snapshot register block.
 pub const SNAPSHOT_INPUT_BYTE_COUNT: usize = SNAPSHOT_INPUT_REGISTER_COUNT as usize * 2;
 
@@ -171,7 +170,7 @@ pub enum HoldingWriteError {
 /// Errors encountered while decoding a complete snapshot register block.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SnapshotDecodeError {
-    /// The supplied block does not contain exactly 79 registers.
+    /// The supplied block does not contain exactly 75 registers.
     InvalidLength,
     /// The decoded packet magic or engineering-value invariants are invalid.
     InvalidSnapshot,

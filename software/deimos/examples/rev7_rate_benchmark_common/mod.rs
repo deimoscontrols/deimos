@@ -18,9 +18,8 @@ pub const DAQ_SERIAL: u64 = 3;
 pub const STEADY_SECONDS: u64 = 5;
 
 const CPU_SAMPLE_INTERVAL: Duration = Duration::from_millis(250);
-const CHANNELS: [&str; 5] = [
+const CHANNELS: [&str; 4] = [
     "ctrl.cycle_time_margin_ns",
-    "p1.metrics.cycle_time_ns",
     "p1.metrics.cycle_time_margin_ns",
     "p1.metrics.loss_of_contact_counter",
     "p1.sample_time_ns",
@@ -97,8 +96,6 @@ pub struct BenchmarkResult {
     pub steady_min_board_margin_us: f64,
     /// First-percentile board-reported cycle margin in the final window, in `us`.
     pub steady_p01_board_margin_us: f64,
-    /// Minimum board-reported cycle duration in `ns`.
-    pub min_board_cycle_time_ns: f64,
     /// Host-process CPU use during the final window, as percent of one CPU.
     pub steady_host_cpu_percent: Option<f64>,
     /// Number of decreasing acquisition timestamps.
@@ -164,13 +161,12 @@ impl BenchmarkResult {
         println!(
             "min_controller_margin_ns={:.0}, min_board_margin_ns={:.0}, \
              board_margin_p01_ns={:.0}, steady_min_board_margin_ns={:.0}, \
-             steady_board_margin_p01_ns={:.0}, min_board_cycle_time_ns={:.0}",
+             steady_board_margin_p01_ns={:.0}",
             self.min_controller_margin_ns,
             self.min_board_margin_ns,
             self.board_margin_p01_ns,
             self.steady_min_board_margin_us * 1e3,
             self.steady_p01_board_margin_us * 1e3,
-            self.min_board_cycle_time_ns,
         );
         println!(
             "sample_time_regressions={}, stale_sample_times_on_fresh_snapshots={}, \
@@ -430,13 +426,7 @@ fn analyze(
 ) -> Result<BenchmarkResult, String> {
     let csv = load_csv(path)?;
     let indices = csv.required_channel_indices(CHANNELS)?;
-    let [
-        ctrl_margin_idx,
-        cycle_time_idx,
-        board_margin_idx,
-        loss_idx,
-        sample_time_idx,
-    ]: [usize; 5] = indices
+    let [ctrl_margin_idx, board_margin_idx, loss_idx, sample_time_idx]: [usize; 4] = indices
         .try_into()
         .map_err(|_| "Unexpected benchmark channel count".to_owned())?;
     let rows = csv.rows();
@@ -484,12 +474,11 @@ fn analyze(
     let mut max_loss_burst = 0.0_f64;
     let mut min_controller_margin_ns = f64::INFINITY;
     let mut min_board_margin_ns = f64::INFINITY;
-    let mut min_board_cycle_time_ns = f64::INFINITY;
     let mut sample_time_regressions = 0;
     let mut stale_sample_times_on_fresh_snapshots = 0;
     let mut min_positive_sample_step_ns = f64::INFINITY;
     let mut max_sample_step_ns = f64::NEG_INFINITY;
-    let mut previous_snapshot = None;
+    let mut previous_sample_time_ns = None;
     for (row_index, row) in rows.iter().enumerate() {
         let values = &row.channel_values;
         let loss = values[loss_idx];
@@ -499,23 +488,21 @@ fn analyze(
         if row_index != 0 || board_margin != 0.0 {
             min_board_margin_ns = min_board_margin_ns.min(board_margin);
         }
-        min_board_cycle_time_ns = min_board_cycle_time_ns.min(values[cycle_time_idx]);
         let elapsed = row.timestamp.saturating_sub(first_timestamp);
         let second = (elapsed / 1_000_000_000).clamp(0, run_seconds as i64 - 1) as usize;
         second_cycle_counts[second] += 1;
         second_drop_counts[second] += usize::from(loss > 0.0);
-        if let Some((previous_cycle_time_ns, previous_sample_time_ns)) = previous_snapshot {
+        if let Some(previous_sample_time_ns) = previous_sample_time_ns {
             let sample_step_ns = values[sample_time_idx] - previous_sample_time_ns;
             sample_time_regressions += usize::from(sample_step_ns < 0.0);
-            stale_sample_times_on_fresh_snapshots += usize::from(
-                values[cycle_time_idx] > previous_cycle_time_ns && sample_step_ns <= 0.0,
-            );
+            stale_sample_times_on_fresh_snapshots +=
+                usize::from(loss == 0.0 && sample_step_ns <= 0.0);
             if sample_step_ns > 0.0 {
                 min_positive_sample_step_ns = min_positive_sample_step_ns.min(sample_step_ns);
             }
             max_sample_step_ns = max_sample_step_ns.max(sample_step_ns);
         }
-        previous_snapshot = Some((values[cycle_time_idx], values[sample_time_idx]));
+        previous_sample_time_ns = Some(values[sample_time_idx]);
     }
     if sample_time_regressions != 0 || stale_sample_times_on_fresh_snapshots != 0 {
         return Err(format!(
@@ -555,7 +542,6 @@ fn analyze(
         board_margin_p01_ns,
         steady_min_board_margin_us,
         steady_p01_board_margin_us,
-        min_board_cycle_time_ns,
         steady_host_cpu_percent,
         sample_time_regressions,
         stale_sample_times_on_fresh_snapshots,

@@ -308,7 +308,6 @@ impl<'a> Board<'a> {
         state.output.pulse_counter = sampled_inputs.pulse_counter;
         state.output.frequency_meas = sampled_inputs.frequency_meas;
         state.output.gpio = self.read_gpio_inputs();
-        state.output.metrics.cycle_time_ns = self.time_ns;
         state.output.metrics.id = state.output.metrics.id.wrapping_add(1);
         state.output.metrics.sent_time_ns = self.board_time(subcycle_res_ns);
 

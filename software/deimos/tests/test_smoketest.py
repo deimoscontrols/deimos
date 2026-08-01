@@ -40,7 +40,7 @@ def _loopback_udp_socket() -> socket.UdpSocket:
 def _metric_channels(peripheral_name: str) -> list[str]:
     """Limited channel list to reduce disk I/O during testing"""
     return [
-        f"{peripheral_name}.metrics.cycle_time_ns",
+        f"{peripheral_name}.metrics.cycle_time_margin_ns",
         f"{peripheral_name}.metrics.loss_of_contact_counter",
     ]
 

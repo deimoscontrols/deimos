@@ -126,7 +126,7 @@ fn packet_magics_are_direction_specific_and_validated() {
     };
     assert!(round_trip(snapshot).is_valid());
     assert_eq!(round_trip(snapshot).sample_time_ns, snapshot.sample_time_ns);
-    assert_eq!(OperatingSnapshot::BYTE_LEN, 157);
+    assert_eq!(OperatingSnapshot::BYTE_LEN, 149);
     snapshot.magic ^= 1;
     assert!(!round_trip(snapshot).is_valid());
 }

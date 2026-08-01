@@ -2,7 +2,7 @@
 
 use super::super::OperatingSnapshot;
 use super::{codec::*, *};
-use crate::states::OperatingMetrics;
+use crate::peripherals::deimos_daq_rev7::packets::OperatingSnapshotMetrics;
 
 /// Encode one coherent snapshot into its complete Modbus input-register image.
 ///
@@ -28,7 +28,7 @@ pub fn snapshot_input_registers(
 ///
 /// This is the common encoding source for the register-valued host API and the
 /// firmware's full-snapshot fast path. Writing directly into the response
-/// avoids converting 79 intermediate `u16` values back into network byte order
+/// avoids converting 75 intermediate `u16` values back into network byte order
 /// in the realtime communication interrupt.
 ///
 /// Args:
@@ -44,7 +44,6 @@ pub fn write_snapshot_input_register_bytes(
 
     put_u32_bytes(bytes, &mut position, snapshot.magic);
     put_u64_bytes(bytes, &mut position, snapshot.metrics.id);
-    put_u64_bytes(bytes, &mut position, snapshot.metrics.cycle_time_ns as u64);
     put_u64_bytes(bytes, &mut position, snapshot.metrics.sent_time_ns as u64);
     put_u64_bytes(bytes, &mut position, snapshot.metrics.last_input_id);
     put_u64_bytes(
@@ -94,9 +93,8 @@ pub fn snapshot_from_input_registers(
     let mut position = 0;
     let snapshot = OperatingSnapshot {
         magic: take_u32(registers, &mut position),
-        metrics: OperatingMetrics {
+        metrics: OperatingSnapshotMetrics {
             id: take_u64(registers, &mut position),
-            cycle_time_ns: take_u64(registers, &mut position) as i64,
             sent_time_ns: take_u64(registers, &mut position) as i64,
             last_input_id: take_u64(registers, &mut position),
             last_input_received_time_ns: take_u64(registers, &mut position) as i64,

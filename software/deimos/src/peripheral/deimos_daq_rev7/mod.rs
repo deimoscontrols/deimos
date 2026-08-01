@@ -214,7 +214,14 @@ impl Peripheral for DeimosDaqRev7 {
         outputs[index + 3] = packet.frequency_meas[1] as f64;
         outputs[index + 4] = (packet.gpio & 1) as f64;
         outputs[index + 5] = ((packet.gpio >> 1) & 1) as f64;
-        packet.metrics
+        OperatingMetrics {
+            id: packet.metrics.id,
+            sent_time_ns: packet.metrics.sent_time_ns,
+            last_input_id: packet.metrics.last_input_id,
+            last_input_received_time_ns: packet.metrics.last_input_received_time_ns,
+            cycle_time_margin_ns: packet.metrics.cycle_time_margin_ns,
+            ..OperatingMetrics::default()
+        }
     }
 
     fn configuring_input_size(&self) -> usize {

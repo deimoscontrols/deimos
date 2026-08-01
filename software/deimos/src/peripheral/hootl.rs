@@ -662,7 +662,8 @@ impl HootlRunner {
                         let mut out = vec![0u8; self.config.output_size];
                         if is_rev7 {
                             let mut response = Rev7OperatingSnapshot::default();
-                            response.metrics = metrics;
+                            response.metrics.id = metrics.id;
+                            response.metrics.last_input_id = metrics.last_input_id;
                             response.write_bytes(&mut out);
                         } else {
                             metrics.write_bytes(&mut out[..OperatingMetrics::BYTE_LEN]);
@@ -1004,13 +1005,13 @@ mod tests {
     /// between `HootlPeripheral` (Operating mode) and a real `DeimosDaqRev7`
     /// parsing the same byte buffer.
     ///
-    /// The HOOTL runner only fills `OperatingMetrics` (counter + last_input_id) and
+    /// The HOOTL runner only fills rev7 snapshot metrics (counter + last_input_id) and
     /// zeroes the rest of the response. The real parse reads those zeroed bytes as
     /// zero-valued outputs; `HootlPeripheral` then overwrites every output slot with
     /// synthetic placeholder values, so the two differ.
     #[test]
     fn test_deimos_daq_rev7_hootl_parse_diverges() {
-        // Simulate a HOOTL runner response: OperatingMetrics filled, rest zeroed.
+        // Simulate a HOOTL runner response: snapshot metrics filled, rest zeroed.
         let counter: u64 = 7;
         let last_input_id: u64 = 42;
 
@@ -1018,13 +1019,9 @@ mod tests {
         let n_out = real.operating_roundtrip_output_size();
 
         let mut response_bytes = vec![0u8; n_out];
-        let metrics = OperatingMetrics {
-            id: counter,
-            last_input_id,
-            ..Default::default()
-        };
         let mut response = Rev7OperatingSnapshot::default();
-        response.metrics = metrics;
+        response.metrics.id = counter;
+        response.metrics.last_input_id = last_input_id;
         response.write_bytes(&mut response_bytes);
 
         // --- Real DeimosDaqRev7 parse ---

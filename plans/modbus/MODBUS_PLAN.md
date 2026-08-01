@@ -293,13 +293,13 @@ Add a device-specific `ByteStruct` packet in
 canonical name in this plan; replace the obsolete raw-output packet rather than
 retaining a compatibility alias.
 
-The snapshot should contain the existing `OperatingMetrics` plus these final
+The snapshot should contain compact rev7 publication metrics plus these final
 measurement fields:
 
 ```rust
 pub struct OperatingSnapshot {
     pub magic: u32,
-    pub metrics: OperatingMetrics,
+    pub metrics: OperatingSnapshotMetrics, // omits legacy cycle_time_ns
     pub sample_time_ns: i64,             // acquisition time of this ADC group
 
     pub module_bus_current_a: f32,       // ain0
@@ -324,8 +324,8 @@ temperatures are included.
 
 `sample_time_ns` is the board timestamp captured immediately before the first
 ADC conversion group represented by the snapshot. It is distinct from
-`metrics.cycle_time_ns` and `metrics.sent_time_ns`, which describe snapshot
-publication rather than acquisition. The timestamp and all ADC values are one
+`metrics.sent_time_ns`, which describes snapshot publication rather than
+acquisition. The timestamp and all ADC values are one
 sampler-owned group and therefore always come from the same completed sampler
 iteration. This field describes the final packet layout; Phases 1--4 use the
 otherwise-identical snapshot without it, and Phase 5 updates the packet length,
@@ -340,7 +340,6 @@ it must not reinterpret the packet bytes directly.
 For common metric fields in Modbus mode:
 
 - `metrics.id` is the monotonically wrapping snapshot/publication ID.
-- `cycle_time_ns` is the start of the publication cycle.
 - `sent_time_ns` is the snapshot publication time, even though a later Modbus
   request may read it.
 - `last_input_id` is the most recently accepted 16-bit Modbus transaction ID,
@@ -1394,7 +1393,7 @@ Phase 6 exit criteria:
   read and a full output/configuration write.
 - At the Phase 4 4 Hz and 5 kHz endpoints, record the loss-of-contact series,
   DAQ margin, reconnect/state-exit status, and on-target MSP high-water mark for
-  complete 79-register reads, 21-register output writes, and three-register
+  complete 75-register reads, 21-register output writes, and three-register
   timing-configuration writes.
 - Sweep both synchronous topologies and record publication-cycle, sample-only,
   and sample-plus-communication margins. Include the minimum operating rate,

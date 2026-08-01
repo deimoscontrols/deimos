@@ -31,10 +31,10 @@ fn snapshot_registers_are_most_significant_register_first() {
         ]
     );
     assert_eq!(&registers[2..6], &[0x0123, 0x4567, 0x89ab, 0xcdef]);
-    assert_eq!(&registers[26..30], &[0x1122, 0x3344, 0x5566, 0x7788]);
-    assert_eq!(&registers[30..32], &[0x3f80, 0x0000]);
-    assert_eq!(&registers[66..70], &[0xffff, 0xffff, 0xffff, 0xfffe]);
-    assert_eq!(registers[78], 3);
+    assert_eq!(&registers[22..26], &[0x1122, 0x3344, 0x5566, 0x7788]);
+    assert_eq!(&registers[26..28], &[0x3f80, 0x0000]);
+    assert_eq!(&registers[62..66], &[0xffff, 0xffff, 0xffff, 0xfffe]);
+    assert_eq!(registers[74], 3);
 
     let decoded = snapshot_from_input_registers(&registers).unwrap();
     assert_eq!(decoded.magic, snapshot.magic);

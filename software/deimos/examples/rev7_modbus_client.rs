@@ -51,7 +51,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("endpoint={endpoint}");
     println!("snapshot_id={}", snapshot.metrics.id);
-    println!("cycle_time_ns={}", snapshot.metrics.cycle_time_ns);
+    println!("sample_time_ns={}", snapshot.sample_time_ns);
+    println!("sent_time_ns={}", snapshot.metrics.sent_time_ns);
     println!("board_temperature_k={}", snapshot.board_temperature_k);
     println!("module_bus_voltage_v={}", snapshot.module_bus_voltage_v);
     println!("module_bus_current_a={}", snapshot.module_bus_current_a);
