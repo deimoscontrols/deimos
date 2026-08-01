@@ -40,6 +40,8 @@ pub(in crate::board) struct SampledInputs {
 ///
 /// The compiled sampling cutovers and supported edge-rate assertion keep each
 /// real change strictly below half of the explicit `2^16` counter modulus.
+/// The accumulator itself wraps after `2^64` counts rather than retaining an
+/// unreachable checked-add panic path in the sampling IRQ.
 pub struct Unroller {
     prev: u16,
     acc: i64,
@@ -61,7 +63,7 @@ impl Unroller {
     fn update(&mut self, v: u16) -> i64 {
         let change = unwrap_u16_delta(self.prev, v);
         self.prev = v;
-        self.acc = self.acc.checked_add(i64::from(change)).unwrap();
+        self.acc = self.acc.wrapping_add(i64::from(change));
         self.acc
     }
 }
@@ -358,6 +360,10 @@ impl Sampler {
         let mut b = [0_u32; ADC_CHANNEL_COUNT];
 
         // Sample
+        // UNWRAP: Every read below follows `start_conversion` on the same ADC,
+        // satisfying the HAL's internal `current_channel.expect` invariant.
+        // UNWRAP: `block!` only waits out `WouldBlock`; the terminal error type
+        // is `Infallible`, so the outer `Result::unwrap` cannot panic.
         self.adc1.start_conversion(&mut self.adc_pins.ain8);
         self.adc2.start_conversion(&mut self.adc_pins.ain9);
         self.adc3.start_conversion(&mut self.adc_pins.ain0);
