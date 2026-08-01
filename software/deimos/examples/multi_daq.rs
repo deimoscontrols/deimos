@@ -94,7 +94,7 @@ fn main() {
         .add_peripheral("p8", Box::new(DeimosDaqRev6 { serial_number: 5 }))
         .unwrap();
     controller
-        .add_peripheral("p9", Box::new(DeimosDaqRev7 { serial_number: 2 }))
+        .add_peripheral("p9", Box::new(DeimosDaqRev7 { serial_number: 3 }))
         .unwrap();
 
     // Set up database dispatchers

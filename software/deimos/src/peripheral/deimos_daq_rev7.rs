@@ -311,7 +311,7 @@ impl Peripheral for DeimosDaqRev7 {
         for i in 0..RTD_CHANNEL_COUNT {
             calcs.insert(
                 format!("{name}_rtd_{i}"),
-                RtdPt100::new(format!("{name}.rtd_{i}_resistance_ohm"), true),
+                RtdPt100::new(format!("{name}.res_{i}_ohm"), true),
             );
         }
         calcs
