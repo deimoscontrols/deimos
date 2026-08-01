@@ -19,7 +19,7 @@ use std::{
     collections::BTreeMap,
     env,
     fs::{self, File, create_dir_all},
-    io::{copy, stdin},
+    io::{BufRead, BufReader, BufWriter, Read, Write, copy, stdin},
     net::Ipv4Addr,
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
@@ -112,7 +112,33 @@ const TC_CAPTURE_SECONDS: u64 = 240;
 const VA710_TEMPERATURE_ACCURACY_K: f64 = 0.3;
 const VA710_COLD_JUNCTION_ACCURACY_K: f64 = 0.3;
 const VA710_NEAR_ROOM_VOLTAGE_ACCURACY_K: f64 = 0.25;
-const BOARD_COLD_JUNCTION_SIGNAL_NAME: &str = "p1.board_temperature_K";
+const BOARD_COLD_JUNCTION_SIGNAL_NAME: &str = "p1.board_temp_K";
+
+// Archived calibration captures retain the signal names that were current when
+// they were recorded. Translate only while replaying so records remain immutable
+// and newly generated metadata consistently uses the current public names.
+const LEGACY_REV7_SIGNAL_NAMES: [(&str, &str); 20] = [
+    ("p1.module_bus_current_A", "p1.bus_A"),
+    ("p1.bus_current_A", "p1.bus_A"),
+    ("p1.module_bus_voltage_V", "p1.bus_V"),
+    ("p1.bus_voltage_V", "p1.bus_V"),
+    ("p1.board_temperature_K", "p1.board_temp_K"),
+    ("p1.current_4_20_0_A", "p1.4_20_0_A"),
+    ("p1.current_4_20_1_A", "p1.4_20_1_A"),
+    ("p1.current_4_20_2_A", "p1.4_20_2_A"),
+    ("p1.current_4_20_3_A", "p1.4_20_3_A"),
+    ("p1.rtd_0_resistance_ohm", "p1.res_0_ohm"),
+    ("p1.rtd_1_resistance_ohm", "p1.res_1_ohm"),
+    ("p1.rtd_2_resistance_ohm", "p1.res_2_ohm"),
+    ("p1.thermocouple_0_temperature_K", "p1.tc_0_K"),
+    ("p1.thermocouple_1_temperature_K", "p1.tc_1_K"),
+    ("p1.voltage_0_2V5_0_V", "p1.2V5_0_V"),
+    ("p1.voltage_0_2V5_1_V", "p1.2V5_1_V"),
+    ("p1.voltage_0_15_0_V", "p1.15V_0_V"),
+    ("p1.voltage_0_15_1_V", "p1.15V_1_V"),
+    ("p1.voltage_x26_0_V", "p1.35mV_0_V"),
+    ("p1.voltage_x26_1_V", "p1.35mV_1_V"),
+];
 
 const CONSOLE_CONFIG_PATH: &str = "software/deimos/examples/rev7_calibration_console.toml";
 const RAW_RUN_SUFFIX: &str = "_raw.csv";
@@ -234,28 +260,28 @@ const CURRENT_CHANNELS: [CalibrationChannel; 4] = [
     CalibrationChannel {
         label: "4-20 mA channel 0 (ain3)",
         analog_input_name: "ain3",
-        signal_name: "p1.current_4_20_0_A",
+        signal_name: "p1.4_20_0_A",
         slug: "4_20_mA_0",
         kind: CalibrationKind::Current4To20,
     },
     CalibrationChannel {
         label: "4-20 mA channel 1 (ain4)",
         analog_input_name: "ain4",
-        signal_name: "p1.current_4_20_1_A",
+        signal_name: "p1.4_20_1_A",
         slug: "4_20_mA_1",
         kind: CalibrationKind::Current4To20,
     },
     CalibrationChannel {
         label: "4-20 mA channel 2 (ain5)",
         analog_input_name: "ain5",
-        signal_name: "p1.current_4_20_2_A",
+        signal_name: "p1.4_20_2_A",
         slug: "4_20_mA_2",
         kind: CalibrationKind::Current4To20,
     },
     CalibrationChannel {
         label: "4-20 mA channel 3 (ain6)",
         analog_input_name: "ain6",
-        signal_name: "p1.current_4_20_3_A",
+        signal_name: "p1.4_20_3_A",
         slug: "4_20_mA_3",
         kind: CalibrationKind::Current4To20,
     },
@@ -289,14 +315,14 @@ const THERMOCOUPLE_CHANNELS: [CalibrationChannel; 2] = [
     CalibrationChannel {
         label: "Thermocouple channel 0 (ain10)",
         analog_input_name: "ain10",
-        signal_name: "p1.thermocouple_0_temperature_K",
+        signal_name: "p1.tc_0_K",
         slug: "tc_0",
         kind: CalibrationKind::Thermocouple,
     },
     CalibrationChannel {
         label: "Thermocouple channel 1 (ain11)",
         analog_input_name: "ain11",
-        signal_name: "p1.thermocouple_1_temperature_K",
+        signal_name: "p1.tc_1_K",
         slug: "tc_1",
         kind: CalibrationKind::Thermocouple,
     },
@@ -306,42 +332,42 @@ const VOLTAGE_CHANNELS: [CalibrationChannel; 6] = [
     CalibrationChannel {
         label: "0-2.5 V channel 0 (ain12)",
         analog_input_name: "ain12",
-        signal_name: "p1.voltage_0_2V5_0_V",
+        signal_name: "p1.2V5_0_V",
         slug: "0_2V5_0",
         kind: CalibrationKind::Voltage,
     },
     CalibrationChannel {
         label: "0-2.5 V channel 1 (ain15)",
         analog_input_name: "ain15",
-        signal_name: "p1.voltage_0_2V5_1_V",
+        signal_name: "p1.2V5_1_V",
         slug: "0_2V5_1",
         kind: CalibrationKind::Voltage,
     },
     CalibrationChannel {
         label: "0-15 V channel 0 (ain16)",
         analog_input_name: "ain16",
-        signal_name: "p1.voltage_0_15_0_V",
+        signal_name: "p1.15V_0_V",
         slug: "0_15V_0",
         kind: CalibrationKind::Voltage,
     },
     CalibrationChannel {
         label: "0-15 V channel 1 (ain17)",
         analog_input_name: "ain17",
-        signal_name: "p1.voltage_0_15_1_V",
+        signal_name: "p1.15V_1_V",
         slug: "0_15V_1",
         kind: CalibrationKind::Voltage,
     },
     CalibrationChannel {
         label: "x26 voltage channel 0 (ain18)",
         analog_input_name: "ain18",
-        signal_name: "p1.voltage_x26_0_V",
+        signal_name: "p1.35mV_0_V",
         slug: "x26_0",
         kind: CalibrationKind::Voltage,
     },
     CalibrationChannel {
         label: "x26 voltage channel 1 (ain19)",
         analog_input_name: "ain19",
-        signal_name: "p1.voltage_x26_1_V",
+        signal_name: "p1.35mV_1_V",
         slug: "x26_1",
         kind: CalibrationKind::Voltage,
     },
@@ -1302,7 +1328,33 @@ impl PreparedRawCsv {
 /// Prepare raw data for replay, decompressing zipped captures on demand.
 fn prepare_raw_csv_for_replay(raw_path: &Path) -> Result<PreparedRawCsv, String> {
     if !is_zipped_raw_data_file(raw_path) {
-        return Ok(PreparedRawCsv::Direct(raw_path.to_path_buf()));
+        let raw_file = File::open(raw_path)
+            .map_err(|e| format!("Failed to open raw CSV {}: {e}", raw_path.display()))?;
+        let mut raw_reader = BufReader::new(raw_file);
+        let mut header = String::new();
+        raw_reader
+            .read_line(&mut header)
+            .map_err(|e| format!("Failed to read raw CSV header {}: {e}", raw_path.display()))?;
+        if !raw_csv_header_needs_signal_name_update(&header) {
+            return Ok(PreparedRawCsv::Direct(raw_path.to_path_buf()));
+        }
+
+        let op_name = raw_op_name_from_path(raw_path)?;
+        let temp_dir = unique_temp_raw_csv_dir();
+        create_dir_all(&temp_dir).map_err(|e| {
+            format!(
+                "Failed to create temp raw CSV dir {}: {e}",
+                temp_dir.display()
+            )
+        })?;
+        let temp_path = temp_dir.join(format!("{op_name}{RAW_RUN_SUFFIX}"));
+        let raw_file = File::open(raw_path)
+            .map_err(|e| format!("Failed to reopen raw CSV {}: {e}", raw_path.display()))?;
+        copy_raw_csv_with_current_signal_names(raw_file, &temp_path)?;
+        return Ok(PreparedRawCsv::Temporary(TempRawCsv {
+            path: temp_path,
+            dir: temp_dir,
+        }));
     }
 
     let op_name = raw_op_name_from_path(raw_path)?;
@@ -1326,20 +1378,84 @@ fn prepare_raw_csv_for_replay(raw_path: &Path) -> Result<PreparedRawCsv, String>
             raw_path.display()
         )
     })?;
-    let mut temp_csv = File::create(&temp_path)
-        .map_err(|e| format!("Failed to create temp raw CSV {}: {e}", temp_path.display()))?;
-    copy(&mut zipped_csv, &mut temp_csv).map_err(|e| {
-        format!(
-            "Failed to decompress raw CSV {} to {}: {e}",
-            raw_path.display(),
-            temp_path.display()
-        )
-    })?;
+    copy_raw_csv_with_current_signal_names(&mut zipped_csv, &temp_path)?;
 
     Ok(PreparedRawCsv::Temporary(TempRawCsv {
         path: temp_path,
         dir: temp_dir,
     }))
+}
+
+/// Copy a raw capture while translating legacy rev7 column names in its header.
+///
+/// Args:
+///   source: Raw calibration CSV byte stream.
+///   destination: Temporary replay CSV path.
+///
+/// Returns:
+///   An error if the header cannot be read or the translated CSV cannot be
+///   written. Data rows are copied byte-for-byte.
+fn copy_raw_csv_with_current_signal_names(
+    source: impl Read,
+    destination: &Path,
+) -> Result<(), String> {
+    let mut reader = BufReader::new(source);
+    let mut header = String::new();
+    reader
+        .read_line(&mut header)
+        .map_err(|e| format!("Failed to read raw CSV header: {e}"))?;
+    if header.is_empty() {
+        return Err("Raw calibration CSV is empty".to_owned());
+    }
+
+    let line_ending = if header.ends_with("\r\n") {
+        "\r\n"
+    } else if header.ends_with('\n') {
+        "\n"
+    } else {
+        ""
+    };
+    let header_without_line_ending = header.trim_end_matches(['\r', '\n']);
+    let translated_header = header_without_line_ending
+        .split(',')
+        .map(current_rev7_signal_name)
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let destination_file = File::create(destination).map_err(|e| {
+        format!(
+            "Failed to create temporary replay CSV {}: {e}",
+            destination.display()
+        )
+    })?;
+    let mut writer = BufWriter::new(destination_file);
+    writer
+        .write_all(translated_header.as_bytes())
+        .and_then(|()| writer.write_all(line_ending.as_bytes()))
+        .and_then(|()| copy(&mut reader, &mut writer).map(|_| ()))
+        .and_then(|()| writer.flush())
+        .map_err(|e| {
+            format!(
+                "Failed to write temporary replay CSV {}: {e}",
+                destination.display()
+            )
+        })
+}
+
+/// Return the current public name for a current or historical rev7 signal.
+fn current_rev7_signal_name(name: &str) -> &str {
+    LEGACY_REV7_SIGNAL_NAMES
+        .iter()
+        .find_map(|(legacy, current)| (*legacy == name).then_some(*current))
+        .unwrap_or(name)
+}
+
+/// Check whether a dispatcher CSV header contains historical rev7 names.
+fn raw_csv_header_needs_signal_name_update(header: &str) -> bool {
+    header
+        .trim_end_matches(['\r', '\n'])
+        .split(',')
+        .any(|name| current_rev7_signal_name(name) != name)
 }
 
 /// Generate a unique temp directory for staging one raw replay CSV.
@@ -1801,7 +1917,7 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
     let metadata = read_run_metadata(&metadata_path_for_replay_path(path)?)?;
     let channel = channel_for_slug(&metadata.channel)
         .ok_or_else(|| format!("Unknown calibration channel '{}'", metadata.channel))?;
-    if metadata.signal_name != channel.signal_name {
+    if current_rev7_signal_name(&metadata.signal_name) != channel.signal_name {
         return Err(format!(
             "{} metadata has signal '{}', expected '{}'",
             path.display(),
@@ -3375,6 +3491,92 @@ fn html_escape(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn calibration_channels_use_current_rev7_signal_names() {
+        let peripheral = DeimosDaqRev7::default();
+        let output_names = peripheral
+            .output_names()
+            .into_iter()
+            .map(|name| format!("{PERIPHERAL_NAME}.{name}"))
+            .collect::<Vec<_>>();
+
+        assert!(
+            output_names
+                .iter()
+                .any(|name| name == BOARD_COLD_JUNCTION_SIGNAL_NAME)
+        );
+        for channel in CURRENT_CHANNELS
+            .into_iter()
+            .chain(THERMOCOUPLE_CHANNELS)
+            .chain(VOLTAGE_CHANNELS)
+        {
+            assert!(
+                output_names.iter().any(|name| name == channel.signal_name),
+                "{} is not a current rev7 peripheral output",
+                channel.signal_name,
+            );
+        }
+    }
+
+    #[test]
+    fn historical_rev7_signal_names_translate_only_for_replay() {
+        assert_eq!(
+            current_rev7_signal_name("p1.module_bus_current_A"),
+            "p1.bus_A"
+        );
+        assert_eq!(
+            current_rev7_signal_name("p1.current_4_20_2_A"),
+            "p1.4_20_2_A"
+        );
+        assert_eq!(
+            current_rev7_signal_name("p1.voltage_x26_1_V"),
+            "p1.35mV_1_V"
+        );
+        assert_eq!(
+            current_rev7_signal_name("p1_rtd_0.temperature_K"),
+            "p1_rtd_0.temperature_K"
+        );
+
+        let archived_output_names = [
+            "p1.sample_time_ns",
+            "p1.module_bus_current_A",
+            "p1.module_bus_voltage_V",
+            "p1.board_temperature_K",
+            "p1.current_4_20_0_A",
+            "p1.current_4_20_1_A",
+            "p1.current_4_20_2_A",
+            "p1.current_4_20_3_A",
+            "p1.rtd_0_resistance_ohm",
+            "p1.rtd_1_resistance_ohm",
+            "p1.rtd_2_resistance_ohm",
+            "p1.thermocouple_0_temperature_K",
+            "p1.thermocouple_1_temperature_K",
+            "p1.voltage_0_2V5_0_V",
+            "p1.voltage_0_2V5_1_V",
+            "p1.voltage_0_15_0_V",
+            "p1.voltage_0_15_1_V",
+            "p1.voltage_x26_0_V",
+            "p1.voltage_x26_1_V",
+            "p1.encoder",
+            "p1.counter",
+            "p1.freq0",
+            "p1.freq1",
+            "p1.di0",
+            "p1.di1",
+        ];
+        let current_output_names = DeimosDaqRev7::default()
+            .output_names()
+            .into_iter()
+            .map(|name| format!("{PERIPHERAL_NAME}.{name}"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            archived_output_names
+                .map(current_rev7_signal_name)
+                .as_slice(),
+            current_output_names,
+        );
+    }
 
     #[test]
     fn x26_voltage_channels_use_the_five_requested_holds() {

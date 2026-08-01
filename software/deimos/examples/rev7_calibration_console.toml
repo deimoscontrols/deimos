@@ -1,4 +1,4 @@
-# Operator console config for `software/deimos/examples/rev7_calibration.rs`.
+# Operator console config for `software/deimos/examples/rev7_0_0_calibration.rs`.
 # Run with:
 # cargo run -p deimos_console -- --config software/deimos/examples/rev7_calibration_console.toml
 
@@ -12,10 +12,10 @@ columns = 2
 [[panels]]
 title = "Rev7 4-20 mA Inputs"
 channels = [
-    "p1.current_4_20_0_A",
-    "p1.current_4_20_1_A",
-    "p1.current_4_20_2_A",
-    "p1.current_4_20_3_A",
+    "p1.4_20_0_A",
+    "p1.4_20_1_A",
+    "p1.4_20_2_A",
+    "p1.4_20_3_A",
 ]
 
 [[panels]]
@@ -29,28 +29,28 @@ channels = [
 [[panels]]
 title = "Rev7 Thermocouple Inputs"
 channels = [
-    "p1.thermocouple_0_temperature_K",
-    "p1.thermocouple_1_temperature_K",
-    "p1.board_temperature_K",
+    "p1.tc_0_K",
+    "p1.tc_1_K",
+    "p1.board_temp_K",
 ]
 
 [[panels]]
 title = "Rev7 0-2.5 V Inputs"
 channels = [
-    "p1.voltage_0_2V5_0_V",
-    "p1.voltage_0_2V5_1_V",
+    "p1.2V5_0_V",
+    "p1.2V5_1_V",
 ]
 
 [[panels]]
 title = "Rev7 0-15 V Inputs"
 channels = [
-    "p1.voltage_0_15_0_V",
-    "p1.voltage_0_15_1_V",
+    "p1.15V_0_V",
+    "p1.15V_1_V",
 ]
 
 [[panels]]
 title = "Rev7 26x Voltage Inputs"
 channels = [
-    "p1.voltage_x26_0_V",
-    "p1.voltage_x26_1_V",
+    "p1.35mV_0_V",
+    "p1.35mV_1_V",
 ]
