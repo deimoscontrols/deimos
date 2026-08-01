@@ -21,7 +21,9 @@ Firmware overhaul for the Rev7 DAQ.
         * Calibrations, voltage conversions, resistance, board RTD, thermocouples, board current and voltage
         * This is required for modbus operation to be useful
     * Require calibrated firmware for normal deimos and modbus operation
-    * Add sample_time_ns as an output
+    * Add sample_time_ns as an output marking as close as possible to the start of the latest sample
+    * Add packet processing budget per cycle to avoid potentially unbounded loop in smoltcp processing
+        * This eliminates a potential packet-storm freeze
 * deimos_shared
     * Add `calcs` module with new thermocouple and RTD functions optimized for firmware
         * Use verified regular grid B-spline fit for thermocouple inverse function
