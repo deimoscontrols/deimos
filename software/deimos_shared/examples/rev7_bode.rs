@@ -678,8 +678,11 @@ fn reference_marks(
         vec![
             (sampling_policy.sample_rate_hz, "Samplerate"),
             (sampling_policy.sample_rate_hz / 2.0, "Samplerate Nyquist"),
-            (cycle_rate_hz, "Reporting rate & ADC IIR cutoff"),
-            (cycle_rate_hz / 2.0, "Reporting-rate Nyquist"),
+            (cycle_rate_hz, "Reporting rate"),
+            (
+                sampling_policy.iir_cutoff_hz.unwrap(),
+                "Reporting-rate Nyquist & ADC IIR cutoff",
+            ),
         ]
     } else {
         vec![

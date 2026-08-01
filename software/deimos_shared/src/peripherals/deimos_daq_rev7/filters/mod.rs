@@ -1,8 +1,8 @@
 //! Rev7 sampling policy and measurement-filter construction.
 
 use super::{
-    ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE, ADC_OVERSAMPLE_TARGET_RATE_HZ,
-    ADC_SINGLE_SAMPLE_CUTOVER_HZ,
+    ADC_IIR_CUTOFF_TO_REPORT_RATE, ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE,
+    ADC_OVERSAMPLE_TARGET_RATE_HZ, ADC_SINGLE_SAMPLE_CUTOVER_HZ,
 };
 
 #[cfg(feature = "alloc")]
@@ -44,9 +44,10 @@ pub struct AdcSamplingPolicy {
 ///
 /// Below [`ADC_SINGLE_SAMPLE_CUTOVER_HZ`], the nearest integer sample count
 /// targets [`super::ADC_OVERSAMPLE_TARGET_HZ`] with a minimum of
-/// [`ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE`]. The ADC IIR cutoff remains at the
-/// reporting cycle rate. At and above the cutover, one sample is acquired per
-/// cycle and the ADC IIR is omitted.
+/// [`ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE`]. The ADC IIR cutoff is the Nyquist
+/// frequency of the reporting stream, as specified by
+/// [`ADC_IIR_CUTOFF_TO_REPORT_RATE`]. At and above the cutover, one sample is
+/// acquired per cycle and the ADC IIR is omitted.
 ///
 /// Args:
 ///   cycle_rate_hz: Requested reporting cycle rate scalar in `cycle/s`.
@@ -78,12 +79,13 @@ pub fn adc_sampling_policy(cycle_rate_hz: f64) -> Option<AdcSamplingPolicy> {
     let rounded_samples = rounded_samples as u32;
     let samples_per_cycle = rounded_samples.max(ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE);
     let sample_rate_hz = cycle_rate_hz * f64::from(samples_per_cycle);
+    let iir_cutoff_hz = cycle_rate_hz * ADC_IIR_CUTOFF_TO_REPORT_RATE;
     Some(AdcSamplingPolicy {
         mode: AdcSamplingMode::Oversampled,
         samples_per_cycle,
         sample_rate_hz,
-        iir_cutoff_hz: Some(cycle_rate_hz),
-        iir_cutoff_ratio: Some(cycle_rate_hz / sample_rate_hz),
+        iir_cutoff_hz: Some(iir_cutoff_hz),
+        iir_cutoff_ratio: Some(iir_cutoff_hz / sample_rate_hz),
     })
 }
 

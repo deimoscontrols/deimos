@@ -77,13 +77,14 @@ The following are requirements rather than open design questions:
 - Do not add a `NetworkServing` board state.
 - Construct and install the selected ADC filters once on entry to Operating,
   before enabling its SysTick scope. Below 3 kHz, run the ADC IIR at the
-  publishing-rate cutoff using the actual rounded sample count. At and above
-  3 kHz, apply the fractional-delay filter without an ADC IIR. Take one real ADC
+  reporting-rate Nyquist cutoff using the actual rounded sample count. At and
+  above 3 kHz, apply the fractional-delay filter without an ADC IIR. Take one real ADC
   group at entry and initialize the fractional-delay, ADC-IIR, and board-
   temperature filter histories to steady state from it before publishing.
 - Do not create independent Modbus publication, filter-cutoff, and timeout
   clocks. The operating cycle is the publication cycle, and the operating cycle
-  rate is also used as the ADC filter cutoff exactly as it is in Deimos mode.
+  rate determines the ADC filter cutoff as half the cycle rate, exactly as it
+  does in Deimos mode.
 - Use the existing loss-of-contact cycle count as the only connection timeout.
 - Default Modbus operation to 10 Hz and a one-minute timeout when the first
   accepted Modbus request does not write those fields. At 10 Hz the default
@@ -1208,7 +1209,7 @@ Below 3 kHz, choose one integer sample count on Operating entry:
 ```text
 samples_per_cycle = max(3, round(9_000 * dt_ns / 1_000_000_000))
 actual_sample_rate = samples_per_cycle * publishing_rate
-ADC_IIR_cutoff_ratio = 1 / samples_per_cycle
+ADC_IIR_cutoff_ratio = 1 / (2 * samples_per_cycle)
 ```
 
 Implement this once as `adc_sampling_policy` in the shared rev7 peripheral
@@ -1217,10 +1218,10 @@ returned mode, sample count, actual samplerate, and optional IIR cutoff rather
 than repeating the formulas.
 
 At and above 3 kHz, take one sample per cycle and apply fractional delay without
-the ADC IIR. This deliberately places the system cutoff at the sampling rate,
-rather than at Nyquist, to preserve control-loop phase margin. Dynamic magnitude,
-phase, alias, and noise characterization is deferred until it can be automated
-with a programmable signal generator.
+the ADC IIR. Below the cutover, place the second-order Butterworth cutoff at the
+Nyquist frequency of the reporting stream. Dynamic magnitude, phase, alias, and
+noise characterization is deferred until it can be automated with a
+programmable signal generator.
 
 1. Remove TIM2 sampling and its IRQ ownership, filter-update handshake,
    accumulated-time accounting, cross-IRQ acquisition-clock storage, and bounded
@@ -1471,10 +1472,11 @@ software; the new runtime does not accept that obsolete rev7 layout.
   9 kHz, with the largest relative deviation near the 3 kHz cutover. Filter
   coefficients use the actual rate and count, and the hardware timing sweep
   covers sample-count transition boundaries.
-- The system intentionally places its cutoff at the sampling rate, rather than
-  Nyquist, to preserve control-loop phase margin. Magnitude, phase, folded-alias,
-  and noise characteristics remain deferred until automated signal-generator
-  testing is available; this is an explicit control-performance tradeoff.
+- The oversampled path places its second-order Butterworth cutoff at the
+  reporting-rate Nyquist frequency. Magnitude, phase, folded-alias, and noise
+  characteristics remain deferred until automated signal-generator testing is
+  available; this is an explicit fixed bandwidth/phase compromise rather than
+  a claim of complete antialiasing.
 - Both synchronous modes make the ADC cadence follow Deimos period/phase
   corrections. Timestamp accuracy, subcycle distribution, fractional-delay
   behavior, and control quality must be verified at the maximum permitted

@@ -111,6 +111,13 @@ pub const ADC_OVERSAMPLE_TARGET_RATE_HZ: f64 = ADC_OVERSAMPLE_TARGET_HZ as f64;
 /// Minimum ADC groups taken in one synchronously oversampled cycle.
 pub const ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE: u32 = 3;
 
+/// ADC IIR cutoff divided by the reporting rate in the oversampled path.
+///
+/// A ratio of one half places the second-order Butterworth filter's `-3 dB`
+/// frequency at the Nyquist frequency of the published sample stream. This is
+/// a fixed acquisition policy, not a live protocol setting.
+pub const ADC_IIR_CUTOFF_TO_REPORT_RATE: f64 = 0.5;
+
 /// Lowest publishing rate which uses one ADC group per cycle.
 ///
 /// Below this compiled, non-protocol setting, the nearest integer sample count
@@ -134,6 +141,8 @@ pub const FREQUENCY_INPUT_VALID_TIMEOUT_NS: i64 = 10_000_000;
 
 const _: () = assert!(ADC_OVERSAMPLE_TARGET_HZ > 0);
 const _: () = assert!(ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE > 0);
+const _: () = assert!(ADC_IIR_CUTOFF_TO_REPORT_RATE > 0.0);
+const _: () = assert!(ADC_IIR_CUTOFF_TO_REPORT_RATE <= 0.5);
 const _: () = assert!(FREQUENCY_INPUT_VALID_TIMEOUT_NS > 0);
 const _: () = assert!(
     ADC_OVERSAMPLE_TARGET_HZ == ADC_SINGLE_SAMPLE_CUTOVER_HZ * ADC_OVERSAMPLE_MIN_SAMPLES_PER_CYCLE

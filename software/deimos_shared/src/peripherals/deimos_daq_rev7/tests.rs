@@ -21,15 +21,16 @@ fn sampling_policy_derives_samplerate_and_iir_cutoff_from_cycle_rate() {
     assert_eq!(low_rate.sample_rate_hz, 9_000.0);
     assert_eq!(
         low_rate.iir_cutoff_hz,
-        Some(f64::from(REV7_MIN_CYCLE_RATE_HZ)),
+        Some(f64::from(REV7_MIN_CYCLE_RATE_HZ) / 2.0),
     );
-    assert_eq!(low_rate.iir_cutoff_ratio, Some(1.0 / 1_800.0));
+    assert_eq!(low_rate.iir_cutoff_ratio, Some(0.5 / 1_800.0));
 
     let rounded_rate = adc_sampling_policy(2_500.0).unwrap();
     assert_eq!(rounded_rate.mode, AdcSamplingMode::Oversampled);
     assert_eq!(rounded_rate.samples_per_cycle, 4);
     assert_eq!(rounded_rate.sample_rate_hz, 10_000.0);
-    assert_eq!(rounded_rate.iir_cutoff_hz, Some(2_500.0));
+    assert_eq!(rounded_rate.iir_cutoff_hz, Some(1_250.0));
+    assert_eq!(rounded_rate.iir_cutoff_ratio, Some(0.125));
 
     let below_cutover = adc_sampling_policy(1.0e9 / 333_334.0).unwrap();
     assert_eq!(below_cutover.mode, AdcSamplingMode::Oversampled);

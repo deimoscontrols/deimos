@@ -313,8 +313,8 @@ impl Sampler {
     ///
     /// Args:
     ///   sample_rate_hz: ADC-group rate in `sample/s`.
-    ///   iir_cutoff_ratio: Publishing-rate cutoff divided by the ADC-group rate,
-    ///     or `None` when the direct path will not step the IIR.
+    ///   iir_cutoff_ratio: Reporting-rate Nyquist cutoff divided by the
+    ///     ADC-group rate, or `None` when the direct path will not step the IIR.
     pub fn configure_synchronous(&mut self, sample_rate_hz: f64, iir_cutoff_ratio: Option<f64>) {
         if let Some(cutoff_ratio) = iir_cutoff_ratio {
             self.update_cutoff(cutoff_ratio);

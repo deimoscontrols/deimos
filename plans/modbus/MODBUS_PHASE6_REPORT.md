@@ -98,7 +98,8 @@ The 1x path retained at least 103.6 us of measured board margin through 5 kHz.
   and performs communications.
 - Three SysTick reloads are calculated once per publication cycle. Their sum is
   the corrected publication interval and they differ by at most one timer tick.
-- The 3x ADC IIR cutoff ratio is exactly one third. The 1x path applies the
+- The current 3x ADC IIR cutoff ratio is exactly one sixth, placing its cutoff
+  at the reporting-rate Nyquist frequency. The 1x path applies the
   fractional-delay FIR but no ADC IIR, without an IIR branch in the channel hot
   loop.
 - Cycle-owned timestamps are captured directly by the SysTick owner after the
