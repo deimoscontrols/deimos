@@ -7,7 +7,7 @@ Values are preliminary and may be adjusted as further test data is collected.
 |---------|-------------|
 | Comm. Medium | Ethernet. |
 | Power Supply | 24V DC 1A |
-| Cycle Rate | 5 Hz - 8 kHz in Deimos synchronized mode (UDP). <br>5 Hz - 500 Hz over Modbus/TCP. |
+| Cycle Rate | 5 Hz - 8000 Hz over Deimos/UDP. <br>5 Hz - 500 Hz over Modbus/TCP. |
 | Multi-Unit Time Sync | ~1 microsecond (100ns typ.) |
 | Sample Jitter | 0.01% of Δt |
 | Voltage Reference | 0.02% accuracy, ultra-low thermal sensitivity. |
@@ -21,7 +21,7 @@ Values are preliminary and may be adjusted as further test data is collected.
 |------|-------|------------|-------|
 | :material-square-wave: 4x PWM  | 1Hz-100kHz | 16-bit | Independent frequencies and duty cycles.<br>40Ω termination. |
 | :material-square-wave: 4x GPIO Output |  | 1-bit | 40Ω termination. |
-| :material-sine-wave: 2x DAC (Voltage) | 0-2.5V | 12-bit (0.6mV) | Buffered & self-calibrating. |
+| :material-sine-wave: 2x DAC (Voltage) | 0.02V - 2.5V | 12-bit (0.6mV) | Buffered & self-calibrating. |
 
 ## :material-ear-hearing:{ .lg .middle } Inputs
 
