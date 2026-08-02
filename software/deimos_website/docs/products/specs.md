@@ -10,9 +10,9 @@ Values are preliminary and may be adjusted as further test data is collected.
 | Cycle Rate | 5 Hz - 8 kHz in Deimos synchronized mode (UDP). <br>5 Hz - 500 Hz over Modbus/TCP. |
 | Multi-Unit Time Sync | ~1 microsecond (100ns typ.) |
 | Sample Jitter | 0.01% of Δt |
-| Voltage Reference | 0.02% accuracy, 2.5V, ultra-low thermal sensitivity. |
-| ADCs | 16-bit SAR, self-calibrating on every bootup. |
-| Internal Samplerate | Nominal 9kHz delayed-simultaneous sampling.<br>Adjusted to synchronize with the reporting rate. |
+| Voltage Reference | 0.02% accuracy, ultra-low thermal sensitivity. |
+| ADCs | 16-bit SAR, self-calibrating. |
+| Internal Samplerate | Nominal 9kHz delayed-simultaneous sampling.<br>Adjusted to synchronize with the reporting rate.<br>See [dynamics page](./dynamics.md#internal-samplerate-variation) for details. |
 | Onboard Filtering | Every analog channel has:<br>- Active analog filter.<br>- Digital anti-aliasing filter.<br>- Digital sample synchronization filter. |
 
 ## :material-controller-classic:{ .lg .middle } Outputs
@@ -41,8 +41,7 @@ Values are preliminary and may be adjusted as further test data is collected.
 
 ## :material-gauge-full:{ .lg .middle } Benchmarks
 
-The operating space of the Deimos DAQ is one-dimensional: all internal changes vary only with
-the choice of cycle rate.
+The operating space of the Deimos DAQ is one-dimensional: everything is a function of cycle rate.
 
 The following benchmark data is collected using a consumer laptop host machine
 running ubuntu linux with a low-latency usb-to-ethernet adapter.

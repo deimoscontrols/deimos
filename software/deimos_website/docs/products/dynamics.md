@@ -29,6 +29,8 @@ charts for each frontend type for a given reporting rate.
 | K-type Thermocouple | 1kHz | Fast responses and high maximum temperature. |
 | 4-20mA | 3kHz | - Pressure transducers.<br>- Valve angle feedback.
 
+## 100Hz Analog (Board Temperature)
+
   <div class="bode-plot-frame">
     <div class="bode-plot-loader" aria-label="Loading Bode plot"></div>
     <iframe
@@ -41,6 +43,8 @@ charts for each frontend type for a given reporting rate.
       onload="this.closest('.bode-plot-frame').classList.add('bode-plot-frame--loaded')"
     ></iframe>
   </div>
+
+## 1kHz Analog
 
   <div class="bode-plot-frame">
     <div class="bode-plot-loader" aria-label="Loading Bode plot"></div>
@@ -55,6 +59,8 @@ charts for each frontend type for a given reporting rate.
     ></iframe>
   </div>
 
+## 3kHz Analog
+
   <div class="bode-plot-frame">
     <div class="bode-plot-loader" aria-label="Loading Bode plot"></div>
     <iframe
@@ -67,6 +73,11 @@ charts for each frontend type for a given reporting rate.
       onload="this.closest('.bode-plot-frame').classList.add('bode-plot-frame--loaded')"
     ></iframe>
   </div>
+
+## Internal Samplerate Variation
+
+The internal samplerate nominally targets 9kHz and adjusts to synchronize to a multiple
+of the cycle rate, and to protect margin to worst-case execution time.
 
   <div class="bode-plot-frame">
     <div class="bode-plot-loader" aria-label="Loading samplerate plot"></div>
