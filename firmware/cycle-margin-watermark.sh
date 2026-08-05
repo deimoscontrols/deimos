@@ -24,7 +24,7 @@ if ! command -v probe-rs >/dev/null 2>&1 || ! command -v nm >/dev/null 2>&1; the
     exit 127
 fi
 if [[ ! -f "${ELF}" ]]; then
-    echo "Instrumented rev7 ELF was not found" >&2
+    echo "Instrumented firmware ELF was not found" >&2
     exit 1
 fi
 

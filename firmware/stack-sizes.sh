@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Print the fixed stack-frame sizes from an optimized rev7 firmware build.
+# Print the fixed stack-frame sizes from an optimized firmware build.
 #
 # Install the pinned compiler and target with:
 #   rustup toolchain install nightly-2026-07-29 --profile minimal \
@@ -51,7 +51,7 @@ readonly TEMP_REPORT="$(mktemp "${REPORT}.tmp.XXXXXX")"
 trap 'rm -f -- "${TEMP_REPORT}"' EXIT
 
 {
-    echo "Fixed stack-frame sizes for rev7 firmware"
+    echo "Fixed stack-frame sizes for firmware"
     echo "Compiler: $(rustup run "${TOOLCHAIN}" rustc --version)"
     echo "Profile: release (fat LTO)"
     echo

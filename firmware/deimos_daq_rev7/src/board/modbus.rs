@@ -555,7 +555,7 @@ fn validate_supported_pdu(request: &[u8]) -> Result<(), ErrorKind> {
     }
 }
 
-/// Parse one ADU with rmodbus and apply the rev7 fixed register map.
+/// Parse one ADU with rmodbus and apply the fixed register map.
 ///
 /// rmodbus parsing contains no request-dependent loop. The only subsequent
 /// loops are bounded by the fixed snapshot and holding-register array lengths.
@@ -711,7 +711,7 @@ fn process_read_write_multiple_registers(
         return (false, config);
     }
 
-    // The rev7 writable map is narrower than the protocol maximum, so one
+    // The writable map is narrower than the protocol maximum, so one
     // fixed stack array covers every accepted FC23 write without allocation.
     let mut values = [0_u16; MAX_HOLDING_WRITE_REGISTERS];
     for (index, pair) in request[17..].chunks_exact(2).enumerate() {

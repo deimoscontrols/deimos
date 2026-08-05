@@ -1,11 +1,10 @@
-# Deimos DAQ rev7 firmware
+# Deimos DAQ firmware
 
 The calibration image is selected by `firmware/flash.py` before each build:
 
-- If the assigned unit has a generated
-  `software/deimos_website/docs/records/DeimosDaqRev7/<serial>/calibration.bin`,
-  the script copies it to `static/calibration.in` before building. The completed
-  artifact has `firmware_calibrated = 1`.
+- If the assigned unit has a generated `calibration.bin` in its website records
+  directory, the script copies it to `static/calibration.in` before building.
+  The completed artifact has `firmware_calibrated = 1`.
 - If that unit-specific `calibration.bin` is absent, the script removes any
   previously staged `static/calibration.in`. `build.rs` then embeds identity
   affine coefficients and sets `firmware_calibrated = 0`. This is the image to
@@ -35,8 +34,8 @@ uv run python firmware/flash.py
 Both commands are run from the repository root. `flash.py` selects the board,
 probe, serial number, and MAC address from `firmware/assignments.json`.
 
-Normal rev7 operation publishes one coherent engineering snapshot from both
-the Deimos UDP and Modbus/TCP paths. Its `sample_time_ns` field is the board
+Normal operation publishes one coherent engineering snapshot from both the
+Deimos UDP and Modbus/TCP paths. Its `sample_time_ns` field is the board
 timestamp immediately before the first ADC conversion in the associated raw
 sample group; it does not include a correction for digital-filter group delay.
 The host converts this integer timestamp to `f64` with the other controller
@@ -63,6 +62,5 @@ IRQ work stays bounded. The complete synchronized register layout and timeout
 behavior are documented in
 [`plans/MODBUS_REGISTER_MAP.md`](../../plans/MODBUS_REGISTER_MAP.md).
 
-The engineering snapshot is an intentionally breaking rev7 protocol change.
-Flash the corresponding firmware and update the controller software together;
-there is no legacy rev7 packet decoder.
+Firmware and controller software must use the same engineering-snapshot packet
+layout. The controller does not include an alternative packet decoder.

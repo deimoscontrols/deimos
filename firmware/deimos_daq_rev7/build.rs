@@ -1,4 +1,4 @@
-//! Stages a validated, fixed-layout rev7 calibration image for firmware inclusion.
+//! Stages a validated, fixed-layout calibration image for firmware inclusion.
 
 fn main() {
     use std::{env, fs, path::PathBuf};
@@ -28,7 +28,7 @@ fn main() {
     assert_eq!(
         bytes.len(),
         CALIBRATION_LEN,
-        "rev7 calibration blob has the wrong length"
+        "calibration blob has the wrong length"
     );
     let output = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR"))
         .join("calibration.in");

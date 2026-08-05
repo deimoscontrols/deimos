@@ -23,14 +23,14 @@ if ! command -v probe-rs >/dev/null 2>&1; then
 fi
 
 if ! command -v nm >/dev/null 2>&1 || [[ ! -f "${ELF}" ]]; then
-    echo "Instrumented rev7 ELF or nm was not found" >&2
+    echo "Instrumented firmware ELF or nm was not found" >&2
     exit 1
 fi
 
 readonly STACK_START="$(nm -n "${ELF}" | awk '$3 == "_stack_start" { print "0x" $1 }')"
 readonly STACK_END="$(nm -n "${ELF}" | awk '$3 == "_stack_end" { print "0x" $1 }')"
 if [[ -z "${STACK_START}" || -z "${STACK_END}" ]]; then
-    echo "Instrumented rev7 ELF has no _stack_start or _stack_end symbol" >&2
+    echo "Instrumented firmware ELF has no _stack_start or _stack_end symbol" >&2
     exit 1
 fi
 readonly STACK_BYTES=$((STACK_START - STACK_END))

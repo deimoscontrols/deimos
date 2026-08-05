@@ -89,7 +89,11 @@ impl<'a> Board<'a> {
         let transition_connecting = AtomicBool::new(false);
         let transition_modbus_reentry = AtomicBool::new(false);
 
+        // The reporting period determines both the number of acquisitions per
+        // published snapshot and whether the ADC path includes the IIR stage.
         let reporting_rate_hz = 1.0e9 / f64::from(self.dt_ns);
+        // UNWRAP: Both protocols validate `dt_ns` against the supported
+        // cycle-rate range before entering an operating state.
         let sampling_policy = adc_sampling_policy(reporting_rate_hz).unwrap();
         sampler.configure_synchronous(
             sampling_policy.sample_rate_hz,
@@ -100,11 +104,22 @@ impl<'a> Board<'a> {
         // publishing. Steady initial values prevent startup transients in both
         // raw channels and downstream board-temperature compensation.
         sampler.prime_synchronous(self.time_ns);
+
+        // Board temperature is converted to kelvin before filtering because it
+        // compensates the other engineering conversions. This separate 1 Hz
+        // filter runs once per published snapshot, independent of the ADC
+        // acquisition topology selected above.
+        // UNWRAP: A 1 Hz cutoff is valid at every supported reporting rate.
         let board_temperature_filter = adc_filter_bank(1.0 / reporting_rate_hz).unwrap()[0];
         let initial_sample_group = &sampler.sampled_inputs().adc;
         let initial_board_temperature_k =
             board_temperature_k_f32(&initial_sample_group.values, &self.calibration);
         let mut board_temperature_filter_state = board_temperature_filter.reset_state();
+
+        // Seed the engineering-value filter at its measured initial value so
+        // the first published temperature is already at steady state. A
+        // non-finite conversion cannot be a useful filter state, so zero is the
+        // deterministic fallback until a finite measurement arrives.
         board_temperature_filter.set_steady_state(
             &mut board_temperature_filter_state,
             [if initial_board_temperature_k.is_finite() {
@@ -114,6 +129,10 @@ impl<'a> Board<'a> {
             }],
         );
 
+        // All protocol-independent mutable state lives together so either IRQ
+        // topology can call the same engineering, I/O, and publishing cycle.
+        // Modbus configuration is retained here to support a rate-change
+        // re-entry while preserving the last commanded output values.
         let mut state = OperatingState {
             mode,
             current_modbus_config,
@@ -127,6 +146,9 @@ impl<'a> Board<'a> {
             board_temperature_filter_state,
         };
 
+        // Oversampled operation spaces acquisitions across each reporting
+        // period and applies the IIR before publication. Direct operation runs
+        // one fractional-delay-only acquisition and publishes in the same IRQ.
         match sampling_policy.mode {
             AdcSamplingMode::Oversampled => self.operate_synchronous_oversampled(
                 sampler,
@@ -145,9 +167,15 @@ impl<'a> Board<'a> {
             ),
         }
 
+        // The selected IRQ scope returns only after a handler requests a state
+        // transition. Stop SysTick before inspecting that request and handing
+        // the sampler back to the top-level state machine.
         self.systick.disable_interrupt();
         self.systick.disable_counter();
 
+        // Rate changes re-enter Modbus operation with the updated period,
+        // timeout, and held outputs. Every other exit returns to discovery and
+        // configuration through Connecting.
         if transition_connecting.load(Ordering::Relaxed) {
             BoardState::Connecting
         } else if transition_modbus_reentry.load(Ordering::Relaxed) {
