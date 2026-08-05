@@ -96,9 +96,9 @@ impl<'a> Board<'a> {
             sampling_policy.iir_cutoff_ratio,
         );
 
-        // Setup states no longer run a background sampler. Prime every filter
-        // history from one real group before publishing so neither raw channels
-        // nor board-temperature compensation begin with a zero-state transient.
+        // Prime every filter history from one real acquisition group before
+        // publishing. Steady initial values prevent startup transients in both
+        // raw channels and downstream board-temperature compensation.
         sampler.prime_synchronous(self.time_ns);
         let board_temperature_filter = adc_filter_bank(1.0 / reporting_rate_hz).unwrap()[0];
         let initial_sample_group = &sampler.sampled_inputs().adc;
