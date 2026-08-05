@@ -57,10 +57,14 @@ impl<'a> Board<'a> {
         self.watchdog.feed();
 
         let (initial_outputs, current_modbus_config) = match mode {
+            // Deimos supplies a fresh output command through each roundtrip, so
+            // every entry begins from the safe output state.
             OperatingMode::Deimos => (
                 OperatingOutputSettings::default(),
                 ModbusInitialConfig::default(),
             ),
+            // Modbus commands are retained across reads and rate-change
+            // re-entry, making the entry configuration the initial live state.
             OperatingMode::Modbus(initial_config) => {
                 self.dt_ns = initial_config.dt_ns;
                 self.loss_of_contact_limit = initial_config.loss_of_contact_limit;
@@ -79,6 +83,9 @@ impl<'a> Board<'a> {
         self.led2.set_high();
         self.led3.set_high();
 
+        // TIM5 measures elapsed time within each SysTick handler. Its count is
+        // used for packet timestamps and for the execution-margin watermark;
+        // a two-cycle range prevents a normal handler from reaching its limit.
         self.subcycle_timer
             .set_timeout(Duration::from_nanos(2 * u64::from(self.dt_ns)));
         let subcycle_scale = u64::from(self.subcycle_timer.inner().psc.read().psc().bits()) + 1;
@@ -86,6 +93,10 @@ impl<'a> Board<'a> {
             (subcycle_scale * 1_000_000_000 / u64::from(self.subcycle_rate_hz)) as u32;
 
         self.set_outputs(&initial_outputs);
+        // The SysTick closure requests transitions through these flags while
+        // the foreground remains asleep in the scoped-IRQ wait loop. Relaxed
+        // access is sufficient on this single-core target; associated state is
+        // inspected only after the handler is unregistered at scope exit.
         let transition_connecting = AtomicBool::new(false);
         let transition_modbus_reentry = AtomicBool::new(false);
 
@@ -188,7 +199,19 @@ impl<'a> Board<'a> {
         }
     }
 
-    /// Run the rounded number of ADC groups nearest the 9 kHz target.
+    /// Run the rounded number of ADC groups nearest the internal rate target.
+    ///
+    /// SysTick divides each publishing cycle into uniformly spaced acquisition
+    /// intervals. Intermediate interrupts only sample; the final interrupt also
+    /// performs engineering conversion, communication, and output updates.
+    ///
+    /// Args:
+    ///   sampler: ADC and counter sampler owned by the SysTick scope.
+    ///   state: Shared protocol and engineering state for this operating entry.
+    ///   transition_connecting: IRQ-to-foreground reconnect request.
+    ///   transition_modbus_reentry: IRQ-to-foreground rate-change request.
+    ///   subcycle_res_ns: TIM5 counter resolution in `ns/tick`.
+    ///   samples_per_cycle: Number of ADC groups in `sample/cycle`.
     #[allow(clippy::too_many_arguments)]
     fn operate_synchronous_oversampled(
         &mut self,
@@ -199,15 +222,23 @@ impl<'a> Board<'a> {
         subcycle_res_ns: u32,
         samples_per_cycle: u32,
     ) {
+        // The quotient/remainder scheduler represents the complete reporting
+        // period without allocating an interval table. Its intervals sum to
+        // exactly one cycle and differ by no more than one SysTick tick.
         let mut scheduler = self.sample_interval_scheduler(0, samples_per_cycle);
         let first_reload = scheduler.next_ticks() - 1;
         self.systick_init_reload(first_reload);
+        // AcquisitionClock accumulates the applied reload durations so sample
+        // timestamps include the one-tick scheduler rounding pattern.
         let mut acquisition_clock = self.acquisition_clock_init();
         let systick_tick_period_ns = self.systick_tick_period_ns();
         let mut samples_remaining = samples_per_cycle;
 
         handler!(
             systick_handler = || {
+                // SysTick reloads before entering the handler. Advance over the
+                // completed interval, then associate the current down-counter
+                // with the interval which has just begun.
                 acquisition_clock.advance(SYST::get_reload(), systick_tick_period_ns);
                 self.restart_subcycle_timer();
                 let sample_time_ns =
@@ -215,9 +246,13 @@ impl<'a> Board<'a> {
                 sampler.sample_synchronous_iir(sample_time_ns);
                 samples_remaining -= 1;
 
+                // Sampling-only interrupts schedule the next acquisition and
+                // return promptly, spreading CPU work across the cycle.
                 if samples_remaining > 0 {
                     let next_reload = scheduler.next_ticks() - 1;
                     self.systick.set_reload(next_reload);
+                    // Margin is the time from completion of this handler to the
+                    // next scheduled acquisition.
                     let margin_ns = reload_duration_ns(next_reload, systick_tick_period_ns)
                         - self.subcycle_elapsed_ns(subcycle_res_ns);
                     record_sample_only_margin(margin_ns);
@@ -225,6 +260,9 @@ impl<'a> Board<'a> {
                     return;
                 }
 
+                // The final filtered group is the coherent input snapshot for
+                // this publishing cycle. Communication may request a bounded
+                // correction to the duration of the following cycle.
                 let correction_ns = self.operating_cycle(
                     state,
                     sampler.sampled_inputs(),
@@ -232,10 +270,14 @@ impl<'a> Board<'a> {
                     transition_modbus_reentry,
                     subcycle_res_ns,
                 );
+                // Rebuild the schedule once per cycle so the correction is
+                // distributed uniformly over all of its acquisitions.
                 scheduler = self.sample_interval_scheduler(correction_ns, samples_per_cycle);
                 let next_reload = scheduler.next_ticks() - 1;
                 self.systick.set_reload(next_reload);
                 samples_remaining = samples_per_cycle;
+                // Publication margin includes sampling, conversions, network
+                // service, and output updates performed by this handler.
                 let margin_ns = reload_duration_ns(next_reload, systick_tick_period_ns)
                     - self.subcycle_elapsed_ns(subcycle_res_ns);
                 state.output.metrics.cycle_time_margin_ns = margin_ns;
@@ -252,6 +294,17 @@ impl<'a> Board<'a> {
     }
 
     /// Run one fractional-delay-only ADC group per published snapshot.
+    ///
+    /// At one acquisition per cycle there is no higher-rate stream for the IIR
+    /// to antialias before decimation, so sampling and publication share every
+    /// SysTick interrupt and only channel-alignment filtering is applied.
+    ///
+    /// Args:
+    ///   sampler: ADC and counter sampler owned by the SysTick scope.
+    ///   state: Shared protocol and engineering state for this operating entry.
+    ///   transition_connecting: IRQ-to-foreground reconnect request.
+    ///   transition_modbus_reentry: IRQ-to-foreground rate-change request.
+    ///   subcycle_res_ns: TIM5 counter resolution in `ns/tick`.
     #[allow(clippy::too_many_arguments)]
     fn operate_synchronous_direct(
         &mut self,
@@ -267,6 +320,8 @@ impl<'a> Board<'a> {
 
         handler!(
             systick_handler = || {
+                // The timestamp represents the start of the acquisition, while
+                // the subcycle timer below measures all subsequent IRQ work.
                 acquisition_clock.advance(SYST::get_reload(), systick_tick_period_ns);
                 self.restart_subcycle_timer();
                 let sample_time_ns =
@@ -279,6 +334,8 @@ impl<'a> Board<'a> {
                     transition_modbus_reentry,
                     subcycle_res_ns,
                 );
+                // With one sample per cycle, the timing correction applies
+                // directly to the next SysTick interval.
                 self.systick_adjust(correction_ns);
                 let margin_ns = self
                     .systick_interval_duration_ns(correction_ns, systick_tick_period_ns)
@@ -298,6 +355,13 @@ impl<'a> Board<'a> {
 
     /// Perform the single shared engineering, transport, and output cycle.
     ///
+    /// Args:
+    ///   state: Mutable protocol, snapshot, command, and filter state.
+    ///   sampled_inputs: Coherent inputs from the latest ADC group.
+    ///   transition_connecting: IRQ-to-foreground reconnect request.
+    ///   transition_modbus_reentry: IRQ-to-foreground rate-change request.
+    ///   subcycle_res_ns: TIM5 counter resolution in `ns/tick`.
+    ///
     /// Returns:
     ///   Bounded transport timing correction requested for the next publishing
     ///   interval, in `ns`.
@@ -310,13 +374,23 @@ impl<'a> Board<'a> {
         transition_modbus_reentry: &AtomicBool,
         subcycle_res_ns: u32,
     ) -> i64 {
+        // `time_ns` is the nominal publishing epoch used by the network stack;
+        // sample timestamps separately follow the applied SysTick intervals.
         self.time_ns += i64::from(self.dt_ns);
 
+        // Every cycle begins provisionally unanswered. A fresh Deimos input or
+        // accepted Modbus request resets the counter below; saturation makes an
+        // indefinitely absent controller safe without introducing overflow.
         let contact_lost = state.loss_of_contact_counter >= self.loss_of_contact_limit;
         transition_connecting.fetch_or(contact_lost, Ordering::Relaxed);
         state.loss_of_contact_counter = state.loss_of_contact_counter.saturating_add(1);
+        // Phase correction is a one-cycle request. Period correction and output
+        // settings remain held in `state.input` until replaced.
         state.input.phase_delta_ns = 0;
 
+        // Convert and filter board temperature first because the same coherent
+        // value compensates every temperature-dependent analog conversion in
+        // this snapshot.
         let adc_sample_group = &sampled_inputs.adc;
         state.output.sample_time_ns = adc_sample_group.sample_time_ns;
         let unfiltered_board_temperature_k =
@@ -337,6 +411,9 @@ impl<'a> Board<'a> {
         state.output.frequency_meas = sampled_inputs.frequency_meas;
         state.output.gpio = self.read_gpio_inputs();
         state.output.metrics.id = state.output.metrics.id.wrapping_add(1);
+        // `sent_time_ns` is captured after engineering conversion and as close
+        // as practical to transport service; `sample_time_ns` remains the ADC
+        // acquisition timestamp copied above.
         state.output.metrics.sent_time_ns = self.board_time(subcycle_res_ns);
 
         match state.mode {
@@ -357,6 +434,9 @@ impl<'a> Board<'a> {
                     return 0;
                 }
 
+                // Send the coherent snapshot before accepting the command for
+                // this roundtrip. The accepted input then controls the outputs
+                // and timing correction applied at the end of the same IRQ.
                 // Two bounded receives clear buffered inputs while the active
                 // roundtrip timing controller converges on phase lock.
                 for _ in 0..2 {
@@ -381,6 +461,8 @@ impl<'a> Board<'a> {
                 }
             }
             OperatingMode::Modbus(_) => {
+                // Bound Ethernet-device and socket work independently so link
+                // traffic cannot consume the complete control-cycle margin.
                 let mut net_budget = NetPollBudget::modbus_cycle();
                 self.net
                     .poll_bounded(self.board_time(subcycle_res_ns), &mut net_budget);
@@ -396,6 +478,8 @@ impl<'a> Board<'a> {
                 let mut last_accepted_request = None;
                 for _ in 0..MAX_ADUS_PER_CYCLE {
                     if self.modbus.response_pending() {
+                        // A partially enqueued response has priority over the
+                        // next request, preserving request/response ordering.
                         if self
                             .modbus
                             .send_response(&mut self.net, &mut socket_budget)
@@ -423,6 +507,10 @@ impl<'a> Board<'a> {
                         ) {
                             Ok(outcome) if outcome.accepted => {
                                 let rate_changed = outcome.config.dt_ns != self.dt_ns;
+                                // Every accepted request yields a complete
+                                // retained configuration. Writes update it and
+                                // reads carry it through, so the last accepted
+                                // request determines the held state.
                                 state.current_modbus_config = outcome.config;
                                 self.loss_of_contact_limit = outcome.config.loss_of_contact_limit;
                                 state.input.outputs = outcome.config.outputs;
@@ -432,6 +520,8 @@ impl<'a> Board<'a> {
                                 ));
                                 state.loss_of_contact_counter = 0;
                                 if rate_changed {
+                                    // Re-entry reconstructs the sampler and
+                                    // SysTick schedule for the new cycle rate.
                                     self.modbus.set_reentry_config(outcome.config);
                                 }
                             }
@@ -464,24 +554,34 @@ impl<'a> Board<'a> {
                     }
                 }
                 if let Some((transaction_id, received_time_ns)) = last_accepted_request {
+                    // Report only committed application requests; malformed or
+                    // unsupported ADUs do not count as controller contact.
                     state.output.metrics.last_input_id = transaction_id;
                     state.output.metrics.last_input_received_time_ns = received_time_ns;
                 }
 
                 self.net
                     .poll_bounded(self.board_time(subcycle_res_ns), &mut net_budget);
+                // Send the rate-change response before leaving this IRQ scope,
+                // then let `operate` rebuild timing from the retained config.
                 if self.modbus.reentry_pending() && !self.modbus.response_pending() {
                     transition_modbus_reentry.store(true, Ordering::Relaxed);
                 }
             }
         }
 
+        // Both protocols converge here: the most recently accepted complete
+        // command is applied once, after transport processing for this cycle.
         self.set_outputs(&state.input.outputs);
+        // Address loss is handled like controller loss so the top-level state
+        // machine can reacquire a usable interface configuration.
         if self.net.step_address(self.time_ns, AddressMode::Operating) == AddressStatus::Missing {
             transition_connecting.store(true, Ordering::Relaxed);
         }
 
         match state.mode {
+            // Deimos carries persistent period and one-shot phase corrections
+            // in each validated roundtrip input.
             OperatingMode::Deimos => bounded_cycle_timing_correction_ns(
                 self.dt_ns,
                 state.input.period_delta_ns,
@@ -519,6 +619,8 @@ fn wait_for_operating_transition(
     transition_connecting: &AtomicBool,
     transition_modbus_reentry: &AtomicBool,
 ) {
+    // This is the deliberate unbounded state-machine wait: all per-cycle work
+    // remains in SysTick, and each pass sleeps until an interrupt changes state.
     loop {
         if transition_connecting.load(Ordering::Relaxed)
             || transition_modbus_reentry.load(Ordering::Relaxed)
@@ -536,6 +638,7 @@ fn reload_duration_ns(reload: u32, systick_tick_period_ns: u32) -> i64 {
 }
 
 #[cfg(feature = "timing-watermark")]
+/// Update one single-writer minimum without an exclusive atomic operation.
 fn record_minimum(target: &core::sync::atomic::AtomicI32, margin_ns: i64) {
     let margin = margin_ns.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
     if margin < target.load(Ordering::Relaxed) {
@@ -543,6 +646,7 @@ fn record_minimum(target: &core::sync::atomic::AtomicI32, margin_ns: i64) {
     }
 }
 
+/// Record the minimum margin of an IRQ which publishes a snapshot.
 fn record_publication_margin(margin_ns: i64) {
     #[cfg(feature = "timing-watermark")]
     record_minimum(&MIN_PUBLISHING_CYCLE_MARGIN_NS, margin_ns);
@@ -550,6 +654,7 @@ fn record_publication_margin(margin_ns: i64) {
     let _ = margin_ns;
 }
 
+/// Record the minimum margin of an oversampled acquisition-only IRQ.
 fn record_sample_only_margin(margin_ns: i64) {
     #[cfg(feature = "timing-watermark")]
     record_minimum(&MIN_SAMPLE_ONLY_MARGIN_NS, margin_ns);
@@ -557,6 +662,7 @@ fn record_sample_only_margin(margin_ns: i64) {
     let _ = margin_ns;
 }
 
+/// Record the minimum margin of an IRQ containing sampling and communication.
 fn record_sample_comm_margin(margin_ns: i64) {
     #[cfg(feature = "timing-watermark")]
     record_minimum(&MIN_SAMPLE_COMM_MARGIN_NS, margin_ns);
