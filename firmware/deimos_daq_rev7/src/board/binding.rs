@@ -144,7 +144,14 @@ impl<'a> Board<'a> {
                 }
 
                 if modbus_enabled {
+                    // Binding accepts the first valid Modbus request as the
+                    // protocol-selection event. Keep all socket work within
+                    // the same fixed per-cycle allowance used while operating.
                     let mut socket_budget = ModbusSocketBudget::new();
+
+                    // The server owns only one response buffer, so finish
+                    // staging an earlier response before accepting another
+                    // request from the TCP byte stream.
                     let response_was_pending = self.modbus.response_pending();
                     if response_was_pending {
                         if self
@@ -155,13 +162,22 @@ impl<'a> Board<'a> {
                             self.recover_modbus_listener(&transition_connecting);
                         }
                     } else if self.net.tcp_can_recv() {
+                        // Receive no more than one framed ADU here. A partial
+                        // request remains staged for the next binding tick.
                         match self.modbus.receive(&mut self.net, &mut socket_budget) {
                             ReceiveStatus::Complete => {
+                                // Inspecting the first complete request either
+                                // retains it for the initial OperatingModbus
+                                // cycle, or consumes it and queues a standard
+                                // Modbus exception response.
                                 match self.modbus.inspect_binding_request() {
                                     Ok(outcome) if outcome.accepted => {
                                         transition_modbus.store(true, Ordering::Relaxed);
                                     }
                                     Ok(_) => {
+                                        // Rejected, well-framed traffic does
+                                        // not end the session; send its queued
+                                        // exception and continue listening.
                                         if self
                                             .modbus
                                             .send_response(&mut self.net, &mut socket_budget)
@@ -171,6 +187,8 @@ impl<'a> Board<'a> {
                                         }
                                     }
                                     Err(_) => {
+                                        // An internal protocol-processing error
+                                        // leaves no safely reusable ADU state.
                                         self.recover_modbus_listener(&transition_connecting);
                                     }
                                 }
