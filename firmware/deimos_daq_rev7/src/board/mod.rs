@@ -120,6 +120,25 @@ impl<'a> Board<'a> {
         self.time_ns + (self.subcycle_timer.counter() * subcycle_res_ns) as i64
     }
 
+    /// Return the clock rate driving SysTick when its external source is selected.
+    ///
+    /// On STM32H7, [`SystClkSource::External`] selects the processor reference
+    /// clock, which is the CPU core clock (`c_ck`) divided by eight. Keeping
+    /// that platform-specific relationship here ensures reload and timestamp
+    /// calculations use the clock which actually advances the SysTick counter.
+    ///
+    /// Returns:
+    ///   SysTick counter rate in `tick/s`.
+    ///
+    /// References:
+    ///   STMicroelectronics, *RM0433 STM32H742, STM32H743/753 and STM32H750
+    ///   Value Line advanced Arm-based 32-bit MCUs*, RCC and SysTick clock
+    ///   descriptions.
+    #[inline(always)]
+    fn systick_rate_hz(&self) -> u32 {
+        self.clocks.c_ck().raw() / 8
+    }
+
     /// Adjust systick counter's reload toward target delta
     /// relative to nominal dt_ns, without restarting
     fn systick_adjust(&mut self, delta_ns: i64) {
@@ -132,7 +151,6 @@ impl<'a> Board<'a> {
 
     /// Convert one bounded publishing-interval correction to SysTick ticks.
     fn systick_interval_ticks(&self, delta_ns: i64) -> u32 {
-        let c_ck_mhz = self.clocks.c_ck().to_MHz() / 8;
         // Keep this final clamp at the timer boundary even though each
         // transport already combines its requested correction through the
         // same helper. This prevents any future caller from bypassing the
@@ -140,8 +158,8 @@ impl<'a> Board<'a> {
         let bounded_delta_ns = bounded_cycle_timing_correction_ns(self.dt_ns, delta_ns, 0);
         let adjusted_ns = (i64::from(self.dt_ns) + bounded_delta_ns) as u64;
         adjusted_ns
-            .saturating_mul(u64::from(c_ck_mhz))
-            .saturating_div(1000)
+            .saturating_mul(u64::from(self.systick_rate_hz()))
+            .saturating_div(1_000_000_000)
             .clamp(1, u64::from(u32::MAX)) as u32
     }
 
@@ -161,7 +179,7 @@ impl<'a> Board<'a> {
 
     /// Return the exact SysTick counter period in `ns/tick`.
     fn systick_tick_period_ns(&self) -> u32 {
-        let systick_rate_hz = self.clocks.c_ck().raw() / 8;
+        let systick_rate_hz = self.systick_rate_hz();
         debug_assert_eq!(1_000_000_000 % systick_rate_hz, 0);
         1_000_000_000 / systick_rate_hz
     }
