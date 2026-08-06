@@ -1,6 +1,6 @@
 use super::*;
 
-use core::{ptr::addr_of_mut, time::Duration};
+use core::ptr::addr_of_mut;
 use cortex_m::peripheral::scb::SystemHandler;
 use deimos_shared::states::ByteStruct;
 
@@ -20,10 +20,8 @@ use stm32h7xx_hal::{
 impl<'a> Board<'a> {
     /// Configure power, clocks, and peripherals
     pub fn new(store: &'a mut NetStorageStatic<'a>) -> (Self, Sampler) {
-        let calibration = Calibration::read_bytes(include_bytes!(concat!(
-            env!("OUT_DIR"),
-            "/calibration.in"
-        )));
+        let calibration =
+            Calibration::read_bytes(include_bytes!(concat!(env!("OUT_DIR"), "/calibration.in")));
         assert!(calibration.is_valid());
         // Power setup
         let dp = stm32::Peripherals::take().unwrap();
@@ -431,11 +429,6 @@ impl<'a> Board<'a> {
         // Restore systick for use as main cycle timer
         let systick = delay.free();
 
-        // Set up sub-cycle timer
-        // TIM5 has a 32-bit counter and 16-bit prescaler.
-        let subcycle_rate_hz = TIM5::get_clk(&ccdr.clocks).unwrap().to_Hz();
-        let mut subcycle_timer = dp.TIM5.timer(1.Hz(), ccdr.peripheral.TIM5, &ccdr.clocks);
-
         // Defaults
         let dt_ns: u32 = 250_000; // Default, subject to clock res
         let clocks = ccdr.clocks;
@@ -444,7 +437,6 @@ impl<'a> Board<'a> {
         let controller = None;
         let configuring_timeout_ms = 0;
         let loss_of_contact_limit = 0;
-        subcycle_timer.set_timeout(Duration::from_nanos((dt_ns as u64) * 2)); // Just needs to be at least as long as dt_ns
         watchdog.start(500.millis()); // Can't be updated later
 
         (
@@ -460,8 +452,6 @@ impl<'a> Board<'a> {
                 dt_ns,
                 systick,
                 clocks,
-                subcycle_timer,
-                subcycle_rate_hz,
                 watchdog,
                 net,
                 controller,

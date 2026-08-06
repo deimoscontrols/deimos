@@ -1,7 +1,6 @@
 use super::*;
 
 use core::sync::atomic::{AtomicBool, Ordering};
-use core::time::Duration;
 
 use deimos_shared::peripherals::deimos_daq_rev7::*;
 use deimos_shared::states::{ByteStruct, ByteStructLen};
@@ -83,15 +82,6 @@ impl<'a> Board<'a> {
         self.led2.set_high();
         self.led3.set_high();
 
-        // TIM5 measures elapsed time within each SysTick handler. Its count is
-        // used for packet timestamps and for the execution-margin watermark;
-        // a two-cycle range prevents a normal handler from reaching its limit.
-        self.subcycle_timer
-            .set_timeout(Duration::from_nanos(2 * u64::from(self.dt_ns)));
-        let subcycle_scale = u64::from(self.subcycle_timer.inner().psc.read().psc().bits()) + 1;
-        let subcycle_res_ns =
-            (subcycle_scale * 1_000_000_000 / u64::from(self.subcycle_rate_hz)) as u32;
-
         self.set_outputs(&initial_outputs);
         // The SysTick closure requests transitions through these flags while
         // the foreground remains asleep in the scoped-IRQ wait loop. Relaxed
@@ -166,7 +156,6 @@ impl<'a> Board<'a> {
                 &mut state,
                 &transition_connecting,
                 &transition_modbus_reentry,
-                subcycle_res_ns,
                 sampling_policy.samples_per_cycle,
             ),
             AdcSamplingMode::Direct => self.operate_synchronous_direct(
@@ -174,7 +163,6 @@ impl<'a> Board<'a> {
                 &mut state,
                 &transition_connecting,
                 &transition_modbus_reentry,
-                subcycle_res_ns,
             ),
         }
 
@@ -210,16 +198,13 @@ impl<'a> Board<'a> {
     ///   state: Shared protocol and engineering state for this operating entry.
     ///   transition_connecting: IRQ-to-foreground reconnect request.
     ///   transition_modbus_reentry: IRQ-to-foreground rate-change request.
-    ///   subcycle_res_ns: TIM5 counter resolution in `ns/tick`.
     ///   samples_per_cycle: Number of ADC groups in `sample/cycle`.
-    #[allow(clippy::too_many_arguments)]
     fn operate_synchronous_oversampled(
         &mut self,
         sampler: &mut Sampler,
         state: &mut OperatingState,
         transition_connecting: &AtomicBool,
         transition_modbus_reentry: &AtomicBool,
-        subcycle_res_ns: u32,
         samples_per_cycle: u32,
     ) {
         // The quotient/remainder scheduler represents the complete reporting
@@ -233,14 +218,19 @@ impl<'a> Board<'a> {
         let mut acquisition_clock = self.acquisition_clock_init();
         let systick_tick_period_ns = self.systick_tick_period_ns();
         let mut samples_remaining = samples_per_cycle;
+        let mut cycle_overrun_margin_ns = None;
+        let mut systick_wrap_count = 0_u32;
 
         handler!(
             systick_handler = || {
+                // Clear the wrap which requested this handler. A second wrap
+                // before the end-of-handler check below is a missed deadline.
+                let _ = self.systick.has_wrapped();
+                systick_wrap_count = 0;
                 // SysTick reloads before entering the handler. Advance over the
                 // completed interval, then associate the current down-counter
                 // with the interval which has just begun.
                 acquisition_clock.advance(SYST::get_reload(), systick_tick_period_ns);
-                self.restart_subcycle_timer();
                 let sample_time_ns =
                     acquisition_clock.timestamp_ns(SYST::get_current(), systick_tick_period_ns);
                 sampler.sample_synchronous_iir(sample_time_ns);
@@ -249,14 +239,30 @@ impl<'a> Board<'a> {
                 // Sampling-only interrupts schedule the next acquisition and
                 // return promptly, spreading CPU work across the cycle.
                 if samples_remaining > 0 {
+                    let scheduler_before_next = scheduler;
                     let next_reload = scheduler.next_ticks() - 1;
-                    self.systick.set_reload(next_reload);
-                    // Margin is the time from completion of this handler to the
-                    // next scheduled acquisition.
-                    let margin_ns = reload_duration_ns(next_reload, systick_tick_period_ns)
-                        - self.subcycle_elapsed_ns(subcycle_res_ns);
-                    record_sample_only_margin(margin_ns);
                     self.watchdog.feed();
+                    // The current down-counter gives the actual time remaining;
+                    // defer writing LOAD so an overrun necessarily reloads the
+                    // known active interval and its lateness remains measurable.
+                    let (margin_ns, overran) = self.systick_margin_ns(
+                        acquisition_clock.active_reload,
+                        systick_tick_period_ns,
+                        &mut systick_wrap_count,
+                    );
+                    if overran {
+                        cycle_overrun_margin_ns = Some(
+                            cycle_overrun_margin_ns
+                                .map_or(margin_ns, |previous: i64| previous.min(margin_ns)),
+                        );
+                        // The overrun reloaded the active value before this
+                        // handler could update LOAD. Retain both that value and
+                        // the unconsumed scheduler step for the pending handler.
+                        scheduler = scheduler_before_next;
+                    } else {
+                        self.systick.set_reload(next_reload);
+                    }
+                    record_sample_only_margin(margin_ns);
                     return;
                 }
 
@@ -268,22 +274,43 @@ impl<'a> Board<'a> {
                     sampler.sampled_inputs(),
                     transition_connecting,
                     transition_modbus_reentry,
-                    subcycle_res_ns,
+                    acquisition_clock.active_reload,
+                    systick_tick_period_ns,
+                    &mut systick_wrap_count,
                 );
                 // Rebuild the schedule once per cycle so the correction is
                 // distributed uniformly over all of its acquisitions.
                 scheduler = self.sample_interval_scheduler(correction_ns, samples_per_cycle);
+                let scheduler_before_next = scheduler;
                 let next_reload = scheduler.next_ticks() - 1;
-                self.systick.set_reload(next_reload);
                 samples_remaining = samples_per_cycle;
                 // Publication margin includes sampling, conversions, network
                 // service, and output updates performed by this handler.
-                let margin_ns = reload_duration_ns(next_reload, systick_tick_period_ns)
-                    - self.subcycle_elapsed_ns(subcycle_res_ns);
+                self.watchdog.feed();
+                let (measured_margin_ns, overran) = self.systick_margin_ns(
+                    acquisition_clock.active_reload,
+                    systick_tick_period_ns,
+                    &mut systick_wrap_count,
+                );
+                if overran {
+                    cycle_overrun_margin_ns = Some(
+                        cycle_overrun_margin_ns.map_or(measured_margin_ns, |previous| {
+                            previous.min(measured_margin_ns)
+                        }),
+                    );
+                    // Keep the active reload and leave the first interval in
+                    // the new schedule unconsumed for the pending handler.
+                    scheduler = scheduler_before_next;
+                } else {
+                    self.systick.set_reload(next_reload);
+                }
+                // Preserve the worst acquisition or publication overrun until
+                // this cycle's diagnostic value is published.
+                let margin_ns = cycle_overrun_margin_ns.unwrap_or(measured_margin_ns);
+                cycle_overrun_margin_ns = None;
                 state.output.metrics.cycle_time_margin_ns = margin_ns;
                 record_publication_margin(margin_ns);
                 record_sample_comm_margin(margin_ns);
-                self.watchdog.feed();
             }
         );
 
@@ -304,26 +331,27 @@ impl<'a> Board<'a> {
     ///   state: Shared protocol and engineering state for this operating entry.
     ///   transition_connecting: IRQ-to-foreground reconnect request.
     ///   transition_modbus_reentry: IRQ-to-foreground rate-change request.
-    ///   subcycle_res_ns: TIM5 counter resolution in `ns/tick`.
-    #[allow(clippy::too_many_arguments)]
     fn operate_synchronous_direct(
         &mut self,
         sampler: &mut Sampler,
         state: &mut OperatingState,
         transition_connecting: &AtomicBool,
         transition_modbus_reentry: &AtomicBool,
-        subcycle_res_ns: u32,
     ) {
         self.systick_init();
         let mut acquisition_clock = self.acquisition_clock_init();
         let systick_tick_period_ns = self.systick_tick_period_ns();
+        let mut systick_wrap_count = 0_u32;
 
         handler!(
             systick_handler = || {
-                // The timestamp represents the start of the acquisition, while
-                // the subcycle timer below measures all subsequent IRQ work.
+                // Clear the wrap which requested this handler. A second wrap
+                // before the end-of-handler check below is a missed deadline.
+                let _ = self.systick.has_wrapped();
+                systick_wrap_count = 0;
+                // The timestamp represents the start of the acquisition. The
+                // same active counter measures all subsequent IRQ work.
                 acquisition_clock.advance(SYST::get_reload(), systick_tick_period_ns);
-                self.restart_subcycle_timer();
                 let sample_time_ns =
                     acquisition_clock.timestamp_ns(SYST::get_current(), systick_tick_period_ns);
                 sampler.sample_synchronous_fractional_only(sample_time_ns);
@@ -332,18 +360,27 @@ impl<'a> Board<'a> {
                     sampler.sampled_inputs(),
                     transition_connecting,
                     transition_modbus_reentry,
-                    subcycle_res_ns,
+                    acquisition_clock.active_reload,
+                    systick_tick_period_ns,
+                    &mut systick_wrap_count,
                 );
-                // With one sample per cycle, the timing correction applies
-                // directly to the next SysTick interval.
-                self.systick_adjust(correction_ns);
-                let margin_ns = self
-                    .systick_interval_duration_ns(correction_ns, systick_tick_period_ns)
-                    - self.subcycle_elapsed_ns(subcycle_res_ns);
+                self.watchdog.feed();
+                // Measure before writing LOAD so a missed deadline reloads the
+                // known active interval and produces an exact negative margin.
+                let (margin_ns, overran) = self.systick_margin_ns(
+                    acquisition_clock.active_reload,
+                    systick_tick_period_ns,
+                    &mut systick_wrap_count,
+                );
+                // With one sample per cycle, write the timing correction into
+                // LOAD for the next hardware reload. The active down-counter
+                // remains unchanged.
+                if !overran {
+                    self.systick_adjust(correction_ns);
+                }
                 state.output.metrics.cycle_time_margin_ns = margin_ns;
                 record_publication_margin(margin_ns);
                 record_sample_comm_margin(margin_ns);
-                self.watchdog.feed();
             }
         );
 
@@ -360,7 +397,10 @@ impl<'a> Board<'a> {
     ///   sampled_inputs: Coherent inputs from the latest ADC group.
     ///   transition_connecting: IRQ-to-foreground reconnect request.
     ///   transition_modbus_reentry: IRQ-to-foreground rate-change request.
-    ///   subcycle_res_ns: TIM5 counter resolution in `ns/tick`.
+    ///   active_reload: Reload of the interval currently counting down, in
+    ///     `tick - 1`.
+    ///   systick_tick_period_ns: Exact SysTick resolution in `ns/tick`.
+    ///   systick_wrap_count: Extra SysTick wraps observed during this handler.
     ///
     /// Returns:
     ///   Bounded transport timing correction requested for the next publishing
@@ -372,7 +412,9 @@ impl<'a> Board<'a> {
         sampled_inputs: &SampledInputs,
         transition_connecting: &AtomicBool,
         transition_modbus_reentry: &AtomicBool,
-        subcycle_res_ns: u32,
+        active_reload: u32,
+        systick_tick_period_ns: u32,
+        systick_wrap_count: &mut u32,
     ) -> i64 {
         // `time_ns` is the nominal publishing epoch used by the network stack;
         // sample timestamps separately follow the applied SysTick intervals.
@@ -414,7 +456,8 @@ impl<'a> Board<'a> {
         // `sent_time_ns` is captured after engineering conversion and as close
         // as practical to transport service; `sample_time_ns` remains the ADC
         // acquisition timestamp copied above.
-        state.output.metrics.sent_time_ns = self.board_time(subcycle_res_ns);
+        state.output.metrics.sent_time_ns =
+            self.board_time(active_reload, systick_tick_period_ns, systick_wrap_count);
 
         match state.mode {
             OperatingMode::Deimos => {
@@ -440,7 +483,9 @@ impl<'a> Board<'a> {
                 // Two bounded receives clear buffered inputs while the active
                 // roundtrip timing controller converges on phase lock.
                 for _ in 0..2 {
-                    self.net.poll(self.board_time(subcycle_res_ns));
+                    let board_time_ns =
+                        self.board_time(active_reload, systick_tick_period_ns, systick_wrap_count);
+                    self.net.poll(board_time_ns);
                     match self.net.udp_recv() {
                         Ok((recv_buf, meta))
                             if Some(meta) == self.controller
@@ -464,8 +509,9 @@ impl<'a> Board<'a> {
                 // Bound Ethernet-device and socket work independently so link
                 // traffic cannot consume the complete control-cycle margin.
                 let mut net_budget = NetPollBudget::modbus_cycle();
-                self.net
-                    .poll_bounded(self.board_time(subcycle_res_ns), &mut net_budget);
+                let board_time_ns =
+                    self.board_time(active_reload, systick_tick_period_ns, systick_wrap_count);
+                self.net.poll_bounded(board_time_ns, &mut net_budget);
                 if self.net.tcp_connection_ended() {
                     transition_connecting.store(true, Ordering::Relaxed);
                     return 0;
@@ -514,10 +560,13 @@ impl<'a> Board<'a> {
                                 state.current_modbus_config = outcome.config;
                                 self.loss_of_contact_limit = outcome.config.loss_of_contact_limit;
                                 state.input.outputs = outcome.config.outputs;
-                                last_accepted_request = Some((
-                                    u64::from(outcome.transaction_id),
-                                    self.board_time(subcycle_res_ns),
-                                ));
+                                let received_time_ns = self.board_time(
+                                    active_reload,
+                                    systick_tick_period_ns,
+                                    systick_wrap_count,
+                                );
+                                last_accepted_request =
+                                    Some((u64::from(outcome.transaction_id), received_time_ns));
                                 state.loss_of_contact_counter = 0;
                                 if rate_changed {
                                     // Re-entry reconstructs the sampler and
@@ -560,8 +609,9 @@ impl<'a> Board<'a> {
                     state.output.metrics.last_input_received_time_ns = received_time_ns;
                 }
 
-                self.net
-                    .poll_bounded(self.board_time(subcycle_res_ns), &mut net_budget);
+                let board_time_ns =
+                    self.board_time(active_reload, systick_tick_period_ns, systick_wrap_count);
+                self.net.poll_bounded(board_time_ns, &mut net_budget);
                 // Send the rate-change response before leaving this IRQ scope,
                 // then let `operate` rebuild timing from the retained config.
                 if self.modbus.reentry_pending() && !self.modbus.response_pending() {
@@ -595,22 +645,37 @@ impl<'a> Board<'a> {
         }
     }
 
-    /// Restart the TIM5 duration counter at the beginning of an IRQ.
+    /// Return current interval margin and whether the handler missed its deadline.
+    ///
+    /// `COUNTFLAG` is cleared at handler entry and observed at each timestamp.
+    /// LOAD remains unchanged until after this measurement, so the accumulated
+    /// wrap count and current down-counter exactly determine elapsed ticks. The
+    /// timing contract permits at most one wrap between observations because
+    /// COUNTFLAG itself cannot distinguish multiple unobserved wraps.
+    ///
+    /// Args:
+    ///   active_reload: Reload of the interval currently counting down, in
+    ///     `tick - 1`.
+    ///   systick_tick_period_ns: Exact SysTick resolution in `ns/tick`.
+    ///   wrap_count: Extra SysTick wraps observed during this handler.
+    ///
+    /// Returns:
+    ///   Remaining interval time in `ns` and an overrun flag.
     #[inline]
-    fn restart_subcycle_timer(&mut self) {
-        self.subcycle_timer.apply_freq();
-        self.subcycle_timer.resume();
-    }
-
-    /// Return elapsed handler time measured by TIM5, in `ns`.
-    #[inline]
-    fn subcycle_elapsed_ns(&self, subcycle_res_ns: u32) -> i64 {
-        i64::from(self.subcycle_timer.counter()) * i64::from(subcycle_res_ns)
-    }
-
-    /// Return the applied duration of one corrected publishing interval.
-    fn systick_interval_duration_ns(&self, correction_ns: i64, systick_tick_period_ns: u32) -> i64 {
-        i64::from(self.systick_interval_ticks(correction_ns)) * i64::from(systick_tick_period_ns)
+    fn systick_margin_ns(
+        &mut self,
+        active_reload: u32,
+        systick_tick_period_ns: u32,
+        wrap_count: &mut u32,
+    ) -> (i64, bool) {
+        let current = self.systick_current_and_wrap_count(wrap_count);
+        debug_assert!(current <= active_reload);
+        let interval_ticks = i64::from(active_reload) + 1;
+        let elapsed_ticks = i64::from(*wrap_count) * interval_ticks
+            + i64::from(active_reload.wrapping_sub(current));
+        let margin_ns = (interval_ticks - elapsed_ticks) * i64::from(systick_tick_period_ns);
+        let overran = *wrap_count != 0;
+        (margin_ns, overran)
     }
 }
 
@@ -629,12 +694,6 @@ fn wait_for_operating_transition(
         }
         cortex_m::asm::wfi();
     }
-}
-
-/// Convert one SysTick reload (`ticks - 1`) to an interval in `ns`.
-#[inline(always)]
-fn reload_duration_ns(reload: u32, systick_tick_period_ns: u32) -> i64 {
-    i64::from(reload + 1) * i64::from(systick_tick_period_ns)
 }
 
 #[cfg(feature = "timing-watermark")]
