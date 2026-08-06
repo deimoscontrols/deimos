@@ -39,8 +39,10 @@ pub(in crate::board) struct SampledInputs {
 ///
 /// The compiled sampling cutovers and supported edge-rate assertion keep each
 /// real change strictly below half of the explicit `2^16` counter modulus.
-/// The accumulator itself wraps after `2^64` counts rather than retaining an
-/// unreachable checked-add panic path in the sampling IRQ.
+/// Starting from zero, the first signed wrap from `i64::MAX` to `i64::MIN`
+/// occurs after `2^63` net positive counts. The complete accumulator bit
+/// pattern repeats after `2^64` counts. Wrapping arithmetic avoids retaining
+/// an unreachable checked-add panic path in the sampling IRQ.
 pub struct Unroller {
     prev: u16,
     acc: i64,
