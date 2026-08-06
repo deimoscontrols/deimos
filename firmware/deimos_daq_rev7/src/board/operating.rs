@@ -337,7 +337,6 @@ impl<'a> Board<'a> {
                 if samples_remaining > 0 {
                     let scheduler_before_next = scheduler;
                     let next_reload = scheduler.next_ticks() - 1;
-                    self.watchdog.feed();
                     // DWT measures the actual time remaining across any number
                     // of SysTick wraps. Defer writing LOAD so every interval
                     // crossed by an overrun retains the known active duration.
@@ -357,6 +356,9 @@ impl<'a> Board<'a> {
                         self.systick.set_reload(next_reload);
                     }
                     record_sample_only_margin(margin_ns);
+                    // Feed only after this bounded handler path has completed;
+                    // deadline overruns remain diagnostic rather than fatal.
+                    self.watchdog.feed();
                     return;
                 }
 
@@ -378,7 +380,6 @@ impl<'a> Board<'a> {
                 samples_remaining = samples_per_cycle;
                 // Publication margin includes sampling, conversions, network
                 // service, and output updates performed by this handler.
-                self.watchdog.feed();
                 let measured_margin_ns = subcycle_clock.margin_ns();
                 let overran = measured_margin_ns < 0;
                 if overran {
@@ -401,6 +402,9 @@ impl<'a> Board<'a> {
                 state.output.metrics.cycle_time_margin_ns = margin_ns;
                 record_publication_margin(margin_ns);
                 record_sample_comm_margin(margin_ns);
+                // A completed handler feeds regardless of its measured margin;
+                // the watchdog detects stalls, not realtime-policy violations.
+                self.watchdog.feed();
             }
         );
 
@@ -456,7 +460,6 @@ impl<'a> Board<'a> {
                     transition_modbus_reentry,
                     &subcycle_clock,
                 );
-                self.watchdog.feed();
                 let margin_ns = subcycle_clock.margin_ns();
                 let overran = margin_ns < 0;
                 // With one sample per cycle, write the timing correction into
@@ -470,6 +473,9 @@ impl<'a> Board<'a> {
                 state.output.metrics.cycle_time_margin_ns = margin_ns;
                 record_publication_margin(margin_ns);
                 record_sample_comm_margin(margin_ns);
+                // A completed handler feeds regardless of its measured margin;
+                // the watchdog detects stalls, not realtime-policy violations.
+                self.watchdog.feed();
             }
         );
 
