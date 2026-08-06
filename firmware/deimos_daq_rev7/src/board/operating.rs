@@ -312,7 +312,7 @@ impl<'a> Board<'a> {
         // timestamps include the one-tick scheduler rounding pattern.
         let mut acquisition_clock = self.acquisition_clock_init();
         let systick_tick_period_ns = self.systick_tick_period_ns();
-        let ns_per_cycle_q16 = dwt_ns_per_cycle_q16(self.clocks.c_ck().raw());
+        let ns_per_cycle_q16 = DWT_NS_PER_CYCLE_Q16;
         let mut samples_remaining = samples_per_cycle;
         let mut cycle_overrun_margin_ns = None;
         let mut coalesced_intervals = 0_u32;
@@ -435,7 +435,7 @@ impl<'a> Board<'a> {
         self.systick_init();
         let mut acquisition_clock = self.acquisition_clock_init();
         let systick_tick_period_ns = self.systick_tick_period_ns();
-        let ns_per_cycle_q16 = dwt_ns_per_cycle_q16(self.clocks.c_ck().raw());
+        let ns_per_cycle_q16 = DWT_NS_PER_CYCLE_Q16;
         let mut coalesced_intervals = 0_u32;
 
         handler!(
@@ -723,18 +723,6 @@ impl<'a> Board<'a> {
             OperatingMode::Modbus(_) => state.current_modbus_config.take_timing_correction_ns(),
         }
     }
-}
-
-/// Build the DWT nanoseconds-per-cycle scale used in the realtime path.
-///
-/// Args:
-///   core_rate_hz: CPU core rate in `cycle/s`.
-///
-/// Returns:
-///   Nanoseconds per core cycle as unsigned Q16 fixed point.
-fn dwt_ns_per_cycle_q16(core_rate_hz: u32) -> u32 {
-    debug_assert!(core_rate_hz > 0);
-    ((1_000_000_000_u64 << 16) / u64::from(core_rate_hz)) as u32
 }
 
 /// Wait in the foreground until one IRQ requests an operating transition.

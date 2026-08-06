@@ -3,6 +3,12 @@
 use super::super::OperatingSnapshot;
 use super::{codec::*, *};
 use crate::peripherals::deimos_daq_rev7::packets::OperatingSnapshotMetrics;
+use crate::states::ByteStructLen;
+
+// The Modbus image preserves the complete packet schema but widens its final
+// `u8` GPIO field to one 16-bit register. Keep that relationship checked in
+// every build instead of verifying the final cursor only in debug builds.
+const _: () = assert!(SNAPSHOT_INPUT_BYTE_COUNT == OperatingSnapshot::BYTE_LEN + 1);
 
 /// Encode one coherent snapshot into its complete Modbus input-register image.
 ///
@@ -70,9 +76,6 @@ pub fn write_snapshot_input_register_bytes(
     put_f32_array_bytes(bytes, &mut position, &snapshot.frequency_meas);
     bytes[position] = 0;
     bytes[position + 1] = snapshot.gpio;
-    position += 2;
-
-    debug_assert_eq!(position, SNAPSHOT_INPUT_BYTE_COUNT);
 }
 
 /// Decode one complete Modbus input-register block into its shared snapshot type.
@@ -115,8 +118,6 @@ pub fn snapshot_from_input_registers(
             .try_into()
             .map_err(|_| SnapshotDecodeError::InvalidSnapshot)?,
     };
-    position += 1;
-    debug_assert_eq!(position, SNAPSHOT_INPUT_REGISTER_COUNT as usize);
 
     if !snapshot.is_valid() {
         return Err(SnapshotDecodeError::InvalidSnapshot);

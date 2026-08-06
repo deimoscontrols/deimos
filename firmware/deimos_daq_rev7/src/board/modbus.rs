@@ -956,7 +956,9 @@ fn queue_read_response<const N: usize>(
 ///   pdu_len: Response PDU length in bytes, excluding the Unit Identifier.
 fn initialize_response(request: &[u8], response: &mut FixedResponse, unit_id: u8, pdu_len: usize) {
     let response_len = 7 + pdu_len;
-    debug_assert!(response_len <= MODBUS_ADU_CAPACITY);
+    // Fixed-size response callers are bounded by the assertions below; the
+    // generic register-read caller checks its dynamic length before arriving
+    // here.
     response.clear();
     response.bytes[..4].copy_from_slice(&request[..4]);
     response.bytes[4..6].copy_from_slice(&((pdu_len + 1) as u16).to_be_bytes());
@@ -992,3 +994,7 @@ fn set_exception_response(
 
 const _: () = assert!(SNAPSHOT_INPUT_REGISTER_COUNT <= MODBUS_MAX_READ_REGISTERS);
 const _: () = assert!(HOLDING_REGISTER_COUNT <= MODBUS_MAX_READ_REGISTERS);
+// The full coherent snapshot is the largest fixed-size response. Fixed FC16
+// and exception responses are smaller, while partial reads are checked at
+// runtime before calling `initialize_response`.
+const _: () = assert!(7 + SNAPSHOT_INPUT_BYTE_COUNT + 2 <= MODBUS_ADU_CAPACITY);

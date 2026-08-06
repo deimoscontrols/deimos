@@ -44,6 +44,23 @@ pub const MAC_ADDRESS: [u8; 6] = *include_bytes!("../../static/macaddr.in");
 /// Unique serial number
 pub const SERIAL_NUMBER: u64 = u64::from_le_bytes(*include_bytes!("../../static/serialnumber.in"));
 
+/// Configured CPU core-clock rate in `cycle/s`.
+const CORE_RATE_HZ: u32 = 400_000_000;
+/// Divider from the CPU core clock to SysTick's external reference clock.
+const SYSTICK_EXTERNAL_DIVIDER: u32 = 8;
+/// Configured SysTick external-reference rate in `tick/s`.
+const SYSTICK_RATE_HZ: u32 = CORE_RATE_HZ / SYSTICK_EXTERNAL_DIVIDER;
+/// DWT nanoseconds-per-core-cycle scale in unsigned Q16 fixed point.
+const DWT_NS_PER_CYCLE_Q16: u32 = ((1_000_000_000_u64 << 16) / CORE_RATE_HZ as u64) as u32;
+
+// These clock relationships are part of the fixed firmware build. Checking
+// them here keeps the invariants active even though embedded release builds do
+// not execute `debug_assert!` calls.
+const _: () = assert!(CORE_RATE_HZ > 0);
+const _: () = assert!(CORE_RATE_HZ % SYSTICK_EXTERNAL_DIVIDER == 0);
+const _: () = assert!(1_000_000_000 % SYSTICK_RATE_HZ == 0);
+const _: () = assert!(DWT_NS_PER_CYCLE_Q16 > 0);
+
 /// Ethernet descriptor rings are a global singleton
 #[unsafe(link_section = ".sram3.eth")]
 static mut DES_RING: MaybeUninit<ethernet::DesRing<4, 4>> = MaybeUninit::uninit();
@@ -129,7 +146,7 @@ impl<'a> Board<'a> {
     ///   descriptions.
     #[inline(always)]
     fn systick_rate_hz(&self) -> u32 {
-        self.clocks.c_ck().raw() / 8
+        self.clocks.c_ck().raw() / SYSTICK_EXTERNAL_DIVIDER
     }
 
     /// Adjust systick counter's reload toward target delta
@@ -172,9 +189,9 @@ impl<'a> Board<'a> {
 
     /// Return the exact SysTick counter period in `ns/tick`.
     fn systick_tick_period_ns(&self) -> u32 {
-        let systick_rate_hz = self.systick_rate_hz();
-        debug_assert_eq!(1_000_000_000 % systick_rate_hz, 0);
-        1_000_000_000 / systick_rate_hz
+        // Startup checks the live core clock against `CORE_RATE_HZ`, while the
+        // build-time assertion above proves this division is exact.
+        1_000_000_000 / self.systick_rate_hz()
     }
 
     /// Configure SYSTICK for `self.dt_ns` timebase

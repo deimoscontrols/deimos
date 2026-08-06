@@ -30,7 +30,10 @@ impl<'a> Board<'a> {
         // sampling/communication IRQ. It is read directly and requires no
         // timer peripheral, reload, or interrupt.
         cp.DCB.enable_trace();
-        debug_assert!(cortex_m::peripheral::DWT::has_cycle_counter());
+        // This is a runtime hardware capability rather than a build-time
+        // numeric bound. Fail during startup in every build if a future target
+        // lacks the counter required by the operating clock.
+        assert!(cortex_m::peripheral::DWT::has_cycle_counter());
         cp.DWT.enable_cycle_counter();
         let pwr = dp.PWR.constrain().vos0(&dp.SYSCFG);
         let pwrcfg = pwr.freeze();
@@ -42,12 +45,13 @@ impl<'a> Board<'a> {
         let mut ccdr = rcc
             .use_hse(48.MHz()) // Set expected external clock freq
             .bypass_hse() // Use external clock signal directly
-            .sys_ck(400.MHz())
+            .sys_ck(CORE_RATE_HZ.Hz())
             .hclk(200.MHz())
             .pll2_p_ck(24.MHz()) // Default adc_ker_ck_input
             .freeze(pwrcfg, &dp.SYSCFG);
         //    Make sure clock setup was exact
-        assert_eq!(ccdr.clocks.sysclk().raw(), 400_000_000);
+        assert_eq!(ccdr.clocks.sysclk().raw(), CORE_RATE_HZ);
+        assert_eq!(ccdr.clocks.c_ck().raw(), CORE_RATE_HZ);
         assert_eq!(ccdr.clocks.hclk().raw(), 200_000_000);
         assert_eq!(ccdr.clocks.pclk1().raw(), 100_000_000);
         assert_eq!(ccdr.clocks.pclk2().raw(), 100_000_000);
