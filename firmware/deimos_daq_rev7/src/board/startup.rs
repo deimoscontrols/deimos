@@ -145,7 +145,6 @@ impl<'a> Board<'a> {
         let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
         let gpiof = dp.GPIOF.split(ccdr.peripheral.GPIOF);
         let gpiog = dp.GPIOG.split(ccdr.peripheral.GPIOG);
-        let gpioh = dp.GPIOH.split(ccdr.peripheral.GPIOH);
         let mut led0: Pin<'E', 5, Output> = gpioe.pe5.into_push_pull_output();
         let mut led1: Pin<'E', 4, Output> = gpioe.pe4.into_push_pull_output();
         let mut led2: Pin<'E', 3, Output> = gpioe.pe3.into_push_pull_output();
@@ -186,20 +185,6 @@ impl<'a> Board<'a> {
         dp.TIM1.smcr.write(|w| w.sms().encoder_mode_3());
         dp.TIM1.cr1.write(|w| w.cen().enabled());
         let encoder = dp.TIM1;
-
-        // Reserve TIM5 as a second 32-bit quadrature encoder for a future
-        // hardware revision. PH10/PH11 are not routed on this board, and the
-        // dormant counter is deliberately not owned or sampled by Sampler yet.
-        let _encoder1_pin0: Pin<'H', 10, stm32h7xx_hal::gpio::Alternate<2>> =
-            gpioh.ph10.into_alternate();
-        let _encoder1_pin1: Pin<'H', 11, stm32h7xx_hal::gpio::Alternate<2>> =
-            gpioh.ph11.into_alternate();
-        TIM5::get_clk(&ccdr.clocks).unwrap();
-        ccdr.peripheral.TIM5.enable().reset();
-        dp.TIM5.ccmr1_input().write(|w| w.cc1s().ti1().cc2s().ti2());
-        dp.TIM5.smcr.write(|w| w.sms().encoder_mode_3());
-        dp.TIM5.cr1.write(|w| w.cen().enabled());
-        let _dormant_encoder = dp.TIM5;
 
         //
         // Pulse Counter
