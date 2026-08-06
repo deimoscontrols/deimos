@@ -278,13 +278,9 @@ impl Sampler {
             .zip(self.adc_filter_states.iter_mut())
             .enumerate()
             .for_each(|(i, (filter, state))| {
-                // Get the most recent existing sample to initialize the filter
-                // and, if it is in an error state, reset it to zero.
-                let mut init_val = self.sampled_inputs.adc.values[i];
-                if !init_val.is_finite() {
-                    init_val = 0.0;
-                }
-
+                // Seed directly from the most recent sample; IEEE-754
+                // exceptional values propagate without a sanitizing branch.
+                let init_val = self.sampled_inputs.adc.values[i];
                 *filter = filter_bank[i];
                 filter.set_steady_state(state, [init_val]);
             });
@@ -333,11 +329,7 @@ impl Sampler {
             .iter_mut()
             .enumerate()
         {
-            let value = if self.sampled_inputs.adc.values[index].is_finite() {
-                self.sampled_inputs.adc.values[index]
-            } else {
-                0.0
-            };
+            let value = self.sampled_inputs.adc.values[index];
             *state = AdcFractionalDelayFilterState::filled([value]);
         }
     }

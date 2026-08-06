@@ -27,7 +27,8 @@ const C: f32 = -4.183e-12;
 ///
 /// The standard range is `73.15 K` to `1123.15 K` (`-200 degC` to `850 degC`).
 /// Finite values outside that range are evaluated with the same CVD expression
-/// rather than clamped. A nonfinite input returns `NaN`.
+/// rather than clamped. IEEE-754 exceptional values propagate through the
+/// arithmetic naturally.
 ///
 /// Args:
 ///   temperature_k: Absolute temperature scalar in `K`.
@@ -40,9 +41,6 @@ const C: f32 = -4.183e-12;
 ///   platinum temperature sensors*.
 #[inline]
 pub fn pt100_resistance_ohm_f32(temperature_k: f32) -> f32 {
-    if !temperature_k.is_finite() {
-        return f32::NAN;
-    }
     let temperature_c = temperature_k - ZERO_C_K;
     let temperature_c_2 = temperature_c * temperature_c;
     let negative_term = if temperature_c < 0.0 {
@@ -86,9 +84,7 @@ pub fn pt100_temperature_k_f32(resistance_ohm: f32) -> f32 {
         temperature_c + PT100_TEMPERATURE_ORIGIN_K
     }
 
-    if resistance_ohm.is_nan() {
-        f32::NAN
-    } else if resistance_ohm < PT100_MIN_RESISTANCE_OHM {
+    if resistance_ohm < PT100_MIN_RESISTANCE_OHM {
         inside(PT100_MIN_RESISTANCE_OHM)
             + PT100_MIN_EXTRAPOLATION_SLOPE_K_PER_OHM * (resistance_ohm - PT100_MIN_RESISTANCE_OHM)
     } else if resistance_ohm > PT100_MAX_RESISTANCE_OHM {

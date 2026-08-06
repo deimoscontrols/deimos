@@ -87,10 +87,7 @@ pub fn apply_holding_write(
     let mut candidate = current;
     if field_is_covered(start, end, HOLDING_CYCLE_RATE_HZ as usize, 2) {
         let rate_hz = f32::from_bits(read_u32(values, start, HOLDING_CYCLE_RATE_HZ as usize));
-        if !rate_hz.is_finite()
-            || rate_hz < MIN_CYCLE_RATE_HZ as f32
-            || rate_hz > MODBUS_MAX_CYCLE_RATE_HZ
-        {
+        if !(MIN_CYCLE_RATE_HZ as f32..=MODBUS_MAX_CYCLE_RATE_HZ).contains(&rate_hz) {
             return Err(HoldingWriteError::IllegalDataValue);
         }
         candidate.dt_ns = (1.0e9_f32 / rate_hz + 0.5) as u32;

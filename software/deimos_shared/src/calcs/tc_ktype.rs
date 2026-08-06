@@ -41,13 +41,10 @@ pub use data::{
 ///     `(n_grid,)` in output units.
 ///
 /// Returns:
-///   Interpolated scalar in coefficient units. A nonfinite input propagates
-///   without asking `interpn` to convert it to a grid index.
+///   Interpolated scalar in coefficient units, or `NaN` when `interpn` cannot
+///   represent the supplied coordinate.
 #[inline]
 fn interpolate_regular_bspline(value: f32, start: f32, step: f32, coefficients: &[f32]) -> f32 {
-    if !value.is_finite() {
-        return value;
-    }
     let Ok(interpolator) = MultiBsplineRegular::<f32, 1>::new(
         [coefficients.len()],
         [start],

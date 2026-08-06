@@ -213,16 +213,12 @@ impl<'a> Board<'a> {
         let mut board_temperature_filter_state = board_temperature_filter.reset_state();
 
         // Seed the engineering-value filter at its measured initial value so
-        // the first published temperature is already at steady state. A
-        // non-finite conversion cannot be a useful filter state, so zero is the
-        // deterministic fallback until a finite measurement arrives.
+        // the first published temperature is already at steady state. Any
+        // exceptional IEEE-754 value propagates through the filter and packet
+        // instead of adding a branch to sanitize the measurement.
         board_temperature_filter.set_steady_state(
             &mut board_temperature_filter_state,
-            [if initial_board_temperature_k.is_finite() {
-                initial_board_temperature_k
-            } else {
-                0.0
-            }],
+            [initial_board_temperature_k],
         );
 
         // All protocol-independent mutable state lives together so either IRQ

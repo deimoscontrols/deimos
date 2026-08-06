@@ -53,12 +53,12 @@ impl OperatingOutputSettings {
     pub fn is_valid(&self) -> bool {
         self.pwm_duty_frac
             .iter()
-            .all(|value| value.is_finite() && (0.0..=1.0).contains(value))
+            .all(|value| (0.0..=1.0).contains(value))
             && self.pwm_freq_hz.iter().all(|&value| value != 0)
             && self
                 .dac_v
                 .iter()
-                .all(|value| value.is_finite() && (0.0..=super::super::VREF).contains(value))
+                .all(|value| (0.0..=super::super::VREF).contains(value))
             && self.gpio & !0x0f == 0
     }
 }
@@ -274,27 +274,16 @@ impl Default for OperatingSnapshot {
 }
 
 impl OperatingSnapshot {
-    /// Checks the packet marker and all finite-value and GPIO invariants.
+    /// Checks the packet marker and GPIO invariants.
+    ///
+    /// Measured floating-point values are deliberately not screened here;
+    /// exceptional IEEE-754 values propagate into the software calculation
+    /// graph like any other measurement result.
     ///
     /// Returns:
-    ///   `true` when the snapshot is safe for the software calc graph.
+    ///   `true` when the snapshot framing and digital input field are valid.
     pub fn is_valid(&self) -> bool {
-        self.magic == super::super::OPERATING_SNAPSHOT_MAGIC
-            && self.module_bus_current_a.is_finite()
-            && self.module_bus_voltage_v.is_finite()
-            && self.board_temperature_k.is_finite()
-            && self.current_4_20_a.iter().all(|value| value.is_finite())
-            && self
-                .rtd_resistance_ohm
-                .iter()
-                .all(|value| value.is_finite())
-            && self
-                .thermocouple_temperature_k
-                .iter()
-                .all(|value| value.is_finite())
-            && self.voltage_v.iter().all(|value| value.is_finite())
-            && self.frequency_meas.iter().all(|value| value.is_finite())
-            && self.gpio & !0x03 == 0
+        self.magic == super::super::OPERATING_SNAPSHOT_MAGIC && self.gpio & !0x03 == 0
     }
 }
 
