@@ -226,7 +226,6 @@ impl<'a> Board<'a> {
             &settings.pwm_freq_hz,
             &settings.dac_v,
             settings.gpio,
-            &self.clocks,
         );
     }
 

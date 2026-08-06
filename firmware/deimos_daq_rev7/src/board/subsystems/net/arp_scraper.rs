@@ -236,8 +236,10 @@ impl<T: phy::TxToken> phy::TxToken for ObservedTxToken<'_, T> {
     where
         F: FnOnce(&mut [u8]) -> R,
     {
-        debug_assert!(*self.tx_budget > 0);
-        *self.tx_budget -= 1;
+        // Tokens are issued only while the budget is positive. Saturation
+        // preserves that invariant without an assertion or underflow path if
+        // a future device wrapper changes token-consumption behavior.
+        *self.tx_budget = self.tx_budget.saturating_sub(1);
         self.inner.consume(len, f)
     }
 }

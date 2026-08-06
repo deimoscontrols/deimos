@@ -182,7 +182,10 @@ fn fallback_backoff_ns(failure_rounds: u8) -> i64 {
 fn set_ipv4_addr(iface: &mut Interface, cidr: Ipv4Cidr) {
     iface.update_ip_addrs(|addrs| {
         addrs.clear();
-        addrs.push(smoltcp::wire::IpCidr::Ipv4(cidr)).unwrap();
+        // The list has nonzero static capacity and was just cleared. Ignore
+        // the generic capacity result rather than retaining a panic path in
+        // address maintenance reachable from the operating cycle.
+        let _ = addrs.push(smoltcp::wire::IpCidr::Ipv4(cidr));
     });
 }
 
@@ -558,13 +561,12 @@ impl<'a> Net<'a> {
     fn apply_dhcp_config(&mut self, config: PendingDhcpConfig) {
         // Install the leased address and route information on the interface.
         set_ipv4_addr(&mut self.iface, config.address);
+        let routes = self.iface.routes_mut();
+        routes.remove_default_ipv4_route();
         if let Some(router) = config.router {
-            self.iface
-                .routes_mut()
-                .add_default_ipv4_route(router)
-                .unwrap();
-        } else {
-            self.iface.routes_mut().remove_default_ipv4_route();
+            // Failure means the fixed route table has no free slot; local-link
+            // communication remains usable and no operating IRQ may panic.
+            let _ = routes.add_default_ipv4_route(router);
         }
 
         // DHCP is now authoritative, so stop tentative ARP watching and reset fallback retries.

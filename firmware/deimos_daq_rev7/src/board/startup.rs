@@ -316,6 +316,15 @@ impl<'a> Board<'a> {
             pwm1: pwm5,
             pwm2: pwm6,
             pwm3: pwm7,
+            // Clock discovery is fallible in the generic HAL but fixed by this
+            // startup clock tree. Cache it once so output updates do not carry
+            // four `unwrap` paths through every publishing IRQ.
+            pwm_clock_hz: [
+                TIM3::get_clk(&ccdr.clocks).unwrap(),
+                TIM12::get_clk(&ccdr.clocks).unwrap(),
+                TIM16::get_clk(&ccdr.clocks).unwrap(),
+                TIM17::get_clk(&ccdr.clocks).unwrap(),
+            ],
             dac1,
             dac2,
             do0,

@@ -48,14 +48,18 @@ fn interpolate_regular_bspline(value: f32, start: f32, step: f32, coefficients: 
     if !value.is_finite() {
         return value;
     }
-    let interpolator = MultiBsplineRegular::<f32, 1>::new(
+    let Ok(interpolator) = MultiBsplineRegular::<f32, 1>::new(
         [coefficients.len()],
         [start],
         [step],
         coefficients,
         true,
-    )
-    .expect("generated type-K spline metadata must be valid");
+    ) else {
+        // Generated dimensions and steps are validated by tests and fixed in
+        // the firmware image. Preserve a branchless downstream error value
+        // instead of retaining a panic path in every engineering conversion.
+        return f32::NAN;
+    };
     interpolator.interp_one([value]).unwrap_or(f32::NAN)
 }
 

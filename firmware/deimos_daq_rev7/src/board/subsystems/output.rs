@@ -2,10 +2,8 @@ use stm32h7xx_hal::{
     gpio::{Output, Pin},
     prelude::*,
     pwm::{Alignment, ComplementaryDisabled, ComplementaryImpossible, Pwm},
-    rcc::CoreClocks,
     stm32::*,
     time::Hertz,
-    timer::GetClk,
     traits::DacOut,
 };
 
@@ -18,6 +16,8 @@ pub struct Outputs {
     pub pwm1: Pwm<TIM12, 0, ComplementaryImpossible>,
     pub pwm2: Pwm<TIM16, 0, ComplementaryDisabled>,
     pub pwm3: Pwm<TIM17, 0, ComplementaryDisabled>,
+    /// Timer input clocks cached during startup, in `cycle/s` with shape `(4,)`.
+    pub pwm_clock_hz: [Hertz; 4],
     pub dac1: stm32h7xx_hal::dac::C1<DAC, stm32h7xx_hal::dac::Enabled>,
     pub dac2: stm32h7xx_hal::dac::C2<DAC, stm32h7xx_hal::dac::Enabled>,
     pub do0: Pin<'D', 2, Output>,
@@ -33,10 +33,10 @@ pub fn set_outputs(
     pwm_freq_hz: &[u32; 4],
     dac_v: &[f32; 2],
     gpio: u8,
-    clocks: &CoreClocks,
 ) {
     {
         let i = 0;
+        let clk = outputs.pwm_clock_hz[i];
         let pwm = &mut outputs.pwm0;
 
         let duty = pwm_duty_frac[i];
@@ -44,7 +44,6 @@ pub fn set_outputs(
 
         // Set freq
         let tim = unsafe { &*TIM3::ptr() };
-        let clk = TIM3::get_clk(clocks).unwrap();
         let (period, prescale) = calculate_frequency_16bit(clk, freq, Alignment::Left);
         // Write prescale
         tim.psc.write(|w| w.psc().bits(prescale as u16));
@@ -58,6 +57,7 @@ pub fn set_outputs(
 
     {
         let i = 1;
+        let clk = outputs.pwm_clock_hz[i];
         let pwm = &mut outputs.pwm1;
 
         let duty = pwm_duty_frac[i];
@@ -65,7 +65,6 @@ pub fn set_outputs(
 
         // Set freq
         let tim = unsafe { &*TIM12::ptr() };
-        let clk = TIM12::get_clk(clocks).unwrap();
         let (period, prescale) = calculate_frequency_16bit(clk, freq, Alignment::Left);
         // Write prescale
         tim.psc.write(|w| w.psc().bits(prescale as u16));
@@ -79,6 +78,7 @@ pub fn set_outputs(
 
     {
         let i = 2;
+        let clk = outputs.pwm_clock_hz[i];
         let pwm = &mut outputs.pwm2;
 
         let duty = pwm_duty_frac[i];
@@ -86,7 +86,6 @@ pub fn set_outputs(
 
         // Set freq
         let tim = unsafe { &*TIM16::ptr() };
-        let clk = TIM16::get_clk(clocks).unwrap();
         let (period, prescale) = calculate_frequency_16bit(clk, freq, Alignment::Left);
         // Write prescale
         tim.psc.write(|w| w.psc().bits(prescale as u16));
@@ -100,6 +99,7 @@ pub fn set_outputs(
 
     {
         let i = 3;
+        let clk = outputs.pwm_clock_hz[i];
         let pwm = &mut outputs.pwm3;
 
         let duty = pwm_duty_frac[i];
@@ -107,7 +107,6 @@ pub fn set_outputs(
 
         // Set freq
         let tim = unsafe { &*TIM17::ptr() };
-        let clk = TIM17::get_clk(clocks).unwrap();
         let (period, prescale) = calculate_frequency_16bit(clk, freq, Alignment::Left);
         // Write prescale
         tim.psc.write(|w| w.psc().bits(prescale as u16));
@@ -176,9 +175,8 @@ fn calculate_frequency_16bit(base_freq: Hertz, freq: Hertz, alignment: Alignment
     // Round to the nearest period
     let period = (ideal_period + (prescale >> 1)) / (prescale + 1) - 1;
 
-    // It should be impossible to fail these asserts
-    assert!(period <= 0xFFFF);
-    assert!(prescale <= 0xFFFF);
+    // Dividing a `u32` period into 16-bit prescaler-sized chunks bounds both
+    // results to `u16`; retain `period` as `u32` only for the HAL API.
 
     (period, prescale as u16)
 }

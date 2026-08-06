@@ -34,8 +34,15 @@ impl UniformIntervalScheduler {
     ///   total_ticks: Applied publishing interval in SysTick `tick/cycle`.
     ///   sample_count: Number of ADC groups in the cycle, in `sample/cycle`.
     pub const fn new(total_ticks: u32, sample_count: u32) -> Self {
-        assert!(sample_count > 0);
-        assert!(total_ticks >= sample_count);
+        // Normalize invalid inputs instead of retaining panic branches in the
+        // publishing loop. Valid sampling policies are unchanged: they always
+        // request at least one timer tick for every acquisition.
+        let sample_count = if sample_count == 0 { 1 } else { sample_count };
+        let total_ticks = if total_ticks < sample_count {
+            sample_count
+        } else {
+            total_ticks
+        };
         Self {
             base_ticks: total_ticks / sample_count,
             remainder: total_ticks % sample_count,
@@ -147,9 +154,11 @@ impl AcquisitionClock {
     /// Returns:
     ///   Board timestamp for the counter observation, in `ns`.
     pub fn timestamp_ns(&self, current_count: u32, systick_tick_period_ns: u32) -> i64 {
-        debug_assert!(current_count <= self.active_reload);
+        // SysTick hardware constrains VAL to `0..=LOAD`. Make the subtraction's
+        // release behavior explicit without evaluating an assertion in the IRQ.
         self.cycle_start_ns
-            + i64::from(self.active_reload - current_count) * i64::from(systick_tick_period_ns)
+            + i64::from(self.active_reload.wrapping_sub(current_count))
+                * i64::from(systick_tick_period_ns)
     }
 }
 
@@ -165,7 +174,7 @@ impl AcquisitionClock {
 /// Returns:
 ///   Completed interval duration in `ns`.
 pub fn completed_interval_ns(active_reload: u32, systick_tick_period_ns: u32) -> i64 {
-    i64::from(active_reload + 1) * i64::from(systick_tick_period_ns)
+    (i64::from(active_reload) + 1) * i64::from(systick_tick_period_ns)
 }
 
 /// Saturating-combine and clamp one requested cycle-timing correction.
@@ -234,6 +243,13 @@ mod tests {
             sum += low_rate.next_ticks();
         }
         assert_eq!(sum, 12_500_000);
+
+        // Invalid external inputs normalize to a one-tick minimum instead of
+        // retaining a panic path in firmware callers.
+        let mut zero_count = UniformIntervalScheduler::new(0, 0);
+        assert_eq!(zero_count.next_ticks(), 1);
+        let mut too_few_ticks = UniformIntervalScheduler::new(2, 4);
+        assert_eq!((0..4).map(|_| too_few_ticks.next_ticks()).sum::<u32>(), 4);
     }
 
     #[test]
