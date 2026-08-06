@@ -390,6 +390,8 @@ impl Sampler {
                 &mut self.adc_filters_fractional_delay_states[index],
                 [scaled_sample],
             )[0];
+            // `APPLY_IIR` is a const generic, so monomorphization removes this
+            // branch and the unused path; it has no runtime cost.
             self.sampled_inputs.adc.values[index] = if APPLY_IIR {
                 self.adc_filters[index].step(&mut self.adc_filter_states[index], [delayed_sample])
                     [0]
