@@ -109,7 +109,28 @@ impl AcquisitionClock {
     ///     started, in counter ticks minus one.
     ///   systick_tick_period_ns: Exact SysTick counter period in `ns/tick`.
     pub fn advance(&mut self, new_active_reload: u32, systick_tick_period_ns: u32) {
-        self.cycle_start_ns += completed_interval_ns(self.active_reload, systick_tick_period_ns);
+        self.advance_intervals(1, new_active_reload, systick_tick_period_ns);
+    }
+
+    /// Advance across one or more equal completed intervals.
+    ///
+    /// This handles coalesced SysTick exceptions after a long-running handler.
+    /// LOAD is retained whenever a deadline is missed, so every coalesced
+    /// interval uses `active_reload`.
+    ///
+    /// Args:
+    ///   interval_count: Number of completed intervals to advance.
+    ///   new_active_reload: Reload applied to the interval currently counting
+    ///     down, in counter ticks minus one.
+    ///   systick_tick_period_ns: Exact SysTick counter period in `ns/tick`.
+    pub fn advance_intervals(
+        &mut self,
+        interval_count: u32,
+        new_active_reload: u32,
+        systick_tick_period_ns: u32,
+    ) {
+        self.cycle_start_ns += i64::from(interval_count)
+            * completed_interval_ns(self.active_reload, systick_tick_period_ns);
         self.active_reload = new_active_reload;
     }
 
@@ -181,6 +202,10 @@ mod tests {
         assert_eq!(clock.cycle_start_ns, 8_000_000);
         assert_eq!(clock.active_reload, 9_999);
         assert_eq!(clock.timestamp_ns(4_999, 20), 8_100_000);
+
+        clock.advance_intervals(3, 19_999, 20);
+        assert_eq!(clock.cycle_start_ns, 8_600_000);
+        assert_eq!(clock.active_reload, 19_999);
     }
 
     #[test]

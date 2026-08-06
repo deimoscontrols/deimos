@@ -26,6 +26,12 @@ impl<'a> Board<'a> {
         // Power setup
         let dp = stm32::Peripherals::take().unwrap();
         let mut cp = stm32::CorePeripherals::take().unwrap();
+        // CYCCNT provides the core-cycle-resolution clock used within each
+        // sampling/communication IRQ. It is read directly and requires no
+        // timer peripheral, reload, or interrupt.
+        cp.DCB.enable_trace();
+        debug_assert!(cortex_m::peripheral::DWT::has_cycle_counter());
+        cp.DWT.enable_cycle_counter();
         let pwr = dp.PWR.constrain().vos0(&dp.SYSCFG);
         let pwrcfg = pwr.freeze();
         //    Power up SRAM3, where ethernet buffers are stored

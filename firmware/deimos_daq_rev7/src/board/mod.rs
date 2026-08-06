@@ -113,47 +113,6 @@ impl<'a> Board<'a> {
         }
     }
 
-    /// Return board time at the current point in the active SysTick interval.
-    ///
-    /// Args:
-    ///   active_reload: Reload associated with the interval currently counting
-    ///     down, in `tick - 1`.
-    ///   systick_tick_period_ns: Exact SysTick resolution in `ns/tick`.
-    ///   wrap_count: Number of extra SysTick wraps observed in this handler.
-    ///
-    /// Returns:
-    ///   Nominal cycle epoch plus elapsed active-interval time, in `ns`.
-    fn board_time(
-        &mut self,
-        active_reload: u32,
-        systick_tick_period_ns: u32,
-        wrap_count: &mut u32,
-    ) -> i64 {
-        let current = self.systick_current_and_wrap_count(wrap_count);
-        debug_assert!(current <= active_reload);
-        let interval_ticks = u64::from(active_reload) + 1;
-        let elapsed_ticks = u64::from(*wrap_count) * interval_ticks
-            + u64::from(active_reload.wrapping_sub(current));
-        self.time_ns + (elapsed_ticks * u64::from(systick_tick_period_ns)) as i64
-    }
-
-    /// Observe the current SysTick count and accumulate any wrap since the
-    /// preceding observation.
-    ///
-    /// The second counter read associates the returned value with the newly
-    /// incremented wrap count when underflow occurs between the first counter
-    /// read and the `COUNTFLAG` read.
-    #[inline]
-    fn systick_current_and_wrap_count(&mut self, wrap_count: &mut u32) -> u32 {
-        let current_before_wrap_check = SYST::get_current();
-        if self.systick.has_wrapped() {
-            *wrap_count = wrap_count.wrapping_add(1);
-            SYST::get_current()
-        } else {
-            current_before_wrap_check
-        }
-    }
-
     /// Return the clock rate driving SysTick when its external source is selected.
     ///
     /// On STM32H7, [`SystClkSource::External`] selects the processor reference
