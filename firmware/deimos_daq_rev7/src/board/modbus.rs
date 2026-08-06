@@ -242,6 +242,8 @@ impl ModbusTcpServer {
         net: &mut Net<'_>,
         budget: &mut ModbusSocketBudget,
     ) -> ReceiveStatus {
+        // Preserve stream order: do not consume another request while one is
+        // complete or while its preceding response still awaits transmission.
         if self.request_complete() {
             return ReceiveStatus::Complete;
         }
@@ -257,6 +259,9 @@ impl ModbusTcpServer {
                 return ReceiveStatus::Malformed;
             }
 
+            // Before MBAP is complete, read only its six-byte prefix. Afterward,
+            // stop exactly at the declared ADU boundary so pipelined data stays
+            // in smoltcp for the next bounded request pass.
             let target_len = self.expected_len.unwrap_or(MBAP_PREFIX_LEN);
             if self.request_len == target_len {
                 return ReceiveStatus::Complete;
@@ -264,12 +269,14 @@ impl ModbusTcpServer {
 
             budget.rx_calls -= 1;
             match net.tcp_recv(&mut self.request[self.request_len..target_len]) {
+                // No bytes were available this call; retain the partial ADU.
                 Ok(0) => break,
                 Ok(received) => self.request_len += received,
                 Err(_) => return ReceiveStatus::Disconnected,
             }
         }
 
+        // The final bounded receive may have completed the MBAP prefix.
         if self.parse_mbap_prefix().is_err() {
             return ReceiveStatus::Malformed;
         }
@@ -302,10 +309,13 @@ impl ModbusTcpServer {
             budget.tx_calls -= 1;
             match net.tcp_send(&self.response.bytes[self.response_offset..self.response.len]) {
                 Ok(0) => break,
+                // Retain the unsent suffix across cycles when the TCP ring
+                // accepts only part of the response.
                 Ok(sent) => self.response_offset += sent,
                 Err(_) => return Err(()),
             }
         }
+        // Reuse storage only after smoltcp owns the complete response bytes.
         if !self.response_pending() {
             self.response.clear();
             self.response_offset = 0;
@@ -320,6 +330,8 @@ impl ModbusTcpServer {
     /// retain their bytes and discard the provisional response so the first
     /// operating cycle can answer from its newly published snapshot.
     pub(super) fn inspect_binding_request(&mut self) -> Result<RequestOutcome, ()> {
+        // A read-only first request enters Modbus mode with safe default outputs
+        // and the default cycle rate and loss-of-contact limit.
         let defaults = ModbusInitialConfig::default();
         let outcome = self.process_request(&OperatingSnapshot::default(), defaults, 0, false)?;
         if outcome.accepted {
@@ -380,6 +392,8 @@ impl ModbusTcpServer {
         if protocol != 0 || !(MIN_MBAP_LENGTH..=MAX_MBAP_LENGTH).contains(&mbap_length) {
             return Err(());
         }
+        // MBAP length counts the Unit Identifier and PDU, but not the six-byte
+        // transaction/protocol/length prefix already staged here.
         self.expected_len = Some(MBAP_PREFIX_LEN + mbap_length);
         Ok(())
     }
@@ -415,6 +429,8 @@ impl ModbusTcpServer {
         let unit_id = self.request[6];
         let function = self.request[7];
 
+        // Establish every function-specific byte and count bound before any
+        // handler indexes variable-length request fields.
         if let Err(error) = validate_supported_pdu(&self.request[..self.request_len]) {
             self.queue_exception(unit_id, function, error);
             self.reset_request();
@@ -433,6 +449,8 @@ impl ModbusTcpServer {
         self.response.clear();
         self.response_offset = 0;
         let request = &self.request[..self.request_len];
+        // FC23 uses the local synchronized-control implementation; supported
+        // FC03, FC04, and FC16 requests retain rmodbus framing and parsing.
         let processed = if function == MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION {
             Ok(process_read_write_multiple_registers(
                 request,
@@ -456,6 +474,8 @@ impl ModbusTcpServer {
             self.response.bytes[6] = unit_id;
         }
 
+        // Binding keeps an accepted ADU staged so the first operating cycle can
+        // answer it with a real snapshot. All other outcomes consume the ADU.
         if accepted && !consume_accepted {
             self.response.clear();
             self.response_offset = 0;
@@ -509,6 +529,7 @@ impl ModbusTcpServer {
 fn validate_supported_pdu(request: &[u8]) -> Result<(), ErrorKind> {
     match request[7] {
         0x03 | 0x04 => {
+            // FC03/FC04 contain only address and register count after function.
             if request.len() != 12 {
                 return Err(ErrorKind::IllegalDataValue);
             }
@@ -519,6 +540,7 @@ fn validate_supported_pdu(request: &[u8]) -> Result<(), ErrorKind> {
             Ok(())
         }
         0x10 => {
+            // FC16 must carry exactly two payload bytes for every register.
             if request.len() < 13 {
                 return Err(ErrorKind::IllegalDataValue);
             }
@@ -534,6 +556,7 @@ fn validate_supported_pdu(request: &[u8]) -> Result<(), ErrorKind> {
             Ok(())
         }
         MODBUS_READ_WRITE_MULTIPLE_REGISTERS_FUNCTION => {
+            // FC23 has independent read/write counts and one write byte count.
             if request.len() < 17 {
                 return Err(ErrorKind::IllegalDataValue);
             }
@@ -577,6 +600,8 @@ fn process_with_rmodbus(
     config: ModbusInitialConfig,
     loss_of_contact_counter: u16,
 ) -> Result<(bool, ModbusInitialConfig), ErrorKind> {
+    // Limit the frame borrow to parsing so the response can be encoded directly
+    // into the same fixed storage below.
     let (function, address, count) = {
         let mut frame = ModbusFrame::new(1, request, ModbusProto::TcpUdp, response);
         frame.parse()?;
@@ -632,6 +657,8 @@ fn process_with_rmodbus(
             }
         }
         ModbusFunction::SetHoldingsBulk => {
+            // The board map is smaller than the protocol maximum, allowing one
+            // fixed stack array to stage an atomic FC16 update.
             if usize::from(count) > MAX_HOLDING_WRITE_REGISTERS {
                 set_exception_response(
                     request,
@@ -820,6 +847,8 @@ fn queue_holding_response(
     address: u16,
     count: u16,
 ) -> Result<(), ErrorKind> {
+    // Low addresses expose live configuration; the disjoint high window mirrors
+    // the same coherent snapshot available through input registers.
     if address < HOLDING_SNAPSHOT_START {
         let registers = holding_registers(config, loss_of_contact_counter);
         queue_read_response(request, response, &registers, address, count)
@@ -874,6 +903,8 @@ fn queue_snapshot_response(
         );
     }
 
+    // MBAP occupies bytes `0..7`, followed by function, byte count, and the
+    // already-network-ordered snapshot register payload.
     let response_len = 9 + SNAPSHOT_INPUT_BYTE_COUNT;
     initialize_response(request, response, request[6], SNAPSHOT_INPUT_BYTE_COUNT + 2);
     response.bytes[7] = request[7];
@@ -932,6 +963,8 @@ fn queue_read_response<const N: usize>(
         .ok_or(ErrorKind::IllegalDataAddress)?;
     let data_len = usize::from(count) * 2;
     let response_len = 9 + data_len;
+    // Validate both the register map span and the encoded ADU capacity before
+    // creating any response slices.
     if end > registers.len() || response_len > MODBUS_ADU_CAPACITY {
         return Err(ErrorKind::IllegalDataAddress);
     }
