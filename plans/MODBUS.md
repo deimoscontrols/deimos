@@ -20,16 +20,6 @@ Both modes support publishing rates from 5 Hz. Deimos mode supports up to
 8 kHz; Modbus mode supports up to 500 Hz. The lower Modbus ceiling reserves
 time for TCP stream handling and worst-case register requests.
 
-Historical checkpoints retained for comparison are:
-
-| Commit | Purpose |
-| --- | --- |
-| `e60e8e5` | Shared calculations, engineering snapshot, calibration support, and TCP storage |
-| `aac4013` | Initial bounded Modbus/TCP implementation |
-| `362f295` | Hardened protocol, backpressure, and timing implementation |
-| `f9ac3fa` | Acquisition timestamps |
-| `dec7a99` | Cycle-owned synchronous sampling groundwork |
-
 ## Major design decisions
 
 ### One common operating implementation
