@@ -22,14 +22,25 @@ use deimos_numerics::{
     },
 };
 
-/// Runtime ADC low-pass filter used by firmware.
+/// Single-lane runtime ADC low-pass filter.
+///
+/// This form is used for independently sampled values such as board
+/// temperature. ADC acquisition uses [`AdcFilterBank`] so all channels share
+/// one coefficient set while retaining independent filter histories.
 pub type AdcFilter = FixedDeltaSos<f32, ADC_FILTER_SECTIONS, 1>;
 
 /// Runtime state for one ADC low-pass filter.
 pub type AdcFilterState = FixedDeltaSosState<f32, ADC_FILTER_SECTIONS, 1>;
 
-/// Full ADC low-pass filter bank.
-pub type AdcFilterBank = [AdcFilter; ADC_FILTER_COUNT];
+/// Multi-lane runtime ADC low-pass filter bank.
+///
+/// `DeltaSos` applies the same coefficients to every lane and stores separate
+/// state for each ADC channel, matching the acquisition filter topology
+/// without duplicating the coefficients.
+pub type AdcFilterBank = FixedDeltaSos<f32, ADC_FILTER_SECTIONS, ADC_FILTER_COUNT>;
+
+/// Runtime state for the multi-lane ADC low-pass filter bank.
+pub type AdcFilterBankState = FixedDeltaSosState<f32, ADC_FILTER_SECTIONS, ADC_FILTER_COUNT>;
 
 /// Transfer function corresponding to one ADC low-pass filter.
 pub type AdcFilterTransferFunction = DiscreteTransferFunction<f64>;

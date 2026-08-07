@@ -1,7 +1,7 @@
 use deimos_shared::peripherals::deimos_daq_rev7::{
-    AdcFilter, AdcFilterState, AdcFractionalDelayFilter, AdcFractionalDelayFilterState,
-    FREQUENCY_CHANNEL_COUNT, FREQUENCY_INPUT_VALID_TIMEOUT_NS, adc_filter_bank,
-    adc_fractional_delay_filter_bank, timing::unwrap_u16_delta,
+    AdcFilterBank, AdcFilterBankState, AdcFractionalDelayFilter,
+    AdcFractionalDelayFilterState, FREQUENCY_CHANNEL_COUNT, FREQUENCY_INPUT_VALID_TIMEOUT_NS,
+    adc_filter_bank, adc_fractional_delay_filter_bank, timing::unwrap_u16_delta,
 };
 use nb::block;
 use stm32h7xx_hal::{adc, gpio::Pin, rcc::CoreClocks, stm32::*, timer::GetClk};
@@ -162,8 +162,8 @@ pub struct Sampler {
     pub adc3: adc::Adc<ADC3, adc::Enabled>,
     pub adc_pins: AdcPins,
     pub adc_scalings: [f32; ADC_CHANNEL_COUNT],
-    pub adc_filters: [AdcFilter; ADC_CHANNEL_COUNT],
-    pub adc_filter_states: [AdcFilterState; ADC_CHANNEL_COUNT],
+    pub adc_filter: AdcFilterBank,
+    pub adc_filter_state: AdcFilterBankState,
     pub adc_filters_fractional_delay: [AdcFractionalDelayFilter; ADC_CHANNEL_COUNT],
     pub adc_filters_fractional_delay_states: [AdcFractionalDelayFilterState; ADC_CHANNEL_COUNT],
     sampled_inputs: SampledInputs,
@@ -189,7 +189,7 @@ impl Sampler {
         pwmi1: TIM15,
     ) -> Self {
         //
-        // Set up ADC adc_scalings, adc_filters, and buffer
+        // Set up ADC scalings, the shared-coefficient filter, and sample state.
         //
 
         // Precalculate adc_scalings
@@ -224,8 +224,8 @@ impl Sampler {
         // Low-pass filters
         // Operating entry replaces these coefficients before the first sample.
         let cutoff_ratio = ADC_IIR_CUTOFF_TO_REPORT_RATE / 2.0;
-        let adc_filters = adc_filter_bank(cutoff_ratio).unwrap();
-        let adc_filter_states = [adc_filters[0].reset_state(); ADC_CHANNEL_COUNT];
+        let adc_filter = adc_filter_bank(cutoff_ratio).unwrap();
+        let adc_filter_state = adc_filter.reset_state();
         let sampled_inputs = SampledInputs {
             adc: AdcSampleGroup {
                 values: [0.0_f32; ADC_CHANNEL_COUNT],
@@ -256,8 +256,8 @@ impl Sampler {
             adc3,
             adc_pins,
             adc_scalings,
-            adc_filters,
-            adc_filter_states,
+            adc_filter,
+            adc_filter_state,
             adc_filters_fractional_delay,
             adc_filters_fractional_delay_states,
             sampled_inputs,
@@ -269,23 +269,17 @@ impl Sampler {
         }
     }
 
-    /// Replace the ADC IIR filters with ones at a new cutoff ratio.
+    /// Replace the ADC IIR coefficient set for every channel.
     /// This runs during Operating entry before the SysTick sampler is enabled.
     /// Also clears the encoder and pulse counter.
     pub fn update_cutoff(&mut self, cutoff_ratio: f64) {
-        let filter_bank = adc_filter_bank(cutoff_ratio).unwrap();
-
-        self.adc_filters
-            .iter_mut()
-            .zip(self.adc_filter_states.iter_mut())
-            .enumerate()
-            .for_each(|(i, (filter, state))| {
-                // Seed directly from the most recent sample; IEEE-754
-                // exceptional values propagate without a sanitizing branch.
-                let init_val = self.sampled_inputs.adc.values[i];
-                *filter = filter_bank[i];
-                filter.set_steady_state(state, [init_val]);
-            });
+        self.adc_filter = adc_filter_bank(cutoff_ratio).unwrap();
+        // Seed directly from the most recent sample group; IEEE-754
+        // exceptional values propagate without a sanitizing branch.
+        self.adc_filter.set_steady_state(
+            &mut self.adc_filter_state,
+            self.sampled_inputs.adc.values,
+        );
 
         self.reset_counter_inputs();
     }
@@ -371,9 +365,12 @@ impl Sampler {
             let sample = raw_samples[index] as f32 * self.adc_scalings[index];
             self.adc_filters_fractional_delay_states[index] =
                 AdcFractionalDelayFilterState::filled([sample]);
-            self.adc_filters[index].set_steady_state(&mut self.adc_filter_states[index], [sample]);
             self.sampled_inputs.adc.values[index] = sample;
         }
+        self.adc_filter.set_steady_state(
+            &mut self.adc_filter_state,
+            self.sampled_inputs.adc.values,
+        );
         self.update_sampled_inputs(sample_time_ns);
     }
 
@@ -390,14 +387,15 @@ impl Sampler {
                 &mut self.adc_filters_fractional_delay_states[index],
                 [scaled_sample],
             )[0];
-            // `APPLY_IIR` is a const generic, so monomorphization removes this
-            // branch and the unused path; it has no runtime cost.
-            self.sampled_inputs.adc.values[index] = if APPLY_IIR {
-                self.adc_filters[index].step(&mut self.adc_filter_states[index], [delayed_sample])
-                    [0]
-            } else {
-                delayed_sample
-            };
+            self.sampled_inputs.adc.values[index] = delayed_sample;
+        }
+        // `APPLY_IIR` is a const generic, so monomorphization removes this
+        // branch and the unused path; it has no runtime cost.
+        if APPLY_IIR {
+            self.sampled_inputs.adc.values = self.adc_filter.step(
+                &mut self.adc_filter_state,
+                self.sampled_inputs.adc.values,
+            );
         }
         self.update_sampled_inputs(sample_time_ns);
     }

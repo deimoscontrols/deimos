@@ -206,7 +206,7 @@ impl<'a> Board<'a> {
         // filter runs once per published snapshot, independent of the ADC
         // acquisition topology selected above.
         // UNWRAP: A 1 Hz cutoff is valid at every supported reporting rate.
-        let board_temperature_filter = adc_filter_bank(1.0 / reporting_rate_hz).unwrap()[0];
+        let board_temperature_filter = adc_filter(1.0 / reporting_rate_hz).unwrap();
         let initial_sample_group = &sampler.sampled_inputs().adc;
         let initial_board_temperature_k =
             board_temperature_k_f32(&initial_sample_group.values, &self.calibration);

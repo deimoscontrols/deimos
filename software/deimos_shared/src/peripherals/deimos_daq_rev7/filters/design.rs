@@ -5,16 +5,23 @@ use deimos_numerics::{
     control::lti::{butter, design_digital_filter_tf, FilterDesignError, Fir as DynamicFir},
     embedded::{
         error::EmbeddedError,
-        fixed::lti::{lagrange_fractional_delay, lagrange_fractional_delay_taps},
+        fixed::lti::{
+            lagrange_fractional_delay, lagrange_fractional_delay_taps, DeltaSos as FixedDeltaSos,
+        },
     },
 };
 
 /// Builds the fixed-size delta-SOS ADC filter bank used by firmware.
 pub fn adc_filter_bank(cutoff_ratio: f64) -> Result<AdcFilterBank, AdcFilterBuildError> {
-    let filter = adc_filter(cutoff_ratio)?;
-    // All ADC channels share coefficients; their runtime histories are stored
-    // separately in the corresponding state bank.
-    Ok([filter; ADC_FILTER_COUNT])
+    adc_filter_for_lanes::<ADC_FILTER_COUNT>(cutoff_ratio)
+}
+
+/// Builds a single-lane fixed-size delta-SOS ADC filter.
+///
+/// This is useful for values that are sampled independently from the ADC
+/// acquisition group but use the same low-pass design.
+pub fn adc_filter(cutoff_ratio: f64) -> Result<AdcFilter, AdcFilterBuildError> {
+    adc_filter_for_lanes::<1>(cutoff_ratio)
 }
 
 /// Builds transfer functions corresponding to the ADC filter bank.
@@ -134,11 +141,13 @@ pub(super) fn validated_sampling_policy(
     })
 }
 
-fn adc_filter(cutoff_ratio: f64) -> Result<AdcFilter, AdcFilterBuildError> {
+fn adc_filter_for_lanes<const LANES: usize>(
+    cutoff_ratio: f64,
+) -> Result<FixedDeltaSos<f32, ADC_FILTER_SECTIONS, LANES>, AdcFilterBuildError> {
     let cutoff_ratio = clamp_adc_filter_cutoff_ratio(cutoff_ratio);
     let dynamic_delta = butter::<ADC_FILTER_ORDER>(cutoff_ratio)
         .and_then(|filter| filter.try_cast::<f32>().map_err(FilterDesignError::from))?;
-    Ok(AdcFilter::try_from(&dynamic_delta)?)
+    Ok(FixedDeltaSos::try_from(&dynamic_delta)?)
 }
 
 fn clamp_adc_filter_cutoff_ratio(cutoff_ratio: f64) -> f64 {

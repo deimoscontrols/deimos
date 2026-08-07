@@ -2,14 +2,17 @@ use super::*;
 
 #[test]
 fn low_rate_adc_filter_holds_a_primed_steady_state() {
-    let filter = adc_filter_bank(1.0 / 2_250.0).unwrap()[0];
+    let filter = adc_filter_bank(1.0 / 2_250.0).unwrap();
     let mut state = filter.reset_state();
-    filter.set_steady_state(&mut state, [1.25]);
+    let input = core::array::from_fn(|index| 0.25 + index as f32 * 0.125);
+    filter.set_steady_state(&mut state, input);
 
     for _ in 0..16 {
-        let output = filter.step(&mut state, [1.25])[0];
-        assert!(output.is_finite());
-        assert!((output - 1.25).abs() < 1.0e-5);
+        let output = filter.step(&mut state, input);
+        for (actual, expected) in output.into_iter().zip(input) {
+            assert!(actual.is_finite());
+            assert!((actual - expected).abs() < 1.0e-5);
+        }
     }
 }
 
