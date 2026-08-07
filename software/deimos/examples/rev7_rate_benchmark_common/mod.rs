@@ -16,6 +16,8 @@ use deimos::{
 
 pub const DAQ_SERIAL: u64 = 3;
 pub const STEADY_SECONDS: u64 = 5;
+pub const WARMUP_SECONDS: u64 = 5;
+pub const MIN_RUN_SECONDS: u64 = WARMUP_SECONDS + STEADY_SECONDS;
 
 const CPU_SAMPLE_INTERVAL: Duration = Duration::from_millis(250);
 const CHANNELS: [&str; 4] = [
@@ -317,9 +319,9 @@ pub fn run_benchmark(config: &BenchmarkConfig) -> Result<BenchmarkResult, String
     if !config.rate_hz.is_finite() || config.rate_hz <= 0.0 {
         return Err("Benchmark rate must be finite and positive".to_owned());
     }
-    if config.run_seconds < STEADY_SECONDS {
+    if config.run_seconds < MIN_RUN_SECONDS {
         return Err(format!(
-            "Benchmark duration must be at least {STEADY_SECONDS} s"
+            "Benchmark duration must be at least {MIN_RUN_SECONDS} s"
         ));
     }
     let period_ns = (1e9_f64 / config.rate_hz).round() as u32;
@@ -443,9 +445,10 @@ fn analyze(
         .timestamp;
     let final_timestamp = rows.last().unwrap().timestamp;
     let steady_cutoff = final_timestamp.saturating_sub(STEADY_SECONDS as i64 * 1_000_000_000);
+    let warmup_cutoff = first_timestamp.saturating_add(WARMUP_SECONDS as i64 * 1_000_000_000);
     let steady_rows = rows
         .iter()
-        .filter(|row| row.timestamp >= steady_cutoff)
+        .filter(|row| row.timestamp >= steady_cutoff.max(warmup_cutoff))
         .collect::<Vec<_>>();
     if steady_rows.len() < 2 {
         return Err("Benchmark final-five-second window contains too few rows".to_owned());
@@ -553,8 +556,28 @@ fn analyze(
 
 #[cfg(test)]
 mod tests {
-    use super::{CpuSample, cpu_percent_in_final_window, lower_percentile};
-    use std::time::Duration;
+    use super::{
+        BenchmarkConfig, BenchmarkMode, CpuSample, MIN_RUN_SECONDS, cpu_percent_in_final_window,
+        lower_percentile, run_benchmark,
+    };
+    use std::{path::PathBuf, time::Duration};
+
+    #[test]
+    fn benchmark_requires_warmup_before_the_steady_window() {
+        let error = run_benchmark(&BenchmarkConfig {
+            rate_hz: 1_000.0,
+            run_seconds: MIN_RUN_SECONDS - 1,
+            mode: BenchmarkMode::Performant,
+            op_name: "too_short".to_owned(),
+            output_dir: PathBuf::from("unused"),
+        })
+        .unwrap_err();
+
+        assert_eq!(
+            error,
+            format!("Benchmark duration must be at least {MIN_RUN_SECONDS} s")
+        );
+    }
 
     #[test]
     fn lower_percentile_selects_the_lower_tail_order_statistic() {

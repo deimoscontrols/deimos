@@ -84,10 +84,10 @@ columns = 2
 [[panels]]
 title = "4-20 mA Currents"
 channels = [
-    "p1_4_20_mA_0_A.y",
-    "p1_4_20_mA_1_A.y",
-    "p1_4_20_mA_2_A.y",
-    "p1_4_20_mA_3_A.y",
+    "p1.4_20_0_A",
+    "p1.4_20_1_A",
+    "p1.4_20_2_A",
+    "p1.4_20_3_A",
 ]
 
 [[panels]]
@@ -101,15 +101,15 @@ channels = [
 [[panels]]
 title = "Thermocouple Temperatures"
 channels = [
-    "p1_tc_0.temperature_K",
-    "p1_tc_1.temperature_K",
+    "p1.tc_0_K",
+    "p1.tc_1_K",
 ]
 
 [[panels]]
 title = "0-2.5 V Inputs"
 channels = [
-    "p1_0_2V5_0_sense_V.y",
-    "p1_0_2V5_1_sense_V.y",
+    "p1.2V5_0_V",
+    "p1.2V5_1_V",
 ]
 ```
 
