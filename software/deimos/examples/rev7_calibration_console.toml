@@ -1,4 +1,4 @@
-# Operator console config for `software/deimos/examples/rev7_0_0_calibration.rs`.
+# Operator console config for `software/deimos/examples/rev7_calibration.rs`.
 # Run with:
 # cargo run -p deimos_console -- --config software/deimos/examples/rev7_calibration_console.toml
 

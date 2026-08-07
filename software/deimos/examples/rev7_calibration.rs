@@ -1,4 +1,4 @@
-//! Rev7 DAQ 7.0.0 calibration procedure and command-line entrypoint.
+//! Rev7 DAQ calibration procedure and command-line entrypoint.
 //!
 //! This module collects and postprocesses manually assisted rev7 calibration
 //! runs for 4-20 mA, RTD, thermocouple, and voltage inputs. It writes one
@@ -48,7 +48,7 @@ use serde::{Deserialize, Serialize};
 use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 const MODEL_NAME: &str = "deimos_daq_rev7";
-const PROCEDURE_NAME: &str = "deimos_daq_rev7_calibration_7_0_0";
+const PROCEDURE_NAME: &str = "deimos_daq_rev7_calibration";
 const PROCEDURE_VERSION: u16 = 1;
 const PERIPHERAL_NAME: &str = "p1";
 const RATE_HZ: f64 = 100.0;
@@ -210,7 +210,7 @@ fn default_calibration_dir(sn: u64) -> PathBuf {
 }
 
 fn usage() -> String {
-    "Usage:\n  rev7_0_0_calibration [--sn <serial>] [<dst>]\n  rev7_0_0_calibration [--sn <serial>] collect [<dst>]\n  rev7_0_0_calibration [--sn <serial>] process [<dst>]".to_owned()
+    "Usage:\n  rev7_calibration [--sn <serial>] [<dst>]\n  rev7_calibration [--sn <serial>] collect [<dst>]\n  rev7_calibration [--sn <serial>] process [<dst>]".to_owned()
 }
 
 #[derive(Clone, Copy, Debug)]
