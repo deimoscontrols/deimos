@@ -1070,13 +1070,11 @@ impl Controller {
                 // Some peripherals may have received their configuration and proceeded to operating,
                 // in which case we need to wait for them to time out and return to Connecting before retry,
                 // plus a buffer for the peripheral to proceed back to Binding.
-                let pad_ns = 20_000_000;
                 let retry_wait = Duration::from_nanos(
-                    self.ctx.peripheral_loss_of_contact_limit as u64 * self.ctx.dt_ns as u64
-                        + self.ctx.timeout_to_operating_ns as u64
-                        + self.ctx.configuring_timeout_ms as u64 * 1000
-                        + pad_ns,
-                );
+                    self.ctx.peripheral_loss_of_contact_limit as u64 * self.ctx.dt_ns as u64,
+                ) + Duration::from_nanos(self.ctx.timeout_to_operating_ns as u64)
+                    + Duration::from_millis(self.ctx.configuring_timeout_ms as u64)
+                    + Duration::from_millis(20);
                 debug!(?retry_wait, "Waiting to retry configuring.");
                 thread::sleep(retry_wait);
             }
@@ -1085,6 +1083,7 @@ impl Controller {
             let binding_deadline =
                 Instant::now() + Duration::from_millis(self.ctx.binding_timeout_ms as u64);
             for ps in controller_state.peripheral_state.values_mut() {
+                ps.acknowledged_configuration = false;
                 ps.conn_state = ConnState::Binding {
                     binding_timeout: binding_deadline,
                     reconnect_deadline: None,
@@ -1114,6 +1113,24 @@ impl Controller {
                 )
                 .map_err(|e| format!("Failed to bind peripherals: {e}"))?;
 
+            // A response may miss the short binding window when the controller or
+            // a software-defined peripheral is descheduled. Treat that like a missed
+            // configuration acknowledgement and use the bounded retry policy below.
+            let missing_bindings = addresses
+                .iter()
+                .filter(|addr| !bound_peripherals.contains_key(addr))
+                .filter_map(|addr| {
+                    controller_state
+                        .peripheral_state
+                        .get(addr)
+                        .map(|ps| ps.name.clone())
+                })
+                .collect::<Vec<_>>();
+            if !missing_bindings.is_empty() {
+                warn!("Peripherals did not respond to binding: {missing_bindings:?}");
+                continue 'configuring_retry;
+            }
+
             // Operating countdown starts as soon as peripherals receive binding input,
             // so start the clock now.
             let start_of_operating_countdown = Instant::now();
@@ -1131,10 +1148,9 @@ impl Controller {
             // one device's descriptive software error cannot leave peers entering
             // Operating from a partially transmitted configuration set.
             for addr in addresses.iter() {
-                let (sid, pid) = addr;
                 let peripheral = bound_peripherals
-                    .get(&(*sid, *pid))
-                    .ok_or(format!("Did not find {pid:?} in bound peripherals."))?;
+                    .get(addr)
+                    .ok_or_else(|| format!("Peripheral at {addr:?} disappeared after binding"))?;
                 peripheral
                     .validate_configuring(config_input)
                     .map_err(|err| {
@@ -1150,8 +1166,8 @@ impl Controller {
                 //     Write configuring packet for this peripheral.
                 let (sid, pid) = addr;
                 let p = bound_peripherals
-                    .get(&(*sid, *pid))
-                    .ok_or(format!("Did not find {pid:?} in bound peripherals."))?;
+                    .get(addr)
+                    .ok_or_else(|| format!("Peripheral at {addr:?} disappeared after binding"))?;
                 let num_to_write = p.configuring_input_size();
                 p.emit_configuring(config_input, &mut txbuf[..num_to_write]);
 
@@ -1183,18 +1199,22 @@ impl Controller {
                         // Make sure the packet is the right size and the peripheral ID is recognized.
                         match meta.pid {
                             Some(pid) => {
+                                let addr = (sid, pid);
+
+                                // Ignore packets from peripherals that do not belong to
+                                // this controller or did not bind during this attempt.
+                                if !controller_state.peripheral_state.contains_key(&addr) {
+                                    continue;
+                                }
+                                let Some(p) = bound_peripherals.get(&addr) else {
+                                    continue;
+                                };
+
                                 // Parse the (potential) peripheral's response
-                                let p = bound_peripherals.get(&(sid, pid)).unwrap();
                                 if amt != p.configuring_output_size() {
                                     warn!(
                                         "Received malformed configuration response from peripheral {pid:?} on socket {sid} ({socket_name})."
                                     );
-                                    continue;
-                                }
-                                let addr = (sid, pid);
-
-                                // Check if this is peripheral belongs to this controller.
-                                if !controller_state.peripheral_state.contains_key(&addr) {
                                     continue;
                                 }
 
