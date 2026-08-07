@@ -3,27 +3,33 @@
 pub const PT100_MIN_RESISTANCE_OHM: f32 = 1.852008000e+01_f32;
 /// Maximum fitted Pt100 resistance in `ohm`.
 pub const PT100_MAX_RESISTANCE_OHM: f32 = 3.904811250e+02_f32;
-/// Resistance origin in `ohm` for the normalized inverse coordinate.
-pub const PT100_RESISTANCE_ORIGIN_OHM: f32 = 2.045006025e+02_f32;
-/// Scale in `1/ohm` for the normalized inverse coordinate.
-pub const PT100_RESISTANCE_SCALE: f32 = 5.376907144e-03_f32;
-/// Kelvin offset applied after inverse-polynomial evaluation.
-pub const PT100_TEMPERATURE_ORIGIN_K: f32 = 2.731500000e+02_f32;
-/// Lower-end inverse tangent in `K/ohm`.
-pub const PT100_MIN_EXTRAPOLATION_SLOPE_K_PER_OHM: f32 = 2.313020083e+00_f32;
-/// Upper-end inverse tangent in `K/ohm`.
-pub const PT100_MAX_EXTRAPOLATION_SLOPE_K_PER_OHM: f32 = 3.416992705e+00_f32;
-/// Ascending normalized-power coefficients in `degC` with shape `(degree + 1,)`.
-pub const PT100_INVERSE_COEFFICIENTS_C: [f32; 11] = [
-    2.788731079e+02_f32,
-    5.186333618e+02_f32,
-    4.325422668e+01_f32,
-    6.534585953e+00_f32,
-    2.467815638e+00_f32,
-    4.023543358e+00_f32,
-    -4.877301216e+00_f32,
-    -6.034164429e+00_f32,
-    8.759303093e+00_f32,
-    1.838831186e+00_f32,
-    -3.480179787e+00_f32,
+/// Inverse-spline regular-grid step in `ohm`.
+pub const PT100_INVERSE_STEP_OHM: f32 = 1.859805298e+01_f32;
+/// Inverse-spline coefficients in `K` with shape `(n_grid,)`.
+#[cfg_attr(
+    all(target_os = "none", feature = "tcm"),
+    unsafe(link_section = ".dtcm.rtd_pt100.tables")
+)]
+pub static PT100_INVERSE_COEFFICIENTS_K: [f32; 21] = [
+    7.291426086e+01_f32,
+    1.166801376e+02_f32,
+    1.618114014e+02_f32,
+    2.079618683e+02_f32,
+    2.549527435e+02_f32,
+    3.026159058e+02_f32,
+    3.509649658e+02_f32,
+    4.000315247e+02_f32,
+    4.498485107e+02_f32,
+    5.004512939e+02_f32,
+    5.518784180e+02_f32,
+    6.041713257e+02_f32,
+    6.573755493e+02_f32,
+    7.115399170e+02_f32,
+    7.667192383e+02_f32,
+    8.229712524e+02_f32,
+    8.803637695e+02_f32,
+    9.389639282e+02_f32,
+    9.988609009e+02_f32,
+    1.060126709e+03_f32,
+    1.122895874e+03_f32,
 ];

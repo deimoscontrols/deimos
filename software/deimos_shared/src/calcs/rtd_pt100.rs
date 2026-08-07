@@ -1,10 +1,11 @@
 //! Compact IEC 60751 Pt100 conversion functions.
 //!
 //! The forward direction evaluates the Callendar-Van Dusen (CVD) equation
-//! directly. The inverse direction uses one degree-10 polynomial fitted to the
-//! CVD curve over the standard `-200 degC` to `850 degC` range. The emitted
-//! `f32` inverse was checked for monotonicity and for a maximum temperature
-//! error of `0.01 K`; [`crate::calcs`] contains the generated coefficients.
+//! directly. The inverse direction uses one 21-coefficient regular cubic
+//! B-spline fitted to the CVD curve over the standard `-200 degC` to `850 degC`
+//! range. The emitted `f32` inverse was checked for monotonicity and for a
+//! maximum temperature error of `0.01 K`; [`crate::calcs`] contains the
+//! generated coefficients.
 //!
 //! # References
 //!
@@ -15,9 +16,10 @@ mod data {
     include!("rtd_pt100_data.rs");
 }
 
-use data::*;
+use data::{PT100_INVERSE_COEFFICIENTS_K, PT100_INVERSE_STEP_OHM};
+pub use data::{PT100_MAX_RESISTANCE_OHM, PT100_MIN_RESISTANCE_OHM};
 
-const ZERO_C_K: f32 = PT100_TEMPERATURE_ORIGIN_K;
+const ZERO_C_K: f32 = 273.15;
 const R0_OHM: f32 = 100.0;
 const A: f32 = 3.9083e-3;
 const B: f32 = -5.775e-7;
@@ -51,48 +53,31 @@ pub fn pt100_resistance_ohm_f32(temperature_k: f32) -> f32 {
     R0_OHM * (1.0 + A * temperature_c + B * temperature_c_2 + negative_term)
 }
 
-/// Converts Pt100 resistance to temperature with one prevalidated global polynomial.
+/// Converts Pt100 resistance to temperature with one prevalidated regular B-spline.
 ///
-/// The supported IEC range uses one normalized power-basis polynomial and one
-/// fixed Horner chain, with no range partition or iterative solve. Finite values
-/// outside that range use the exact CVD inverse endpoint tangent. NaN propagates;
-/// infinite resistance extrapolates to the corresponding infinite temperature.
+/// Each in-range evaluation uses four neighboring coefficients from one
+/// 21-point regular grid. Values outside the supported IEC range use
+/// `interpn`'s linearized spline extrapolation. NaN and infinite coordinates
+/// return `NaN` because they cannot identify a finite spline cell.
 ///
 /// Args:
 ///   resistance_ohm: Pt100 resistance scalar in `ohm`.
 ///
 /// Returns:
 ///   Absolute temperature scalar in `K`. The maximum fitted-range error of the
-///   emitted `f32` evaluator is `0.01 K`.
+///   emitted `f32` evaluator is `0.0082 K`.
 ///
 /// References:
 ///   \[1\] IEC 60751, *Industrial platinum resistance thermometers and
 ///   platinum temperature sensors*.
 #[inline]
 pub fn pt100_temperature_k_f32(resistance_ohm: f32) -> f32 {
-    #[inline]
-    fn inside(resistance_ohm: f32) -> f32 {
-        let normalized = (resistance_ohm - PT100_RESISTANCE_ORIGIN_OHM) * PT100_RESISTANCE_SCALE;
-        let mut temperature_c =
-            PT100_INVERSE_COEFFICIENTS_C[PT100_INVERSE_COEFFICIENTS_C.len() - 1];
-        for &coefficient in PT100_INVERSE_COEFFICIENTS_C[..PT100_INVERSE_COEFFICIENTS_C.len() - 1]
-            .iter()
-            .rev()
-        {
-            temperature_c = temperature_c * normalized + coefficient;
-        }
-        temperature_c + PT100_TEMPERATURE_ORIGIN_K
-    }
-
-    if resistance_ohm < PT100_MIN_RESISTANCE_OHM {
-        inside(PT100_MIN_RESISTANCE_OHM)
-            + PT100_MIN_EXTRAPOLATION_SLOPE_K_PER_OHM * (resistance_ohm - PT100_MIN_RESISTANCE_OHM)
-    } else if resistance_ohm > PT100_MAX_RESISTANCE_OHM {
-        inside(PT100_MAX_RESISTANCE_OHM)
-            + PT100_MAX_EXTRAPOLATION_SLOPE_K_PER_OHM * (resistance_ohm - PT100_MAX_RESISTANCE_OHM)
-    } else {
-        inside(resistance_ohm)
-    }
+    super::interpolate_regular_bspline(
+        resistance_ohm,
+        PT100_MIN_RESISTANCE_OHM,
+        PT100_INVERSE_STEP_OHM,
+        &PT100_INVERSE_COEFFICIENTS_K,
+    )
 }
 
 #[cfg(test)]
@@ -112,7 +97,7 @@ mod tests {
     }
 
     #[test]
-    fn global_inverse_stays_within_temperature_error_limit() {
+    fn spline_inverse_stays_within_temperature_error_limit() {
         let mut max_error = 0.0_f64;
         for index in 0..=1_050_000 {
             let temperature_c = -200.0 + index as f64 / 1000.0;
@@ -124,7 +109,7 @@ mod tests {
     }
 
     #[test]
-    fn global_inverse_is_monotonic_and_extrapolates_with_endpoint_tangents() {
+    fn spline_inverse_is_monotonic_and_extrapolates_linearly() {
         let mut previous = pt100_temperature_k_f32(PT100_MIN_RESISTANCE_OHM);
         for index in 1..=1_000_000 {
             let resistance = PT100_MIN_RESISTANCE_OHM
@@ -136,17 +121,15 @@ mod tests {
         }
 
         let delta = 0.25_f32;
+        let below_twice = pt100_temperature_k_f32(PT100_MIN_RESISTANCE_OHM - 2.0 * delta);
         let below = pt100_temperature_k_f32(PT100_MIN_RESISTANCE_OHM - delta);
         let at_minimum = pt100_temperature_k_f32(PT100_MIN_RESISTANCE_OHM);
-        assert!(
-            ((at_minimum - below) / delta - PT100_MIN_EXTRAPOLATION_SLOPE_K_PER_OHM).abs() < 1.0e-4
-        );
+        assert!(((at_minimum - below) - (below - below_twice)).abs() < 1.0e-4);
 
         let at_maximum = pt100_temperature_k_f32(PT100_MAX_RESISTANCE_OHM);
         let above = pt100_temperature_k_f32(PT100_MAX_RESISTANCE_OHM + delta);
-        assert!(
-            ((above - at_maximum) / delta - PT100_MAX_EXTRAPOLATION_SLOPE_K_PER_OHM).abs() < 1.0e-4
-        );
+        let above_twice = pt100_temperature_k_f32(PT100_MAX_RESISTANCE_OHM + 2.0 * delta);
+        assert!(((above - at_maximum) - (above_twice - above)).abs() < 1.0e-4);
     }
 
     #[test]
@@ -154,11 +137,8 @@ mod tests {
         assert!(pt100_resistance_ohm_f32(f32::NAN).is_nan());
         assert!(pt100_resistance_ohm_f32(f32::INFINITY).is_nan());
         assert!(pt100_temperature_k_f32(f32::NAN).is_nan());
-        assert_eq!(pt100_temperature_k_f32(f32::INFINITY), f32::INFINITY);
-        assert_eq!(
-            pt100_temperature_k_f32(f32::NEG_INFINITY),
-            f32::NEG_INFINITY
-        );
+        assert!(pt100_temperature_k_f32(f32::INFINITY).is_nan());
+        assert!(pt100_temperature_k_f32(f32::NEG_INFINITY).is_nan());
     }
 
     #[test]

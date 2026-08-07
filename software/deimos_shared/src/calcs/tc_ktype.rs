@@ -21,8 +21,6 @@ mod data {
     include!("tc_ktype_data.rs");
 }
 
-use interpn::MultiBsplineRegular;
-
 use data::{
     TC_FORWARD_COEFFICIENTS_V, TC_FORWARD_STEP_K, TC_INVERSE_COEFFICIENTS_K, TC_INVERSE_STEP_V,
 };
@@ -30,35 +28,6 @@ pub use data::{
     TC_SPLINE_MAX_TEMPERATURE_K, TC_SPLINE_MAX_VOLTAGE_V, TC_SPLINE_MIN_TEMPERATURE_K,
     TC_SPLINE_MIN_VOLTAGE_V,
 };
-
-/// Evaluates one precomputed regular B-spline with the shared `interpn` runtime.
-///
-/// Args:
-///   value: Scalar spline coordinate in input units.
-///   start: Coordinate of the first regular-grid node in input units.
-///   step: Regular-grid spacing in input units.
-///   coefficients: Precomputed `interpn` B-spline coefficients with shape
-///     `(n_grid,)` in output units.
-///
-/// Returns:
-///   Interpolated scalar in coefficient units, or `NaN` when `interpn` cannot
-///   represent the supplied coordinate.
-#[inline]
-fn interpolate_regular_bspline(value: f32, start: f32, step: f32, coefficients: &[f32]) -> f32 {
-    let Ok(interpolator) = MultiBsplineRegular::<f32, 1>::new(
-        [coefficients.len()],
-        [start],
-        [step],
-        coefficients,
-        true,
-    ) else {
-        // Generated dimensions and steps are validated by tests and fixed in
-        // the firmware image. Preserve a branchless downstream error value
-        // instead of retaining a panic path in every engineering conversion.
-        return f32::NAN;
-    };
-    interpolator.interp_one([value]).unwrap_or(f32::NAN)
-}
 
 /// Converts a type-K junction temperature to its NIST-equivalent voltage.
 ///
@@ -76,7 +45,7 @@ fn interpolate_regular_bspline(value: f32, start: f32, step: f32, coefficients: 
 ///   doi: 10.6028/NIST.MONO.175.
 #[inline]
 pub fn ktype_voltage_v_f32(temperature_k: f32) -> f32 {
-    interpolate_regular_bspline(
+    super::interpolate_regular_bspline(
         temperature_k,
         TC_SPLINE_MIN_TEMPERATURE_K,
         TC_FORWARD_STEP_K,
@@ -100,7 +69,7 @@ pub fn ktype_voltage_v_f32(temperature_k: f32) -> f32 {
 ///   doi: 10.6028/NIST.MONO.175.
 #[inline]
 pub fn ktype_temperature_k_f32(voltage_v: f32) -> f32 {
-    interpolate_regular_bspline(
+    super::interpolate_regular_bspline(
         voltage_v,
         TC_SPLINE_MIN_VOLTAGE_V,
         TC_INVERSE_STEP_V,

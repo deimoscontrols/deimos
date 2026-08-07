@@ -13,9 +13,9 @@ The emitted Rust data uses `f32`, so acceptance checks emulate the operation
 rounding of the firmware evaluator rather than validating only the fitted
 `f64` coefficients.
 
-The Pt100 inverse covers -200 to 850 degC with one degree-10 power-basis
-polynomial in normalized resistance. Outside that domain, the runtime extends
-the fitted endpoint value using the exact Callendar-Van Dusen inverse tangent.
+The Pt100 inverse covers -200 to 850 degC with a 20-span, 21-coefficient regular
+cubic B-spline. Outside that domain, the runtime uses `interpn`'s linearized
+spline extrapolation.
 The type-K forward and inverse functions cover -210 to 1370 degC with regular
 cubic B-splines evaluated by `interpn.MultiBsplineRegular`, including its
 zero-third-derivative ghost-coefficient boundary convention and linearized
@@ -34,9 +34,9 @@ the 0.01 K requirement.
 With the pinned dependencies and current candidate sets, the checked-in output
 has these validation results:
 
-- Pt100 inverse: 0.00687762455 K maximum emitted-`f32` error,
-  0.00229908148 K RMS error, 2.31355746 K/ohm minimum derivative, and
-  0.00692773438 K maximum forward/inverse round-trip error.
+- Pt100 inverse: 20 spans and 21 coefficients, 0.00817281084 K maximum
+  emitted-`f32` error, 0.000957064949 K RMS error, 2.31654215 K/ohm minimum
+  derivative, and 0.00816955566 K maximum forward/inverse round-trip error.
 - Type-K forward: 96 spans and 97 coefficients, 0.00902214996 K-equivalent
   maximum emitted-`f32` error, and 0.000404292087 K-equivalent RMS error.
 - Type-K inverse: 544 spans and 545 coefficients, 0.00911102295 K maximum
@@ -78,6 +78,7 @@ RTD_R0_OHM = 100.0
 RTD_A = 3.9083e-3
 RTD_B = -5.775e-7
 RTD_C = -4.183e-12
+RTD_SPLINE_INTERVALS = 20
 
 TC_MIN_C = -210.0
 TC_MAX_C = 1370.0
@@ -198,23 +199,6 @@ def pt100_resistance_ohm(temperature_c):
 
 RTD_MIN_R = float(pt100_resistance_ohm(RTD_MIN_C))
 RTD_MAX_R = float(pt100_resistance_ohm(RTD_MAX_C))
-RTD_RESISTANCE_ORIGIN = (RTD_MIN_R + RTD_MAX_R) / 2.0
-RTD_RESISTANCE_SCALE = 2.0 / (RTD_MAX_R - RTD_MIN_R)
-
-
-def pt100_inverse_tangent_k_per_ohm(temperature_c):
-    """Evaluate the local slope of the exact inverse Pt100 curve.
-
-    Args:
-        temperature_c: Temperature scalar in `degC`.
-
-    Returns:
-        Inverse-curve tangent scalar in `K/ohm`.
-    """
-    derivative = RTD_A + 2.0 * RTD_B * temperature_c
-    if temperature_c < 0.0:
-        derivative += RTD_C * temperature_c**2 * (4.0 * temperature_c - 300.0)
-    return 1.0 / (RTD_R0_OHM * derivative)
 
 
 def spline_from_coefficients(value_min, value_max, coefficients):
@@ -432,136 +416,98 @@ def strict_derivative_minimum(value_min, value_max, intervals, interpolator):
     return best
 
 
-def evaluate_rtd_polynomial(resistance_ohm, coefficients, emulate_f32):
-    """Evaluate the fitted global Pt100 inverse and endpoint extrapolation.
-
-    Args:
-        resistance_ohm: Pt100 resistance scalar in `ohm`.
-        coefficients: Ascending power-basis coefficients in `degC` with shape
-            `(degree + 1,)`.
-        emulate_f32: Whether to round every evaluator operation to `f32`.
-
-    Returns:
-        Absolute temperature scalar in `K`.
-    """
-    dtype = np.float32 if emulate_f32 else float
-    resistance = dtype(resistance_ohm)
-    origin = dtype(RTD_RESISTANCE_ORIGIN)
-    scale = dtype(RTD_RESISTANCE_SCALE)
-    coefficients = np.asarray(coefficients, dtype=dtype)
-    minimum = dtype(RTD_MIN_R)
-    maximum = dtype(RTD_MAX_R)
-
-    def inside(value):
-        normalized = dtype((value - origin) * scale)
-        output = dtype(coefficients[-1])
-        for coefficient in coefficients[-2::-1]:
-            output = dtype(output * normalized + coefficient)
-        return dtype(output + dtype(ZERO_C_K))
-
-    if resistance < minimum:
-        slope = dtype(pt100_inverse_tangent_k_per_ohm(RTD_MIN_C))
-        return dtype(inside(minimum) + slope * (resistance - minimum))
-    if resistance > maximum:
-        slope = dtype(pt100_inverse_tangent_k_per_ohm(RTD_MAX_C))
-        return dtype(inside(maximum) + slope * (resistance - maximum))
-    return inside(resistance)
-
-
 def fit_rtd_inverse():
-    """Fit and validate the lowest-degree acceptable global Pt100 inverse.
+    """Fit and validate the fixed 21-coefficient Pt100 inverse B-spline.
 
-    Candidate polynomials are fit in a normalized resistance coordinate, then
-    validated against local error maxima after conversion to the exact emitted
-    `f32` coefficients. The selected polynomial must also remain strictly
-    monotonic over the IEC 60751 range.
+    The fit and emitted runtime share `interpn`'s regular cubic B-spline basis
+    and linearized extrapolation convention. Both `f64` and emitted-`f32`
+    coefficients are validated against locally optimized error maxima, and the
+    emitted spline must remain strictly monotonic over the IEC 60751 range.
 
     Returns:
-        Mapping containing polynomial degree, coefficients with shape
-        `(degree + 1,)`, scalar error metrics in `K`, and minimum derivative in
-        `K/ohm`.
+        Mapping containing the interval count, coefficients with shape
+        `(RTD_SPLINE_INTERVALS + 1,)`, regular-grid step in `ohm`, scalar error
+        metrics in `K`, and minimum derivative in `K/ohm`.
 
     Raises:
-        RuntimeError: No candidate meets the `0.01 K` error requirement or the
-        selected polynomial is not strictly monotonic.
+        RuntimeError: The spline exceeds the `0.01 K` error requirement or is
+        not strictly monotonic.
     """
     temperatures = np.linspace(RTD_MIN_C, RTD_MAX_C, 2_000_001)
     resistances = pt100_resistance_ohm(temperatures)
-    normalized = (resistances - RTD_RESISTANCE_ORIGIN) * RTD_RESISTANCE_SCALE
-    edges = pt100_resistance_ohm(np.linspace(RTD_MIN_C, RTD_MAX_C, 106))
+    reference_temperatures_k = temperatures + ZERO_C_K
 
-    selected = None
-    for degree in range(5, 21):
-        chebyshev = np.polynomial.chebyshev.chebfit(normalized, temperatures, degree)
-        power_f64 = np.polynomial.chebyshev.cheb2poly(chebyshev)
-        power_f32 = power_f64.astype(np.float32)
+    def reference(resistance):
+        return np.interp(resistance, resistances, reference_temperatures_k)
 
-        def f32_error(resistance):
-            reference_c = brentq(
-                lambda temperature: (
-                    float(pt100_resistance_ohm(temperature)) - resistance
-                ),
-                RTD_MIN_C,
-                RTD_MAX_C,
-                xtol=1e-13,
-            )
-            return float(evaluate_rtd_polynomial(resistance, power_f32, True)) - (
-                reference_c + ZERO_C_K
-            )
+    coefficients_f64 = fit_regular_bspline(
+        reference,
+        RTD_MIN_R,
+        RTD_MAX_R,
+        RTD_SPLINE_INTERVALS,
+    )
+    coefficients_f32 = coefficients_f64.astype(np.float32)
+    spline_f64 = spline_from_coefficients(RTD_MIN_R, RTD_MAX_R, coefficients_f64)
+    spline_f32 = spline_from_coefficients(RTD_MIN_R, RTD_MAX_R, coefficients_f32)
+    edges = np.linspace(RTD_MIN_R, RTD_MAX_R, RTD_SPLINE_INTERVALS + 1)
 
-        f32_max = validate_local_maxima(
-            f32_error,
-            edges,
-            explicit_points=(RTD_MIN_R, 100.0, RTD_MAX_R),
-        )
-        if f32_max[0] <= ACCEPTANCE_ERROR_K:
-            selected = (degree, power_f64, power_f32, f32_max)
-            break
-    if selected is None:
-        raise RuntimeError("No global Pt100 inverse polynomial met the error limit")
-
-    degree, power_f64, power_f32, f32_max = selected
-
-    def f64_error(resistance):
+    def exact_temperature_k(resistance):
         reference_c = brentq(
             lambda temperature: float(pt100_resistance_ohm(temperature)) - resistance,
             RTD_MIN_C,
             RTD_MAX_C,
             xtol=1e-13,
         )
-        return float(evaluate_rtd_polynomial(resistance, power_f64, False)) - (
-            reference_c + ZERO_C_K
+        return reference_c + ZERO_C_K
+
+    def error(interpolator, resistance):
+        return evaluate_spline_scalar(interpolator, resistance) - exact_temperature_k(
+            resistance
         )
 
     f64_max = validate_local_maxima(
-        f64_error,
+        lambda resistance: error(spline_f64, resistance),
         edges,
         explicit_points=(RTD_MIN_R, 100.0, RTD_MAX_R),
     )
-
-    calculated = np.array(
-        [evaluate_rtd_polynomial(value, power_f32, True) for value in resistances[::20]]
+    f32_max = validate_local_maxima(
+        lambda resistance: error(spline_f32, resistance),
+        edges,
+        explicit_points=(RTD_MIN_R, 100.0, RTD_MAX_R),
     )
-    reference = temperatures[::20] + ZERO_C_K
-    errors = calculated.astype(float) - reference
+    if f64_max[0] > MAX_TEMPERATURE_ERROR_K or f32_max[0] > ACCEPTANCE_ERROR_K:
+        raise RuntimeError(
+            f"Pt100 spline strict error exceeds limit: f64={f64_max}, f32={f32_max}"
+        )
 
-    derivative_coefficients = np.arange(1, len(power_f32)) * power_f32[1:]
-    derivative_values = np.polynomial.polynomial.polyval(
-        np.linspace(-1.0, 1.0, 1_000_001), derivative_coefficients
-    ) * np.float32(RTD_RESISTANCE_SCALE)
-    derivative_min = float(np.min(derivative_values))
-    if derivative_min <= 0.0:
-        raise RuntimeError("Generated Pt100 inverse is not monotonic")
+    derivative_min = strict_derivative_minimum(
+        RTD_MIN_R,
+        RTD_MAX_R,
+        RTD_SPLINE_INTERVALS,
+        spline_f32,
+    )
+    if derivative_min[0] <= 0.0:
+        raise RuntimeError(
+            f"Generated Pt100 inverse is not monotonic: {derivative_min}"
+        )
 
-    roundtrip_error = np.max(np.abs(errors))
+    validation_resistances = np.asarray(resistances[::20], dtype=np.float32)
+    calculated = evaluate_spline_array(spline_f32, validation_resistances)
+    expected = reference_temperatures_k[::20]
+    errors = calculated.astype(float) - expected
+
     return {
-        "degree": degree,
-        "power_f32": power_f32,
+        "intervals": RTD_SPLINE_INTERVALS,
+        "coefficients_f32": coefficients_f32,
+        "step": np.float32(
+            (np.float32(RTD_MAX_R) - np.float32(RTD_MIN_R))
+            / np.float32(RTD_SPLINE_INTERVALS)
+        ),
         "f64_max": f64_max,
         "f32_max": f32_max,
         "rms": float(np.sqrt(np.mean(errors**2))),
-        "derivative_min": derivative_min,
-        "roundtrip": float(roundtrip_error),
+        "derivative_min": derivative_min[0],
+        "roundtrip": float(np.max(np.abs(errors))),
     }
 
 
@@ -722,34 +668,19 @@ def write_rtd_data(result):
     generated += f"pub const PT100_MIN_RESISTANCE_OHM: f32 = {RTD_MIN_R:.9e}_f32;\n"
     generated += "/// Maximum fitted Pt100 resistance in `ohm`.\n"
     generated += f"pub const PT100_MAX_RESISTANCE_OHM: f32 = {RTD_MAX_R:.9e}_f32;\n"
-    generated += (
-        "/// Resistance origin in `ohm` for the normalized inverse coordinate.\n"
+    generated += "/// Inverse-spline regular-grid step in `ohm`.\n"
+    generated += f"pub const PT100_INVERSE_STEP_OHM: f32 = {result['step']:.9e}_f32;\n"
+    generated += "/// Inverse-spline coefficients in `K` with shape `(n_grid,)`.\n"
+    generated += format_array(
+        "PT100_INVERSE_COEFFICIENTS_K",
+        result["coefficients_f32"],
+        declaration="static",
+        attributes="""#[cfg_attr(
+    all(target_os = "none", feature = "tcm"),
+    unsafe(link_section = ".dtcm.rtd_pt100.tables")
+)]
+""",
     )
-    generated += (
-        f"pub const PT100_RESISTANCE_ORIGIN_OHM: f32 = "
-        f"{RTD_RESISTANCE_ORIGIN:.9e}_f32;\n"
-    )
-    generated += "/// Scale in `1/ohm` for the normalized inverse coordinate.\n"
-    generated += (
-        f"pub const PT100_RESISTANCE_SCALE: f32 = {RTD_RESISTANCE_SCALE:.9e}_f32;\n"
-    )
-    generated += "/// Kelvin offset applied after inverse-polynomial evaluation.\n"
-    generated += f"pub const PT100_TEMPERATURE_ORIGIN_K: f32 = {ZERO_C_K:.9e}_f32;\n"
-    generated += "/// Lower-end inverse tangent in `K/ohm`.\n"
-    generated += (
-        "pub const PT100_MIN_EXTRAPOLATION_SLOPE_K_PER_OHM: f32 = "
-        f"{pt100_inverse_tangent_k_per_ohm(RTD_MIN_C):.9e}_f32;\n"
-    )
-    generated += "/// Upper-end inverse tangent in `K/ohm`.\n"
-    generated += (
-        "pub const PT100_MAX_EXTRAPOLATION_SLOPE_K_PER_OHM: f32 = "
-        f"{pt100_inverse_tangent_k_per_ohm(RTD_MAX_C):.9e}_f32;\n"
-    )
-    generated += (
-        "/// Ascending normalized-power coefficients in `degC` with shape "
-        "`(degree + 1,)`.\n"
-    )
-    generated += format_array("PT100_INVERSE_COEFFICIENTS_C", result["power_f32"])
     RTD_OUTPUT.write_text(generated)
 
 
@@ -840,7 +771,8 @@ def main():
     write_tc_data(forward, inverse)
 
     print(
-        f"Pt100 degree={rtd['degree']}, max f32 error={rtd['f32_max'][0]:.9g} K, "
+        f"Pt100 coefficients={rtd['intervals'] + 1}, "
+        f"max f32 error={rtd['f32_max'][0]:.9g} K, "
         f"RMS={rtd['rms']:.9g} K, "
         f"minimum derivative={rtd['derivative_min']:.9g} K/ohm, "
         f"round trip={rtd['roundtrip']:.9g} K"

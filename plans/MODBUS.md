@@ -95,8 +95,8 @@ evaluation:
 - K-type voltage/temperature conversions use offline-fitted regular-grid cubic
   B-splines evaluated by `interpn`.
 - The Pt100 forward function uses the IEC 60751 Callendar-Van Dusen equation.
-- The realtime Pt100 inverse uses one global polynomial rather than a runtime
-  root solve or range-partitioned functions.
+- The realtime Pt100 inverse uses one 21-coefficient regular cubic B-spline
+  rather than a runtime root solve or long global polynomial dependency chain.
 - Finite values outside fitted ranges use endpoint-tangent linear
   extrapolation.
 
@@ -104,7 +104,7 @@ The generated fits are validated with per-span local error maximization rather
 than only a dense grid. The accepted maximum temperature or
 temperature-equivalent error is 0.01 K. Recorded worst cases are 0.00902215 K
 for K-type temperature-to-voltage, 0.00911102 K for voltage-to-temperature, and
-0.00687762 K for the global Pt100 inverse. All accepted fits are monotonic over
+0.00817281 K for the Pt100 inverse. All accepted fits are monotonic over
 their supported domains.
 
 The calibration image is a 145-byte shared `ByteStruct` containing one
