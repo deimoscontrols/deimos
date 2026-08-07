@@ -27,6 +27,9 @@ pub use tc_ktype::*;
 ///   represent the supplied coordinate.
 #[inline]
 fn interpolate_regular_bspline(value: f32, start: f32, step: f32, coefficients: &[f32]) -> f32 {
+    // Although this constructor appears in the realtime path, optimization
+    // eliminates its validation for our compile-time spline metadata; it only
+    // materializes the small descriptor consumed by `interp_one`.
     let Ok(interpolator) = MultiBsplineRegular::<f32, 1>::new(
         [coefficients.len()],
         [start],
