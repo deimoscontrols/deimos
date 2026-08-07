@@ -1,4 +1,4 @@
-//! Scheduling, timestamp, and counter arithmetic for rev7 synchronous acquisition.
+//! Scheduling, timestamp, and counter arithmetic for synchronous acquisition.
 //!
 //! The firmware uses SysTick as both the communication-cycle boundary and the
 //! counter within each sample interval. This module contains the

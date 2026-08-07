@@ -1,5 +1,4 @@
-//! Shared protocol, sampling, calibration, and calculation definitions for the
-//! Deimos DAQ rev7 peripheral.
+//! Shared protocol, sampling, calibration, and calculation definitions.
 //!
 //! Feature logic is grouped into [packets], [filters], [uncertainty],
 //! [modbus], [timing], and [calc]. The complete Modbus/TCP register map is
@@ -19,10 +18,7 @@ pub use packets::*;
 pub use timing::*;
 pub use uncertainty::*;
 
-/// Backward-compatible name for the rev7 timing module.
-pub use timing as acquisition;
-
-/// Backward-compatible namespace for Deimos operating packet definitions.
+/// Namespace for Deimos operating packet definitions.
 pub mod operating_roundtrip {
     pub use byte_struct::{ByteStruct, ByteStructLen, ByteStructUnspecifiedByteOrder};
 
@@ -38,43 +34,43 @@ mod tests;
 
 use super::model_numbers;
 
-/// Rev7 model number.
+/// Peripheral model number.
 pub const MODEL_NUMBER: super::ModelNumber = model_numbers::DEIMOS_DAQ_REV_7_MODEL_NUMBER;
 
-/// Number of ADC channels reported by deimos DAQ rev7.
+/// Number of reported ADC channels.
 pub const ADC_CHANNEL_COUNT: usize = 18;
 
-/// Number of rev7 ADC low-pass filters, one per reported ADC channel.
+/// Number of ADC low-pass filters, one per reported ADC channel.
 pub const ADC_FILTER_COUNT: usize = ADC_CHANNEL_COUNT;
 
-/// Number of unrolled counter channels reported by deimos DAQ rev7.
+/// Number of reported unrolled counter channels.
 pub const COUNTER_CHANNEL_COUNT: usize = 2;
 
-/// Number of frequency-measurement channels reported by deimos DAQ rev7.
+/// Number of reported frequency-measurement channels.
 pub const FREQUENCY_CHANNEL_COUNT: usize = 2;
 
-/// Number of PWM output channels accepted by deimos DAQ rev7.
+/// Number of accepted PWM output channels.
 pub const PWM_CHANNEL_COUNT: usize = 4;
 
-/// Number of DAC output channels accepted by deimos DAQ rev7.
+/// Number of accepted DAC output channels.
 pub const DAC_CHANNEL_COUNT: usize = 2;
 
-/// Number of digital output bits accepted by deimos DAQ rev7.
+/// Number of accepted digital output bits.
 pub const DIGITAL_OUTPUT_COUNT: usize = 4;
 
-/// Number of digital input bits reported by deimos DAQ rev7.
+/// Number of reported digital input bits.
 pub const DIGITAL_INPUT_COUNT: usize = 2;
 
-/// Number of rev7 4-20 mA measurement channels.
+/// Number of 4-20 mA measurement channels.
 pub const CURRENT_4_20_CHANNEL_COUNT: usize = 4;
 
-/// Number of rev7 resistance/RTD measurement channels.
+/// Number of resistance/RTD measurement channels.
 pub const RTD_CHANNEL_COUNT: usize = 3;
 
-/// Number of rev7 thermocouple measurement channels.
+/// Number of thermocouple measurement channels.
 pub const THERMOCOUPLE_CHANNEL_COUNT: usize = 2;
 
-/// Number of rev7 voltage measurement channels.
+/// Number of voltage measurement channels.
 pub const VOLTAGE_CHANNEL_COUNT: usize = 6;
 
 /// Slowest supported publishing rate in `cycle/s` in either protocol mode.
@@ -150,7 +146,7 @@ const _: () = assert!(
 /// ADC and DAC voltage reference.
 pub const VREF: f32 = 2.5;
 
-/// Rev7 ADC low-pass filters are second-order Butterworth filters.
+/// ADC low-pass filters are second-order Butterworth filters.
 pub const ADC_FILTER_ORDER: usize = 2;
 
 /// A second-order low-pass Butterworth design has one second-order section.
@@ -161,10 +157,10 @@ pub const ADC_FILTER_MAX_CUTOFF_RATIO: f64 = 0.4;
 
 const _: () = assert!(ADC_IIR_CUTOFF_TO_REPORT_RATE <= ADC_FILTER_MAX_CUTOFF_RATIO * 2.0);
 
-/// Rev7 ADC fractional-delay filters use third-order Lagrange FIR interpolation.
+/// ADC fractional-delay filters use third-order Lagrange FIR interpolation.
 pub const ADC_FRACTIONAL_DELAY_FILTER_TAPS: usize = 3;
 
-/// ADC clock used for rev7 ADC conversion timing.
+/// ADC clock used for ADC conversion timing.
 pub const ADC_CLOCK_HZ: f64 = 50_000_000.0;
 
 /// ADC sample-and-hold duration in ADC clock cycles.
@@ -213,7 +209,7 @@ const RTD_FRONTEND_GAIN: f32 = 25.7;
 const TC_FRONTEND_GAIN: f32 = 25.7;
 const TC_FRONTEND_OFFSET_V: f32 = 1.024;
 
-/// Rev7 analog front-end low-pass filter variants, ordered by reported ADC channel.
+/// Analog front-end low-pass filter variants, ordered by reported ADC channel.
 ///
 /// The channel order is `ain0..ain12` followed by `ain15..ain19`.
 pub const ADC_ANALOG_FRONTEND_FILTER_KINDS: [AdcAnalogFrontendFilterKind; ADC_CHANNEL_COUNT] = [

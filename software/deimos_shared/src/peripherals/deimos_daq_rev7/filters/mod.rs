@@ -1,4 +1,4 @@
-//! Rev7 sampling policy and measurement-filter construction.
+//! Sampling policy and measurement-filter construction.
 
 use super::{ADC_IIR_CUTOFF_TO_REPORT_RATE, ADC_OVERSAMPLE_TARGET_RATE_HZ};
 
@@ -22,7 +22,7 @@ pub enum AdcSamplingMode {
     Direct,
 }
 
-/// Derived rev7 sampling and filtering parameters.
+/// Derived sampling and filtering parameters.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AdcSamplingPolicy {
     /// Selected synchronous acquisition topology.
@@ -37,7 +37,7 @@ pub struct AdcSamplingPolicy {
     pub iir_cutoff_ratio: Option<f64>,
 }
 
-/// Derive the rev7 ADC samplerate and filter cutoff from a reporting cycle rate.
+/// Derive the ADC samplerate and filter cutoff from a reporting cycle rate.
 ///
 /// The integer part of [`super::ADC_OVERSAMPLE_TARGET_HZ`] divided by the
 /// reporting rate determines the sample count. Two or more samples use the ADC
@@ -84,7 +84,7 @@ pub fn adc_sampling_policy(cycle_rate_hz: f64) -> Option<AdcSamplingPolicy> {
     })
 }
 
-/// Rev7 analog front-end filter variant for one reported ADC voltage channel.
+/// Analog front-end filter variant for one reported ADC voltage channel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AdcAnalogFrontendFilterKind {
     /// No analog low-pass filter is modeled for this channel.

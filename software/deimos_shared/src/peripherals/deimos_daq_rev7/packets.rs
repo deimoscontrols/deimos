@@ -1,6 +1,6 @@
-//! Rev7 setup packets and calibration image records.
+//! Setup packets and calibration image records.
 //!
-//! This module contains the rev7 binding, configuration, and operating packet
+//! This module contains the binding, configuration, and operating packet
 //! definitions.
 
 mod operating;
@@ -15,7 +15,7 @@ use crate::{
     states::{AcknowledgeConfiguration, ConfiguringInput as BaseConfiguringInput},
 };
 
-/// Rev7-specific binding request. Older hardware continues to use the generic request.
+/// Device-specific binding request.
 ///
 /// Fields are serialized contiguously in little-endian order.
 #[derive(ByteStruct, Clone, Copy, Debug, Default)]
@@ -28,14 +28,14 @@ pub struct BindingInput {
 }
 
 impl BindingInput {
-    /// Builds a binding request with the required rev7 packet marker.
+    /// Builds a binding request with the required packet marker.
     ///
     /// Args:
     ///   configuring_timeout_ms: Maximum configuring-state inactivity
     ///     duration in `ms`.
     ///
     /// Returns:
-    ///   Initialized rev7 binding request.
+    ///   Initialized binding request.
     pub fn new(configuring_timeout_ms: u16) -> Self {
         Self {
             magic: super::BINDING_INPUT_MAGIC,
@@ -52,7 +52,7 @@ impl BindingInput {
     }
 }
 
-/// Rev7-specific binding response.
+/// Device-specific binding response.
 ///
 /// Fields are serialized contiguously in little-endian order.
 #[derive(ByteStruct, Clone, Copy, Debug, Default)]
@@ -65,13 +65,13 @@ pub struct BindingOutput {
 }
 
 impl BindingOutput {
-    /// Builds a binding response with the required rev7 packet marker.
+    /// Builds a binding response with the required packet marker.
     ///
     /// Args:
     ///   peripheral_id: Model and serial-number identity of the board.
     ///
     /// Returns:
-    ///   Initialized rev7 binding response.
+    ///   Initialized binding response.
     pub fn new(peripheral_id: PeripheralId) -> Self {
         Self {
             magic: super::BINDING_OUTPUT_MAGIC,
@@ -79,18 +79,18 @@ impl BindingOutput {
         }
     }
 
-    /// Checks the packet marker and rev7 model number.
+    /// Checks the packet marker and model number.
     ///
     /// Returns:
-    ///   `true` when the response is marked as a rev7 binding response and
-    ///   identifies a rev7 board.
+    ///   `true` when the response has the expected marker and identifies this
+    ///   board model.
     pub fn is_valid(&self) -> bool {
         self.magic == super::BINDING_OUTPUT_MAGIC
             && self.peripheral_id.model_number == super::MODEL_NUMBER
     }
 }
 
-/// Rev7 configuration request with a direction-specific packet marker.
+/// Configuration request with a direction-specific packet marker.
 ///
 /// Fields are serialized contiguously in little-endian order.
 #[derive(ByteStruct, Clone, Copy, Debug, Default)]
@@ -107,13 +107,13 @@ pub struct ConfiguringInput {
 }
 
 impl ConfiguringInput {
-    /// Adds the rev7 packet marker to a generic configuration request.
+    /// Adds the device-specific packet marker to a generic configuration request.
     ///
     /// Args:
     ///   base: Generic Deimos configuration values.
     ///
     /// Returns:
-    ///   Equivalent rev7-specific request.
+    ///   Equivalent device-specific request.
     pub fn from_base(base: BaseConfiguringInput) -> Self {
         Self {
             magic: super::CONFIGURING_INPUT_MAGIC,
@@ -154,7 +154,7 @@ impl ConfiguringInput {
     }
 }
 
-/// Rev7 configuration response carrying the firmware calibration status.
+/// Configuration response carrying the firmware calibration status.
 ///
 /// Fields are serialized contiguously in little-endian order.
 #[derive(ByteStruct, Clone, Copy, Debug, Default)]
@@ -177,7 +177,7 @@ impl ConfiguringOutput {
     ///     produced by the calibration procedure.
     ///
     /// Returns:
-    ///   Initialized rev7 configuration response.
+    ///   Initialized configuration response.
     pub fn new(acknowledge: AcknowledgeConfiguration, firmware_calibrated: bool) -> Self {
         Self {
             magic: super::CONFIGURING_OUTPUT_MAGIC,

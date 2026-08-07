@@ -17,10 +17,10 @@ use pyo3::prelude::*;
 
 use crate::py_peripheral_methods;
 
-/// Schema version for the shared fields in a rev7 calibration record.
+/// Schema version for the shared fields in a calibration record.
 pub const CURRENT_CAL_SCHEMA_VERSION: u16 = 1;
 
-/// Procedure and instrument provenance for a generated rev7 calibration.
+/// Procedure and instrument provenance for a generated calibration.
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct CalRecordCore {
     /// Schema version for these shared top-level fields.
@@ -94,7 +94,7 @@ impl Default for LinearCal {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
-/// Human-readable rev7 calibration artifact and its provenance.
+/// Human-readable calibration artifact and its provenance.
 pub struct CalRecord {
     /// Calibration procedure metadata shared by all peripheral kinds.
     pub core: CalRecordCore,
@@ -126,9 +126,7 @@ impl CalRecord {
             voltage_cals,
         };
         if !calibration.is_valid() {
-            return Err(
-                "Rev7 calibration contains an invalid or non-finite coefficient".to_owned(),
-            );
+            return Err("Calibration contains an invalid or non-finite coefficient".to_owned());
         }
         Ok(calibration)
     }
@@ -295,17 +293,17 @@ impl Peripheral for DeimosDaqRev7 {
 
         match config.validation_acknowledgement() {
             Some(AcknowledgeConfiguration::NakDtTooSmall) => Err(format!(
-                "Rev7 dt_ns={} is shorter than the supported minimum {} ns (maximum cycle rate {} Hz)",
+                "dt_ns={} is shorter than the supported minimum {} ns (maximum cycle rate {} Hz)",
                 config.dt_ns, DEIMOS_MIN_CYCLE_PERIOD_NS, DEIMOS_MAX_CYCLE_RATE_HZ,
             )),
             Some(AcknowledgeConfiguration::NakDtTooLarge) => Err(format!(
-                "Rev7 dt_ns={} exceeds the supported maximum {} ns (minimum cycle rate {} Hz)",
+                "dt_ns={} exceeds the supported maximum {} ns (minimum cycle rate {} Hz)",
                 config.dt_ns, DEIMOS_MAX_CYCLE_PERIOD_NS, MIN_CYCLE_RATE_HZ,
             )),
             Some(response) => Err(format!(
-                "Rev7 configuration was rejected with unexpected response {response:?}",
+                "Configuration was rejected with unexpected response {response:?}",
             )),
-            None => Err("Rev7 configuration has an invalid packet marker".to_owned()),
+            None => Err("Configuration has an invalid packet marker".to_owned()),
         }
     }
 
@@ -315,11 +313,11 @@ impl Peripheral for DeimosDaqRev7 {
 
     fn parse_configuring(&self, bytes: &[u8]) -> Result<Option<bool>, String> {
         if bytes.len() != ConfiguringOutput::BYTE_LEN {
-            return Err("Invalid rev7 configuring response length".to_owned());
+            return Err("Invalid configuring response length".to_owned());
         }
         let response = ConfiguringOutput::read_bytes(bytes);
         if !response.is_valid() {
-            return Err("Invalid rev7 configuring response magic or calibration flag".to_owned());
+            return Err("Invalid configuring response magic or calibration flag".to_owned());
         }
         match response.acknowledge {
             AcknowledgeConfiguration::Ack => Ok(Some(response.firmware_calibrated != 0)),
@@ -327,7 +325,7 @@ impl Peripheral for DeimosDaqRev7 {
         }
     }
 
-    /// The firmware now publishes all engineering conversions except external RTD temperature.
+    /// Firmware publishes all engineering conversions except external RTD temperature.
     fn standard_calcs(&self, name: &str) -> BTreeMap<String, Box<dyn Calc>> {
         let mut calcs: BTreeMap<String, Box<dyn Calc>> = BTreeMap::new();
         for i in 0..RTD_CHANNEL_COUNT {
@@ -352,7 +350,7 @@ mod tests {
     }
 
     #[test]
-    fn configuring_validation_reports_rev7_limits_before_transmission() {
+    fn configuring_validation_reports_supported_limits_before_transmission() {
         let peripheral = DeimosDaqRev7::default();
         let mut config = BaseConfiguringInput {
             dt_ns: DEIMOS_MIN_CYCLE_PERIOD_NS,

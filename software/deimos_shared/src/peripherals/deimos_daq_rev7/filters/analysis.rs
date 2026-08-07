@@ -9,7 +9,7 @@ use deimos_numerics::control::{
     DiscretizationMethod,
 };
 
-/// Builds continuous-time transfer functions for the rev7 analog voltage front ends.
+/// Builds continuous-time transfer functions for the analog voltage front ends.
 ///
 /// The modeled filtered channels are a unity-gain active Sallen-Key low-pass
 /// followed by the ADC input RC filter. Board current and board voltage are
@@ -35,7 +35,7 @@ pub fn adc_analog_frontend_transfer_functions(
     }))
 }
 
-/// Builds sampled-sequence transfer functions for the rev7 ADC measurement filter chain.
+/// Builds sampled-sequence transfer functions for the ADC measurement filter chain.
 ///
 /// Each returned transfer function models the channel's analog front end
 /// sampled with a bilinear transform at `sample_rate_hz`, followed by the
@@ -97,7 +97,7 @@ fn adc_sampled_transfer_functions_with_iir(
     Ok(output.map(|transfer_function| transfer_function.unwrap()))
 }
 
-/// Builds physical-input-frequency Bode data for the full rev7 ADC measurement filter chain.
+/// Builds physical-input-frequency Bode data for the full ADC measurement filter chain.
 ///
 /// For each requested physical input frequency, this evaluates the analog
 /// frontend as a continuous-time response and the fractional-delay plus

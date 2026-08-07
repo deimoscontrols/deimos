@@ -6,11 +6,11 @@ use byte_struct::{ByteStruct, ByteStructLen, ByteStructUnspecifiedByteOrder};
 
 use super::super::{MODBUS_DEFAULT_DT_NS, MODBUS_DEFAULT_LOSS_OF_CONTACT_LIMIT};
 
-/// Complete rev7 output state shared by Deimos and Modbus operating modes.
+/// Complete output state shared by Deimos and Modbus operating modes.
 ///
 /// Fixed-size array fields state their wire shapes below. The struct is
 /// serialized inline in the Deimos roundtrip input and is also retained
-/// directly across future Modbus operating re-entry.
+/// directly across Modbus operating re-entry.
 #[derive(ByteStruct, Clone, Copy, Debug, PartialEq)]
 #[byte_struct_le]
 pub struct OperatingOutputSettings {
@@ -48,8 +48,7 @@ impl OperatingOutputSettings {
     /// Checks all safety-relevant output ranges.
     ///
     /// Returns:
-    ///   `true` when every PWM, DAC, and GPIO setting is valid for rev7
-    ///   firmware.
+    ///   `true` when every PWM, DAC, and GPIO setting is valid for firmware.
     pub fn is_valid(&self) -> bool {
         self.pwm_duty_frac
             .iter()
@@ -182,17 +181,16 @@ impl OperatingRoundtripInput {
     ///
     /// Returns:
     ///   `true` when the marker, PWM settings, DAC voltages, and GPIO mask
-    ///   are valid for rev7 firmware.
+    ///   are valid for firmware.
     pub fn is_valid(&self) -> bool {
         self.magic == super::super::OPERATING_INPUT_MAGIC && self.outputs.is_valid()
     }
 }
 
-/// Rev7 publication and connection-health metrics carried in each snapshot.
+/// Publication and connection-health metrics carried in each snapshot.
 ///
-/// Unlike the legacy common operating metrics, this record omits the redundant
-/// nominal cycle timestamp. Snapshot ordering uses `id`, while acquisition and
-/// publication timing use the two explicit timestamps.
+/// Snapshot ordering uses `id`, while acquisition and publication timing use
+/// the two explicit timestamps.
 #[derive(ByteStruct, Clone, Copy, Debug, Default)]
 #[byte_struct_le]
 pub struct OperatingSnapshotMetrics {
@@ -287,5 +285,5 @@ impl OperatingSnapshot {
     }
 }
 
-/// Backward-compatible name for the Deimos roundtrip snapshot packet.
+/// Alias for the Deimos roundtrip snapshot packet.
 pub type OperatingRoundtripOutput = OperatingSnapshot;

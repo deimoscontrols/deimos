@@ -1,4 +1,4 @@
-//! Rev7 calibration records and engineering-unit conversions.
+//! Calibration records and engineering-unit conversions.
 
 use byte_struct::{ByteStruct, ByteStructLen, ByteStructUnspecifiedByteOrder};
 
@@ -50,7 +50,7 @@ impl LinearCalibration {
     }
 }
 
-/// Complete calibration image embedded in rev7 firmware.
+/// Complete calibration image embedded in firmware.
 ///
 /// `firmware_calibrated` is deliberately separate from protocol packet magic: it
 /// records whether the coefficients were produced by the calibration procedure.
@@ -92,7 +92,7 @@ impl Calibration {
     }
 }
 
-/// Converts the rev7 cold-junction ADC channel to unfiltered board temperature.
+/// Converts the cold-junction ADC channel to unfiltered board temperature.
 ///
 /// Channel `ain2` is divided by the analog-front-end gain, calibrated at the
 /// sensed-voltage point, converted to Pt100 resistance, and evaluated with the
@@ -114,11 +114,11 @@ pub fn board_temperature_k_f32(
     crate::calcs::pt100_temperature_k_f32(sensed_v / RTD_REFERENCE_CURRENT_A)
 }
 
-/// Populate the analog engineering fields of a coherent rev7 snapshot.
+/// Populate the analog engineering fields of a coherent snapshot.
 ///
-/// Calibration is applied at the sensed-voltage point used by the former host
-/// standard-calculation graph. The caller supplies the already-filtered board
-/// temperature so both thermocouples use the same publication-cycle value.
+/// Calibration is applied to sensed voltage before the engineering conversions.
+/// The caller supplies the filtered board temperature so both thermocouples use
+/// the same publication-cycle value.
 ///
 /// Args:
 ///   output: Snapshot record whose analog engineering fields are overwritten.

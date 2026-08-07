@@ -18,63 +18,63 @@ use deimos_numerics::{
     },
 };
 
-/// Runtime ADC low-pass filter used by rev7 firmware.
+/// Runtime ADC low-pass filter used by firmware.
 pub type AdcFilter = FixedDeltaSos<f32, ADC_FILTER_SECTIONS, 1>;
 
-/// Runtime state for one rev7 ADC low-pass filter.
+/// Runtime state for one ADC low-pass filter.
 pub type AdcFilterState = FixedDeltaSosState<f32, ADC_FILTER_SECTIONS, 1>;
 
-/// Full rev7 ADC low-pass filter bank.
+/// Full ADC low-pass filter bank.
 pub type AdcFilterBank = [AdcFilter; ADC_FILTER_COUNT];
 
-/// Transfer function corresponding to one rev7 ADC low-pass filter.
+/// Transfer function corresponding to one ADC low-pass filter.
 pub type AdcFilterTransferFunction = DiscreteTransferFunction<f64>;
 
-/// Transfer functions corresponding to the full rev7 ADC low-pass filter bank.
+/// Transfer functions corresponding to the full ADC low-pass filter bank.
 pub type AdcFilterTransferFunctionBank = [AdcFilterTransferFunction; ADC_FILTER_COUNT];
 
-/// Runtime fractional-delay filter used to align rev7 ADC channel samples.
+/// Runtime fractional-delay filter used to align ADC channel samples.
 pub type AdcFractionalDelayFilter = FixedFir<f32, ADC_FRACTIONAL_DELAY_FILTER_TAPS, 1>;
 
-/// Runtime state for one rev7 ADC fractional-delay filter.
+/// Runtime state for one ADC fractional-delay filter.
 pub type AdcFractionalDelayFilterState = FixedFirState<f32, ADC_FRACTIONAL_DELAY_FILTER_TAPS, 1>;
 
-/// Full rev7 ADC fractional-delay filter bank.
+/// Full ADC fractional-delay filter bank.
 pub type AdcFractionalDelayFilterBank = [AdcFractionalDelayFilter; ADC_FILTER_COUNT];
 
-/// Transfer function corresponding to one rev7 ADC fractional-delay filter.
+/// Transfer function corresponding to one ADC fractional-delay filter.
 pub type AdcFractionalDelayTransferFunction = DiscreteTransferFunction<f64>;
 
-/// Transfer functions corresponding to the full rev7 ADC fractional-delay filter bank.
+/// Transfer functions corresponding to the full ADC fractional-delay filter bank.
 pub type AdcFractionalDelayTransferFunctionBank =
     [AdcFractionalDelayTransferFunction; ADC_FILTER_COUNT];
 
-/// Transfer function for one complete rev7 digital ADC filter path.
+/// Transfer function for one complete digital ADC filter path.
 pub type AdcDigitalTransferFunction = DiscreteTransferFunction<f64>;
 
-/// Transfer functions for all complete rev7 digital ADC filter paths.
+/// Transfer functions for all complete digital ADC filter paths.
 pub type AdcDigitalTransferFunctionBank = [AdcDigitalTransferFunction; ADC_FILTER_COUNT];
 
-/// Continuous-time transfer function for one rev7 ADC analog front end.
+/// Continuous-time transfer function for one ADC analog front end.
 pub type AdcAnalogFrontendTransferFunction = ContinuousTransferFunction<f64>;
 
-/// Continuous-time transfer functions for all rev7 ADC analog front ends.
+/// Continuous-time transfer functions for all ADC analog front ends.
 pub type AdcAnalogFrontendTransferFunctionBank =
     [AdcAnalogFrontendTransferFunction; ADC_CHANNEL_COUNT];
 
-/// Sampled transfer function for one full rev7 ADC measurement filter chain.
+/// Sampled transfer function for one full ADC measurement filter chain.
 pub type AdcSampledTransferFunction = DiscreteTransferFunction<f64>;
 
-/// Sampled transfer functions for all rev7 ADC measurement filter chains.
+/// Sampled transfer functions for all ADC measurement filter chains.
 pub type AdcSampledTransferFunctionBank = [AdcSampledTransferFunction; ADC_CHANNEL_COUNT];
 
-/// Bode data for one full rev7 ADC measurement filter chain.
+/// Bode data for one full ADC measurement filter chain.
 pub type AdcSampledBodeData = BodeData<f64>;
 
-/// Bode data for all rev7 ADC measurement filter chains.
+/// Bode data for all ADC measurement filter chains.
 pub type AdcSampledBodeDataBank = [AdcSampledBodeData; ADC_CHANNEL_COUNT];
 
-/// Error returned while constructing rev7 ADC filters.
+/// Error returned while constructing ADC filters.
 #[derive(Debug)]
 pub enum AdcFilterBuildError {
     /// Filter design failed.

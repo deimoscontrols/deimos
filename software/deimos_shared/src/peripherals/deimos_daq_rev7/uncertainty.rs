@@ -1,4 +1,4 @@
-//! Rev7 component and measurement uncertainty definitions.
+//! Component and measurement uncertainty definitions.
 //!
 //! This module owns the hardware-specific nominal values, rated uncertainties,
 //! and thermal sensitivities used by the host-side uncertainty analysis. The
@@ -10,7 +10,7 @@
 //!   \[2\] Texas Instruments, *OPA196 36-V, Precision, Rail-to-Rail Input/Output,
 //!   Low Offset Voltage Operational Amplifier*, data sheet.
 
-/// Number of independent inputs in the rev7 +/-35 mV frontend uncertainty model.
+/// Number of independent inputs in the +/-35 mV frontend uncertainty model.
 pub const FRONTEND_35MV_UNCERTAINTY_INPUT_COUNT: usize = 10;
 
 /// Human-readable component names in uncertainty-vector order.
@@ -40,7 +40,7 @@ pub struct Frontend35MvUncertaintyInputs {
     pub thermal_sensitivity_per_c: [f64; FRONTEND_35MV_UNCERTAINTY_INPUT_COUNT],
 }
 
-/// Return component specifications for the rev7 +/-35 mV frontend model.
+/// Return component specifications for the +/-35 mV frontend model.
 ///
 /// Vector order is input voltage, INA826 gain-set resistance, INA826 fractional
 /// gain error, INA826 input offset, INA826 output offset, amplifier reference,

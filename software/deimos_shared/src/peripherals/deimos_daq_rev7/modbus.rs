@@ -1,4 +1,4 @@
-//! Modbus/TCP register layout for rev7 engineering snapshots and control state.
+//! Modbus/TCP register layout for engineering snapshots and control state.
 //!
 //! Addresses are zero-based protocol addresses. Multi-register scalars place
 //! the most-significant 16-bit register first, and each register is transmitted
@@ -144,7 +144,7 @@ pub const MODBUS_MAX_READ_REGISTERS: u16 = 125;
 pub const MODBUS_MAX_WRITE_REGISTERS: u16 = 123;
 /// Maximum write-register count in one standard FC23 request.
 pub const MODBUS_MAX_READ_WRITE_WRITE_REGISTERS: u16 = 121;
-/// Maximum writable holding-register span in the rev7 map.
+/// Maximum writable holding-register span in the register map.
 pub const MAX_HOLDING_WRITE_REGISTERS: usize = 21;
 
 const _: () = assert!(SNAPSHOT_INPUT_REGISTER_COUNT <= MODBUS_MAX_READ_REGISTERS);

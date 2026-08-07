@@ -9,13 +9,13 @@ use deimos_numerics::{
     },
 };
 
-/// Builds the fixed-size delta-SOS ADC filter bank used by rev7 firmware.
+/// Builds the fixed-size delta-SOS ADC filter bank used by firmware.
 pub fn adc_filter_bank(cutoff_ratio: f64) -> Result<AdcFilterBank, AdcFilterBuildError> {
     let filter = adc_filter(cutoff_ratio)?;
     Ok([filter; ADC_FILTER_COUNT])
 }
 
-/// Builds transfer functions corresponding to the rev7 ADC filter bank.
+/// Builds transfer functions corresponding to the ADC filter bank.
 ///
 /// The returned transfer functions use a normalized sample interval of one
 /// sample, matching the normalized cutoff-ratio basis used by the firmware
@@ -37,7 +37,7 @@ pub fn adc_filter_transfer_functions(
     Ok(core::array::from_fn(|_| transfer_function.clone()))
 }
 
-/// Builds the fractional-delay FIR filter bank used to align rev7 ADC channels.
+/// Builds the fractional-delay FIR filter bank used to align ADC channels.
 pub fn adc_fractional_delay_filter_bank(
     sample_rate_hz: f64,
 ) -> Result<AdcFractionalDelayFilterBank, AdcFilterBuildError> {
@@ -57,7 +57,7 @@ pub fn adc_fractional_delay_filter_bank(
     Ok(filters)
 }
 
-/// Builds transfer functions corresponding to the rev7 ADC fractional-delay filter bank.
+/// Builds transfer functions corresponding to the ADC fractional-delay filter bank.
 pub fn adc_fractional_delay_transfer_functions(
     sample_rate_hz: f64,
 ) -> Result<AdcFractionalDelayTransferFunctionBank, AdcFilterBuildError> {
@@ -73,7 +73,7 @@ pub fn adc_fractional_delay_transfer_functions(
     Ok(output.map(|transfer_function| transfer_function.unwrap()))
 }
 
-/// Build the rev7 digital ADC paths implied by a reporting cycle rate.
+/// Build the digital ADC paths implied by a reporting cycle rate.
 ///
 /// Oversampled paths contain the fractional-delay FIR followed by the ADC
 /// IIR. Direct paths contain only the fractional-delay FIR, matching the
