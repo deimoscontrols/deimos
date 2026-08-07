@@ -24,6 +24,9 @@ deimos_shared = { path = "../../software/deimos_shared", version="0.19.0", featu
 rmodbus = { version = "0.12.2", default-features = false }
 cortex-m-stack = { version = "0.2.1", optional = true }
 
+[build-dependencies]
+deimos_shared = { path = "../../software/deimos_shared", version = "0.19.0" }
+
 [dependencies.smoltcp]
 version = "0.11.0"
 default-features = false
