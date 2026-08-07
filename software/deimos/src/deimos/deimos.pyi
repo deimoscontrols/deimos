@@ -169,7 +169,8 @@ class Controller:
                                       range for the filter, the cutoff frequency will
                                       be clamped to the viable bounds and a warning
                                       will be emitted.
-            wait_for_ready: Block until the controller has completed its first cycle.
+            wait_for_ready: Block until the controller has calculated and published its
+                first latest-value snapshot.
         """
         ...
     def scan(self, timeout_ms: int = 10) -> list[PeripheralLike]:

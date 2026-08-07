@@ -71,9 +71,10 @@ impl LatestValueHandle {
 
 /// Dispatcher that always keeps the latest row available via a shared handle.
 ///
-/// The latest row is updated on a dedicated worker thread so the controller
-/// loop does not block on reader access. Before the first dispatch, the row
-/// is initialized with NaN channel values and a UNIX_EPOCH timestamp.
+/// The first calculated row is published synchronously so controller readiness
+/// guarantees that it is observable. Later rows are updated on a dedicated
+/// worker thread so the controller loop does not block on reader access. Before
+/// the first dispatch, the row contains NaN values and a UNIX_EPOCH timestamp.
 #[derive(Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "python", pyclass)]
 pub struct LatestValueDispatcher {
@@ -81,6 +82,8 @@ pub struct LatestValueDispatcher {
     handle: LatestValueHandle,
     #[serde(skip)]
     worker: Option<WorkerHandle>,
+    #[serde(skip)]
+    first_row_pending: bool,
 }
 
 impl LatestValueDispatcher {
@@ -95,6 +98,7 @@ impl LatestValueDispatcher {
             Box::new(Self {
                 handle: handle.clone(),
                 worker: None,
+                first_row_pending: true,
             }),
             handle,
         )
@@ -134,6 +138,7 @@ impl Dispatcher for LatestValueDispatcher {
             timestamp: 0,
             channel_values: vec![f64::NAN; channel_names.len()],
         });
+        self.first_row_pending = true;
 
         // Start worker to keep controller thread non-blocking.
         self.worker = Some(WorkerHandle::new(self.handle.clone(), core_assignment)?);
@@ -146,6 +151,23 @@ impl Dispatcher for LatestValueDispatcher {
         timestamp: i64,
         channel_values: Vec<f64>,
     ) -> Result<(), String> {
+        if self.worker.is_none() {
+            return Err("Dispatcher must be initialized before consuming data".to_string());
+        }
+
+        // Publish the first calculated row before returning so controller readiness
+        // guarantees that the corresponding LatestValueHandle can observe real data.
+        // Later rows use the worker to avoid blocking the controller on readers.
+        if self.first_row_pending {
+            self.handle.row.store(Row {
+                system_time: fmt_time(time),
+                timestamp,
+                channel_values,
+            });
+            self.first_row_pending = false;
+            return Ok(());
+        }
+
         match &mut self.worker {
             Some(worker) => worker
                 .tx
@@ -158,6 +180,7 @@ impl Dispatcher for LatestValueDispatcher {
     fn terminate(&mut self) -> Result<(), String> {
         // Drop worker handle to signal shutdown
         self.worker = None;
+        self.first_row_pending = true;
         Ok(())
     }
 }
@@ -190,5 +213,31 @@ impl WorkerHandle {
             .expect("Failed to spawn latest dispatcher thread");
 
         Ok(Self { tx, _thread })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::SystemTime;
+
+    use crate::controller::context::ControllerCtx;
+    use crate::dispatcher::Dispatcher;
+
+    use super::LatestValueDispatcher;
+
+    #[test]
+    fn first_calculated_row_is_observable_when_consume_returns() {
+        let (mut dispatcher, handle) = LatestValueDispatcher::new();
+        dispatcher
+            .init(&ControllerCtx::default(), &["value".to_string()], 0)
+            .unwrap();
+
+        dispatcher
+            .consume(SystemTime::UNIX_EPOCH, 123, vec![4.5])
+            .unwrap();
+
+        let row = handle.latest_row();
+        assert_eq!(row.timestamp, 123);
+        assert_eq!(row.channel_values, vec![4.5]);
     }
 }

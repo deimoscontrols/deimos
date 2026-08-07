@@ -30,7 +30,8 @@ impl super::Controller {
     /// be clamped to the viable bounds and a warning
     /// will be emitted.
     ///
-    /// If `wait_for_ready` is true, block until the controller completes its first cycle.
+    /// If `wait_for_ready` is true, block until the controller has calculated and
+    /// published its first latest-value snapshot.
     ///
     /// `plugins` provides a mechanism to register user-defined Peripheral objects.
     pub fn run_nonblocking(

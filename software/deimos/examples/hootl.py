@@ -16,10 +16,7 @@ HAS_UNIX_SOCKET = hasattr(socket, "UnixSocket") and hasattr(
 
 
 def _loopback_udp_socket() -> socket.UdpSocket:
-    targets = socket.UdpSocket.possible_broadcast_targets()
-    if not targets:
-        raise RuntimeError("No UDP broadcast targets available for loopback test")
-    return socket.UdpSocket.with_broadcast_targets([targets[0]])
+    return socket.UdpSocket.with_broadcast_targets(["127.0.0.1"])
 
 
 def _should_retry_under_test() -> bool:

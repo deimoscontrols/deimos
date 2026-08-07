@@ -1798,6 +1798,9 @@ impl Controller {
                 }
 
                 if !ready_signaled {
+                    // The first latest-value publication is synchronous, so reaching
+                    // this point means calcs have run and RunHandle::read can observe
+                    // the resulting snapshot.
                     self.ready.mark_ready();
                     ready_signaled = true;
                 }
