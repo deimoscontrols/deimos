@@ -33,34 +33,3 @@ uv run python firmware/flash.py
 
 Both commands are run from the repository root. `flash.py` selects the board,
 probe, serial number, and MAC address from `firmware/assignments.json`.
-
-Normal operation publishes one coherent engineering snapshot from both the
-Deimos UDP and Modbus/TCP paths. Its `sample_time_ns` field is the board
-timestamp immediately before the first ADC conversion in the associated raw
-sample group; it does not include a correction for digital-filter group delay.
-The host converts this integer timestamp to `f64` with the other controller
-outputs.
-
-The maximum supported publishing rate is 8 kHz in Deimos UDP roundtrip mode
-and 500 Hz in Modbus/TCP mode. Both modes have a 5 Hz minimum; Modbus
-cycle-rate writes therefore accept 5 through 500 Hz.
-
-Modbus holding registers also accept signed requested period and phase deltas.
-The period term persists, while the phase term applies to one publishing
-interval. Their saturating sum is internally limited to 10% of the nominal
-cycle period in either direction so timing control cannot consume the reserved
-execution margin.
-
-Modbus/TCP is available on port 502 only after a generated calibration is
-embedded. The first supported read or write received while binding selects
-Modbus operation; a read-only client therefore receives the safe output
-defaults at the default 10 Hz rate. Synchronous controllers should use FC23 to
-write one complete control block and read the coherent snapshot mirror at
-holding address `0x0100`, count 75, in one ADU. The server processes at most two
-complete ADUs per publishing cycle so transient queued traffic can drain while
-IRQ work stays bounded. The complete synchronized register layout and timeout
-behavior are documented in
-[`plans/MODBUS_REGISTER_MAP.md`](../../plans/MODBUS_REGISTER_MAP.md).
-
-Firmware and controller software must use the same engineering-snapshot packet
-layout. The controller does not include an alternative packet decoder.
