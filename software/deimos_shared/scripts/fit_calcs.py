@@ -7,11 +7,42 @@
 #     "scipy>=1.13,<2",
 # ]
 # ///
-"""Generate and validate compact rev7 thermocouple and Pt100 calculations.
+"""Generate and validate compact thermocouple and Pt100 calculations.
 
 The emitted Rust data uses `f32`, so acceptance checks emulate the operation
 rounding of the firmware evaluator rather than validating only the fitted
 `f64` coefficients.
+
+The Pt100 inverse covers -200 to 850 degC with one degree-10 power-basis
+polynomial in normalized resistance. Outside that domain, the runtime extends
+the fitted endpoint value using the exact Callendar-Van Dusen inverse tangent.
+The type-K forward and inverse functions cover -210 to 1370 degC with regular
+cubic B-splines evaluated by `interpn.MultiBsplineRegular`, including its
+zero-third-derivative ghost-coefficient boundary convention and linearized
+extrapolation. Levenberg-Marquardt fits each candidate using 16 samples per
+regular span, seeded from exact reference values at the grid nodes. The
+smallest candidate which meets the error requirement is emitted.
+
+Validation searches every regular span for local absolute-error maxima. Each
+span uses 17 seeds and a bounded optimization between every neighboring pair;
+endpoints, knots, and the NIST branch point are checked explicitly. The script
+checks both fitted-`f64` and operation-rounded emitted-`f32` evaluators, strict
+monotonicity, dense-grid RMS error, and forward/inverse round trips. Generated
+`f32` functions must stay below 0.0099 K error, leaving numerical margin below
+the 0.01 K requirement.
+
+With the pinned dependencies and current candidate sets, the checked-in output
+has these validation results:
+
+- Pt100 inverse: 0.00687762455 K maximum emitted-`f32` error,
+  0.00229908148 K RMS error, 2.31355746 K/ohm minimum derivative, and
+  0.00692773438 K maximum forward/inverse round-trip error.
+- Type-K forward: 96 spans and 97 coefficients, 0.00902214996 K-equivalent
+  maximum emitted-`f32` error, and 0.000404292087 K-equivalent RMS error.
+- Type-K inverse: 544 spans and 545 coefficients, 0.00911102295 K maximum
+  emitted-`f32` error, and 0.000209227546 K RMS error.
+- The type-K minimum derivatives are 1.34264847e-5 V/K forward and
+  23446.5 K/V inverse; its maximum spline round-trip error is 0.00717926025 K.
 
 Run from the repository root with:
     uv run software/deimos_shared/scripts/fit_calcs.py
@@ -36,7 +67,6 @@ from scipy.optimize import brentq, least_squares, minimize_scalar
 CALCS_DIR = Path(__file__).resolve().parents[1] / "src/calcs"
 TC_OUTPUT = CALCS_DIR / "tc_ktype_data.rs"
 RTD_OUTPUT = CALCS_DIR / "rtd_pt100_data.rs"
-REPORT_OUTPUT = Path(__file__).with_name("FIT_REPORT.md")
 
 ZERO_C_K = 273.15
 MAX_TEMPERATURE_ERROR_K = 0.01
@@ -53,7 +83,20 @@ TC_MIN_C = -210.0
 TC_MAX_C = 1370.0
 FIT_SAMPLES_PER_SPAN = 16
 FORWARD_INTERVAL_CANDIDATES = (32, 48, 64, 72, 80, 88, 96, 112)
-INVERSE_INTERVAL_CANDIDATES = (192, 256, 320, 384, 416, 448, 480, 512, 544, 576, 608, 640)
+INVERSE_INTERVAL_CANDIDATES = (
+    192,
+    256,
+    320,
+    384,
+    416,
+    448,
+    480,
+    512,
+    544,
+    576,
+    608,
+    640,
+)
 
 # NIST ITS-90 monograph 175 coefficients, with voltage expressed in mV.
 FORWARD_NEGATIVE_C_TO_MV = np.array(
@@ -101,9 +144,7 @@ def nist_voltage_v(temperature_c):
         doi: 10.6028/NIST.MONO.175.
     """
     temperature_c = np.asarray(temperature_c)
-    negative = np.polynomial.polynomial.polyval(
-        temperature_c, FORWARD_NEGATIVE_C_TO_MV
-    )
+    negative = np.polynomial.polynomial.polyval(temperature_c, FORWARD_NEGATIVE_C_TO_MV)
     positive = np.polynomial.polynomial.polyval(
         temperature_c, FORWARD_POSITIVE_C_TO_MV
     ) + 0.1185976 * np.exp(-0.1183432e-3 * (temperature_c - 126.9686) ** 2)
@@ -132,7 +173,7 @@ def nist_temperature_c(voltage_v):
 
 
 def pt100_resistance_ohm(temperature_c):
-    """Evaluate the IEC 60751 Pt100 Callendar--Van Dusen curve.
+    """Evaluate the IEC 60751 Pt100 Callendar-Van Dusen curve.
 
     Args:
         temperature_c: Temperature scalar or array in `degC` with shape `(...)`.
@@ -208,7 +249,7 @@ def spline_from_coefficients(value_min, value_max, coefficients):
 
 
 def fit_regular_bspline(function, value_min, value_max, intervals):
-    """Fit one `interpn` regular B-spline with Levenberg--Marquardt.
+    """Fit one `interpn` regular B-spline with Levenberg-Marquardt.
 
     The parameter vector contains nodal values, seeded from the reference
     function. `interpn` converts those values to its boundary-conditioned
@@ -226,7 +267,7 @@ def fit_regular_bspline(function, value_min, value_max, intervals):
         Precomputed `f64` B-spline coefficients with shape `(intervals + 1,)`.
 
     Raises:
-        RuntimeError: The Levenberg--Marquardt solve does not converge.
+        RuntimeError: The Levenberg-Marquardt solve does not converge.
     """
     node_count = intervals + 1
     starts = np.array([value_min], dtype=np.float64)
@@ -457,14 +498,15 @@ def fit_rtd_inverse():
 
         def f32_error(resistance):
             reference_c = brentq(
-                lambda temperature: float(pt100_resistance_ohm(temperature)) - resistance,
+                lambda temperature: (
+                    float(pt100_resistance_ohm(temperature)) - resistance
+                ),
                 RTD_MIN_C,
                 RTD_MAX_C,
                 xtol=1e-13,
             )
-            return (
-                float(evaluate_rtd_polynomial(resistance, power_f32, True))
-                - (reference_c + ZERO_C_K)
+            return float(evaluate_rtd_polynomial(resistance, power_f32, True)) - (
+                reference_c + ZERO_C_K
             )
 
         f32_max = validate_local_maxima(
@@ -487,9 +529,8 @@ def fit_rtd_inverse():
             RTD_MAX_C,
             xtol=1e-13,
         )
-        return (
-            float(evaluate_rtd_polynomial(resistance, power_f64, False))
-            - (reference_c + ZERO_C_K)
+        return float(evaluate_rtd_polynomial(resistance, power_f64, False)) - (
+            reference_c + ZERO_C_K
         )
 
     f64_max = validate_local_maxima(
@@ -524,7 +565,9 @@ def fit_rtd_inverse():
     }
 
 
-def choose_tc_spline(direction, inverse_reference_voltage, inverse_reference_temperature):
+def choose_tc_spline(
+    direction, inverse_reference_voltage, inverse_reference_temperature
+):
     """Choose and validate the smallest acceptable type-K spline candidate.
 
     Args:
@@ -564,7 +607,9 @@ def choose_tc_spline(direction, inverse_reference_voltage, inverse_reference_tem
     )
     selected = None
     for intervals in candidates:
-        coefficients_f64 = fit_regular_bspline(function, value_min, value_max, intervals)
+        coefficients_f64 = fit_regular_bspline(
+            function, value_min, value_max, intervals
+        )
         coefficients_f32 = coefficients_f64.astype(np.float32)
         spline_f32 = spline_from_coefficients(value_min, value_max, coefficients_f32)
         approximate = evaluate_spline_array(spline_f32, validation_values)
@@ -586,7 +631,9 @@ def choose_tc_spline(direction, inverse_reference_voltage, inverse_reference_tem
             selected = (intervals, coefficients_f64, coefficients_f32)
             break
     if selected is None:
-        raise RuntimeError(f"No {direction} K-type spline candidate met the error limit")
+        raise RuntimeError(
+            f"No {direction} K-type spline candidate met the error limit"
+        )
 
     intervals, coefficients_f64, coefficients_f32 = selected
     spline_f64 = spline_from_coefficients(value_min, value_max, coefficients_f64)
@@ -611,7 +658,9 @@ def choose_tc_spline(direction, inverse_reference_voltage, inverse_reference_tem
             f"{direction} spline strict error exceeds limit: f64={f64_max}, f32={f32_max}"
         )
 
-    derivative_min = strict_derivative_minimum(value_min, value_max, intervals, spline_f32)
+    derivative_min = strict_derivative_minimum(
+        value_min, value_max, intervals, spline_f32
+    )
     if derivative_min[0] <= 0.0:
         raise RuntimeError(f"{direction} spline is not monotonic: {derivative_min}")
 
@@ -658,8 +707,7 @@ def format_array(name, values, declaration="const", attributes=""):
     """
     body = "\n".join(f"    {float(value):.9e}_f32," for value in values)
     return (
-        f"{attributes}pub {declaration} {name}: [f32; {len(values)}] = [\n"
-        f"{body}\n];\n"
+        f"{attributes}pub {declaration} {name}: [f32; {len(values)}] = [\n{body}\n];\n"
     )
 
 
@@ -674,7 +722,9 @@ def write_rtd_data(result):
     generated += f"pub const PT100_MIN_RESISTANCE_OHM: f32 = {RTD_MIN_R:.9e}_f32;\n"
     generated += "/// Maximum fitted Pt100 resistance in `ohm`.\n"
     generated += f"pub const PT100_MAX_RESISTANCE_OHM: f32 = {RTD_MAX_R:.9e}_f32;\n"
-    generated += "/// Resistance origin in `ohm` for the normalized inverse coordinate.\n"
+    generated += (
+        "/// Resistance origin in `ohm` for the normalized inverse coordinate.\n"
+    )
     generated += (
         f"pub const PT100_RESISTANCE_ORIGIN_OHM: f32 = "
         f"{RTD_RESISTANCE_ORIGIN:.9e}_f32;\n"
@@ -756,64 +806,15 @@ pub const TC_INVERSE_STEP_V: f32 = %.9e_f32;\n\
     TC_OUTPUT.write_text(generated)
 
 
-def write_report(rtd, forward, inverse, roundtrip_error):
-    """Write the human-readable fit and validation report.
-
-    Args:
-        rtd: Pt100 fit result mapping.
-        forward: Forward type-K spline result mapping.
-        inverse: Inverse type-K spline result mapping.
-        roundtrip_error: Maximum forward/inverse spline round-trip error in `K`.
-    """
-    REPORT_OUTPUT.write_text(
-        f"""# Rev7 calculation fit report
-
-Generated by `fit_calcs.py` from the IEC 60751 Callendar--Van Dusen coefficients
-and the NIST ITS-90 type-K reference coefficients (NIST Monograph 175).
-
-## Pt100 global inverse
-
-- Domain: {RTD_MIN_C:.0f} to {RTD_MAX_C:.0f} degC ({RTD_MIN_R:.9f} to {RTD_MAX_R:.9f} ohm)
-- Polynomial: one degree-{rtd['degree']} power-basis polynomial, centered at {RTD_RESISTANCE_ORIGIN:.9f} ohm and scaled by {RTD_RESISTANCE_SCALE:.12g} /ohm
-- Maximum locally optimized error before f32 reduction: {rtd['f64_max'][0]:.9g} K at {rtd['f64_max'][1]:.9g} ohm
-- Maximum locally optimized emitted-f32 error: {rtd['f32_max'][0]:.9g} K at {rtd['f32_max'][1]:.9g} ohm
-- Emitted-f32 RMS error: {rtd['rms']:.9g} K
-- Minimum polynomial derivative: {rtd['derivative_min']:.9g} K/ohm (strictly positive)
-- Maximum forward/inverse round-trip error on the validation sweep: {rtd['roundtrip']:.9g} K
-- Outside the standard domain, the evaluator uses the exact CVD inverse endpoint tangent and the fitted endpoint value; continuity is by construction.
-
-## K-type regular cubic B-splines
-
-- Domain: {TC_MIN_C:.0f} to {TC_MAX_C:.0f} degC ({TC_MIN_V:.12g} to {TC_MAX_V:.12g} V)
-- Evaluator: `interpn::MultiBsplineRegular` with its zero-third-derivative ghost-coefficient boundary convention and linearized extrapolation.
-- Fit: Levenberg--Marquardt over {FIT_SAMPLES_PER_SPAN} samples per span, seeded from the `interpn` spline through exact reference values at its regular grid nodes.
-- Forward: {forward['intervals']} spans / {forward['intervals'] + 1} coefficients; f64 maximum {forward['f64_max'][0]:.9g} K-equivalent, emitted-f32 maximum {forward['f32_max'][0]:.9g} K-equivalent, RMS {forward['rms']:.9g} K-equivalent.
-- Inverse: {inverse['intervals']} spans / {inverse['intervals'] + 1} coefficients; f64 maximum {inverse['f64_max'][0]:.9g} K, emitted-f32 maximum {inverse['f32_max'][0]:.9g} K, RMS {inverse['rms']:.9g} K.
-- Minimum derivatives: forward {forward['derivative_min'][0]:.9g} V/K, inverse {inverse['derivative_min'][0]:.9g} K/V; both are strictly positive.
-- Maximum forward/inverse round-trip error on the dense validation grid: {roundtrip_error:.9g} K.
-
-For each regular span, maximum absolute error was sought with 17 seeds and
-bounded local optimizations between every neighboring seed. Endpoints, knots,
-and the NIST branch point were checked explicitly. Both the fitted-f64 and the
-operation-rounded emitted-f32 evaluators were checked. The acceptance threshold
-is {ACCEPTANCE_ERROR_K:.4f} K, leaving numerical margin below the {MAX_TEMPERATURE_ERROR_K:.2f} K requirement.
-"""
-    )
-
-
 def main():
-    """Fit, validate, and emit all shared rev7 engineering conversions."""
+    """Fit, validate, and emit all shared engineering conversions."""
     inverse_temperature_c = np.linspace(TC_MIN_C, TC_MAX_C, 2_000_001)
     inverse_temperature_k = inverse_temperature_c + ZERO_C_K
     inverse_voltage = nist_voltage_v(inverse_temperature_c)
 
     rtd = fit_rtd_inverse()
-    forward = choose_tc_spline(
-        "forward", inverse_voltage, inverse_temperature_k
-    )
-    inverse = choose_tc_spline(
-        "inverse", inverse_voltage, inverse_temperature_k
-    )
+    forward = choose_tc_spline("forward", inverse_voltage, inverse_temperature_k)
+    inverse = choose_tc_spline("inverse", inverse_voltage, inverse_temperature_k)
 
     forward_spline = spline_from_coefficients(
         TC_MIN_C + ZERO_C_K,
@@ -837,20 +838,27 @@ def main():
 
     write_rtd_data(rtd)
     write_tc_data(forward, inverse)
-    write_report(rtd, forward, inverse, roundtrip_error)
 
     print(
-        f"Pt100 degree={rtd['degree']}, max f32 error={rtd['f32_max'][0]:.9g} K"
+        f"Pt100 degree={rtd['degree']}, max f32 error={rtd['f32_max'][0]:.9g} K, "
+        f"RMS={rtd['rms']:.9g} K, "
+        f"minimum derivative={rtd['derivative_min']:.9g} K/ohm, "
+        f"round trip={rtd['roundtrip']:.9g} K"
     )
     print(
         f"K forward coefficients={forward['intervals'] + 1}, "
-        f"max f32 error={forward['f32_max'][0]:.9g} K"
+        f"max f32 error={forward['f32_max'][0]:.9g} K, "
+        f"RMS={forward['rms']:.9g} K, "
+        f"minimum derivative={forward['derivative_min'][0]:.9g} V/K"
     )
     print(
         f"K inverse coefficients={inverse['intervals'] + 1}, "
-        f"max f32 error={inverse['f32_max'][0]:.9g} K"
+        f"max f32 error={inverse['f32_max'][0]:.9g} K, "
+        f"RMS={inverse['rms']:.9g} K, "
+        f"minimum derivative={inverse['derivative_min'][0]:.9g} K/V, "
+        f"round trip={roundtrip_error:.9g} K"
     )
-    print(f"wrote {RTD_OUTPUT}, {TC_OUTPUT}, and {REPORT_OUTPUT}")
+    print(f"wrote {RTD_OUTPUT} and {TC_OUTPUT}")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 //! Compact IEC 60751 Pt100 conversion functions.
 //!
-//! The forward direction evaluates the Callendar--Van Dusen (CVD) equation
+//! The forward direction evaluates the Callendar-Van Dusen (CVD) equation
 //! directly. The inverse direction uses one degree-10 polynomial fitted to the
 //! CVD curve over the standard `-200 degC` to `850 degC` range. The emitted
 //! `f32` inverse was checked for monotonicity and for a maximum temperature
