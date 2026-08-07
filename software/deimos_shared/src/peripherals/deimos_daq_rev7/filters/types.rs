@@ -1,4 +1,8 @@
 //! Public filter representations and construction errors.
+//!
+//! Runtime aliases use fixed-size `f32` filters and state suitable for firmware.
+//! Analysis aliases use `f64` transfer functions and Bode data so design and
+//! plotting do not reduce the precision of the modeled response.
 
 use core::fmt;
 

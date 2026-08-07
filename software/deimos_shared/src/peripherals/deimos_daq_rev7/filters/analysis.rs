@@ -16,6 +16,8 @@ use deimos_numerics::control::{
 /// modeled as unity transfer functions.
 pub fn adc_analog_frontend_transfer_functions(
 ) -> Result<AdcAnalogFrontendTransferFunctionBank, AdcFilterBuildError> {
+    // Construct each distinct hardware topology once, then clone it into the
+    // channel map below.
     let unfiltered = unfiltered_transfer_function()?;
     let sallen_key_100hz =
         sallen_key_with_adc_rc_transfer_function(SALLEN_KEY_100HZ_RESISTANCE_OHMS)?;
@@ -80,6 +82,8 @@ fn adc_sampled_transfer_functions_with_iir(
     let mut output: [Option<AdcSampledTransferFunction>; ADC_CHANNEL_COUNT] =
         core::array::from_fn(|_| None);
     for idx in 0..ADC_CHANNEL_COUNT {
+        // Bilinear discretization gives a conventional baseband model whose
+        // sample interval matches the digital filters it is cascaded with.
         let sampled_analog = analog_transfer_functions[idx]
             .to_state_space()?
             .discretize(
@@ -142,6 +146,8 @@ fn adc_sampled_bode_data_with_iir(
     let analog_transfer_functions = adc_analog_frontend_transfer_functions()?;
     let digital_transfer_functions =
         adc_digital_transfer_functions(iir_cutoff_ratio, sample_rate_hz)?;
+    // Both continuous and discrete LTI evaluators accept angular frequency;
+    // the discrete evaluator maps it onto the unit circle at its sample time.
     let angular_frequencies: alloc::vec::Vec<f64> = frequencies_hz
         .iter()
         .map(|frequency_hz| frequency_hz * core::f64::consts::TAU)
@@ -193,6 +199,8 @@ fn combine_bode_data(
         }
         .into());
     }
+    // Cascaded magnitudes multiply and phases add. In logarithmic units that
+    // makes both output arrays element-wise sums.
     Ok(BodeData {
         angular_frequencies: lhs.angular_frequencies.clone(),
         magnitude_db: lhs

@@ -61,9 +61,13 @@ pub fn adc_sampling_policy(cycle_rate_hz: f64) -> Option<AdcSamplingPolicy> {
     if samples_per_cycle > f64::from(u32::MAX) {
         return None;
     }
+    // For oversampled operation, deliberately floor to the largest whole
+    // number of groups that does not exceed the internal samplerate target.
     let samples_per_cycle = samples_per_cycle as u32;
 
     if samples_per_cycle < 2 {
+        // A one-group cycle uses the direct firmware path. Channel alignment
+        // remains active there, but there is no oversampled IIR stage.
         return Some(AdcSamplingPolicy {
             mode: AdcSamplingMode::Direct,
             samples_per_cycle: 1,
@@ -75,6 +79,8 @@ pub fn adc_sampling_policy(cycle_rate_hz: f64) -> Option<AdcSamplingPolicy> {
 
     let sample_rate_hz = cycle_rate_hz * f64::from(samples_per_cycle);
     let iir_cutoff_hz = cycle_rate_hz * ADC_IIR_CUTOFF_TO_REPORT_RATE;
+    // Filter construction consumes cutoff/samplerate, while the acquisition
+    // policy specifies cutoff/reporting-rate.
     Some(AdcSamplingPolicy {
         mode: AdcSamplingMode::Oversampled,
         samples_per_cycle,
