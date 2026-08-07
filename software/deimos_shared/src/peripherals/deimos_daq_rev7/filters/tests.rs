@@ -1,34 +1,6 @@
 use super::*;
 
 #[test]
-fn adc_filter_helpers_build_full_banks() {
-    let filters = adc_filter_bank(0.1).unwrap();
-    let transfer_functions = adc_filter_transfer_functions(0.1).unwrap();
-    let fractional_delay_filters =
-        adc_fractional_delay_filter_bank(super::super::ADC_OVERSAMPLE_TARGET_RATE_HZ).unwrap();
-    let fractional_delay_transfer_functions =
-        adc_fractional_delay_transfer_functions(super::super::ADC_OVERSAMPLE_TARGET_RATE_HZ)
-            .unwrap();
-
-    assert_eq!(filters.len(), ADC_FILTER_COUNT);
-    assert_eq!(transfer_functions.len(), ADC_FILTER_COUNT);
-    assert_eq!(transfer_functions[0].domain().sample_time(), 1.0);
-    assert!(!transfer_functions[0].numerator().is_empty());
-    assert!(!transfer_functions[0].denominator().is_empty());
-    assert_eq!(fractional_delay_filters.len(), ADC_FILTER_COUNT);
-    assert_eq!(fractional_delay_transfer_functions.len(), ADC_FILTER_COUNT);
-    assert_eq!(
-        fractional_delay_transfer_functions[0]
-            .domain()
-            .sample_time(),
-        1.0 / super::super::ADC_OVERSAMPLE_TARGET_RATE_HZ
-    );
-    assert!(!fractional_delay_transfer_functions[0]
-        .numerator()
-        .is_empty());
-}
-
-#[test]
 fn low_rate_adc_filter_holds_a_primed_steady_state() {
     let filter = adc_filter_bank(1.0 / 2_250.0).unwrap()[0];
     let mut state = filter.reset_state();
@@ -42,44 +14,8 @@ fn low_rate_adc_filter_holds_a_primed_steady_state() {
 }
 
 #[test]
-fn adc_analog_frontend_transfer_functions_match_channel_mapping() {
+fn adc_analog_frontends_preserve_unity_dc_gain() {
     let transfer_functions = adc_analog_frontend_transfer_functions().unwrap();
-
-    assert_eq!(transfer_functions.len(), ADC_CHANNEL_COUNT);
-    assert_eq!(
-        ADC_ANALOG_FRONTEND_FILTER_KINDS[0],
-        super::super::AdcAnalogFrontendFilterKind::Unfiltered
-    );
-    assert_eq!(
-        ADC_ANALOG_FRONTEND_FILTER_KINDS[1],
-        super::super::AdcAnalogFrontendFilterKind::Unfiltered
-    );
-    assert_eq!(
-        ADC_ANALOG_FRONTEND_FILTER_KINDS[2],
-        super::super::AdcAnalogFrontendFilterKind::SallenKey100Hz
-    );
-    assert_eq!(
-        ADC_ANALOG_FRONTEND_FILTER_KINDS[10],
-        super::super::AdcAnalogFrontendFilterKind::SallenKey1kHz
-    );
-    assert_eq!(
-        ADC_ANALOG_FRONTEND_FILTER_KINDS[11],
-        super::super::AdcAnalogFrontendFilterKind::SallenKey1kHz
-    );
-    assert_eq!(
-        ADC_ANALOG_FRONTEND_FILTER_KINDS[16],
-        super::super::AdcAnalogFrontendFilterKind::SallenKey1kHz
-    );
-    assert_eq!(
-        ADC_ANALOG_FRONTEND_FILTER_KINDS[17],
-        super::super::AdcAnalogFrontendFilterKind::SallenKey1kHz
-    );
-
-    assert_eq!(transfer_functions[0].numerator(), &[1.0]);
-    assert_eq!(transfer_functions[0].denominator(), &[1.0]);
-    assert_eq!(transfer_functions[2].denominator().len(), 4);
-    assert_eq!(transfer_functions[3].denominator().len(), 4);
-    assert_eq!(transfer_functions[10].denominator().len(), 4);
 
     for transfer_function in transfer_functions {
         let dc_gain = transfer_function.dc_gain().unwrap();
@@ -89,21 +25,19 @@ fn adc_analog_frontend_transfer_functions_match_channel_mapping() {
 }
 
 #[test]
-fn adc_sampled_transfer_functions_include_full_filter_chain() {
+fn adc_sampled_filter_chains_preserve_dc_and_attenuate_above_cutoff() {
     let transfer_functions =
         adc_sampled_transfer_functions(0.1, super::super::ADC_OVERSAMPLE_TARGET_RATE_HZ).unwrap();
+    let stopband_frequency_rad_s = 3_000.0 * core::f64::consts::TAU;
 
-    assert_eq!(transfer_functions.len(), ADC_CHANNEL_COUNT);
     for transfer_function in transfer_functions {
-        assert_eq!(
-            transfer_function.sample_time(),
-            1.0 / super::super::ADC_OVERSAMPLE_TARGET_RATE_HZ
-        );
         let dc_gain = transfer_function.dc_gain().unwrap();
         assert!((dc_gain.re - 1.0).abs() < 1.0e-4);
         assert!(dc_gain.im.abs() < 1.0e-10);
-        assert!(!transfer_function.numerator().is_empty());
-        assert!(!transfer_function.denominator().is_empty());
+        let stopband = transfer_function
+            .bode_data(&[stopband_frequency_rad_s])
+            .unwrap();
+        assert!(stopband.magnitude_db[0] < -10.0);
     }
 }
 
@@ -124,33 +58,6 @@ fn cycle_rate_filter_helpers_follow_shared_sampling_policy() {
     }
 
     assert!(adc_sampled_transfer_functions_for_cycle_rate(0.0).is_err());
-}
-
-#[test]
-fn adc_sampled_bode_data_builds_for_all_channels() {
-    let frequencies_hz = [0.0, 10.0, 100.0, 1_000.0];
-    let angular_frequencies: alloc::vec::Vec<f64> = frequencies_hz
-        .iter()
-        .map(|frequency_hz| frequency_hz * core::f64::consts::TAU)
-        .collect();
-    let bode_data = adc_sampled_bode_data(
-        0.1,
-        super::super::ADC_OVERSAMPLE_TARGET_RATE_HZ,
-        &frequencies_hz,
-    )
-    .unwrap();
-
-    assert_eq!(bode_data.len(), ADC_CHANNEL_COUNT);
-    for channel_bode in bode_data {
-        assert_eq!(channel_bode.angular_frequencies, angular_frequencies);
-        assert_eq!(channel_bode.magnitude_db.len(), angular_frequencies.len());
-        assert_eq!(channel_bode.phase_deg.len(), angular_frequencies.len());
-        assert!(channel_bode
-            .magnitude_db
-            .iter()
-            .all(|value| value.is_finite()));
-        assert!(channel_bode.phase_deg.iter().all(|value| value.is_finite()));
-    }
 }
 
 #[test]

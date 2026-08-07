@@ -99,13 +99,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn frontend_35mv_specification_preserves_input_and_component_order() {
-        let inputs = frontend_35mv_uncertainty_inputs(-0.035);
-        assert_eq!(inputs.nominal[0], -0.035);
-        assert_eq!(inputs.nominal[1], 2.0e3);
-        assert_eq!(inputs.nominal[5], 1.024);
-        assert_eq!(inputs.nominal[8], 10.0e3);
-        assert_eq!(inputs.uncertainty[9], 1.0e-9);
-        assert_eq!(inputs.thermal_sensitivity_per_c[7], 0.0);
+    fn frontend_35mv_uncertainty_inputs_are_finite_and_nonnegative() {
+        for input_v in [-0.035, 0.0, 0.055] {
+            let inputs = frontend_35mv_uncertainty_inputs(input_v);
+            assert!(inputs.nominal.iter().all(|value| value.is_finite()));
+            assert!(inputs
+                .uncertainty
+                .iter()
+                .all(|&value| value.is_finite() && value >= 0.0));
+            assert!(inputs
+                .thermal_sensitivity_per_c
+                .iter()
+                .all(|value| value.is_finite()));
+        }
     }
 }

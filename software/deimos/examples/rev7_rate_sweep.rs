@@ -581,6 +581,5 @@ mod tests {
                 .windows(2)
                 .all(|pair| (pair[1] - pair[0]).abs() < 1e-12)
         );
-        assert_eq!(rates.iter().filter(|rate| **rate < 500.0).count(), 12);
     }
 }

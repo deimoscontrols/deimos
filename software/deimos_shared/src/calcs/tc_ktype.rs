@@ -107,17 +107,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn endpoints_and_linear_extrapolation_are_finite() {
-        for temperature in [
-            50.0,
-            TC_SPLINE_MIN_TEMPERATURE_K,
-            273.15,
-            1_000.0,
-            TC_SPLINE_MAX_TEMPERATURE_K + 50.0,
-        ] {
-            let voltage = ktype_voltage_v_f32(temperature);
-            assert!(voltage.is_finite());
-            assert!(ktype_temperature_k_f32(voltage).is_finite());
+    fn forward_and_inverse_splines_extrapolate_linearly() {
+        let temperature_delta_k = 10.0;
+        for endpoint_k in [TC_SPLINE_MIN_TEMPERATURE_K, TC_SPLINE_MAX_TEMPERATURE_K] {
+            let at_endpoint = ktype_voltage_v_f32(endpoint_k);
+            let outside_once = if endpoint_k == TC_SPLINE_MIN_TEMPERATURE_K {
+                ktype_voltage_v_f32(endpoint_k - temperature_delta_k)
+            } else {
+                ktype_voltage_v_f32(endpoint_k + temperature_delta_k)
+            };
+            let outside_twice = if endpoint_k == TC_SPLINE_MIN_TEMPERATURE_K {
+                ktype_voltage_v_f32(endpoint_k - 2.0 * temperature_delta_k)
+            } else {
+                ktype_voltage_v_f32(endpoint_k + 2.0 * temperature_delta_k)
+            };
+            assert!(((outside_twice - outside_once) - (outside_once - at_endpoint)).abs() < 1.0e-7);
+        }
+
+        let voltage_delta_v = 1.0e-3;
+        for endpoint_v in [TC_SPLINE_MIN_VOLTAGE_V, TC_SPLINE_MAX_VOLTAGE_V] {
+            let at_endpoint = ktype_temperature_k_f32(endpoint_v);
+            let outside_once = if endpoint_v == TC_SPLINE_MIN_VOLTAGE_V {
+                ktype_temperature_k_f32(endpoint_v - voltage_delta_v)
+            } else {
+                ktype_temperature_k_f32(endpoint_v + voltage_delta_v)
+            };
+            let outside_twice = if endpoint_v == TC_SPLINE_MIN_VOLTAGE_V {
+                ktype_temperature_k_f32(endpoint_v - 2.0 * voltage_delta_v)
+            } else {
+                ktype_temperature_k_f32(endpoint_v + 2.0 * voltage_delta_v)
+            };
+            assert!(((outside_twice - outside_once) - (outside_once - at_endpoint)).abs() < 1.0e-2);
         }
     }
 

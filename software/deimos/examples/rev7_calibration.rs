@@ -3377,7 +3377,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn calibration_channels_use_current_rev7_signal_names() {
+    fn calibration_channels_reference_peripheral_outputs() {
         let peripheral = DeimosDaqRev7::default();
         let output_names = peripheral
             .output_names()
@@ -3397,14 +3397,14 @@ mod tests {
         {
             assert!(
                 output_names.iter().any(|name| name == channel.signal_name),
-                "{} is not a current rev7 peripheral output",
+                "{} is not a peripheral output",
                 channel.signal_name,
             );
         }
     }
 
     #[test]
-    fn x26_voltage_channels_use_the_five_requested_holds() {
+    fn x26_voltage_holds_cover_the_range_origin_and_half_ranges() {
         for slug in ["x26_0", "x26_1"] {
             let channel = channel_for_slug(slug).expect("x26 calibration channel");
             assert_eq!(
@@ -3413,7 +3413,12 @@ mod tests {
             );
         }
 
-        assert_eq!(VOLTAGE_X26_HOLDS_V, [-0.035, -0.0175, 0.0, 0.0275, 0.055]);
+        assert_eq!(VOLTAGE_X26_HOLDS_V.len(), 5);
+        assert_eq!(VOLTAGE_X26_HOLDS_V[0], -0.035);
+        assert_eq!(VOLTAGE_X26_HOLDS_V[1], VOLTAGE_X26_HOLDS_V[0] / 2.0);
+        assert_eq!(VOLTAGE_X26_HOLDS_V[2], 0.0);
+        assert_eq!(VOLTAGE_X26_HOLDS_V[3], VOLTAGE_X26_HOLDS_V[4] / 2.0);
+        assert_eq!(VOLTAGE_X26_HOLDS_V[4], 0.055);
     }
 
     #[test]

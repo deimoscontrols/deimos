@@ -181,13 +181,10 @@ fn operating_output_settings_round_trip_as_one_preserved_value() {
     };
     assert!(settings.is_valid());
 
-    let retained_for_reentry = settings;
-    assert_eq!(retained_for_reentry, settings);
-
     let initial_config = ModbusInitialConfig {
         period_delta_ns: 1_000,
         phase_delta_ns: -250,
-        outputs: retained_for_reentry,
+        outputs: settings,
         ..ModbusInitialConfig::default()
     };
     assert_eq!(initial_config.dt_ns, MODBUS_DEFAULT_DT_NS);

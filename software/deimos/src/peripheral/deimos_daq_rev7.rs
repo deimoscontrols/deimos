@@ -370,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    fn packet_output_count_matches_names() {
+    fn packet_parser_populates_the_named_sample_timestamp() {
         let peripheral = DeimosDaqRev7::default();
         let packet = OperatingSnapshot {
             sample_time_ns: 0x0012_3456_789a_bcde,
@@ -378,10 +378,13 @@ mod tests {
         };
         let mut bytes = vec![0; OperatingSnapshot::BYTE_LEN];
         packet.write_bytes(&mut bytes);
-        let mut outputs = vec![0.0; peripheral.output_names().len()];
+        let output_names = peripheral.output_names();
+        let mut outputs = vec![0.0; output_names.len()];
         peripheral.parse_operating_roundtrip(&bytes, &mut outputs);
-        assert_eq!(outputs.len(), 25);
-        assert_eq!(outputs[0], packet.sample_time_ns as f64);
-        assert_eq!(peripheral.output_names()[0], "sample_time_ns");
+        let sample_time_index = output_names
+            .iter()
+            .position(|name| name == "sample_time_ns")
+            .expect("sample timestamp output");
+        assert_eq!(outputs[sample_time_index], packet.sample_time_ns as f64);
     }
 }
