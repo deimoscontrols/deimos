@@ -23,7 +23,7 @@ all-features = true
 
 [profile.release]
 opt-level = 3
-codegen-units = 1
+codegen-units = 4
 lto = true
 overflow-checks = true
 

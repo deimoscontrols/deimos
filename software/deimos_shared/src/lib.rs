@@ -2,7 +2,7 @@
 #![doc(html_favicon_url = "https://deimoscontrols.com/assets/logo_minimal.svg")]
 #![doc(html_logo_url = "https://deimoscontrols.com/assets/logo_light.svg")]
 #![no_std]
-#![allow(clippy::needless_range_loop)]
+#![allow(clippy::excessive_precision, clippy::needless_range_loop)]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
