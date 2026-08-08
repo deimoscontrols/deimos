@@ -3,6 +3,10 @@
 //! Feature logic is grouped into [packets], [filters], [uncertainty],
 //! [modbus], [timing], and [calc]. The complete Modbus/TCP register map is
 //! documented in [modbus].
+//!
+//! The [modbus] module owns the register addresses, counts, codecs, and
+//! semantic validation shared by firmware and host software. Transport and
+//! socket state remain outside this shared peripheral module.
 
 pub mod calc;
 pub mod filters;
