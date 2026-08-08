@@ -1,3 +1,10 @@
+//! Controller-facing lifecycle responder shared by instrument integrations.
+//!
+//! The responder implements the standard Deimos binding, configuring, and
+//! operating packet exchange over a `ThreadChannelSocket`. It only copies
+//! requested and completed state through [`InstrumentProxy`]; all blocking
+//! external I/O remains on the instrument worker.
+
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
@@ -12,17 +19,29 @@ use deimos_shared::states::{
 use crate::controller::channel::{Endpoint, Msg};
 use crate::controller::context::ControllerCtx;
 
+/// Instrument-specific state exchange used by the nonblocking responder.
 pub(crate) trait InstrumentProxy: Send + Sync + 'static {
+    /// Return the software peripheral identity advertised during binding.
     fn id(&self) -> PeripheralId;
+    /// Return the exact operating request size in bytes.
     fn input_size(&self) -> usize;
+    /// Return the exact operating response size in bytes.
     fn output_size(&self) -> usize;
+    /// Validate and enqueue one controller request, returning its packet ID.
     fn process_request(&self, bytes: &[u8]) -> Result<u64, String>;
+    /// Encode the latest completed state and supplied protocol metrics.
     fn write_response(&self, metrics: OperatingMetrics, bytes: &mut [u8]) -> Result<(), String>;
+    /// Request the integration's safe behavior after controller contact is lost.
     fn on_loss_of_contact(&self);
+    /// Return a latched worker or validation failure, if present.
     fn error(&self) -> Option<String>;
 }
 
 /// Stop and join handle for an instrument's protocol and I/O threads.
+///
+/// Dropping the handle requests shutdown but does not block. Call [`Self::join`]
+/// after stopping the controller to wait for bounded physical cleanup and to
+/// observe worker failures.
 pub struct InstrumentRunHandle {
     stop: Arc<AtomicBool>,
     protocol: Option<JoinHandle<Result<(), String>>>,
@@ -43,11 +62,17 @@ impl InstrumentRunHandle {
     }
 
     /// Signal both instrument threads to stop.
+    ///
+    /// The request is asynchronous. Output-capable workers apply their safe
+    /// state before returning from [`Self::join`].
     pub fn stop(&self) {
         self.stop.store(true, Ordering::Relaxed);
     }
 
     /// Whether either instrument thread remains active.
+    ///
+    /// Returns:
+    ///   `true` while the protocol responder or instrument worker has not exited.
     pub fn is_running(&self) -> bool {
         self.protocol
             .as_ref()
@@ -56,6 +81,13 @@ impl InstrumentRunHandle {
     }
 
     /// Stop and join both threads, reporting panics and latched errors.
+    ///
+    /// Returns:
+    ///   Success after both threads exit cleanly and physical cleanup completes.
+    ///
+    /// Errors:
+    ///   Returns all responder errors, worker errors, and thread panics joined
+    ///   into one message.
     pub fn join(&mut self) -> Result<(), String> {
         self.stop();
         let mut errors = Vec::new();
@@ -75,6 +107,7 @@ impl Drop for InstrumentRunHandle {
     }
 }
 
+/// Consume one thread handle and append any failure to a shared error list.
 fn join_one(
     name: &str,
     handle: &mut Option<JoinHandle<Result<(), String>>>,
@@ -90,6 +123,19 @@ fn join_one(
     }
 }
 
+/// Start the controller-facing protocol responder.
+///
+/// Args:
+///   ctx: Controller context containing the named sink endpoint.
+///   channel_name: Name of the matching thread-channel socket.
+///   proxy: Instrument-specific state bridge shared with the worker.
+///   stop: Shutdown flag shared by both instrument threads.
+///
+/// Returns:
+///   A join handle for the responder thread.
+///
+/// Errors:
+///   Returns an error when the operating-system thread cannot be created.
 pub(crate) fn spawn_protocol(
     ctx: &ControllerCtx,
     channel_name: &str,
@@ -104,6 +150,7 @@ pub(crate) fn spawn_protocol(
         .map_err(|err| format!("failed to spawn instrument protocol responder: {err}"))
 }
 
+/// Lifecycle state owned exclusively by the responder thread.
 enum State {
     Binding,
     Configuring {
@@ -116,6 +163,7 @@ enum State {
     },
 }
 
+/// Serve the Deimos binding, configuration, and operating state machine.
 fn run_protocol(
     endpoint: Endpoint,
     proxy: Arc<dyn InstrumentProxy>,
@@ -123,6 +171,8 @@ fn run_protocol(
 ) -> Result<(), String> {
     let mut state = State::Binding;
     while !stop.load(Ordering::Relaxed) {
+        // A latched physical-I/O error deliberately suppresses valid responses.
+        // Existing controller loss-of-contact policy then terminates or reconnects.
         if proxy.error().is_some() {
             thread::sleep(Duration::from_millis(1));
             continue;
@@ -142,7 +192,10 @@ fn run_protocol(
                 };
                 let mut bytes = vec![0; BindingOutput::BYTE_LEN];
                 response.write_bytes(&mut bytes);
-                send_payload(&endpoint, proxy.id(), bytes)?;
+                if !send_payload(&endpoint, proxy.id(), bytes) {
+                    proxy.on_loss_of_contact();
+                    return Ok(());
+                }
                 state = State::Configuring {
                     deadline: Instant::now()
                         + Duration::from_millis(request.configuring_timeout_ms.into()),
@@ -168,7 +221,10 @@ fn run_protocol(
                 };
                 let mut bytes = vec![0; ConfiguringOutput::BYTE_LEN];
                 response.write_bytes(&mut bytes);
-                send_payload(&endpoint, proxy.id(), bytes)?;
+                if !send_payload(&endpoint, proxy.id(), bytes) {
+                    proxy.on_loss_of_contact();
+                    return Ok(());
+                }
                 let timeout_ns = u64::from(request.dt_ns)
                     .saturating_mul(u64::from(request.loss_of_contact_limit))
                     .max(1_000_000);
@@ -202,7 +258,10 @@ fn run_protocol(
                     };
                     let mut bytes = vec![0; proxy.output_size()];
                     proxy.write_response(metrics, &mut bytes)?;
-                    send_payload(&endpoint, proxy.id(), bytes)?;
+                    if !send_payload(&endpoint, proxy.id(), bytes) {
+                        proxy.on_loss_of_contact();
+                        return Ok(());
+                    }
                     *response_id = response_id.wrapping_add(1);
                 } else if last_contact.elapsed() >= *loss_of_contact_timeout {
                     proxy.on_loss_of_contact();
@@ -215,6 +274,7 @@ fn run_protocol(
     Ok(())
 }
 
+/// Receive one framed packet and remove its peripheral-ID prefix.
 fn receive_payload(endpoint: &Endpoint, timeout: Duration) -> Option<Vec<u8>> {
     let message = endpoint.rx().recv_timeout(timeout).ok()?;
     let Msg::Packet(bytes) = message else {
@@ -226,14 +286,16 @@ fn receive_payload(endpoint: &Endpoint, timeout: Duration) -> Option<Vec<u8>> {
     Some(bytes[PeripheralId::BYTE_LEN..].to_vec())
 }
 
-fn send_payload(endpoint: &Endpoint, id: PeripheralId, payload: Vec<u8>) -> Result<(), String> {
+/// Prefix a response with its peripheral ID and send it to the controller.
+///
+/// Returns:
+///   `false` when the controller has dropped the receiving endpoint. This is a
+///   normal responder shutdown condition rather than an instrument failure.
+fn send_payload(endpoint: &Endpoint, id: PeripheralId, payload: Vec<u8>) -> bool {
     let mut bytes = vec![0; PeripheralId::BYTE_LEN + payload.len()];
     id.write_bytes(&mut bytes[..PeripheralId::BYTE_LEN]);
     bytes[PeripheralId::BYTE_LEN..].copy_from_slice(&payload);
-    endpoint
-        .tx()
-        .send(Msg::Packet(bytes))
-        .map_err(|err| format!("failed to send instrument proxy packet: {err}"))
+    endpoint.tx().send(Msg::Packet(bytes)).is_ok()
 }
 
 #[cfg(test)]

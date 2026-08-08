@@ -1,9 +1,22 @@
+//! Minimal blocking SCPI-over-TCP transport for instrument worker threads.
+//!
+//! Commands are ASCII and newline-delimited. Queries accept exactly one
+//! bounded, newline-terminated response. This module intentionally avoids a
+//! general SCPI dependency and contains no instrument-specific command syntax.
+
 use std::io::{BufRead, BufReader, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
 const DEFAULT_MAX_RESPONSE_LEN: usize = 16 * 1024;
 
+/// Add the standard raw-SCPI port when the caller supplied only a host.
+///
+/// Args:
+///   host: Host name, IP literal, or socket address.
+///
+/// Returns:
+///   The input address with port 5025 added when it had no explicit port.
 pub(crate) fn address_with_default_port(host: String) -> String {
     if host.parse::<SocketAddr>().is_ok() {
         return host;
@@ -28,12 +41,28 @@ pub(crate) fn address_with_default_port(host: String) -> String {
 }
 
 /// Minimal newline-delimited SCPI client for one worker-owned TCP connection.
+///
+/// One worker owns each client for its entire lifetime, so command/query
+/// ordering requires no additional synchronization.
 pub(crate) struct ScpiClient {
     stream: BufReader<TcpStream>,
     max_response_len: usize,
 }
 
 impl ScpiClient {
+    /// Resolve and connect to an instrument with bounded socket operations.
+    ///
+    /// Args:
+    ///   address: Host and port accepted by `ToSocketAddrs`.
+    ///   connect_timeout: Per-address TCP connection deadline.
+    ///   read_timeout: Deadline applied to each response read.
+    ///   write_timeout: Deadline applied to each command write.
+    ///
+    /// Returns:
+    ///   A buffered client owning the connected stream.
+    ///
+    /// Errors:
+    ///   Returns contextual resolution, connection, or socket-configuration errors.
     pub(crate) fn connect(
         address: &str,
         connect_timeout: Duration,
@@ -79,6 +108,16 @@ impl ScpiClient {
         self
     }
 
+    /// Write one ASCII SCPI command and its newline terminator.
+    ///
+    /// Args:
+    ///   command: SCPI command without a trailing line ending.
+    ///
+    /// Returns:
+    ///   Success after the complete command has been flushed to the socket.
+    ///
+    /// Errors:
+    ///   Returns an error for empty, non-ASCII, multiline, write, or flush failures.
     pub(crate) fn command(&mut self, command: &str) -> Result<(), String> {
         validate_command(command)?;
         let stream = self.stream.get_mut();
@@ -93,15 +132,43 @@ impl ScpiClient {
             .map_err(|err| format!("failed to flush `{command}`: {err}"))
     }
 
+    /// Write one command and read one bounded newline-terminated response.
+    ///
+    /// Args:
+    ///   command: SCPI query without a trailing line ending.
+    ///
+    /// Returns:
+    ///   The ASCII response with trailing CR/LF bytes removed.
+    ///
+    /// Errors:
+    ///   Returns command errors plus timeout, EOF, empty, oversized, or
+    ///   non-ASCII response errors.
     pub(crate) fn query(&mut self, command: &str) -> Result<String, String> {
         self.command(command)?;
         self.read_response(command)
     }
 
+    /// Query the instrument's standard identity string.
+    ///
+    /// Returns:
+    ///   The normalized response to `*IDN?`.
+    ///
+    /// Errors:
+    ///   Returns any error produced by [`Self::query`].
     pub(crate) fn identify(&mut self) -> Result<String, String> {
         self.query("*IDN?")
     }
 
+    /// Read and validate the single-line response belonging to `command`.
+    ///
+    /// Args:
+    ///   command: Command text used to contextualize any error.
+    ///
+    /// Returns:
+    ///   The ASCII response without its CR/LF terminator.
+    ///
+    /// Errors:
+    ///   Returns an error for socket failures or malformed response framing.
     fn read_response(&mut self, command: &str) -> Result<String, String> {
         let mut bytes = Vec::new();
         loop {
@@ -143,6 +210,7 @@ impl ScpiClient {
     }
 }
 
+/// Reject command text that could corrupt the newline-delimited stream.
 fn validate_command(command: &str) -> Result<(), String> {
     if command.is_empty() {
         return Err("SCPI command cannot be empty".to_owned());

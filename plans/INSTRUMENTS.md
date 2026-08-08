@@ -69,7 +69,7 @@ deimos::peripheral::instruments
 
 The `peripheral` module exposes the `instruments` namespace but does not re-export concrete instrument module internals.
 
-Each concrete instrument module exposes a default `attach(name, address, &controller) -> RunHandle` helper that registers the peripheral, adds its thread-channel socket, and starts the instrument driver.
+Each concrete instrument module exposes an `attach(name, config, &mut controller) -> RunHandle` helper that registers the peripheral, adds a thread-channel socket with a name derived from the instrument model and logical serial number, and starts the instrument driver.
 
 Instrument model numbers occupy an explicitly documented software-only range and never overlap hardware model numbers.
 

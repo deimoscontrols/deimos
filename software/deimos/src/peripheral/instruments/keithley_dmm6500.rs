@@ -1,3 +1,11 @@
+//! Keithley DMM6500 DC-voltage acquisition integration.
+//!
+//! A blocking worker owns the SCPI-over-TCP connection and continuously issues
+//! `:READ?`. The controller-facing responder repeats the latest completed
+//! finite sample, sequence number, sample age, and query duration without
+//! blocking the control loop. Sample timestamps are host-observed completion
+//! bounds rather than cycle-synchronous measurement times.
+
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
@@ -9,9 +17,9 @@ use serde::{Deserialize, Serialize};
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::states::{ByteStruct, ByteStructLen, OperatingMetrics};
 
+use super::SOFTWARE_MODEL_NUMBER_BASE;
 use super::protocol::{InstrumentProxy, InstrumentRunHandle, spawn_protocol};
 use super::scpi::{ScpiClient, address_with_default_port};
-use super::{SOFTWARE_MODEL_NUMBER_BASE, serial_from_address};
 use crate::calc::Calc;
 use crate::controller::Controller;
 use crate::controller::context::ControllerCtx;
@@ -20,6 +28,9 @@ use crate::socket::thread_channel::ThreadChannelSocket;
 
 const INPUT_SIZE: usize = 8;
 const OUTPUT_COUNT: usize = 4;
+// Request: the controller's little-endian u64 packet ID.
+// Response: OperatingMetrics followed by voltage, sample sequence, sample age,
+// and query duration as little-endian f64 values.
 const OUTPUT_SIZE: usize = OperatingMetrics::BYTE_LEN + OUTPUT_COUNT * 8;
 const MAX_EXACT_F64_INTEGER: u64 = (1_u64 << 53) - 1;
 
@@ -29,30 +40,40 @@ pub const MODEL_NUMBER: u64 = SOFTWARE_MODEL_NUMBER_BASE + 2;
 /// Connection and DC-voltage acquisition configuration for a DMM6500.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct KeithleyDmm6500Config {
+    /// TCP address in `host:port` form.
     pub address: String,
-    pub channel_name: String,
+    /// Logical software serial number used in the Deimos peripheral ID.
     pub serial_number: u64,
+    /// Case-insensitive model substring required in the `*IDN?` response.
     pub expected_model: String,
+    /// Maximum time allowed to establish the TCP connection.
     pub connect_timeout: Duration,
+    /// Maximum time allowed for each SCPI response.
     pub read_timeout: Duration,
+    /// Maximum time allowed for each SCPI command write.
     pub write_timeout: Duration,
     /// `None` enables autorange; `Some(volts)` selects a fixed voltage range.
     pub range_v: Option<f64>,
+    /// Integration aperture in power-line cycles.
     pub nplc: f64,
+    /// Whether automatic zero correction is enabled.
     pub autozero: bool,
 }
 
 impl KeithleyDmm6500Config {
     /// Build a configuration from a host name or address, adding SCPI port 5025.
-    pub fn new(
-        host: impl Into<String>,
-        channel_name: impl Into<String>,
-        serial_number: u64,
-    ) -> Self {
+    ///
+    /// Args:
+    ///   host: Host name, IP address, or address with an explicit port.
+    ///   serial_number: Logical software serial used in the peripheral ID.
+    ///
+    /// Returns:
+    ///   An autoranging DC-voltage configuration with one NPLC, autozero
+    ///   enabled, and bounded connection and I/O timeouts.
+    pub fn new(host: impl Into<String>, serial_number: u64) -> Self {
         let address = address_with_default_port(host.into());
         Self {
             address,
-            channel_name: channel_name.into(),
             serial_number,
             expected_model: "DMM6500".to_owned(),
             connect_timeout: Duration::from_secs(2),
@@ -65,8 +86,8 @@ impl KeithleyDmm6500Config {
     }
 
     fn validate(&self) -> Result<(), String> {
-        if self.address.trim().is_empty() || self.channel_name.trim().is_empty() {
-            return Err("address and channel_name cannot be empty".to_owned());
+        if self.address.trim().is_empty() {
+            return Err("address cannot be empty".to_owned());
         }
         if self.expected_model.trim().is_empty() {
             return Err("expected_model cannot be empty".to_owned());
@@ -87,10 +108,18 @@ impl KeithleyDmm6500Config {
 /// Pure controller-side representation of a Keithley DMM6500.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct KeithleyDmm6500 {
+    /// Logical software serial number used in the Deimos peripheral ID.
     pub serial_number: u64,
 }
 
 impl KeithleyDmm6500 {
+    /// Construct the pure controller-side peripheral representation.
+    ///
+    /// Args:
+    ///   serial_number: Logical software serial used in the peripheral ID.
+    ///
+    /// Returns:
+    ///   A serializable peripheral with no connection or worker state.
     pub fn new(serial_number: u64) -> Self {
         Self { serial_number }
     }
@@ -158,6 +187,7 @@ impl Peripheral for KeithleyDmm6500 {
     }
 }
 
+/// Latest complete measurement published by the blocking SCPI worker.
 struct State {
     voltage_v: f64,
     sample_sequence: u64,
@@ -167,15 +197,19 @@ struct State {
     error: Option<String>,
 }
 
+/// Validated configuration plus synchronized measurement state.
 struct Shared {
     config: KeithleyDmm6500Config,
+    channel_name: String,
     state: Mutex<State>,
 }
 
 impl Shared {
     fn new(config: KeithleyDmm6500Config) -> Self {
+        let channel_name = format!("instrument-dmm6500-{:016x}", config.serial_number);
         Self {
             config,
+            channel_name,
             state: Mutex::new(State {
                 voltage_v: 0.0,
                 sample_sequence: 0,
@@ -245,6 +279,16 @@ pub struct KeithleyDmm6500Driver {
 }
 
 impl KeithleyDmm6500Driver {
+    /// Construct a validated DMM6500 driver without connecting it.
+    ///
+    /// Args:
+    ///   config: Connection, DC measurement, and timeout settings.
+    ///
+    /// Returns:
+    ///   A driver ready to be started with [`Self::run`].
+    ///
+    /// Errors:
+    ///   Returns an error when configuration fields are invalid.
     pub fn new(config: KeithleyDmm6500Config) -> Result<Self, String> {
         config.validate()?;
         Ok(Self {
@@ -252,18 +296,42 @@ impl KeithleyDmm6500Driver {
         })
     }
 
+    /// Return the pure peripheral paired with this driver.
+    ///
+    /// Returns:
+    ///   A serializable peripheral carrying the driver's logical identity.
     pub fn peripheral(&self) -> KeithleyDmm6500 {
         KeithleyDmm6500::new(self.shared.config.serial_number)
     }
 
+    /// Return the internal thread-channel name expected by the driver.
+    ///
+    /// Returns:
+    ///   A deterministic name derived from the model and logical serial number.
     pub fn channel_name(&self) -> &str {
-        &self.shared.config.channel_name
+        &self.shared.channel_name
     }
 
+    /// Return the validated SCPI identity after successful startup.
+    ///
+    /// Returns:
+    ///   The complete `*IDN?` response, or `None` before startup succeeds.
     pub fn identity(&self) -> Option<String> {
         self.shared.state.lock().ok()?.identity.clone()
     }
 
+    /// Connect, configure DC acquisition, obtain one sample, and start both threads.
+    ///
+    /// Args:
+    ///   ctx: Controller context containing the matching thread channel.
+    ///
+    /// Returns:
+    ///   A handle that owns shutdown and joining for the responder and worker.
+    ///
+    /// Errors:
+    ///   Returns an error for connection, identity, configuration, initial
+    ///   reading, parse, or thread startup failures. The protocol responder is
+    ///   not started until one finite voltage reading has completed.
     pub fn run(&self, ctx: &ControllerCtx) -> Result<InstrumentRunHandle, String> {
         let stop = Arc::new(AtomicBool::new(false));
         let (startup_tx, startup_rx) = mpsc::sync_channel(1);
@@ -293,7 +361,7 @@ impl KeithleyDmm6500Driver {
 
         let protocol = match spawn_protocol(
             ctx,
-            &self.shared.config.channel_name,
+            &self.shared.channel_name,
             self.shared.clone(),
             stop.clone(),
         ) {
@@ -308,29 +376,36 @@ impl KeithleyDmm6500Driver {
     }
 }
 
-/// Attach one DMM6500 using the default DC-voltage configuration.
+/// Attach one configured DMM6500 to a controller.
 ///
 /// This connects, configures, and obtains the first valid reading before
-/// registering its software peripheral and generated thread-channel socket
-/// with `controller`. Construct [`KeithleyDmm6500Config`] and
-/// [`KeithleyDmm6500Driver`] directly when range, NPLC, autozero, or timeouts
-/// need customization.
+/// registering its software peripheral and automatically named thread-channel
+/// socket with `controller`.
+///
+/// Args:
+///   peripheral_name: Unique name used for controller fields such as
+///   `peripheral_name.voltage_v`.
+///   config: Complete connection, identity, measurement, and timeout
+///   configuration.
+///   controller: Controller to receive the peripheral and generated socket.
+///
+/// Returns:
+///   A running instrument handle that must outlive the controller run.
+///
+/// Errors:
+///   Returns an error for duplicate peripheral names, invalid configuration,
+///   connection or identity failure, initial reading failure, thread startup
+///   failure, or controller registration failure.
 pub fn attach(
     peripheral_name: &str,
-    address: impl Into<String>,
+    config: KeithleyDmm6500Config,
     controller: &mut Controller,
 ) -> Result<InstrumentRunHandle, String> {
     if controller.peripherals().contains_key(peripheral_name) {
         return Err(format!("Peripheral name `{peripheral_name}` is duplicated"));
     }
-    let address = address_with_default_port(address.into());
-    let serial_number = serial_from_address(&address);
-    let channel_name = format!("instrument-dmm6500-{peripheral_name}-{serial_number:016x}");
-    let driver = KeithleyDmm6500Driver::new(KeithleyDmm6500Config::new(
-        address,
-        channel_name.clone(),
-        serial_number,
-    ))?;
+    let driver = KeithleyDmm6500Driver::new(config)?;
+    let channel_name = driver.channel_name().to_owned();
     let mut handle = driver.run(&controller.ctx)?;
     if let Err(err) = controller.add_peripheral(peripheral_name, Box::new(driver.peripheral())) {
         return match handle.join() {
@@ -352,6 +427,8 @@ fn dmm_worker(
     stop: Arc<AtomicBool>,
     startup: mpsc::SyncSender<Result<(), String>>,
 ) -> Result<(), String> {
+    // Preserve the first worker failure for the protocol responder. Suppressing
+    // later replies lets the controller's ordinary loss-of-contact policy act.
     let result = dmm_worker_inner(&shared, &stop, &startup);
     if let Err(error) = &result
         && let Ok(mut state) = shared.state.lock()
@@ -362,6 +439,11 @@ fn dmm_worker(
     result
 }
 
+/// Own the SCPI connection and continuously publish complete voltage samples.
+///
+/// Startup is not reported until identity validation, configuration, and the
+/// first finite reading succeed, so the controller never observes placeholder
+/// acquisition data from an unverified instrument.
 fn dmm_worker_inner(
     shared: &Arc<Shared>,
     stop: &Arc<AtomicBool>,
@@ -408,6 +490,8 @@ fn dmm_worker_inner(
     while !stop.load(Ordering::Relaxed) {
         let (voltage_v, query_duration) = read_voltage(&mut client)?;
         let mut state = shared.state.lock().unwrap();
+        // Timestamp after the complete response arrives. This bounds sample
+        // freshness but does not claim cycle-synchronous acquisition timing.
         state.voltage_v = voltage_v;
         state.sample_sequence = state.sample_sequence.wrapping_add(1);
         state.sampled_at = Instant::now();
@@ -416,6 +500,7 @@ fn dmm_worker_inner(
     Ok(())
 }
 
+/// Verify the model and configure single-sample ASCII DC-voltage acquisition.
 fn setup_dmm(client: &mut ScpiClient, config: &KeithleyDmm6500Config) -> Result<String, String> {
     let identity = client.identify()?;
     let uppercase = identity.to_ascii_uppercase();
@@ -446,6 +531,13 @@ fn setup_dmm(client: &mut ScpiClient, config: &KeithleyDmm6500Config) -> Result<
     Ok(identity)
 }
 
+/// Read one finite voltage and measure the host-observed query duration.
+///
+/// Returns:
+///   The voltage in volts and elapsed wall time around the SCPI query.
+///
+/// Errors:
+///   Returns transport errors or a nonnumeric/non-finite instrument response.
 fn read_voltage(client: &mut ScpiClient) -> Result<(f64, Duration), String> {
     let started = Instant::now();
     let response = client.query(":READ?")?;
@@ -496,8 +588,15 @@ mod tests {
     }
 
     #[test]
+    fn thread_channel_name_is_derived_from_model_and_serial() {
+        let config = KeithleyDmm6500Config::new("localhost", 0x2a);
+        let driver = KeithleyDmm6500Driver::new(config).unwrap();
+        assert_eq!(driver.channel_name(), "instrument-dmm6500-000000000000002a");
+    }
+
+    #[test]
     fn configuration_rejects_invalid_measurement_settings() {
-        let mut config = KeithleyDmm6500Config::new("localhost", "dmm", 1);
+        let mut config = KeithleyDmm6500Config::new("localhost", 1);
         config.nplc = f64::NAN;
         assert!(config.validate().is_err());
         config.nplc = 1.0;
@@ -537,7 +636,7 @@ mod tests {
             commands
         });
 
-        let config = KeithleyDmm6500Config::new(address.to_string(), "dmm-test", 2);
+        let config = KeithleyDmm6500Config::new(address.to_string(), 2);
         let driver = KeithleyDmm6500Driver::new(config).unwrap();
         let ctx = ControllerCtx::default();
         let mut handle = driver.run(&ctx).unwrap();

@@ -93,7 +93,7 @@ fn start_dmm() -> (String, thread::JoinHandle<Vec<String>>) {
 }
 
 #[test]
-fn controller_runs_both_asynchronous_instruments_at_100_hz() {
+fn controller_runs_configured_instruments_and_both_siglent_channels() {
     let (siglent_address, siglent_server) = start_siglent();
     let (dmm_address, dmm_server) = start_dmm();
 
@@ -110,9 +110,13 @@ fn controller_runs_both_asynchronous_instruments_at_100_hz() {
 
     let mut controller = Controller::new(ctx);
     controller.clear_sockets();
+    let mut siglent_config = siglent_sdg2042x::SiglentSdg2042XConfig::new(siglent_address, 101);
+    siglent_config.channels[0].waveform = siglent_sdg2042x::SiglentWaveform::Sine;
+    siglent_config.channels[1].waveform = siglent_sdg2042x::SiglentWaveform::Square;
+    let dmm_config = keithley_dmm6500::KeithleyDmm6500Config::new(dmm_address, 102);
     let mut siglent_handle =
-        siglent_sdg2042x::attach("siglent", siglent_address, &mut controller).unwrap();
-    let mut dmm_handle = keithley_dmm6500::attach("dmm", dmm_address, &mut controller).unwrap();
+        siglent_sdg2042x::attach("siglent", siglent_config, &mut controller).unwrap();
+    let mut dmm_handle = keithley_dmm6500::attach("dmm", dmm_config, &mut controller).unwrap();
 
     let serialized = serde_json::to_string(&controller).unwrap();
     assert!(serialized.contains("SiglentSdg2042X"));
@@ -123,7 +127,14 @@ fn controller_runs_both_asynchronous_instruments_at_100_hz() {
 
     run.write(HashMap::from([
         ("siglent.ch1_enabled".to_owned(), 1.0),
+        ("siglent.ch1_frequency_hz".to_owned(), 1_000.0),
         ("siglent.ch1_offset_voltage_v".to_owned(), 0.75),
+        ("siglent.ch1_phase_deg".to_owned(), 10.0),
+        ("siglent.ch2_enabled".to_owned(), 1.0),
+        ("siglent.ch2_frequency_hz".to_owned(), 2_000.0),
+        ("siglent.ch2_offset_voltage_v".to_owned(), -0.25),
+        ("siglent.ch2_pulse_duty_cycle".to_owned(), 0.25),
+        ("siglent.ch2_phase_deg".to_owned(), 20.0),
     ]))
     .unwrap();
 
@@ -140,6 +151,11 @@ fn controller_runs_both_asynchronous_instruments_at_100_hz() {
             .get("siglent.ch1_applied_offset_voltage_v")
             .copied()
             .unwrap_or_default();
+        let channel_2_applied = values.get("siglent.ch2_applied_enabled") == Some(&1.0)
+            && values.get("siglent.ch2_applied_frequency_hz") == Some(&2_000.0)
+            && values.get("siglent.ch2_applied_offset_voltage_v") == Some(&-0.25)
+            && values.get("siglent.ch2_applied_pulse_duty_cycle") == Some(&0.25)
+            && values.get("siglent.ch2_applied_phase_deg") == Some(&20.0);
         let sample_sequence = values
             .get("dmm.sample_sequence")
             .copied()
@@ -148,7 +164,11 @@ fn controller_runs_both_asynchronous_instruments_at_100_hz() {
             observed_repeated_sample = true;
         }
         prior_sample = Some(sample_sequence);
-        if command_sequence >= 1.0 && applied_offset == 0.75 && sample_sequence >= 2.0 {
+        if command_sequence >= 1.0
+            && applied_offset == 0.75
+            && channel_2_applied
+            && sample_sequence >= 2.0
+        {
             assert!(values["dmm.voltage_v"].is_finite());
             assert!(values["dmm.sample_age_s"].is_finite());
             break;
@@ -172,6 +192,21 @@ fn controller_runs_both_asynchronous_instruments_at_100_hz() {
         siglent_commands
             .iter()
             .any(|command| command == "C1:OUTP ON,LOAD,100000")
+    );
+    assert!(
+        siglent_commands
+            .iter()
+            .any(|command| command.starts_with("C1:BSWV WVTP,SINE,"))
+    );
+    assert!(
+        siglent_commands
+            .iter()
+            .any(|command| command.starts_with("C2:BSWV WVTP,SQUARE,"))
+    );
+    assert!(
+        siglent_commands
+            .iter()
+            .any(|command| command == "C2:OUTP ON,LOAD,100000")
     );
     assert_eq!(
         &siglent_commands[siglent_commands.len() - 8..],

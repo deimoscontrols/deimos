@@ -1,5 +1,13 @@
 //! Supervised loopback smoke test for an SDG2042X channel connected to a DMM6500.
 //!
+//! With no arguments, the test connects to the lab-reserved addresses below,
+//! drives Siglent channel 1 to 1 V DC, and checks fresh DMM readings against a
+//! 50 mV tolerance. This commands physical hardware and should only be run
+//! while channel 1 is safely connected to the DMM input.
+//!
+//! Normal and error exits join both drivers. The Siglent driver drives both
+//! channels to 0 V DC before opening their output relays during that shutdown.
+//!
 //! Usage:
 //! `cargo run -p deimos --example instruments_smoke -- [siglent-host] [dmm-host] [voltage-v] [samples]`
 
@@ -40,12 +48,12 @@ fn main() -> Result<(), String> {
         return Err("smoke-test voltage must be finite and within -2..=2 V".to_owned());
     }
 
-    let mut siglent_config = SiglentSdg2042XConfig::new(siglent_host, "siglent-smoke", 1);
+    let mut siglent_config = SiglentSdg2042XConfig::new(siglent_host, 1);
     siglent_config.channels[0].waveform = SiglentWaveform::Dc;
     siglent_config.channels[0].offset_voltage_v = (-2.0, 2.0);
     siglent_config.channels[1].waveform = SiglentWaveform::Dc;
     let siglent = SiglentSdg2042XDriver::new(siglent_config)?;
-    let dmm = KeithleyDmm6500Driver::new(KeithleyDmm6500Config::new(dmm_host, "dmm-smoke", 1))?;
+    let dmm = KeithleyDmm6500Driver::new(KeithleyDmm6500Config::new(dmm_host, 1))?;
 
     let mut ctx = ControllerCtx::default();
     ctx.op_name = "instruments-smoke".to_owned();
@@ -56,11 +64,16 @@ fn main() -> Result<(), String> {
 
     let mut controller = Controller::new(ctx);
     controller.clear_sockets();
+    let siglent_channel_name = siglent.channel_name().to_owned();
+    let dmm_channel_name = dmm.channel_name().to_owned();
     controller.add_socket(
-        "siglent-smoke",
-        Box::new(ThreadChannelSocket::new("siglent-smoke")),
+        &siglent_channel_name,
+        Box::new(ThreadChannelSocket::new(&siglent_channel_name)),
     );
-    controller.add_socket("dmm-smoke", Box::new(ThreadChannelSocket::new("dmm-smoke")));
+    controller.add_socket(
+        &dmm_channel_name,
+        Box::new(ThreadChannelSocket::new(&dmm_channel_name)),
+    );
     controller.add_peripheral("siglent", Box::new(siglent.peripheral()))?;
     controller.add_peripheral("dmm", Box::new(dmm.peripheral()))?;
 
@@ -177,6 +190,7 @@ fn main() -> Result<(), String> {
     Ok(())
 }
 
+/// Poll a condition until it succeeds or a bounded deadline expires.
 fn wait_until(timeout: Duration, mut condition: impl FnMut() -> bool) -> Result<(), String> {
     let deadline = Instant::now() + timeout;
     while !condition() {
@@ -188,6 +202,7 @@ fn wait_until(timeout: Duration, mut condition: impl FnMut() -> bool) -> Result<
     Ok(())
 }
 
+/// Build command-line usage text including the current lab defaults.
 fn usage() -> String {
     format!(
         "usage: instruments_smoke [siglent-host[:port]] [dmm-host[:port]] [voltage-v] [samples]\n\

@@ -1,3 +1,15 @@
+//! Siglent SDG2042X basic-wave generator integration.
+//!
+//! The peripheral exposes requested settings for both output channels while a
+//! dedicated worker serializes SCPI commands over TCP. The protocol responder
+//! publishes only the most recently completed two-channel generation, so the
+//! controller never waits for network or relay latency.
+//!
+//! A disabled channel is physically driven to 0 V DC before its output relay is
+//! opened. Startup, controller loss, explicit disable, worker failure, and
+//! shutdown all use this safe state. Arbitrary waveforms, modulation, burst,
+//! and the generator's internal sweep subsystem are intentionally unsupported.
+
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, mpsc};
@@ -9,9 +21,9 @@ use serde::{Deserialize, Serialize};
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::states::{ByteStruct, ByteStructLen, OperatingMetrics};
 
+use super::SOFTWARE_MODEL_NUMBER_BASE;
 use super::protocol::{InstrumentProxy, InstrumentRunHandle, spawn_protocol};
 use super::scpi::{ScpiClient, address_with_default_port};
-use super::{SOFTWARE_MODEL_NUMBER_BASE, serial_from_address};
 use crate::calc::Calc;
 use crate::controller::Controller;
 use crate::controller::context::ControllerCtx;
@@ -22,6 +34,9 @@ const CHANNEL_COUNT: usize = 2;
 const VALUES_PER_CHANNEL: usize = 6;
 const INPUT_COUNT: usize = CHANNEL_COUNT * VALUES_PER_CHANNEL;
 const OUTPUT_COUNT: usize = INPUT_COUNT + 2;
+// Request: u64 packet ID, then six little-endian f64 values per channel.
+// Response: OperatingMetrics, both applied channel vectors, command sequence,
+// and seconds since the complete two-channel generation was applied.
 const INPUT_SIZE: usize = 8 + INPUT_COUNT * 8;
 const OUTPUT_SIZE: usize = OperatingMetrics::BYTE_LEN + OUTPUT_COUNT * 8;
 const MAX_EXACT_F64_INTEGER: u64 = (1_u64 << 53) - 1;
@@ -33,11 +48,17 @@ pub const MODEL_NUMBER: u64 = SOFTWARE_MODEL_NUMBER_BASE + 1;
 /// Supported SDG2042X basic waveforms.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum SiglentWaveform {
+    /// Sinusoidal waveform.
     Sine,
+    /// Square waveform.
     Square,
+    /// Ramp or sawtooth waveform.
     Ramp,
+    /// Pulse waveform.
     Pulse,
+    /// Gaussian noise waveform.
     Noise,
+    /// Constant DC waveform.
     Dc,
 }
 
@@ -77,7 +98,9 @@ impl SiglentWaveform {
 /// Load presented to an SDG2042X output channel.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum SiglentLoad {
+    /// Highest supported numeric load, used to approximate a high-impedance sink.
     HighImpedance,
+    /// Explicit load impedance in ohms, inclusive from 50 through 100,000.
     Ohms(u32),
 }
 
@@ -105,13 +128,21 @@ impl SiglentLoad {
 /// Fixed channel settings and accepted dynamic-command ranges.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SiglentChannelConfig {
+    /// Basic waveform selected whenever this channel is enabled.
     pub waveform: SiglentWaveform,
+    /// Fixed peak-to-peak amplitude for sine, square, ramp, and pulse waveforms.
     pub amplitude_vpp: f64,
+    /// Load used for output-level compensation.
     pub load: SiglentLoad,
+    /// Inclusive accepted frequency range in hertz.
     pub frequency_hz: (f64, f64),
+    /// Inclusive accepted DC offset or noise-mean range in volts.
     pub offset_voltage_v: (f64, f64),
+    /// Inclusive accepted square/pulse duty-cycle range as a fraction.
     pub pulse_duty_cycle: (f64, f64),
+    /// Inclusive accepted phase range in degrees.
     pub phase_deg: (f64, f64),
+    /// Inclusive accepted noise standard-deviation range in volts.
     pub stdev: (f64, f64),
 }
 
@@ -169,27 +200,36 @@ fn validate_range(name: &str, range: (f64, f64), channel: usize) -> Result<(), S
 /// Connection and safety configuration for an SDG2042X driver.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SiglentSdg2042XConfig {
+    /// TCP address in `host:port` form.
     pub address: String,
-    pub channel_name: String,
+    /// Logical software serial number used in the Deimos peripheral ID.
     pub serial_number: u64,
+    /// Case-insensitive model substring required in the `*IDN?` response.
     pub expected_model: String,
+    /// Maximum time allowed to establish the TCP connection.
     pub connect_timeout: Duration,
+    /// Maximum time allowed for each SCPI response.
     pub read_timeout: Duration,
+    /// Maximum time allowed for each SCPI command write.
     pub write_timeout: Duration,
+    /// Fixed settings and accepted dynamic ranges for channels 1 and 2.
     pub channels: [SiglentChannelConfig; CHANNEL_COUNT],
 }
 
 impl SiglentSdg2042XConfig {
     /// Build a configuration from a host name or address, adding SCPI port 5025.
-    pub fn new(
-        host: impl Into<String>,
-        channel_name: impl Into<String>,
-        serial_number: u64,
-    ) -> Self {
+    ///
+    /// Args:
+    ///   host: Host name, IP address, or address with an explicit port.
+    ///   serial_number: Logical software serial used in the peripheral ID.
+    ///
+    /// Returns:
+    ///   A configuration with both channels set to DC, high-impedance load
+    ///   compensation, conservative timeouts, and output disabled at startup.
+    pub fn new(host: impl Into<String>, serial_number: u64) -> Self {
         let address = address_with_default_port(host.into());
         Self {
             address,
-            channel_name: channel_name.into(),
             serial_number,
             expected_model: "SDG2042X".to_owned(),
             connect_timeout: Duration::from_secs(2),
@@ -200,8 +240,8 @@ impl SiglentSdg2042XConfig {
     }
 
     fn validate(&self) -> Result<(), String> {
-        if self.address.trim().is_empty() || self.channel_name.trim().is_empty() {
-            return Err("address and channel_name cannot be empty".to_owned());
+        if self.address.trim().is_empty() {
+            return Err("address cannot be empty".to_owned());
         }
         if self.expected_model.trim().is_empty() {
             return Err("expected_model cannot be empty".to_owned());
@@ -216,10 +256,18 @@ impl SiglentSdg2042XConfig {
 /// Pure controller-side representation of an SDG2042X.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SiglentSdg2042X {
+    /// Logical software serial number used in the Deimos peripheral ID.
     pub serial_number: u64,
 }
 
 impl SiglentSdg2042X {
+    /// Construct the pure controller-side peripheral representation.
+    ///
+    /// Args:
+    ///   serial_number: Logical software serial used in the peripheral ID.
+    ///
+    /// Returns:
+    ///   A serializable peripheral with no connection or worker state.
     pub fn new(serial_number: u64) -> Self {
         Self { serial_number }
     }
@@ -303,6 +351,7 @@ fn channel_names(infix: &str) -> Vec<String> {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+/// One channel's dynamic values from an operating request.
 struct ChannelRequest {
     enabled: bool,
     frequency_hz: f64,
@@ -326,10 +375,16 @@ impl ChannelRequest {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+/// One atomic two-channel command generation.
 struct Request {
     channels: [ChannelRequest; CHANNEL_COUNT],
 }
 
+/// State shared between the real-time responder and blocking SCPI worker.
+///
+/// `pending` is a single coalescing slot: a newer controller request may
+/// replace one the worker has not started, but `applied` changes only after the
+/// worker completes every SCPI operation for that generation.
 struct State {
     pending: Option<(u64, Request)>,
     next_generation: u64,
@@ -340,16 +395,20 @@ struct State {
     error: Option<String>,
 }
 
+/// Validated configuration plus synchronized instrument state.
 struct Shared {
     config: SiglentSdg2042XConfig,
+    channel_name: String,
     state: Mutex<State>,
     changed: Condvar,
 }
 
 impl Shared {
     fn new(config: SiglentSdg2042XConfig) -> Self {
+        let channel_name = format!("instrument-sdg2042x-{:016x}", config.serial_number);
         Self {
             config,
+            channel_name,
             state: Mutex::new(State {
                 pending: None,
                 next_generation: 1,
@@ -363,6 +422,7 @@ impl Shared {
         }
     }
 
+    /// Latch an invalid-request error and enqueue a disabled generation.
     fn reject_request(&self, message: String) {
         let mut state = self.state.lock().unwrap();
         let latest = state.pending.map_or(state.applied, |(_, request)| request);
@@ -473,6 +533,16 @@ pub struct SiglentSdg2042XDriver {
 }
 
 impl SiglentSdg2042XDriver {
+    /// Construct a validated SDG2042X driver without connecting it.
+    ///
+    /// Args:
+    ///   config: Connection, waveform, load, timeout, and safety limits.
+    ///
+    /// Returns:
+    ///   A driver ready to be started with [`Self::run`].
+    ///
+    /// Errors:
+    ///   Returns an error when configuration fields or channel ranges are invalid.
     pub fn new(config: SiglentSdg2042XConfig) -> Result<Self, String> {
         config.validate()?;
         Ok(Self {
@@ -480,18 +550,42 @@ impl SiglentSdg2042XDriver {
         })
     }
 
+    /// Return the pure peripheral paired with this driver.
+    ///
+    /// Returns:
+    ///   A serializable peripheral carrying the driver's logical identity.
     pub fn peripheral(&self) -> SiglentSdg2042X {
         SiglentSdg2042X::new(self.shared.config.serial_number)
     }
 
+    /// Return the internal thread-channel name expected by the driver.
+    ///
+    /// Returns:
+    ///   A deterministic name derived from the model and logical serial number.
     pub fn channel_name(&self) -> &str {
-        &self.shared.config.channel_name
+        &self.shared.channel_name
     }
 
+    /// Return the validated SCPI identity after successful startup.
+    ///
+    /// Returns:
+    ///   The complete `*IDN?` response, or `None` before startup succeeds.
     pub fn identity(&self) -> Option<String> {
         self.shared.state.lock().ok()?.identity.clone()
     }
 
+    /// Connect, validate identity, apply the safe state, and start both threads.
+    ///
+    /// Args:
+    ///   ctx: Controller context containing the matching thread channel.
+    ///
+    /// Returns:
+    ///   A handle that owns shutdown and joining for the responder and worker.
+    ///
+    /// Errors:
+    ///   Returns an error for connection, identity, setup, readback, or thread
+    ///   startup failures. The protocol responder is not started until physical
+    ///   instrument setup has succeeded.
     pub fn run(&self, ctx: &ControllerCtx) -> Result<InstrumentRunHandle, String> {
         let stop = Arc::new(AtomicBool::new(false));
         let (startup_tx, startup_rx) = mpsc::sync_channel(1);
@@ -521,7 +615,7 @@ impl SiglentSdg2042XDriver {
 
         let protocol = match spawn_protocol(
             ctx,
-            &self.shared.config.channel_name,
+            &self.shared.channel_name,
             self.shared.clone(),
             stop.clone(),
         ) {
@@ -537,28 +631,38 @@ impl SiglentSdg2042XDriver {
     }
 }
 
-/// Attach one SDG2042X using the default two-channel configuration.
+/// Attach one configured SDG2042X to a controller.
 ///
 /// This connects and validates the instrument before registering its software
-/// peripheral and generated thread-channel socket with `controller`. Construct
-/// [`SiglentSdg2042XConfig`] and [`SiglentSdg2042XDriver`] directly when channel
-/// waveforms, limits, loads, or timeouts need customization.
+/// peripheral and automatically named thread-channel socket with `controller`.
+/// Both channel configurations and all six dynamic inputs per channel remain
+/// independent, while applied outputs are published as one completed
+/// two-channel generation.
+///
+/// Args:
+///   peripheral_name: Unique name used for controller fields such as
+///   `peripheral_name.ch1_enabled`.
+///   config: Complete connection, identity, waveform, channel, and timeout
+///   configuration.
+///   controller: Controller to receive the peripheral and generated socket.
+///
+/// Returns:
+///   A running instrument handle that must outlive the controller run.
+///
+/// Errors:
+///   Returns an error for duplicate peripheral names, invalid configuration,
+///   connection or identity failure, safe-state readback failure, thread
+///   startup failure, or controller registration failure.
 pub fn attach(
     peripheral_name: &str,
-    address: impl Into<String>,
+    config: SiglentSdg2042XConfig,
     controller: &mut Controller,
 ) -> Result<InstrumentRunHandle, String> {
     if controller.peripherals().contains_key(peripheral_name) {
         return Err(format!("Peripheral name `{peripheral_name}` is duplicated"));
     }
-    let address = address_with_default_port(address.into());
-    let serial_number = serial_from_address(&address);
-    let channel_name = format!("instrument-sdg2042x-{peripheral_name}-{serial_number:016x}");
-    let driver = SiglentSdg2042XDriver::new(SiglentSdg2042XConfig::new(
-        address,
-        channel_name.clone(),
-        serial_number,
-    ))?;
+    let driver = SiglentSdg2042XDriver::new(config)?;
+    let channel_name = driver.channel_name().to_owned();
     let mut handle = driver.run(&controller.ctx)?;
     if let Err(err) = controller.add_peripheral(peripheral_name, Box::new(driver.peripheral())) {
         return match handle.join() {
@@ -580,6 +684,8 @@ fn siglent_worker(
     stop: Arc<AtomicBool>,
     startup: mpsc::SyncSender<Result<(), String>>,
 ) -> Result<(), String> {
+    // Keep the first failure visible to the protocol responder. Once latched,
+    // it stops emitting apparently healthy responses from stale applied data.
     let result = siglent_worker_inner(&shared, &stop, &startup);
     if let Err(error) = &result
         && let Ok(mut state) = shared.state.lock()
@@ -590,6 +696,10 @@ fn siglent_worker(
     result
 }
 
+/// Own the SCPI connection and apply complete two-channel generations.
+///
+/// The worker reports startup only after identity validation and physical safe
+/// state verification. Every exit after startup attempts the same safe state.
 fn siglent_worker_inner(
     shared: &Arc<Shared>,
     stop: &Arc<AtomicBool>,
@@ -653,6 +763,7 @@ fn siglent_worker_inner(
     }
 }
 
+/// Verify the model and establish a read-back-verified safe baseline.
 fn setup_siglent(
     client: &mut ScpiClient,
     config: &SiglentSdg2042XConfig,
@@ -678,6 +789,11 @@ fn setup_siglent(
     Ok(identity)
 }
 
+/// Drive both channels to 0 V DC, then open both output relays.
+///
+/// Waveform commands precede relay commands so a slow physical relay cannot
+/// expose the previous waveform during shutdown. All steps are best-effort;
+/// errors are accumulated so failure on one channel does not skip the other.
 fn safe_outputs(client: &mut ScpiClient) -> Result<(), String> {
     let mut errors = Vec::new();
     for number in 1..=CHANNEL_COUNT {
@@ -708,6 +824,7 @@ fn safe_outputs(client: &mut ScpiClient) -> Result<(), String> {
     }
 }
 
+/// Apply and verify the safe state on one channel during an explicit disable.
 fn safe_channel(client: &mut ScpiClient, number: usize) -> Result<(), String> {
     client.command(&safe_waveform_command(number))?;
     expect_operation_complete(client)?;
@@ -720,6 +837,7 @@ fn safe_waveform_command(channel_number: usize) -> String {
     format!("C{channel_number}:BSWV WVTP,DC,OFST,0")
 }
 
+/// Confirm that a channel reports a zero-offset DC basic waveform.
 fn verify_safe_waveform(client: &mut ScpiClient, channel_number: usize) -> Result<(), String> {
     let readback = client.query(&format!("C{channel_number}:BSWV?"))?;
     let waveform = parameter_value(&readback, "WVTP");
@@ -738,6 +856,7 @@ fn verify_safe_waveform(client: &mut ScpiClient, channel_number: usize) -> Resul
     }
 }
 
+/// Confirm both relay state and load compensation from `OUTP?` readback.
 fn verify_output_state(
     client: &mut ScpiClient,
     channel_number: usize,
@@ -756,6 +875,7 @@ fn verify_output_state(
     }
 }
 
+/// Find the value following a named comma-delimited SCPI response field.
 fn parameter_value<'a>(response: &'a str, name: &str) -> Option<&'a str> {
     let mut tokens = response.split(',').map(str::trim);
     while let Some(token) = tokens.next() {
@@ -770,6 +890,10 @@ fn parameter_value<'a>(response: &'a str, name: &str) -> Option<&'a str> {
     None
 }
 
+/// Apply changed channel values and output-relay transitions.
+///
+/// A channel is configured before its relay closes. Disabling uses
+/// [`safe_channel`] so it is driven to 0 V DC before its relay opens.
 fn apply_request(
     client: &mut ScpiClient,
     config: &SiglentSdg2042XConfig,
@@ -800,6 +924,7 @@ fn apply_request(
     Ok(())
 }
 
+/// Render the subset of `BSWV` fields applicable to the configured waveform.
 fn basic_wave_command(
     channel_number: usize,
     config: &SiglentChannelConfig,
@@ -831,6 +956,7 @@ fn basic_wave_command(
     command
 }
 
+/// Wait for previously issued operations using the standard `*OPC?` query.
 fn expect_operation_complete(client: &mut ScpiClient) -> Result<(), String> {
     let response = client.query("*OPC?")?;
     if response.trim() == "1" {
@@ -840,6 +966,7 @@ fn expect_operation_complete(client: &mut ScpiClient) -> Result<(), String> {
     }
 }
 
+/// Decode the fixed-width operating packet into a two-channel request.
 fn parse_request(bytes: &[u8]) -> Result<Request, String> {
     if bytes.len() != INPUT_SIZE {
         return Err(format!(
@@ -869,6 +996,7 @@ fn parse_request(bytes: &[u8]) -> Result<Request, String> {
     Ok(request)
 }
 
+/// Validate only fields meaningful to each channel's active waveform.
 fn validate_request(
     request: Request,
     configs: &[SiglentChannelConfig; CHANNEL_COUNT],
@@ -969,6 +1097,16 @@ mod tests {
         assert_eq!(peripheral.operating_roundtrip_output_size(), OUTPUT_SIZE);
         assert_eq!(peripheral.input_names()[6], "ch2_enabled");
         assert_eq!(peripheral.output_names()[6], "ch2_applied_enabled");
+    }
+
+    #[test]
+    fn thread_channel_name_is_derived_from_model_and_serial() {
+        let config = SiglentSdg2042XConfig::new("localhost", 0x2a);
+        let driver = SiglentSdg2042XDriver::new(config).unwrap();
+        assert_eq!(
+            driver.channel_name(),
+            "instrument-sdg2042x-000000000000002a"
+        );
     }
 
     #[test]
@@ -1082,7 +1220,7 @@ mod tests {
             commands
         });
 
-        let mut config = SiglentSdg2042XConfig::new(address.to_string(), "siglent-test", 1);
+        let mut config = SiglentSdg2042XConfig::new(address.to_string(), 1);
         config.channels[0].waveform = SiglentWaveform::Sine;
         config.channels[1].waveform = SiglentWaveform::Noise;
         let driver = SiglentSdg2042XDriver::new(config).unwrap();
