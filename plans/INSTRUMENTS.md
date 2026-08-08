@@ -67,7 +67,9 @@ deimos::peripheral::instruments
 └── <instrument>              one module per supported integration
 ```
 
-The public module re-exports only what is needed to assemble a controller.
+The `peripheral` module exposes the `instruments` namespace but does not re-export concrete instrument module internals.
+
+Each concrete instrument module exposes a default `attach(name, address, &controller) -> RunHandle` helper that registers the peripheral, adds its thread-channel socket, and starts the instrument driver.
 
 Instrument model numbers occupy an explicitly documented software-only range and never overlap hardware model numbers.
 
@@ -127,7 +129,7 @@ Instrument data is asynchronous and has loose, host-observed timing:
 - A timeout, disconnect, malformed response, or invalid acquired value latches a driver error.
   * The proxy ceases valid operating responses so the existing controller loss-of-contact policy terminates the run.
 - Errors identify the instrument and operation but never substitute a plausible value for invalid or missing data.
-- Output-capable instruments use a documented safe configuration unless supplied by the caller.
+- Instruments use a documented safe configuration unless supplied by the caller.
 - Only one Deimos driver owns a given instrument control connection.
 
 ## Testing policy

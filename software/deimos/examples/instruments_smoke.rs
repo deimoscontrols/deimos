@@ -1,0 +1,196 @@
+//! Supervised loopback smoke test for an SDG2042X channel connected to a DMM6500.
+//!
+//! Usage:
+//! `cargo run -p deimos --example instruments_smoke -- [siglent-host] [dmm-host] [voltage-v] [samples]`
+
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+
+use deimos::{
+    Controller, ControllerCtx, LoopMethod, Termination, ThreadChannelSocket,
+    peripheral::instruments::{
+        keithley_dmm6500::{KeithleyDmm6500Config, KeithleyDmm6500Driver},
+        siglent_sdg2042x::{SiglentSdg2042XConfig, SiglentSdg2042XDriver, SiglentWaveform},
+    },
+};
+
+const DEFAULT_SIGLENT_HOST: &str = "192.168.10.169";
+const DEFAULT_DMM_HOST: &str = "192.168.10.213";
+
+fn main() -> Result<(), String> {
+    let mut args = std::env::args().skip(1);
+    let siglent_host = args
+        .next()
+        .unwrap_or_else(|| DEFAULT_SIGLENT_HOST.to_owned());
+    let dmm_host = args.next().unwrap_or_else(|| DEFAULT_DMM_HOST.to_owned());
+    let voltage_v = args
+        .next()
+        .map(|value| value.parse::<f64>().map_err(|err| err.to_string()))
+        .transpose()?
+        .unwrap_or(1.0);
+    let sample_count = args
+        .next()
+        .map(|value| value.parse::<usize>().map_err(|err| err.to_string()))
+        .transpose()?
+        .unwrap_or(5);
+    if args.next().is_some() || sample_count == 0 {
+        return Err(usage());
+    }
+    if !voltage_v.is_finite() || !(-2.0..=2.0).contains(&voltage_v) {
+        return Err("smoke-test voltage must be finite and within -2..=2 V".to_owned());
+    }
+
+    let mut siglent_config = SiglentSdg2042XConfig::new(siglent_host, "siglent-smoke", 1);
+    siglent_config.channels[0].waveform = SiglentWaveform::Dc;
+    siglent_config.channels[0].offset_voltage_v = (-2.0, 2.0);
+    siglent_config.channels[1].waveform = SiglentWaveform::Dc;
+    let siglent = SiglentSdg2042XDriver::new(siglent_config)?;
+    let dmm = KeithleyDmm6500Driver::new(KeithleyDmm6500Config::new(dmm_host, "dmm-smoke", 1))?;
+
+    let mut ctx = ControllerCtx::default();
+    ctx.op_name = "instruments-smoke".to_owned();
+    ctx.op_dir = std::env::temp_dir();
+    ctx.dt_ns = 20_000_000;
+    ctx.loop_method = LoopMethod::Efficient;
+    ctx.termination_criteria = Some(Termination::Timeout(Duration::from_secs(15)));
+
+    let mut controller = Controller::new(ctx);
+    controller.clear_sockets();
+    controller.add_socket(
+        "siglent-smoke",
+        Box::new(ThreadChannelSocket::new("siglent-smoke")),
+    );
+    controller.add_socket("dmm-smoke", Box::new(ThreadChannelSocket::new("dmm-smoke")));
+    controller.add_peripheral("siglent", Box::new(siglent.peripheral()))?;
+    controller.add_peripheral("dmm", Box::new(dmm.peripheral()))?;
+
+    let mut siglent_handle = siglent.run(&controller.ctx)?;
+    let mut dmm_handle = match dmm.run(&controller.ctx) {
+        Ok(handle) => handle,
+        Err(err) => {
+            siglent_handle.join()?;
+            return Err(err);
+        }
+    };
+    println!(
+        "Siglent identity: {}",
+        siglent.identity().unwrap_or_default()
+    );
+    println!("Keithley identity: {}", dmm.identity().unwrap_or_default());
+
+    let mut controller_handle = match controller.run_nonblocking(None, None, true) {
+        Ok(handle) => handle,
+        Err(err) => {
+            siglent_handle.join()?;
+            dmm_handle.join()?;
+            return Err(err);
+        }
+    };
+
+    let test_result = (|| {
+        let initial_sample = controller_handle
+            .read()
+            .values
+            .get("dmm.sample_sequence")
+            .copied()
+            .unwrap_or_default();
+        controller_handle.write(HashMap::from([
+            ("siglent.ch1_enabled".to_owned(), 1.0),
+            ("siglent.ch1_offset_voltage_v".to_owned(), voltage_v),
+        ]))?;
+
+        wait_until(Duration::from_secs(3), || {
+            let values = controller_handle.read().values;
+            values
+                .get("siglent.ch1_applied_enabled")
+                .is_some_and(|value| *value == 1.0)
+                && values
+                    .get("siglent.ch1_applied_offset_voltage_v")
+                    .is_some_and(|value| *value == voltage_v)
+        })?;
+
+        // Exclude readings initiated before the source command and allow the
+        // DMM input/filter state to settle before defining the sample window.
+        std::thread::sleep(Duration::from_millis(250));
+        let settled_sample = controller_handle
+            .read()
+            .values
+            .get("dmm.sample_sequence")
+            .copied()
+            .unwrap_or(initial_sample);
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut last_sequence = settled_sample;
+        let mut samples = Vec::with_capacity(sample_count);
+        while samples.len() < sample_count {
+            let values = controller_handle.read().values;
+            if values.get("siglent.ch1_applied_enabled") != Some(&1.0)
+                || values.get("siglent.ch1_applied_offset_voltage_v") != Some(&voltage_v)
+            {
+                return Err(format!(
+                    "Siglent left the requested applied state while sampling: enabled={:?}, offset={:?}, sequence={:?}",
+                    values.get("siglent.ch1_applied_enabled"),
+                    values.get("siglent.ch1_applied_offset_voltage_v"),
+                    values.get("siglent.command_sequence")
+                ));
+            }
+            let sequence = values
+                .get("dmm.sample_sequence")
+                .copied()
+                .unwrap_or_default();
+            let age = values
+                .get("dmm.sample_age_s")
+                .copied()
+                .unwrap_or(f64::INFINITY);
+            if sequence > last_sequence && age < 0.5 {
+                samples.push(values["dmm.voltage_v"]);
+                last_sequence = sequence;
+            }
+            if Instant::now() >= deadline {
+                return Err(format!(
+                    "timed out after collecting {} of {sample_count} fresh DMM samples",
+                    samples.len()
+                ));
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let mean = samples.iter().sum::<f64>() / samples.len() as f64;
+        println!("Requested {voltage_v:.6} V; DMM mean {mean:.9} V from {sample_count} samples");
+        if (mean - voltage_v).abs() > 0.05 {
+            return Err(format!(
+                "loopback error {:.6} V exceeded the 0.05 V smoke-test tolerance",
+                mean - voltage_v
+            ));
+        }
+        Ok(())
+    })();
+
+    controller_handle.stop();
+    let controller_result = controller_handle.join();
+    let siglent_result = siglent_handle.join();
+    let dmm_result = dmm_handle.join();
+    test_result?;
+    controller_result?;
+    siglent_result?;
+    dmm_result?;
+    println!("Loopback smoke test passed; both Siglent outputs are off.");
+    Ok(())
+}
+
+fn wait_until(timeout: Duration, mut condition: impl FnMut() -> bool) -> Result<(), String> {
+    let deadline = Instant::now() + timeout;
+    while !condition() {
+        if Instant::now() >= deadline {
+            return Err("timed out waiting for the Siglent command to be applied".to_owned());
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    Ok(())
+}
+
+fn usage() -> String {
+    format!(
+        "usage: instruments_smoke [siglent-host[:port]] [dmm-host[:port]] [voltage-v] [samples]\n\
+         defaults: Siglent {DEFAULT_SIGLENT_HOST}, DMM6500 {DEFAULT_DMM_HOST}, 1.0 V, 5 samples"
+    )
+}

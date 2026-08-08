@@ -30,6 +30,8 @@ pub use deimos_daq_rev7::DeimosDaqRev7;
 pub mod hootl;
 pub use hootl::{HootlDriver, HootlPeripheral, HootlRunHandle, HootlTransport};
 
+pub mod instruments;
+
 pub use deimos_shared::peripherals::PeripheralId;
 
 /// Parse a binding response to the corresponding peripheral type
@@ -74,6 +76,18 @@ pub fn parse_binding(
         model_numbers::DEIMOS_DAQ_REV_7_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev7 {
             serial_number: msg.peripheral_id.serial_number,
         })),
+
+        instruments::siglent_sdg2042x::MODEL_NUMBER => {
+            Ok(Box::new(instruments::siglent_sdg2042x::SiglentSdg2042X {
+                serial_number: msg.peripheral_id.serial_number,
+            }))
+        }
+
+        instruments::keithley_dmm6500::MODEL_NUMBER => {
+            Ok(Box::new(instruments::keithley_dmm6500::KeithleyDmm6500 {
+                serial_number: msg.peripheral_id.serial_number,
+            }))
+        }
 
         _ => Err(format!("Unrecognized model number {m}").to_owned()),
     }
