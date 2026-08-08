@@ -388,6 +388,10 @@ mod tests {
     };
     use crate::control::lti::filter_design::{design_analog_filter_zpk, design_digital_filter_zpk};
     use faer::complex::Complex;
+    // Required for `.norm()` in package-only builds, but redundant when a
+    // workspace build unifies dependency features that provide an inherent method.
+    #[allow(unused_imports)]
+    use nalgebra::Normed;
 
     fn attenuation_db(value: f64) -> f64 {
         -20.0 * value.log10()
