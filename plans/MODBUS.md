@@ -1,4 +1,4 @@
-# Rev7 Modbus/TCP design
+# Modbus/TCP design
 
 ## Scope
 
@@ -28,8 +28,8 @@ The request is retained and answered from the first operating snapshot, so a
 read-only client can start Modbus mode. If UDP binding wins, the TCP listener is
 closed before Deimos configuration.
 
-The supported publishing range is 5 Hz to 8 kHz for Deimos and 5 Hz to 500 Hz
-for Modbus. The lower Modbus limit leaves margin for bounded TCP processing.
+Modbus publishing rates are limited to 5 Hz through 500 Hz to preserve time for
+bounded TCP processing.
 
 ## Shared measurement path
 
@@ -45,57 +45,28 @@ correction. `metrics.id` provides snapshot ordering. Every read within a
 publishing cycle sees the same immutable snapshot.
 
 Calibration and engineering conversions run in firmware in both modes.
-Reusable no-std calculations live in `deimos_shared`. The installed calibration
-contains a calibrated flag and 18 affine `(slope, offset)` pairs. Normal Deimos
-operation reports and enforces this flag; uncalibrated firmware does not open
-the Modbus listener. Calibration is not writable through Modbus.
+Reusable no-std calculations live in `deimos_shared`. Devices report their
+calibration state during configuration and reject Modbus operation when a
+required calibration is absent. Calibration is not writable through Modbus.
 
-One SysTick interrupt owns sampling, conversion, publication, and
-communications. For reporting rate `f_report`:
-
-```text
-samples_per_cycle = max(1, floor(9000 Hz / f_report))
-sample_rate        = samples_per_cycle * f_report
-```
-
-With at least two samples per cycle, the ADC path includes an IIR cutoff at
-`0.4 * f_report`. The one-sample path omits the IIR. Both retain fractional-delay
-alignment; board temperature has a separate 1 Hz filter. Filters are
-initialized to steady state from a real ADC group. SysTick supplies coarse
-time, and the Cortex-M7 DWT counter supplies sub-cycle timestamps and deadline
-margin.
+Firmware latches one engineering snapshot per publishing cycle before network
+processing. Protocol handling never advances acquisition or filters.
 
 Cycle-rate writes preserve outputs, timeout, and timing corrections, then
-re-enter `OperatingModbus` and rebuild the sampling filters. Encoder, pulse,
-and frequency state resets. Clients must receive the write response before
-sending another request.
+re-enter `OperatingModbus` and rebuild rate-dependent state. Sampled counters
+reset. Clients must receive the write response before sending another request.
 
-## Deimos packet validation
-
-Each device-specific Deimos packet starts with a direction-specific `u32`
-magic:
-
-| Packet | Magic |
-| --- | ---: |
-| Binding input | `0xD7B10001` |
-| Binding output | `0xD7B10002` |
-| Configuring input | `0xD7C00001` |
-| Configuring output | `0xD7C00002` |
-| Operating input | `0xD7000001` |
-| Operating snapshot | `0xD7000002` |
-
-Receive paths validate packet length, magic, enums, and safety-relevant ranges
-before changing state or outputs. Invalid configuration receives a NACK and
-does not reset loss of contact. The snapshot magic is also the first field in
-the Modbus snapshot image.
+Each snapshot begins with a device-specific magic value. Receive paths validate
+lengths, identity, enums, and safety-relevant ranges before changing state or
+outputs. Invalid requests do not reset loss of contact.
 
 ## Modbus/TCP behavior
 
 ### Transport and framing
 
-Calibrated firmware listens on TCP port 502 while in `Binding`. It supports one
-client and accepts every Unit Identifier, including 0 and 255. Register
-addresses below are zero-based protocol addresses.
+Firmware listens on TCP port 502 while in `Binding`. It supports one client and
+accepts every Unit Identifier, including 0 and 255. Register addresses below
+are zero-based protocol addresses.
 
 Firmware stages the six-byte MBAP prefix, validates its declared length, and
 reads through exactly one ADU. Fragmented ADUs remain buffered across cycles;
@@ -235,24 +206,15 @@ are no resynchronization scans or unbounded packet-draining loops.
 Two ADUs per cycle allow a short backlog to drain. Cyclic clients should still
 keep one FC23 request outstanding.
 
-## Verification and constraints
-
-Calibrated SN3 passed fragmented delivery, arbitrary Unit Identifiers,
-exception responses, malformed-frame reconnect, partial close, repeated
-reconnect, finite backpressure, endpoint rates, timeout, and timing-correction
-tests. At 500 Hz, synchronized reads sustained 500 responses/s with 56.695 us
-minimum returned board margin. Deimos mode retains an 8 kHz supported maximum;
-the recorded minimum board margin there was 18.085 us.
+## Operational constraints
 
 - Use Modbus/TCP only on a trusted control network; it has no authentication or
   encryption.
 - Connect one client and normally keep one FC23 request outstanding.
 - Read all 75 snapshot registers for synchronized measurements.
 - Treat cycle-rate changes as maintenance operations because they reprime
-  filters and reset counter state.
+  rate-dependent state and reset sampled counters.
 - Modbus exposes only the latest snapshot, not history or events.
-- Dynamic magnitude, phase, aliasing, and noise characterization remains
-  pending automated signal-generator testing.
 
 ## References
 
