@@ -133,9 +133,9 @@ impl CalRecord {
 }
 
 /// Software interface for a Deimos DAQ rev7 peripheral.
-#[doc = include_str!(
-    "../../../deimos_shared/src/peripherals/deimos_daq_rev7/modbus_register_map.md"
-)]
+///
+/// The complete Modbus/TCP register map is documented in
+/// [`deimos_shared::peripherals::deimos_daq_rev7::modbus`].
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[cfg_attr(feature = "python", pyclass)]
 pub struct DeimosDaqRev7 {
