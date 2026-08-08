@@ -16,14 +16,14 @@ resolver = "3"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/deimoscontrols/deimos"
-version = "0.18.1"
+version = "0.19.0"
 
 [workspace.metadata."docs.rs"]
 all-features = true
 
 [profile.release]
 opt-level = 3
-codegen-units = 1
+codegen-units = 4
 lto = true
 overflow-checks = true
 

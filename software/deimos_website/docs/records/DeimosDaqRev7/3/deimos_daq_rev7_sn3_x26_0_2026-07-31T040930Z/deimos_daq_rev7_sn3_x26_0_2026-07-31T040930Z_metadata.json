@@ -1,0 +1,34 @@
+{
+  "model": "deimos_daq_rev7",
+  "serial_number": 3,
+  "channel": "x26_0",
+  "signal_name": "p1.35mV_0_V",
+  "calibrator_cold_junction_temperature_k": null,
+  "manual_reference_windows": [
+    {
+      "reference_a": -0.035,
+      "start_time_s": 7.627290311,
+      "stop_time_s": 12.62738642
+    },
+    {
+      "reference_a": -0.017,
+      "start_time_s": 49.501550379,
+      "stop_time_s": 54.501687998
+    },
+    {
+      "reference_a": 0.0,
+      "start_time_s": 84.253651623,
+      "stop_time_s": 89.253744999
+    },
+    {
+      "reference_a": 0.028,
+      "start_time_s": 124.415874196,
+      "stop_time_s": 129.415979563
+    },
+    {
+      "reference_a": 0.055,
+      "start_time_s": 155.664175505,
+      "stop_time_s": 160.664269164
+    }
+  ]
+}

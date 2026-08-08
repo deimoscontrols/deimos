@@ -1,5 +1,9 @@
 //! Uncertainty analysis for the Deimos DAQ Rev7 analog frontends.
 
+use deimos_shared::peripherals::deimos_daq_rev7::uncertainty::{
+    FRONTEND_35MV_UNCERTAINTY_INPUT_COUNT as INPUT_COUNT,
+    FRONTEND_35MV_UNCERTAINTY_INPUT_NAMES as INPUT_NAMES, frontend_35mv_uncertainty_inputs,
+};
 use nalgebra::SVector;
 use num_dual::{DualNum, gradient};
 use plotly::{
@@ -10,19 +14,6 @@ use plotly::{
 use std::{fs, path::Path};
 
 const SAMPLE_COUNT: usize = 51;
-const INPUT_COUNT: usize = 10;
-const INPUT_NAMES: [&str; INPUT_COUNT] = [
-    "Input voltage",
-    "Gain-set resistor",
-    "Amplifier gain",
-    "Amplifier input offset",
-    "Amplifier output offset",
-    "Amplifier reference",
-    "Filter amplifier input offset",
-    "Filter amplifier bias current",
-    "Filter resistor",
-    "OVP clamp leakage",
-];
 const FILL_COLORS: [&str; INPUT_COUNT] = [
     "rgba(0, 114, 178, 0.30)",
     "rgba(230, 159, 0, 0.30)",
@@ -152,7 +143,7 @@ fn frontend_35mv<D: DualNum<f64> + Copy>(x: SVector<D, INPUT_COUNT>) -> D {
 //   | Amp input bias current       | 35 nA         | 5 nA         |                     |
 //   | Voltage reference for ADC    | 2.5 V         | 0.02%        | 2 ppm/C             |
 //   | Voltage ref. for amp offset  | 1.024 V       | 0.05%        | 12 ppm/C            |
-//   | Filter resistor              | 10 kohm       | 1%           | 50 ppm/C            |
+//   | Filter resistor              | 10 kohm       | 1%           | 50 ppm/C             |
 //   | OVP jfet clamp leakage       | 1 nA @ 15V    |              |                     |
 //   | Filter amp input offset      | 0 V           | 25 uV        | 0.5 uV/C            |
 //   | Filter amp input bias current| 5pA           | 5 pA         |                     |
@@ -167,44 +158,10 @@ fn frontend_35mv_uncertainty(
     SVector<f64, INPUT_COUNT>,
     SVector<f64, INPUT_COUNT>,
 ) {
-    let nominal = SVector::<f64, INPUT_COUNT>::from([
-        v,     // v
-        2e3,   // rg
-        0.0,   // fg
-        0.0,   // voi
-        0.0,   // voo
-        1.024, // voref
-        0.0,   // voif
-        5e-12, // ibf
-        10e3,  // rf
-        0.0,   // iovp
-    ]);
-
-    let uncertainty = SVector::<f64, INPUT_COUNT>::from([
-        0.0,             // v
-        0.01e-2 * 2e3,   // rg
-        0.03e-2,         // fg
-        40e-6,           // voi
-        200e-6,          // voo
-        0.05e-2 * 1.024, // voref
-        25e-6,           // voif
-        5e-12,           // ibf
-        0.01 * 10e3,     // rf
-        1e-9,            // iovp
-    ]);
-
-    let thermal_sensitivity = SVector::<f64, INPUT_COUNT>::from([
-        0.0,           // v
-        5e-6 * 2e3,    // rg
-        10e-6,         // fg
-        0.4e-6,        // voi
-        2e-6,          // voo
-        12e-6 * 1.024, // voref
-        0.5e-6,        // voif
-        0.0,           // ibf
-        50e-6 * 10e3,  // rf
-        0.0,           // iovp
-    ]);
+    let inputs = frontend_35mv_uncertainty_inputs(v);
+    let nominal = SVector::<f64, INPUT_COUNT>::from(inputs.nominal);
+    let uncertainty = SVector::<f64, INPUT_COUNT>::from(inputs.uncertainty);
+    let thermal_sensitivity = SVector::<f64, INPUT_COUNT>::from(inputs.thermal_sensitivity_per_c);
 
     let (value, gradient) = gradient(frontend_35mv, &nominal);
     let uncertainty_components = gradient.component_mul(&uncertainty);

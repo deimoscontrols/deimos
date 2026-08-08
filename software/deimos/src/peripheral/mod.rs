@@ -30,8 +30,6 @@ pub use deimos_daq_rev7::DeimosDaqRev7;
 pub mod hootl;
 pub use hootl::{HootlDriver, HootlPeripheral, HootlRunHandle, HootlTransport};
 
-pub mod calibration;
-
 pub use deimos_shared::peripherals::PeripheralId;
 
 /// Parse a binding response to the corresponding peripheral type
@@ -159,6 +157,18 @@ pub trait Peripheral: Send + Sync + Debug {
     /// Parse bytes of a packet sent to the controller
     fn parse_operating_roundtrip(&self, bytes: &[u8], outputs: &mut [f64]) -> OperatingMetrics;
 
+    /// Validates a device-specific operating response before it reaches the calc graph.
+    ///
+    /// Args:
+    ///   bytes: Complete received packet with shape `(operating_roundtrip_output_size(),)`.
+    ///
+    /// Returns:
+    ///   `true` when the packet is structurally and semantically valid. The
+    ///   default preserves the validation behavior of older peripherals.
+    fn validate_operating_roundtrip(&self, _bytes: &[u8]) -> bool {
+        true
+    }
+
     /// Byte length of packet to send to the peripheral
     fn configuring_input_size(&self) -> usize {
         ConfiguringInput::BYTE_LEN
@@ -169,33 +179,45 @@ pub trait Peripheral: Send + Sync + Debug {
         ConfiguringOutput::BYTE_LEN
     }
 
+    /// Validates a configuration before it is serialized and transmitted.
+    ///
+    /// Args:
+    ///   base_config: Device-independent configuration requested by the controller.
+    ///
+    /// Returns:
+    ///   `Ok(())` when the peripheral can accept the configuration, or a
+    ///   descriptive error before any packet is sent. Older peripherals retain
+    ///   their existing hardware-side validation behavior by default.
+    fn validate_configuring(&self, _base_config: ConfiguringInput) -> Result<(), String> {
+        Ok(())
+    }
+
     /// Generate bytes for a packet to send to the peripheral based on some input values
     fn emit_configuring(&self, base_config: ConfiguringInput, bytes: &mut [u8]) {
         let num_to_write = self.configuring_input_size();
         base_config.write_bytes(&mut bytes[..num_to_write]);
     }
 
-    /// Parse bytes of a packet sent to the controller
-    fn parse_configuring(&self, bytes: &[u8]) -> Result<(), String> {
+    /// Parses a configuration response and optionally returns firmware calibration state.
+    ///
+    /// Args:
+    ///   bytes: Complete configuration response with shape
+    ///     `(configuring_output_size(),)`.
+    ///
+    /// Returns:
+    ///   `Some(true)` or `Some(false)` for devices that report firmware
+    ///   calibration state, `None` for older devices, or an error for a rejected
+    ///   or malformed response.
+    fn parse_configuring(&self, bytes: &[u8]) -> Result<Option<bool>, String> {
         let resp = ConfiguringOutput::read_bytes(bytes);
         match resp.acknowledge {
-            AcknowledgeConfiguration::Ack => Ok(()),
+            AcknowledgeConfiguration::Ack => Ok(None),
             x => Err(format!("{x:?}")),
         }
     }
 
     /// Get a standard set of calcs that convert the raw outputs into a useable format.
-    /// If provided, `cals` should be the json-serialized calibration artifact
-    /// for this peripheral.
-    ///
-    /// # Errors
-    ///
-    /// * On failure to parse provided calibration data
-    fn standard_calcs(
-        &self,
-        name: &str,
-        cals: &str,
-    ) -> Result<BTreeMap<String, Box<dyn Calc>>, String>;
+    fn standard_calcs(&self, name: &str) -> BTreeMap<String, Box<dyn Calc>>;
 
     /// The type name.
     ///
@@ -208,14 +230,8 @@ pub trait Peripheral: Send + Sync + Debug {
         t.to_string()
     }
 
-    /// Route slug for peripheral-related data like calibrations.
+    /// Route slug for peripheral records and generated artifacts.
     fn slug(&self) -> String {
         format!("{}/{}", self.kind(), self.id().serial_number)
-    }
-
-    /// Default (identity) calibration data for use during calibration procedures
-    /// before real values have been produced.
-    fn default_cals(&self) -> Result<String, String> {
-        Ok("".to_string())
     }
 }

@@ -779,7 +779,10 @@ mod tests {
     use faer::complex::Complex;
     use faer::sparse::{SparseColMat, Triplet};
     use faer::{Mat, MatRef};
-    use nalgebra::Normed; // Required for .norm()
+    // Required for `.norm()` in package-only builds, but redundant when a
+    // workspace build unifies dependency features that provide an inherent method.
+    #[allow(unused_imports)]
+    use nalgebra::Normed;
 
     fn assert_close_real(lhs: MatRef<'_, f64>, rhs: MatRef<'_, f64>, tol: f64) {
         assert_eq!(lhs.nrows(), rhs.nrows());

@@ -4,13 +4,13 @@ use core::sync::atomic::{AtomicBool, Ordering};
 
 use irq::{handler, scope};
 
-use deimos_shared::peripherals::deimos_daq_rev7::operating_roundtrip::OperatingRoundtripInput;
+use deimos_shared::peripherals::deimos_daq_rev7::packets::OperatingOutputSettings;
 
 impl<'a> Board<'a> {
     /// Ensure the board has a usable IPv4 address before entering `Binding`.
     pub fn connect(&mut self) -> BoardState {
         // Initialize
-        self.set_outputs(&OperatingRoundtripInput::default());
+        self.set_outputs(&OperatingOutputSettings::default());
         self.dt_ns = 1_000_000;
         self.systick_init();
         self.watchdog.feed();
@@ -18,6 +18,8 @@ impl<'a> Board<'a> {
         // Unbind if previously bound
         self.controller = None;
         self.net.reset_udp_socket();
+        self.net.reset_tcp_socket();
+        self.modbus.reset();
 
         // Set status LEDs
         self.led0.set_low();

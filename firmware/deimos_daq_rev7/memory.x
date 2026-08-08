@@ -43,6 +43,8 @@ _heap_size = LENGTH(HEAP);
 
 /* Place the stack below the heap so it grows downward, away from the heap. */
 _stack_start = ORIGIN(RAM) + LENGTH(RAM);
+/* Give optional stack-watermark diagnostics an explicit lower stack bound. */
+_stack_end = ORIGIN(RAM);
 
 /* The location of the .text section can be overridden using the
    `_stext` symbol.  By default it will place after .vector_table */

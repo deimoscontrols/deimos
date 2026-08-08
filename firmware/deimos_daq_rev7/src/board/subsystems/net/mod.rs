@@ -1,6 +1,6 @@
 use smoltcp::{
     iface::{Config, Interface, SocketSet, SocketStorage},
-    socket::{dhcpv4, udp},
+    socket::{dhcpv4, tcp, udp},
     storage::{PacketBuffer, PacketMetadata},
     time::Instant,
     wire::{EthernetAddress, IpListenEndpoint, Ipv4Address, Ipv4Cidr},
@@ -18,6 +18,39 @@ use arp_scraper::ObservedDevice;
 /// Length of the post-claim conflict observation window for a tentative fallback address.
 const FALLBACK_VALIDATION_NS: i64 = 250_000_000;
 
+/// Standard port exposed by the calibrated Modbus/TCP operating path.
+pub(crate) const MODBUS_TCP_PORT: u16 = 502;
+/// Two complete four-entry DMA descriptor rings per ordinary network poll.
+const STANDARD_POLL_FRAME_BUDGET: usize = 8;
+/// Modbus IRQ work limit in each direction across all polls in one cycle.
+const MODBUS_POLL_FRAME_BUDGET: usize = 2;
+
+/// Remaining Ethernet-frame work allowed across bounded polls in one cycle.
+pub(crate) struct NetPollBudget {
+    /// Receive frames which smoltcp may still take from the DMA ring.
+    rx_remaining: usize,
+    /// Transmit frames which smoltcp may still emit through the DMA ring.
+    tx_remaining: usize,
+}
+
+impl NetPollBudget {
+    /// Build the fixed two-RX/two-TX budget used by one Modbus-capable cycle.
+    pub(crate) fn modbus_cycle() -> Self {
+        Self {
+            rx_remaining: MODBUS_POLL_FRAME_BUDGET,
+            tx_remaining: MODBUS_POLL_FRAME_BUDGET,
+        }
+    }
+
+    /// Build a two-descriptor-ring allowance for an ordinary network poll.
+    fn standard_poll() -> Self {
+        Self {
+            rx_remaining: STANDARD_POLL_FRAME_BUDGET,
+            tx_remaining: STANDARD_POLL_FRAME_BUDGET,
+        }
+    }
+}
+
 /// Socket storage borrowed by [`Net`] for the lifetime of the firmware.
 pub(crate) struct NetStorageStatic<'a> {
     /// Backing storage for sockets registered with the smoltcp interface.
@@ -30,6 +63,10 @@ pub(crate) struct NetStorageStatic<'a> {
     pub(crate) tx_metadata_storage: [PacketMetadata<udp::UdpMetadata>; 4],
     /// Transmit-packet payload buffer for the board UDP socket.
     pub(crate) tx_payload_storage: [u8; 1522],
+    /// Receive-byte storage for the Modbus/TCP socket with shape `(512,)`.
+    pub(crate) tcp_rx_storage: [u8; 512],
+    /// Transmit-byte storage for the Modbus/TCP socket with shape `(512,)`.
+    pub(crate) tcp_tx_storage: [u8; 512],
 }
 
 /// How aggressively the address manager may change the board's network identity.
@@ -145,7 +182,10 @@ fn fallback_backoff_ns(failure_rounds: u8) -> i64 {
 fn set_ipv4_addr(iface: &mut Interface, cidr: Ipv4Cidr) {
     iface.update_ip_addrs(|addrs| {
         addrs.clear();
-        addrs.push(smoltcp::wire::IpCidr::Ipv4(cidr)).unwrap();
+        // The list has nonzero static capacity and was just cleared. Ignore
+        // the generic capacity result rather than retaining a panic path in
+        // address maintenance reachable from the operating cycle.
+        let _ = addrs.push(smoltcp::wire::IpCidr::Ipv4(cidr));
     });
 }
 
@@ -160,10 +200,12 @@ pub(crate) struct Net<'a> {
     iface: Interface,
     /// Ethernet device wrapper with ARP scraping.
     ethdev: ObservedDevice<ethernet::EthernetDMA<4, 4>>,
-    /// Socket storage backing the board's UDP and DHCP sockets.
+    /// Socket storage backing the board's UDP, TCP, and DHCP sockets.
     sockets: SocketSet<'a>,
     /// UDP socket handle used for controller-to-board traffic.
     udp_handle: smoltcp::iface::SocketHandle,
+    /// TCP socket used for the calibrated Modbus/TCP connection.
+    tcp_handle: smoltcp::iface::SocketHandle,
     /// DHCP socket handle.
     dhcp_handle: smoltcp::iface::SocketHandle,
     /// Local MAC address used for deterministic fallback candidate generation.
@@ -175,7 +217,19 @@ pub(crate) struct Net<'a> {
 }
 
 impl<'a> Net<'a> {
-    /// Build the Ethernet interface, UDP socket, DHCP socket, and address state machine.
+    /// Builds the Ethernet interface, sockets, and address state machine.
+    ///
+    /// The TCP socket and its backing storage are reserved here but remain
+    /// closed until `Binding` enables the Modbus listener on calibrated boards.
+    ///
+    /// Args:
+    ///   store: Static socket metadata and payload storage.
+    ///   ethdev: Initialized Ethernet DMA device.
+    ///   ethernet_addr: Board MAC address.
+    ///   now: Current smoltcp time in `ms`.
+    ///
+    /// Returns:
+    ///   Initialized network subsystem.
     pub(crate) fn new(
         store: &'a mut NetStorageStatic<'a>,
         ethdev: ethernet::EthernetDMA<4, 4>,
@@ -188,6 +242,8 @@ impl<'a> Net<'a> {
             rx_payload_storage,
             tx_metadata_storage,
             tx_payload_storage,
+            tcp_rx_storage,
+            tcp_tx_storage,
         } = store;
 
         // Wrap the DMA device so fallback ARP traffic can be inspected and injected.
@@ -213,6 +269,14 @@ impl<'a> Net<'a> {
             .unwrap();
         let udp_handle = sockets.add(udp_socket);
 
+        // Reserve the stream socket and backing buffers. Binding starts the
+        // listener only when the installed calibration is marked valid.
+        let tcp_socket = tcp::Socket::new(
+            tcp::SocketBuffer::new(&mut tcp_rx_storage[..]),
+            tcp::SocketBuffer::new(&mut tcp_tx_storage[..]),
+        );
+        let tcp_handle = sockets.add(tcp_socket);
+
         // Add a DHCP client socket for dynamic IPv4 configuration when available.
         let dhcp_socket = dhcpv4::Socket::new();
         let dhcp_handle: smoltcp::iface::SocketHandle = sockets.add(dhcp_socket);
@@ -226,6 +290,7 @@ impl<'a> Net<'a> {
             ethdev,
             sockets,
             udp_handle,
+            tcp_handle,
             dhcp_handle,
             local_mac,
             address_state: AddressState::Unconfigured,
@@ -238,13 +303,45 @@ impl<'a> Net<'a> {
     /// If polled at the same `time_ns` multiple times, this will process
     /// incoming UDP packets for the UDP socket, but will not advance the
     /// DHCP state machine. This can reduce timing uncertainty under
-    /// repeated polls.
+    /// repeated polls. One call processes at most two complete four-entry DMA
+    /// descriptor rings in each direction.
+    ///
+    /// Args:
+    ///   time_ns: Current board time in `ns`.
+    ///
+    /// Returns:
+    ///   Whether smoltcp processed or emitted at least one frame.
+    pub(crate) fn poll(&mut self, time_ns: i64) -> bool {
+        let mut budget = NetPollBudget::standard_poll();
+        self.poll_bounded(time_ns, &mut budget)
+    }
+
+    /// Poll smoltcp without allowing a packet storm to monopolize the IRQ.
+    ///
+    /// The same budget can be passed to a second poll later in the cycle; only
+    /// the unconsumed portion remains available. The device wrapper makes
+    /// smoltcp's otherwise draining internal loop terminate when either finite
+    /// frame allowance is exhausted.
+    ///
+    /// Args:
+    ///   time_ns: Current board time in `ns`.
+    ///   budget: Remaining receive/transmit frame counts for this cycle.
+    ///
+    /// Returns:
+    ///   Whether smoltcp processed or emitted at least one frame.
     #[inline(never)]
     #[unsafe(link_section = ".itcm.net_poll")]
-    pub(crate) fn poll(&mut self, time_ns: i64) -> bool {
+    pub(crate) fn poll_bounded(&mut self, time_ns: i64, budget: &mut NetPollBudget) -> bool {
+        self.ethdev
+            .set_io_budget(budget.rx_remaining, budget.tx_remaining);
         let timestamp = Instant::from_micros(time_ns / 1000);
-        self.iface
-            .poll(timestamp, &mut self.ethdev, &mut self.sockets)
+        let changed = self
+            .iface
+            .poll(timestamp, &mut self.ethdev, &mut self.sockets);
+        budget.rx_remaining = self.ethdev.rx_budget();
+        budget.tx_remaining = self.ethdev.tx_budget();
+        self.ethdev.clear_io_budget();
+        changed
     }
 
     /// Receive one UDP packet directly from the socket buffer.
@@ -279,6 +376,88 @@ impl<'a> Net<'a> {
             .unwrap();
     }
 
+    /// Drop any stream state when the board returns to connection discovery.
+    pub(crate) fn reset_tcp_socket(&mut self) {
+        self.sockets.get_mut::<tcp::Socket>(self.tcp_handle).abort();
+    }
+
+    /// Begin accepting the one calibrated Modbus/TCP connection.
+    ///
+    /// Returns:
+    ///   `Ok(())` after binding the socket to TCP port `502`, or smoltcp's
+    ///   listen error if the socket cannot enter the listening state.
+    pub(crate) fn tcp_listen(&mut self) -> Result<(), tcp::ListenError> {
+        self.sockets
+            .get_mut::<tcp::Socket>(self.tcp_handle)
+            .listen(MODBUS_TCP_PORT)
+    }
+
+    /// Aborts any current stream and returns it to the listening state.
+    ///
+    /// Returns:
+    ///   `Ok(())` after rebinding TCP port `502`, or smoltcp's listen error.
+    pub(crate) fn tcp_relisten(&mut self) -> Result<(), tcp::ListenError> {
+        self.reset_tcp_socket();
+        self.tcp_listen()
+    }
+
+    /// Copies currently buffered TCP receive data without blocking.
+    ///
+    /// Args:
+    ///   bytes: Destination byte buffer with shape `(capacity,)`.
+    ///
+    /// Returns:
+    ///   Number of bytes copied, or smoltcp's receive error when no stream data
+    ///   can be read.
+    pub(crate) fn tcp_recv(&mut self, bytes: &mut [u8]) -> Result<usize, tcp::RecvError> {
+        self.sockets
+            .get_mut::<tcp::Socket>(self.tcp_handle)
+            .recv_slice(bytes)
+    }
+
+    /// Queues TCP response bytes without blocking.
+    ///
+    /// Args:
+    ///   bytes: Response byte buffer with shape `(n_bytes,)`.
+    ///
+    /// Returns:
+    ///   Number of bytes queued, or smoltcp's send error when the stream cannot
+    ///   accept data.
+    pub(crate) fn tcp_send(&mut self, bytes: &[u8]) -> Result<usize, tcp::SendError> {
+        self.sockets
+            .get_mut::<tcp::Socket>(self.tcp_handle)
+            .send_slice(bytes)
+    }
+
+    /// Return smoltcp's broad active-session state.
+    ///
+    /// This includes handshake and closing states; callers needing peer-close
+    /// detection use [`Self::tcp_connection_ended`] instead.
+    pub(crate) fn tcp_is_active(&self) -> bool {
+        self.sockets.get::<tcp::Socket>(self.tcp_handle).is_active()
+    }
+
+    /// Return whether at least one application byte is ready to receive.
+    pub(crate) fn tcp_can_recv(&self) -> bool {
+        self.sockets.get::<tcp::Socket>(self.tcp_handle).can_recv()
+    }
+
+    /// Return whether the TCP state can no longer receive a request from its peer.
+    ///
+    /// The explicit state test distinguishes an orderly peer close from
+    /// `SynReceived`, where neither [`tcp::Socket::can_recv`] nor
+    /// [`tcp::Socket::may_recv`] is true while the handshake is still valid.
+    pub(crate) fn tcp_connection_ended(&self) -> bool {
+        matches!(
+            self.sockets.get::<tcp::Socket>(self.tcp_handle).state(),
+            tcp::State::Closed
+                | tcp::State::CloseWait
+                | tcp::State::Closing
+                | tcp::State::LastAck
+                | tcp::State::TimeWait
+        )
+    }
+
     /// Advance the full address manager and report whether the caller may continue.
     pub(crate) fn step_address(&mut self, time_ns: i64, mode: AddressMode) -> AddressStatus {
         let mut reconnect_required = false;
@@ -288,11 +467,11 @@ impl<'a> Net<'a> {
 
         // If a DHCP lease was deferred while operating on fallback, apply it as
         // soon as the caller allows address changes again.
-        if !matches!(mode, AddressMode::Operating) {
-            if let Some(config) = self.take_deferred_dhcp() {
-                self.apply_dhcp_config(config);
-                reconnect_required = matches!(mode, AddressMode::SessionSetup);
-            }
+        if !matches!(mode, AddressMode::Operating)
+            && let Some(config) = self.take_deferred_dhcp()
+        {
+            self.apply_dhcp_config(config);
+            reconnect_required = matches!(mode, AddressMode::SessionSetup);
         }
 
         // Poll DHCP and collapse the borrowed smoltcp event into an owned form.
@@ -382,13 +561,12 @@ impl<'a> Net<'a> {
     fn apply_dhcp_config(&mut self, config: PendingDhcpConfig) {
         // Install the leased address and route information on the interface.
         set_ipv4_addr(&mut self.iface, config.address);
+        let routes = self.iface.routes_mut();
+        routes.remove_default_ipv4_route();
         if let Some(router) = config.router {
-            self.iface
-                .routes_mut()
-                .add_default_ipv4_route(router)
-                .unwrap();
-        } else {
-            self.iface.routes_mut().remove_default_ipv4_route();
+            // Failure means the fixed route table has no free slot; local-link
+            // communication remains usable and no operating IRQ may panic.
+            let _ = routes.add_default_ipv4_route(router);
         }
 
         // DHCP is now authoritative, so stop tentative ARP watching and reset fallback retries.

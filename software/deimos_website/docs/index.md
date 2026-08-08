@@ -24,7 +24,7 @@ hide:
     <dl class="home-hero__facts">
       <div>
         <dt>Cycle rate</dt>
-        <dd>5 Hz - 5 kHz</dd>
+        <dd>5 Hz - 8 kHz</dd>
       </div>
       <div>
         <dt>Inputs</dt>
@@ -103,7 +103,7 @@ hide:
       Meticulous signal processing threads the needle to eliminate noise while
       retaining a tight control response.<br><br>
       Every analog channel has an active analog anti-aliasing filter backed by a
-      digital filter pipeline that is automatically matched to your chosen samplerate.<br><br>
+      digital filter pipeline that is automatically adjusted for your chosen reporting rate.<br><br>
       All filters and transfer functions are detailed in the specs and available as open-source software.
     </p>
     <a class="md-button" href="products/frontends/">Explore Frontends</a>

@@ -61,8 +61,8 @@
 //!
 //! ## Channels produced
 //!
-//! - `p1.ain0` through `p1.ain7` — raw HOOTL counter values (no unit)
-//! - `voltage.y` — `p1.ain0` scaled by 0.001 with output unit `"V"` (via `Affine`)
+//! - `p1.2V5_0_V` — first 0-2.5 V firmware engineering output
+//! - `voltage.y` — `p1.2V5_0_V` passed through with output unit `"V"` (via `Affine`)
 //!
 //! The `voltage.y` channel is the one to look at first in the viewer: it has a
 //! declared unit and the axis will be labeled `V`.
@@ -90,8 +90,6 @@ use deimos::{
     dispatcher::{CsvDispatcher, ReportingDispatcher},
     peripheral::{DeimosDaqRev7, HootlTransport},
 };
-
-mod common;
 
 /// Multicast group used by the reporting dispatcher.
 const MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(239, 255, 0, 1);
@@ -139,7 +137,6 @@ fn main() {
     std::fs::create_dir_all(&op_dir).expect("Failed to create temp op_dir");
 
     let mut ctx = ControllerCtx::default();
-    common::add_website_record_store(&mut ctx);
     ctx.op_name = "hootl_with_console".to_string();
     ctx.op_dir = op_dir;
     ctx.dt_ns = (1e9_f64 / RATE_HZ).ceil() as u32;
@@ -156,14 +153,14 @@ fn main() {
         .add_peripheral("p1", Box::new(DeimosDaqRev7 { serial_number: 1 }))
         .unwrap();
 
-    // Add a unit-labeled calc: scale p1.ain0 by 0.001 and annotate the output
-    // as volts.  The reporting dispatcher will include "V" in the Schema packet,
-    // and the viewer will label the axis accordingly.
+    // Add a unit-labeled calc that passes through the first 0-2.5 V firmware
+    // engineering output. The reporting dispatcher will include "V" in the
+    // Schema packet, and the viewer will label the axis accordingly.
     let voltage_calc = Affine::new(
-        "p1.ain0".to_string(), // input channel name
-        0.001,                 // slope: HOOTL counter → ~millivolt-scale float
-        0.0,                   // offset
-        true,                  // save_outputs: include in dispatched rows
+        "p1.2V5_0_V".to_string(), // input channel name
+        1.0,                      // slope: preserve the firmware voltage
+        0.0,                      // offset
+        true,                     // save_outputs: include in dispatched rows
     )
     .with_output_unit("V");
     controller.add_calc("voltage", voltage_calc);

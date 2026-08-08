@@ -103,6 +103,10 @@ pub(super) struct ObservedDevice<D> {
     inner: D,
     /// ARP watcher state layered on top of the underlying device.
     arp_watch: ArpWatch,
+    /// Maximum receive frames which may be issued by the current bounded poll.
+    rx_budget: usize,
+    /// Maximum transmit frames which may be consumed by the current bounded poll.
+    tx_budget: usize,
 }
 
 impl<D: phy::Device> ObservedDevice<D> {
@@ -111,7 +115,38 @@ impl<D: phy::Device> ObservedDevice<D> {
         Self {
             inner,
             arp_watch: ArpWatch::new(local_mac),
+            rx_budget: usize::MAX,
+            tx_budget: usize::MAX,
         }
+    }
+
+    /// Install finite frame budgets before entering smoltcp's internal poll loop.
+    ///
+    /// Args:
+    ///   rx_budget: Maximum additional DMA receive frames.
+    ///   tx_budget: Maximum additional DMA transmit frames.
+    pub(super) fn set_io_budget(&mut self, rx_budget: usize, tx_budget: usize) {
+        self.rx_budget = rx_budget;
+        self.tx_budget = tx_budget;
+    }
+
+    /// Return the receive frames still available to the current bounded poll.
+    pub(super) fn rx_budget(&self) -> usize {
+        self.rx_budget
+    }
+
+    /// Return the transmit frames still available to the current bounded poll.
+    pub(super) fn tx_budget(&self) -> usize {
+        self.tx_budget
+    }
+
+    /// Remove the poll-local limit after smoltcp returns.
+    ///
+    /// One-off ARP sends outside `Interface::poll` still perform only one
+    /// transmit-token consumption, so the sentinel does not introduce a loop.
+    pub(super) fn clear_io_budget(&mut self) {
+        self.rx_budget = usize::MAX;
+        self.tx_budget = usize::MAX;
     }
 
     /// Update which IPv4 address should currently be watched for ARP conflicts.
@@ -189,15 +224,22 @@ impl<'a, T: phy::RxToken> phy::RxToken for ObservedRxToken<'a, T> {
 }
 
 /// Transmit token wrapper used by [`ObservedDevice`].
-pub(super) struct ObservedTxToken<T: phy::TxToken> {
+pub(super) struct ObservedTxToken<'a, T: phy::TxToken> {
+    /// Underlying DMA transmit token.
     inner: T,
+    /// Poll-local frame allowance decremented exactly once on consumption.
+    tx_budget: &'a mut usize,
 }
 
-impl<T: phy::TxToken> phy::TxToken for ObservedTxToken<T> {
+impl<T: phy::TxToken> phy::TxToken for ObservedTxToken<'_, T> {
     fn consume<R, F>(self, len: usize, f: F) -> R
     where
         F: FnOnce(&mut [u8]) -> R,
     {
+        // Tokens are issued only while the budget is positive. Saturation
+        // preserves that invariant without an assertion or underflow path if
+        // a future device wrapper changes token-consumption behavior.
+        *self.tx_budget = self.tx_budget.saturating_sub(1);
         self.inner.consume(len, f)
     }
 }
@@ -208,28 +250,40 @@ impl<D: phy::Device> phy::Device for ObservedDevice<D> {
     where
         Self: 'a;
     type TxToken<'a>
-        = ObservedTxToken<D::TxToken<'a>>
+        = ObservedTxToken<'a, D::TxToken<'a>>
     where
         Self: 'a;
 
     fn receive(&mut self, timestamp: Instant) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
+        if self.rx_budget == 0 || self.tx_budget == 0 {
+            return None;
+        }
         // Wrap received frames so ARP conflict tracking runs transparently alongside smoltcp.
-        self.inner.receive(timestamp).map(|(rx, tx)| {
+        let received = self.inner.receive(timestamp);
+        received.map(|(rx, tx)| {
+            self.rx_budget -= 1;
             (
                 ObservedRxToken {
                     inner: rx,
                     arp_watch: &mut self.arp_watch,
                 },
-                ObservedTxToken { inner: tx },
+                ObservedTxToken {
+                    inner: tx,
+                    tx_budget: &mut self.tx_budget,
+                },
             )
         })
     }
 
     fn transmit(&mut self, timestamp: Instant) -> Option<Self::TxToken<'_>> {
+        if self.tx_budget == 0 {
+            return None;
+        }
         // Forward transmit capability unchanged because only receive-side inspection is needed here.
-        self.inner
-            .transmit(timestamp)
-            .map(|tx| ObservedTxToken { inner: tx })
+        self.inner.transmit(timestamp).map(|tx| ObservedTxToken {
+            inner: tx,
+            tx_budget: &mut self.tx_budget,
+        })
     }
 
     fn capabilities(&self) -> DeviceCapabilities {

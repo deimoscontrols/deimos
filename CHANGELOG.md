@@ -1,5 +1,40 @@
 # Changelog
 
+## 2026-08-01 0.19.0
+
+Firmware overhaul for the Rev7 DAQ.
+
+* Rev 7.0.2 Hardware
+    * Remove cathode cap from shunt reg to restore stability
+    * Update layout and fab files
+    * Add as-ordered enclosure with eth cutout mod from protocase
+    * Fix graphics typo on enclosure
+* Rev7 Firmware 0.8.0
+    * Use a more robust synchronous sampling scheme
+        * 9kHz synchronous oversampling up to 3kHz
+        * Synchronous sampling from 3kHz to 8kHz
+        * This gives lower jitter and more well-posed cycle timing margin than high-frequency oversampling
+        * Now have only one systick timer-driven interrupt; TIM2 interrupt removed entirely
+    * Add modbus support
+    * Characterize cycle timing margin and stack usage
+    * Add packet magic numbers and validation
+    * Do first-line calcs in firmware instead of software
+        * Calibrations, voltage conversions, resistance, board RTD, thermocouples, board current and voltage
+        * This is required for modbus operation to be useful
+    * Require calibrated firmware for normal deimos and modbus operation
+    * Add sample_time_ns as an output marking as close as possible to the start of the latest sample
+    * Add packet processing budget per cycle to avoid potentially unbounded loop in smoltcp processing
+        * This eliminates a potential packet-storm freeze
+* deimos_shared
+    * Add `calcs` module with new thermocouple and RTD functions optimized for firmware
+        * Use verified regular grid B-spline fit for thermocouple inverse function
+        * For RTDs, use IEC 60751 Callender-Van Dusen function fit to the ITS-90 data
+            * This mitigates the problems from the tables being published with 2 decimals
+    * Refactor rev7 peripheral module and add modules for modbus and sampler timing arithmetic
+* deimos
+    * Replace RTD and thermocouple calcs with ones re-exported from deimos_shared
+        * This makes them available to both firmware and software
+
 ## 2026-07-19 0.18.1
 
 * Rev7 hardware

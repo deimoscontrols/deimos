@@ -26,8 +26,6 @@ use std::{
 use controller::context::ControllerCtx;
 use deimos::*;
 
-mod common;
-
 fn main() {
     // Set control rate
     let rate_hz = 4.0;
@@ -38,7 +36,6 @@ fn main() {
 
     // Define idle controller
     let mut ctx = ControllerCtx::default();
-    common::add_website_record_store(&mut ctx);
     ctx.dt_ns = dt_ns;
     ctx.termination_criteria = termination_criteria;
     ctx.user_ctx

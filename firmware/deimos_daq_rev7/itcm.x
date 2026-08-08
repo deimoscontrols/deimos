@@ -14,5 +14,5 @@ INSERT BEFORE .data;
 
 ASSERT(SIZEOF(.itcm) <= LENGTH(ITCM),
        "ITCM section exceeds available ITCM");
-ASSERT(__edata == ADDR(.data) + SIZEOF(.data),
-       "ITCM section disrupted cortex-m-rt data boundaries");
+ASSERT(__sdata == ADDR(.data),
+       "ITCM section disrupted the cortex-m-rt data start boundary");

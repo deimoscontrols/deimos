@@ -12,10 +12,10 @@ columns = 2
 [[panels]]
 title = "Rev7 4-20 mA Inputs"
 channels = [
-    "p1_4_20_mA_0_A.y",
-    "p1_4_20_mA_1_A.y",
-    "p1_4_20_mA_2_A.y",
-    "p1_4_20_mA_3_A.y",
+    "p1.4_20_0_A",
+    "p1.4_20_1_A",
+    "p1.4_20_2_A",
+    "p1.4_20_3_A",
 ]
 
 [[panels]]
@@ -29,28 +29,28 @@ channels = [
 [[panels]]
 title = "Rev7 Thermocouple Inputs"
 channels = [
-    "p1_tc_0.temperature_K",
-    "p1_tc_1.temperature_K",
-    "p1_board_rtd_filtered.y",
+    "p1.tc_0_K",
+    "p1.tc_1_K",
+    "p1.board_temp_K",
 ]
 
 [[panels]]
 title = "Rev7 0-2.5 V Inputs"
 channels = [
-    "p1_0_2V5_0_sense_V.y",
-    "p1_0_2V5_1_sense_V.y",
+    "p1.2V5_0_V",
+    "p1.2V5_1_V",
 ]
 
 [[panels]]
 title = "Rev7 0-15 V Inputs"
 channels = [
-    "p1_0_15V_0_sense_V.y",
-    "p1_0_15V_1_sense_V.y",
+    "p1.15V_0_V",
+    "p1.15V_1_V",
 ]
 
 [[panels]]
 title = "Rev7 26x Voltage Inputs"
 channels = [
-    "p1_x26_0_sense_V.y",
-    "p1_x26_1_sense_V.y",
+    "p1.35mV_0_V",
+    "p1.35mV_1_V",
 ]

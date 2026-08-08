@@ -2,14 +2,17 @@ use super::*;
 
 use core::sync::atomic::{AtomicBool, Ordering};
 use deimos_shared::{
-    peripherals::deimos_daq_rev7::OperatingRoundtripInput, states::configuring::*,
+    peripherals::deimos_daq_rev7::packets::{
+        ConfiguringInput, ConfiguringOutput, OperatingOutputSettings,
+    },
+    states::{AcknowledgeConfiguration, ByteStruct, ByteStructLen},
 };
 use irq::{handler, scope};
 
 impl<'a> Board<'a> {
     pub fn configure(&mut self) -> BoardState {
         // Initialize
-        self.set_outputs(&OperatingRoundtripInput::default());
+        self.set_outputs(&OperatingOutputSettings::default());
         self.dt_ns = 1_000_000;
         self.systick_init();
         self.watchdog.feed();
@@ -32,6 +35,7 @@ impl<'a> Board<'a> {
         handler!(
             systick_handler = || {
                 self.time_ns += self.dt_ns as i64;
+                let mut configuration_response = None;
 
                 // Poll send/recv to process incoming packets
                 self.net.poll(self.time_ns);
@@ -74,34 +78,45 @@ impl<'a> Board<'a> {
 
                     // Parse received config
                     if recv_buf.len() == ConfiguringInput::BYTE_LEN {
-                        // Mark the time
-                        configured_time_ns = self.time_ns;
+                        let config = ConfiguringInput::read_bytes(recv_buf);
+                        let Some(acknowledgement) = config.validation_acknowledgement() else {
+                            // A same-sized datagram without our marker is stale or
+                            // unrelated traffic, so do not dignify it with a response.
+                            self.watchdog.feed();
+                            return;
+                        };
+                        if acknowledgement != AcknowledgeConfiguration::Ack {
+                            // Reject a marked but unsupported configuration explicitly,
+                            // while remaining in Configuring for a corrected request.
+                            configuration_response = Some(acknowledgement);
+                        } else {
+                            // Mark the time
+                            configured_time_ns = self.time_ns;
 
-                        // TODO: Check inputs and NACK if necessary
+                            // Parse and apply configuration
+                            self.loss_of_contact_limit = config.loss_of_contact_limit;
+                            self.dt_ns = config.dt_ns;
+                            timeout_to_operating_ns = config.timeout_to_operating_ns;
 
-                        // Parse and apply configuration
-                        let config = ConfiguringInput::read_bytes(&recv_buf);
-                        self.loss_of_contact_limit = config.loss_of_contact_limit;
-                        self.dt_ns = config.dt_ns;
-                        timeout_to_operating_ns = config.timeout_to_operating_ns;
-
-                        // Set ADC filter cutoff
-                        let reporting_rate = 1.0 / (self.dt_ns as f64 / 1e9); // Hz
-                        let cutoff_ratio = reporting_rate / (ADC_SAMPLE_FREQ_HZ as f64); // Dimensionless
-                        ADC_CUTOFF_RATIO.store(cutoff_ratio as f32, Ordering::Relaxed);
-                        NEW_ADC_CUTOFF.store(true, Ordering::Relaxed); // Flag for ADC sample loop to update cutoff
-
-                        // If we've made it this far, we're done configuring
-                        self.led2.set_high();
-                        configured = true;
-                        self.systick_init(); // Set new systick freq _after_ fully configured
+                            // If we've made it this far, we're done configuring
+                            self.led2.set_high();
+                            configured = true;
+                            self.systick_init(); // Set new systick freq _after_ fully configured
+                        }
                     }
                 }
 
                 if configured {
+                    configuration_response = Some(AcknowledgeConfiguration::Ack);
+                }
+
+                if let Some(acknowledgement) = configuration_response {
                     if let Some(meta) = self.controller {
-                        // Acknowledge configuration
-                        let ack = ConfiguringOutput::default();
+                        // Acknowledge or explicitly reject this configuration.
+                        let ack = ConfiguringOutput::new(
+                            acknowledgement,
+                            self.calibration.is_calibrated(),
+                        );
                         match self
                             .net
                             .udp_send_with(ConfiguringOutput::BYTE_LEN, meta, |buf| {
@@ -160,6 +175,6 @@ impl<'a> Board<'a> {
             return BoardState::Connecting;
         }
 
-        return BoardState::Operating;
+        return BoardState::OperatingDeimos;
     }
 }

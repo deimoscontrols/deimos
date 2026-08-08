@@ -1,107 +1,130 @@
-use core::sync::atomic::Ordering;
-
-use deimos_numerics::embedded::fixed::MedianFilter;
 use deimos_shared::peripherals::deimos_daq_rev7::{
-    AdcFilter, AdcFilterState, AdcFractionalDelayFilter, AdcFractionalDelayFilterState,
-    adc_filter_bank, adc_fractional_delay_filter_bank,
+    AdcFilterBank, AdcFilterBankState, AdcFractionalDelayFilter,
+    AdcFractionalDelayFilterState, FREQUENCY_CHANNEL_COUNT, FREQUENCY_INPUT_VALID_TIMEOUT_NS,
+    adc_filter_bank, adc_fractional_delay_filter_bank, timing::unwrap_u16_delta,
 };
 use nb::block;
-use stm32h7xx_hal::{
-    adc,
-    gpio::Pin,
-    rcc::CoreClocks,
-    stm32::*,
-    timer::{GetClk, Timer},
-};
+use stm32h7xx_hal::{adc, gpio::Pin, rcc::CoreClocks, stm32::*, timer::GetClk};
 
 use crate::board::{
-    ACCUMULATED_SAMPLING_TIME_NS, ADC_CHANNEL_COUNT, ADC_CUTOFF_RATIO, ADC_SAMPLE_FREQ_HZ,
-    ADC_SAMPLES, COUNTER_SAMPLES, COUNTER_WRAPS, FREQ_SAMPLES, NEW_ADC_CUTOFF, VREF,
+    ADC_CHANNEL_COUNT, ADC_IIR_CUTOFF_TO_REPORT_RATE, ADC_OVERSAMPLE_TARGET_HZ, VREF,
 };
 
-/// Above this size of change, 16-bit counters are assumed to have wrapped.
-/// If the real count rate is between a half and full u16::MAX per update,
-/// we have no way of telling the difference between that and wrapping,
-/// and the output will alias.
-/// With an unrolling samplerate of 40kHz, a 2.6GHz counting rate can be accommodated,
-/// which is much higher than the timer peripheral capability.
-const WRAPPING_LIM_U16: i32 = (u16::MAX / 2) as i32;
+/// One coherent, filtered ADC group owned by the operating SysTick sampler.
+#[derive(Clone, Copy, Debug)]
+pub(in crate::board) struct AdcSampleGroup {
+    /// Filtered ADC output voltages in `V` with shape `(ADC_CHANNEL_COUNT,)`.
+    pub values: [f32; ADC_CHANNEL_COUNT],
+    /// Board time immediately before the first ADC conversion group, in `ns`.
+    pub sample_time_ns: i64,
+}
 
-const WRAPPING_LIM_I32: i64 = i32::MAX as i64; // Max value is half-span for signed int
+/// Latest sampled inputs consumed later in the same SysTick invocation.
+///
+/// SysTick has exclusive access to the sampler throughout Operating, so these
+/// ordinary fields need no atomic handoff or double buffer.
+#[derive(Clone, Copy, Debug)]
+pub(in crate::board) struct SampledInputs {
+    /// Coherent filtered ADC values and their acquisition timestamp.
+    pub adc: AdcSampleGroup,
+    /// Unwrapped quadrature-encoder count.
+    pub encoder: i64,
+    /// Unwrapped pulse count.
+    pub pulse_counter: i64,
+    /// Measured input frequencies in `Hz` with shape `(FREQUENCY_CHANNEL_COUNT,)`.
+    pub frequency_meas: [f32; FREQUENCY_CHANNEL_COUNT],
+}
 
-/// Undo wrapping of U16 values and store in an I32 (which is also allowed to wrap).
-/// This allows integer wrapping events to happen rarely enough to be handled in a larger
-/// data type at the application level; sending wrapping u16 to the application will often result
-/// in ambiguous aliased wrapping events under normal conditions.
+/// Unwrap a `u16` hardware counter into an ordinary `i64` accumulator.
+///
+/// The compiled sampling cutovers and supported edge-rate assertion keep each
+/// real change strictly below half of the explicit `2^16` counter modulus.
+/// Starting from zero, the first signed wrap from `i64::MAX` to `i64::MIN`
+/// occurs after `2^63` net positive counts. The complete accumulator bit
+/// pattern repeats after `2^64` counts. Wrapping arithmetic avoids retaining
+/// an unreachable checked-add panic path in the sampling IRQ.
 pub struct Unroller {
-    prev: i32,
-    acc: i32,
-
-    /// How many times the accumulator has wrapped
-    /// and in what direction
-    acc_wraps: i32,
+    prev: u16,
+    acc: i64,
 }
 
 impl Unroller {
     fn new(v: u16) -> Self {
         Self {
-            prev: v as i32,
-            acc: v as i32,
-            acc_wraps: 0,
+            prev: v,
+            acc: i64::from(v),
         }
     }
 
     fn reset(&mut self, v: u16) {
-        let v = v as i32;
         self.prev = v;
-        self.acc = v;
-        self.acc_wraps = 0;
+        self.acc = i64::from(v);
     }
 
-    fn update(&mut self, v: u16) -> (i32, i32) {
-        let latest = v as i32;
-        let diff = latest.wrapping_sub(self.prev);
+    fn update(&mut self, v: u16) -> i64 {
+        let change = unwrap_u16_delta(self.prev, v);
+        self.prev = v;
+        self.acc = self.acc.wrapping_add(i64::from(change));
+        self.acc
+    }
+}
 
-        // Unwrap u16 to i32
-        let change: i32;
+/// Latest valid period-capture result for one frequency input.
+///
+/// A nonzero capture refreshes the retained frequency. Polls without a new
+/// capture leave it unchanged until its age reaches
+/// [`FREQUENCY_INPUT_VALID_TIMEOUT_NS`], at which point it returns to zero.
+///
+/// References:
+///   \[1\] STMicroelectronics, *RM0433 STM32H742, STM32H743/753 and
+///   STM32H750 Value Line advanced Arm-based 32-bit MCUs*, general-purpose
+///   timer status and capture/compare register descriptions.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct FrequencyInputState {
+    /// Board time when the latest nonzero period was observed, in `ns`.
+    last_valid_capture_time_ns: i64,
+    /// Most recently calculated valid frequency in `Hz`, or zero after timeout.
+    latest_frequency_hz: f32,
+}
 
-        if diff > WRAPPING_LIM_U16 {
-            change = diff.wrapping_sub(u16::MAX as i32);
-        } else if diff < -WRAPPING_LIM_U16 {
-            change = diff.wrapping_add(u16::MAX as i32);
-        } else {
-            change = diff;
+impl FrequencyInputState {
+    /// Discard the retained capture at an operating ownership change.
+    fn reset(&mut self) {
+        *self = Self::default();
+    }
+
+    /// Consume one optional newly captured period and apply the validity timeout.
+    ///
+    /// Args:
+    ///   captured_period: Newly captured edge period in `timer tick`, or `None`
+    ///     when `CC1IF` did not indicate a new capture.
+    ///   sample_time_ns: Board time at which the capture register is observed,
+    ///     in `ns`.
+    ///   frequency_scaling: Timer tick rate in `tick/s`.
+    ///
+    /// Returns:
+    ///   Latest valid frequency in `Hz`, or zero before the first valid capture
+    ///   and after the capture-validity timeout.
+    #[inline(always)]
+    fn update(
+        &mut self,
+        captured_period: Option<u16>,
+        sample_time_ns: i64,
+        frequency_scaling: f32,
+    ) -> f32 {
+        if let Some(period) = captured_period
+            && period != 0
+        {
+            self.latest_frequency_hz = frequency_scaling / period as f32;
+            self.last_valid_capture_time_ns = sample_time_ns;
         }
 
-        let latest_unwrapped = self.acc.wrapping_add(change);
-        let latest_did_wrap = self.acc.checked_add(change).is_none();
-
-        // Unwrap i32 to i64 if a wrap occurred,
-        // and record which direction the wrap went
-        let mut latest_acc_wrap = 0;
-        if latest_did_wrap {
-            let diff2 = (latest_unwrapped as i64).saturating_sub(self.prev as i64);
-            if diff2 > WRAPPING_LIM_I32 {
-                latest_acc_wrap = 1;
-            } else if diff2 < -WRAPPING_LIM_I32 {
-                latest_acc_wrap = -1;
-            } else {
-                latest_acc_wrap = 0;
-            }
+        if sample_time_ns.wrapping_sub(self.last_valid_capture_time_ns)
+            >= FREQUENCY_INPUT_VALID_TIMEOUT_NS
+        {
+            self.latest_frequency_hz = 0.0;
         }
-
-        // Store
-        self.prev = latest;
-        self.acc = latest_unwrapped;
-        //    If we actually manage to wrap the wrap counter, something has gone terribly wrong -
-        //    this should take decades even at the timer's max rate
-        //    In this case, panic and reboot is better than risking
-        //    driving a controller to an unreasonable condition.
-        //    Applications designed to run for several decades should have some
-        //    reconnection logic to handle radiation upsets, power outages, network downtime, etc
-        self.acc_wraps = self.acc_wraps.checked_add(latest_acc_wrap).unwrap();
-
-        (latest_unwrapped, latest_acc_wrap)
+        self.latest_frequency_hz
     }
 }
 
@@ -139,21 +162,17 @@ pub struct Sampler {
     pub adc3: adc::Adc<ADC3, adc::Enabled>,
     pub adc_pins: AdcPins,
     pub adc_scalings: [f32; ADC_CHANNEL_COUNT],
-    pub adc_filters: [AdcFilter; ADC_CHANNEL_COUNT],
-    pub adc_filter_states: [AdcFilterState; ADC_CHANNEL_COUNT],
+    pub adc_filter: AdcFilterBank,
+    pub adc_filter_state: AdcFilterBankState,
     pub adc_filters_fractional_delay: [AdcFractionalDelayFilter; ADC_CHANNEL_COUNT],
     pub adc_filters_fractional_delay_states: [AdcFractionalDelayFilterState; ADC_CHANNEL_COUNT],
-    pub adc_values: [f32; ADC_CHANNEL_COUNT],
-
-    // Timing
-    pub timer: Timer<TIM2>,
-    pub tick_period_ns: u32,
+    sampled_inputs: SampledInputs,
 
     // Counter and frequency
     pub encoder: (TIM1, Unroller),
     pub pulse_counter: (TIM8, Unroller),
-    pub pwmi0: (TIM4, MedianFilter<u16, 3>, MedianFilter<u16, 3>),
-    pub pwmi1: (TIM15, MedianFilter<u16, 3>),
+    pub pwmi0: (TIM4, FrequencyInputState),
+    pub pwmi1: (TIM15, FrequencyInputState),
     pub frequency_scaling: f32,
 }
 
@@ -164,15 +183,13 @@ impl Sampler {
         adc2: adc::Adc<ADC2, adc::Enabled>,
         adc3: adc::Adc<ADC3, adc::Enabled>,
         adc_pins: AdcPins,
-        timer: Timer<TIM2>,
-
         encoder: TIM1,
         pulse_counter: TIM8,
         pwmi0: TIM4,
         pwmi1: TIM15,
     ) -> Self {
         //
-        // Set up ADC adc_scalings, adc_filters, and buffer
+        // Set up ADC scalings, the shared-coefficient filter, and sample state.
         //
 
         // Precalculate adc_scalings
@@ -205,15 +222,24 @@ impl Sampler {
         ];
 
         // Low-pass filters
-        let cutoff_ratio = ADC_CUTOFF_RATIO.load(Ordering::Relaxed) as f64;
-        let adc_filters = adc_filter_bank(cutoff_ratio).unwrap();
-        let adc_filter_states = [adc_filters[0].reset_state(); ADC_CHANNEL_COUNT];
-        let adc_values = [0.0_f32; ADC_CHANNEL_COUNT];
+        // Operating entry replaces these coefficients before the first sample.
+        let cutoff_ratio = ADC_IIR_CUTOFF_TO_REPORT_RATE / 2.0;
+        let adc_filter = adc_filter_bank(cutoff_ratio).unwrap();
+        let adc_filter_state = adc_filter.reset_state();
+        let sampled_inputs = SampledInputs {
+            adc: AdcSampleGroup {
+                values: [0.0_f32; ADC_CHANNEL_COUNT],
+                sample_time_ns: 0,
+            },
+            encoder: 0,
+            pulse_counter: 0,
+            frequency_meas: [0.0; FREQUENCY_CHANNEL_COUNT],
+        };
 
         // Fractional delay filters for synthetic simultaneous sampling
         //   Each ADC group starts as soon as the previous one is done.
         let adc_filters_fractional_delay =
-            adc_fractional_delay_filter_bank(ADC_SAMPLE_FREQ_HZ as f64).unwrap();
+            adc_fractional_delay_filter_bank(ADC_OVERSAMPLE_TARGET_HZ as f64).unwrap();
         let adc_filters_fractional_delay_states =
             [adc_filters_fractional_delay[0].reset_state(); ADC_CHANNEL_COUNT];
 
@@ -224,67 +250,50 @@ impl Sampler {
         let t4psc = pwmi0.psc.read().psc().bits() + 1;
         let frequency_scaling = ((t4clk_hz as f64) / (t4psc as f64)) as f32;
 
-        //
-        // Figure out how long each timer tick is in nanoseconds
-        //
-        let t2clk_hz = TIM2::get_clk(clocks).unwrap().to_Hz();
-        let t2psc = timer.inner().psc.read().psc().bits() + 1;
-        let tick_period_ns = ((t2psc as f64) / (t2clk_hz as f64) * 1e9) as u32; // [ns] ADC timer tick period
-
         Self {
             adc1,
             adc2,
             adc3,
             adc_pins,
             adc_scalings,
-            adc_filters,
-            adc_filter_states,
+            adc_filter,
+            adc_filter_state,
             adc_filters_fractional_delay,
             adc_filters_fractional_delay_states,
-            adc_values,
-            timer,
-            tick_period_ns,
+            sampled_inputs,
             encoder: (encoder, Unroller::new(0)),
             pulse_counter: (pulse_counter, Unroller::new(0)),
-            pwmi0: (
-                pwmi0,
-                MedianFilter::<u16, 3>::new(0),
-                MedianFilter::<u16, 3>::new(0),
-            ),
-            pwmi1: (pwmi1, MedianFilter::<u16, 3>::new(0)),
+            pwmi0: (pwmi0, FrequencyInputState::default()),
+            pwmi1: (pwmi1, FrequencyInputState::default()),
             frequency_scaling,
         }
     }
 
-    /// Replace the adc_filters with ones at a new cutoff ratio.
-    /// This should be done with the sample timer paused to avoid interruptions.
+    /// Replace the ADC IIR coefficient set for every channel.
+    /// This runs during Operating entry before the SysTick sampler is enabled.
     /// Also clears the encoder and pulse counter.
     pub fn update_cutoff(&mut self, cutoff_ratio: f64) {
-        let filter_bank = adc_filter_bank(cutoff_ratio).unwrap();
+        self.adc_filter = adc_filter_bank(cutoff_ratio).unwrap();
+        // Seed directly from the most recent sample group; IEEE-754
+        // exceptional values propagate without a sanitizing branch.
+        self.adc_filter.set_steady_state(
+            &mut self.adc_filter_state,
+            self.sampled_inputs.adc.values,
+        );
 
-        self.adc_filters
-            .iter_mut()
-            .zip(self.adc_filter_states.iter_mut())
-            .enumerate()
-            .for_each(|(i, (filter, state))| {
-                // Get the most recent existing sample to initialize the filter
-                // and, if it is in an error state, reset it to zero.
-                let mut init_val = ADC_SAMPLES[i].load(Ordering::Relaxed);
-                if !init_val.is_finite() {
-                    init_val = 0.0;
-                }
+        self.reset_counter_inputs();
+    }
 
-                *filter = filter_bank[i];
-                filter.set_steady_state(state, [init_val]);
-            });
-
-        // Reset counters and encoder
+    /// Reset sampled counter and frequency-input state at an ownership change.
+    fn reset_counter_inputs(&mut self) {
         self.pwmi0.0.cnt.reset();
         self.pwmi0.0.ccr1().reset();
+        self.pwmi0.0.sr.reset();
         self.pwmi1.0.cnt.reset();
         self.pwmi1.0.ccr1().reset();
-        self.pwmi0.1 = MedianFilter::<u16, 3>::new(0);
-        self.pwmi1.1 = MedianFilter::<u16, 3>::new(0);
+        self.pwmi1.0.sr.reset();
+        self.pwmi0.1.reset();
+        self.pwmi1.1.reset();
 
         self.encoder.0.cnt.reset();
         self.pulse_counter.0.cnt.reset(); // Does not use a compare-and-capture
@@ -292,36 +301,119 @@ impl Sampler {
         self.pulse_counter.1.reset(0);
     }
 
+    /// Configure filters for synchronous sampling owned by the publishing IRQ.
+    ///
+    /// Args:
+    ///   sample_rate_hz: ADC-group rate in `sample/s`.
+    ///   iir_cutoff_ratio: ADC IIR cutoff divided by the ADC-group rate, or
+    ///     `None` when the direct path will not step the IIR.
+    pub fn configure_synchronous(&mut self, sample_rate_hz: f64, iir_cutoff_ratio: Option<f64>) {
+        if let Some(cutoff_ratio) = iir_cutoff_ratio {
+            self.update_cutoff(cutoff_ratio);
+        } else {
+            self.reset_counter_inputs();
+        }
+        self.configure_fractional_delay(sample_rate_hz);
+    }
+
+    /// Rebuild fractional-delay taps and initialize their histories steadily.
+    fn configure_fractional_delay(&mut self, sample_rate_hz: f64) {
+        self.adc_filters_fractional_delay =
+            adc_fractional_delay_filter_bank(sample_rate_hz).unwrap();
+        for (index, state) in self
+            .adc_filters_fractional_delay_states
+            .iter_mut()
+            .enumerate()
+        {
+            let value = self.sampled_inputs.adc.values[index];
+            *state = AdcFractionalDelayFilterState::filled([value]);
+        }
+    }
+
+    /// Acquire one ADC group from the cycle IRQ and apply fractional delay + IIR.
+    ///
+    /// Args:
+    ///   sample_time_ns: Acquisition-start board timestamp in `ns`.
     #[inline(never)]
     #[unsafe(link_section = ".itcm.sample")]
-    pub fn sample(&mut self) {
-        self.timer.clear_irq();
-        let start_time = self.timer.counter();
+    pub fn sample_synchronous_iir(&mut self, sample_time_ns: i64) {
+        self.sample_and_update::<true>(sample_time_ns);
+    }
 
-        if NEW_ADC_CUTOFF.load(Ordering::Relaxed) {
-            // Make sure we don't run out of time and trigger another cycle
-            self.timer.pause();
+    /// Acquire one ADC group from the cycle IRQ and apply fractional delay only.
+    ///
+    /// Args:
+    ///   sample_time_ns: Acquisition-start board timestamp in `ns`.
+    #[inline(never)]
+    #[unsafe(link_section = ".itcm.sample")]
+    pub fn sample_synchronous_fractional_only(&mut self, sample_time_ns: i64) {
+        self.sample_and_update::<false>(sample_time_ns);
+    }
 
-            // Load new cutoff
-            let new_cutoff = ADC_CUTOFF_RATIO.load(Ordering::Relaxed) as f64;
-
-            // Build new interpolated filter
-            self.update_cutoff(new_cutoff);
-
-            // Mark the cutoff update as complete only after the new adc_values are fully propagated
-            // in case this interrupt handler gets preempted in the middle of a transaction
-            NEW_ADC_CUTOFF.store(false, Ordering::Relaxed);
-
-            // Start the ADC sample clock again
-            self.timer.resume();
-
-            // Skip this sample to avoid breaking timing guarantee
-            return;
+    /// Prime all ADC filter histories from one real acquisition group.
+    ///
+    /// This runs once before the operating SysTick scope begins. Initializing
+    /// both the fractional-delay FIR and low-pass IIR to the measured voltages
+    /// prevents a long startup transient, particularly in the downstream board-
+    /// temperature calculation.
+    ///
+    /// Args:
+    ///   sample_time_ns: Acquisition-start board timestamp in `ns`.
+    pub fn prime_synchronous(&mut self, sample_time_ns: i64) {
+        let raw_samples = self.acquire_raw_adc_values();
+        for index in 0..self.sampled_inputs.adc.values.len() {
+            let sample = raw_samples[index] as f32 * self.adc_scalings[index];
+            self.adc_filters_fractional_delay_states[index] =
+                AdcFractionalDelayFilterState::filled([sample]);
+            self.sampled_inputs.adc.values[index] = sample;
         }
+        self.adc_filter.set_steady_state(
+            &mut self.adc_filter_state,
+            self.sampled_inputs.adc.values,
+        );
+        self.update_sampled_inputs(sample_time_ns);
+    }
 
+    /// Execute topology-independent acquisition, alignment, and state update.
+    ///
+    /// Args:
+    ///   sample_time_ns: Acquisition-start board timestamp in `ns`.
+    #[inline(always)]
+    fn sample_and_update<const APPLY_IIR: bool>(&mut self, sample_time_ns: i64) {
+        let raw_samples = self.acquire_raw_adc_values();
+        for index in 0..self.sampled_inputs.adc.values.len() {
+            let scaled_sample = raw_samples[index] as f32 * self.adc_scalings[index];
+            let delayed_sample = self.adc_filters_fractional_delay[index].step(
+                &mut self.adc_filters_fractional_delay_states[index],
+                [scaled_sample],
+            )[0];
+            self.sampled_inputs.adc.values[index] = delayed_sample;
+        }
+        // `APPLY_IIR` is a const generic, so monomorphization removes this
+        // branch and the unused path; it has no runtime cost.
+        if APPLY_IIR {
+            self.sampled_inputs.adc.values = self.adc_filter.step(
+                &mut self.adc_filter_state,
+                self.sampled_inputs.adc.values,
+            );
+        }
+        self.update_sampled_inputs(sample_time_ns);
+    }
+
+    /// Acquire one raw ADC group without stepping digital filters.
+    ///
+    /// Returns:
+    ///   Raw ADC codes in `count` with shape `(ADC_CHANNEL_COUNT,)` and channel
+    ///   order `ain0..ain12, ain15..ain19`.
+    #[inline(always)]
+    fn acquire_raw_adc_values(&mut self) -> [u32; ADC_CHANNEL_COUNT] {
         let mut b = [0_u32; ADC_CHANNEL_COUNT];
 
         // Sample
+        // UNWRAP: Every read below follows `start_conversion` on the same ADC,
+        // satisfying the HAL's internal `current_channel.expect` invariant.
+        // UNWRAP: `block!` only waits out `WouldBlock`; the terminal error type
+        // is `Infallible`, so the outer `Result::unwrap` cannot panic.
         self.adc1.start_conversion(&mut self.adc_pins.ain8);
         self.adc2.start_conversion(&mut self.adc_pins.ain9);
         self.adc3.start_conversion(&mut self.adc_pins.ain0);
@@ -370,63 +462,61 @@ impl Sampler {
         self.adc3.start_conversion(&mut self.adc_pins.ain7);
         b[7] = block!(self.adc3.read_sample()).unwrap();
 
-        // Apply calibration, scaling, and filter
-        for i in 0..self.adc_values.len() {
-            let scaled_sample = b[i] as f32 * self.adc_scalings[i];
-            let delayed_sample = self.adc_filters_fractional_delay[i].step(
-                &mut self.adc_filters_fractional_delay_states[i],
-                [scaled_sample],
-            )[0];
-            self.adc_values[i] =
-                self.adc_filters[i].step(&mut self.adc_filter_states[i], [delayed_sample])[0];
-        }
+        b
+    }
 
-        // Send measurements to shared storage
-        for i in 0..ADC_SAMPLES.len() {
-            ADC_SAMPLES[i].store(self.adc_values[i], Ordering::Relaxed);
-        }
+    /// Record the ADC timestamp and capture counter/frequency inputs at its cadence.
+    ///
+    /// Args:
+    ///   sample_time_ns: Acquisition-start board timestamp in `ns`.
+    #[inline(always)]
+    fn update_sampled_inputs(&mut self, sample_time_ns: i64) {
+        self.sampled_inputs.adc.sample_time_ns = sample_time_ns;
 
         // Get latest timer input readings, unwrapping integer counts
         let encoder_val: u16 = self.encoder.0.cnt.read().cnt().bits().into();
-        let (encoder_unwrapped, encoder_wraps) = self.encoder.1.update(encoder_val);
-        COUNTER_SAMPLES[0].store(encoder_unwrapped, Ordering::Relaxed);
-        COUNTER_WRAPS[0].store(encoder_wraps, Ordering::Relaxed);
+        self.sampled_inputs.encoder = self.encoder.1.update(encoder_val);
 
         let pulse_counter_val: u16 = self.pulse_counter.0.cnt.read().cnt().bits().into();
-        let (pulse_counter_unwrapped, pulse_counter_wraps) =
-            self.pulse_counter.1.update(pulse_counter_val);
-        COUNTER_SAMPLES[1].store(pulse_counter_unwrapped, Ordering::Relaxed);
-        COUNTER_WRAPS[1].store(pulse_counter_wraps, Ordering::Relaxed);
+        self.sampled_inputs.pulse_counter = self.pulse_counter.1.update(pulse_counter_val);
 
-        // PWM input readings use a median filter on the raw counter value
-        // in order to filter out the semi-random values produced when the incoming signal
-        // is at a lower frequency than what the timer can track
+        // In input-capture mode, reading CCR1 after observing CC1IF consumes
+        // that flag. Polling the flag first prevents an empty or previously
+        // consumed register value from replacing the latest valid frequency.
+        let fcnt0 = self
+            .pwmi0
+            .0
+            .sr
+            .read()
+            .cc1if()
+            .bit_is_set()
+            .then(|| self.pwmi0.0.ccr1().read().ccr().bits());
+        self.sampled_inputs.frequency_meas[0] =
+            self.pwmi0
+                .1
+                .update(fcnt0, sample_time_ns, self.frequency_scaling);
 
-        // FREQ0
-        let pwmi0_freq_val;
-        let fcnt0_raw = self.pwmi0.0.ccr1().read().ccr().bits();
-        let fcnt0 = self.pwmi0.1.update(fcnt0_raw);
-        if fcnt0 < 1 {
-            pwmi0_freq_val = 0.0;
-        } else {
-            pwmi0_freq_val = self.frequency_scaling / fcnt0 as f32;
-        }
-        FREQ_SAMPLES[0].store(pwmi0_freq_val, Ordering::Relaxed);
+        let fcnt1 = self
+            .pwmi1
+            .0
+            .sr
+            .read()
+            .cc1if()
+            .bit_is_set()
+            .then(|| self.pwmi1.0.ccr1().read().ccr().bits());
+        self.sampled_inputs.frequency_meas[1] =
+            self.pwmi1
+                .1
+                .update(fcnt1, sample_time_ns, self.frequency_scaling);
+    }
 
-        // FREQ1
-        let pwmi1_val;
-        let fcnt1_raw = self.pwmi1.0.ccr1().read().ccr().bits();
-        let fcnt1 = self.pwmi1.1.update(fcnt1_raw);
-        if fcnt1 < 1 {
-            pwmi1_val = 0.0;
-        } else {
-            pwmi1_val = self.frequency_scaling / fcnt1 as f32;
-        }
-        FREQ_SAMPLES[1].store(pwmi1_val, Ordering::Relaxed);
-
-        // Log how much time was spent sampling
-        let end_time = self.timer.counter();
-        let scope_time = (end_time - start_time) * self.tick_period_ns;
-        ACCUMULATED_SAMPLING_TIME_NS.fetch_add(scope_time, Ordering::Relaxed);
+    /// Borrow the group most recently completed by this sampler.
+    ///
+    /// Returns:
+    ///   Coherent ADC, counter, and frequency inputs. Operating consumes this
+    ///   reference before the sampler can be stepped again.
+    #[inline(always)]
+    pub(in crate::board) fn sampled_inputs(&self) -> &SampledInputs {
+        &self.sampled_inputs
     }
 }

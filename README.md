@@ -17,7 +17,7 @@ Realtime data acquisition and controls ecosystem, including hardware, firmware, 
 
 | Model | I/O Medium | Sample/Control Rate | Input Capabilities | Output Capabilities |
 |------|------------|------------|--------------------|---------------------|
-| [Deimos DAQ 7.0.x](https://github.com/deimoscontrols/deimos/tree/main/hardware/boards/deimos_daq_rev7) | UDP/IP/Ethernet | 5Hz-5kHz roundtrip<br><br>Performance depends on network and host machine | 18x analog, 6x digital | 4x PWM <br>2x analog |
+| [Deimos DAQ 7.0.x](https://deimoscontrols.com/products/deimos_daq/) | UDP/IP/Ethernet | 5Hz-8kHz measure & control<br>5Hz-500Hz Modbus<br><br>Performance depends on network and host machine | 16x analog, 6x digital | 4x PWM <br>2x analog<br>4x GPIO |
 
 # Controller Comm. Media
 
@@ -49,7 +49,7 @@ Data integration implementations perform I/O and database transactions on a sepa
 |------|-------------|-------|
 | SequenceMachine | A flexible state-machine where each state is defined by a time-dependent lookup table sequence with user-defined transition criteria | Allows implementation of essentially arbitrary scheduling and operational logic |
 | TcKtype | K-type thermocouple tables with cold-junction correction | Based on ITS-90 tables |
-| RtdPt100 | 100-ohm platinum RTD temperature-resistance tables | Based on DIN-43-760 and ITS-90 |
+| RtdPt100 | 100-ohm platinum RTD temperature-resistance tables | Based on DIN-43-760 / ITS-90 and IEC 60751 / Callender-Van Dusen |
 | Pid | Simple proportion-integral-derivative controller with primitive saturation anti-windup protection | |
 | Butter | Second-order Butterworth low-pass filter | |
 | Polynomial | Fast evaluation of polynomials for calibrations | Includes Levenberg-Marquardt curve-fitting utility |
@@ -63,7 +63,7 @@ The goals of this ecosystem are:
 * Tightly-integrated sensor frontends
 * _Fully independent_ input and output channels; every advertised channel is available _at the same time_
 * Full reassertion of state at each control cycle; robust to packet loss
-* Zero-calibration operation; NIST-traceable calibrations available, but not required
+* SI-traceable calibrations
 * Control program without required root/admin access or drivers
 * Run on standard networking hardware with sub-microsecond time sync
 * Semantic versioning for both hardware and software to prevent unexpected breaking changes

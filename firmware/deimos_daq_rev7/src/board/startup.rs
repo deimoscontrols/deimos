@@ -1,6 +1,8 @@
 use super::*;
 
-use core::{ptr::addr_of_mut, time::Duration};
+use core::ptr::addr_of_mut;
+use cortex_m::peripheral::scb::SystemHandler;
+use deimos_shared::states::ByteStruct;
 
 use smoltcp::time::Instant;
 use stm32h7xx_hal::{
@@ -18,9 +20,21 @@ use stm32h7xx_hal::{
 impl<'a> Board<'a> {
     /// Configure power, clocks, and peripherals
     pub fn new(store: &'a mut NetStorageStatic<'a>) -> (Self, Sampler) {
+        let calibration =
+            Calibration::read_bytes(include_bytes!(concat!(env!("OUT_DIR"), "/calibration.in")));
+        assert!(calibration.is_valid());
         // Power setup
         let dp = stm32::Peripherals::take().unwrap();
         let mut cp = stm32::CorePeripherals::take().unwrap();
+        // CYCCNT provides the core-cycle-resolution clock used within each
+        // sampling/communication IRQ. It is read directly and requires no
+        // timer peripheral, reload, or interrupt.
+        cp.DCB.enable_trace();
+        // This is a runtime hardware capability rather than a build-time
+        // numeric bound. Fail during startup in every build if a future target
+        // lacks the counter required by the operating clock.
+        assert!(cortex_m::peripheral::DWT::has_cycle_counter());
+        cp.DWT.enable_cycle_counter();
         let pwr = dp.PWR.constrain().vos0(&dp.SYSCFG);
         let pwrcfg = pwr.freeze();
         //    Power up SRAM3, where ethernet buffers are stored
@@ -31,12 +45,13 @@ impl<'a> Board<'a> {
         let mut ccdr = rcc
             .use_hse(48.MHz()) // Set expected external clock freq
             .bypass_hse() // Use external clock signal directly
-            .sys_ck(400.MHz())
+            .sys_ck(CORE_RATE_HZ.Hz())
             .hclk(200.MHz())
             .pll2_p_ck(24.MHz()) // Default adc_ker_ck_input
             .freeze(pwrcfg, &dp.SYSCFG);
         //    Make sure clock setup was exact
-        assert_eq!(ccdr.clocks.sysclk().raw(), 400_000_000);
+        assert_eq!(ccdr.clocks.sysclk().raw(), CORE_RATE_HZ);
+        assert_eq!(ccdr.clocks.c_ck().raw(), CORE_RATE_HZ);
         assert_eq!(ccdr.clocks.hclk().raw(), 200_000_000);
         assert_eq!(ccdr.clocks.pclk1().raw(), 100_000_000);
         assert_eq!(ccdr.clocks.pclk2().raw(), 100_000_000);
@@ -44,6 +59,13 @@ impl<'a> Board<'a> {
 
         // Instruction caching
         cp.SCB.enable_icache();
+
+        // SysTick owns both synchronous acquisition and communication while the
+        // board is operating. Give it the highest configurable exception
+        // priority so unrelated peripheral work cannot add sample jitter.
+        unsafe {
+            cp.SCB.set_priority(SystemHandler::SysTick, 0x00);
+        }
 
         // Watchdog reboots the board if the board freezes for any reason
         let mut watchdog = IndependentWatchdog::new(dp.IWDG);
@@ -294,6 +316,15 @@ impl<'a> Board<'a> {
             pwm1: pwm5,
             pwm2: pwm6,
             pwm3: pwm7,
+            // Clock discovery is fallible in the generic HAL but fixed by this
+            // startup clock tree. Cache it once so output updates do not carry
+            // four `unwrap` paths through every publishing IRQ.
+            pwm_clock_hz: [
+                TIM3::get_clk(&ccdr.clocks).unwrap(),
+                TIM12::get_clk(&ccdr.clocks).unwrap(),
+                TIM16::get_clk(&ccdr.clocks).unwrap(),
+                TIM17::get_clk(&ccdr.clocks).unwrap(),
+            ],
             dac1,
             dac2,
             do0,
@@ -351,18 +382,12 @@ impl<'a> Board<'a> {
             ain19,
         };
 
-        // Set up sampling interrupt
-        let sample_timer =
-            dp.TIM2
-                .timer(ADC_SAMPLE_FREQ_HZ.Hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
-
         let adc = Sampler::new(
             &ccdr.clocks,
             adc1,
             adc2,
             adc3,
             adc_pins,
-            sample_timer,
             encoder,
             pulse_counter,
             frequency_inp0,
@@ -423,11 +448,6 @@ impl<'a> Board<'a> {
         // Restore systick for use as main cycle timer
         let systick = delay.free();
 
-        // Set up sub-cycle timer
-        // TIM2 and TIM5 have 32-bit counters and 16-bit prescalers
-        let subcycle_rate_hz = TIM5::get_clk(&ccdr.clocks).unwrap().to_Hz();
-        let mut subcycle_timer = dp.TIM5.timer(1.Hz(), ccdr.peripheral.TIM5, &ccdr.clocks);
-
         // Defaults
         let dt_ns: u32 = 250_000; // Default, subject to clock res
         let clocks = ccdr.clocks;
@@ -436,7 +456,6 @@ impl<'a> Board<'a> {
         let controller = None;
         let configuring_timeout_ms = 0;
         let loss_of_contact_limit = 0;
-        subcycle_timer.set_timeout(Duration::from_nanos((dt_ns as u64) * 2)); // Just needs to be at least as long as dt_ns
         watchdog.start(500.millis()); // Can't be updated later
 
         (
@@ -452,13 +471,13 @@ impl<'a> Board<'a> {
                 dt_ns,
                 systick,
                 clocks,
-                subcycle_timer,
-                subcycle_rate_hz,
                 watchdog,
                 net,
                 controller,
                 configuring_timeout_ms,
                 loss_of_contact_limit,
+                modbus: ModbusTcpServer::new(),
+                calibration,
                 outputs,
             },
             adc,

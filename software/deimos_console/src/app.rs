@@ -876,7 +876,7 @@ impl ConsoleState {
     /// everything else this method touches is UI-only state.
     pub(crate) fn render_ui(state_arc: &Arc<Mutex<Self>>, ui: &mut egui::Ui) {
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            // Phase 1: take the lock just long enough to render the always-fast top section
+            // Take the lock just long enough to render the always-fast top section.
             // (header + freeze button + status indicators) and to copy out the per-panel plot
             // data. The freeze button must run under the lock because clicking it mutates ring
             // buffers; the status rows are read-only but cheap, so doing them here keeps the
@@ -890,7 +890,7 @@ impl ConsoleState {
             };
             // Lock released here. Plot::show below runs without holding it.
 
-            // Phase 2: render the per-panel plots from the snapshot. No state access needed.
+            // Render the per-panel plots from the snapshot without accessing state.
             Self::render_panels(ui, &snapshot);
         });
 
