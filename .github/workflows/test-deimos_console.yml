@@ -21,13 +21,6 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt, clippy
-    - name: Formatting Lint
-      run: cargo fmt --check
-    - name: Structural Lint
-      run: cargo clippy --all-features
-    - name: Check semver
-      uses: obi1kenobi/cargo-semver-checks-action@v2
     - name: Run tests
       run: |
-        cargo test -p deimos
-        cargo check --workspace --all-features --examples
+        cargo test -p deimos_console --all-features
