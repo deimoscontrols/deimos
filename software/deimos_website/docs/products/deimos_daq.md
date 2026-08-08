@@ -16,6 +16,6 @@ all available together and operated simultaneously on every cycle.
 Fully open-source, the Deimos DAQ's design files, firmware, and control program can all be
 found under permissive licenses in the [Deimos project repository](https://github.com/deimoscontrols/deimos).
 
-See the [specs page](./specs.md) for steady performance, and [dynamics page](./frontends.md) for filter characteristics.
+See the [specs page](./specs.md) for steady performance, and [dynamics page](./dynamics.md) for filter characteristics.
 
 <img src="../../assets/daq.svg" alt="Deimos DAQ hardware" class="product-splash-image zoomable-image">
