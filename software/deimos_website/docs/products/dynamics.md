@@ -14,9 +14,6 @@ cycle rate up to a 4500Hz cycle rate.
 Above 4500Hz cycle rate, the digital antialiasing filter is disabled
 and antialiasing relies on frontend analog cutoff.
 
-See [the frontends page](./frontends.md) for dynamic response
-charts for each frontend type for a given reporting rate.
-
 | Kind | Frontend Cutoff | Target Use-Cases |
 |------|----------|------------------|
 | Board temperature | 100Hz | - Cold-junction correction.<br>- System health. |
