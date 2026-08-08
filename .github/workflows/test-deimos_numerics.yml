@@ -1,4 +1,4 @@
-name: test-rust-numerics
+name: test-deimos_numerics
 
 on:
   pull_request:
