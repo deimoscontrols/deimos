@@ -624,7 +624,12 @@ class _PeripheralModule(ModuleType):
 
         FC23 should read address 256 with count 75 while writing one complete
         writable block. Partial in-range reads are valid, but a full snapshot
-        read is required for synchronized measurements.
+        read is required for synchronized measurements. This returns only the
+        snapshot, not configuration registers.
+
+        For configuration readback, a separate FC23 may write one complete
+        block and read holding registers 0..34. That read reflects its
+        preceding write but does not return snapshot data.
         """
 
         def __init__(self, serial_number: int) -> None: ...

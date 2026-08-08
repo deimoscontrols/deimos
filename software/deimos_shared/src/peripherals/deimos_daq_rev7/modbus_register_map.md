@@ -1,8 +1,9 @@
 ## Modbus/TCP register map
 
-Addresses are zero-based protocol addresses. Multi-register scalars place the
-most-significant 16-bit register first, and registers use network byte order.
-`f32` fields contain IEEE-754 bits; signed integers use two's complement.
+Addresses are zero-based protocol addresses. Multi-register scalars place
+the most-significant 16-bit register first, and registers use network byte
+order. `f32` fields contain IEEE-754 bits; signed integers use two's
+complement.
 
 ### Input registers (FC04)
 
@@ -31,16 +32,16 @@ contract.
 | 70 | 4 | `f32[2]` | `frequency_meas` | Hz, channels 0..1 |
 | 74 | 1 | `u16` | `gpio` | input bits 0..1 |
 
-`sample_time_ns` is captured before the first ADC conversion group contributing
-to the snapshot. It is not corrected for fractional-delay or low-pass-filter
-group delay.
+`sample_time_ns` is captured before the first ADC conversion group
+contributing to the snapshot. It is not corrected for fractional-delay or
+low-pass-filter group delay.
 
 ### Holding registers (FC03, FC16, and FC23)
 
-Read address 0, count 35 for the complete configuration and diagnostic block.
-FC03 may read any in-range block. FC16 and the write portion of FC23 must cover
-complete fields within one writable block: base configuration (0..2), outputs
-(6..26), or timing corrections (27..34).
+Read address 0, count 35 for the complete configuration and diagnostic
+block. FC03 may read any in-range block. FC16 and the write portion of FC23
+must cover complete fields within one writable block: base configuration
+(0..2), outputs (6..26), or timing corrections (27..34).
 
 | Address | Count | Access | Type | Field | Valid values |
 | ---: | ---: | --- | --- | --- | --- |
@@ -56,15 +57,17 @@ complete fields within one writable block: base configuration (0..2), outputs
 | 31 | 4 | R/W | `i64` | requested phase delta | ns; one cycle, internally clamped |
 
 The coherent snapshot is mirrored in read-only holding registers 256..330
-(`0x0100`..`0x014A`) with the same layout as input registers 0..74. Writes to
-the mirror or the unsupported gap at 35..255 return `Illegal Data Address`.
+(`0x0100`..`0x014A`) with the same layout as input registers 0..74. Writes
+to the mirror or the unsupported gap at 35..255 return `Illegal Data
+Address`.
 
 ### Synchronized control (FC23)
 
-FC23 Read/Write Multiple Registers is the recommended cyclic interface. Read
-address 256, count 75 while writing one complete writable block. The response
-contains the snapshot captured at the beginning of that publishing cycle;
-accepted outputs are applied afterward.
+FC23 Read/Write Multiple Registers is the recommended cyclic interface.
+Read address 256, count 75 while writing one complete writable block. The
+response contains the snapshot captured at the beginning of that publishing
+cycle; accepted outputs are applied afterward. It does not also return
+configuration registers 0..34.
 
 If two ADUs are serviced in one cycle, both return the same snapshot. Their
 writes compose in TCP order, and firmware applies the final retained output
@@ -72,3 +75,10 @@ state after request service. Omitted fields retain their values; rejected
 writes change nothing. Period correction persists until replaced. Phase
 correction applies to the next publication interval and then reads as zero.
 Applied timing corrections are clamped to +/-10% of the nominal period.
+
+### Configuration readback (FC23)
+
+A separate FC23 may write one complete configuration block and read an
+in-range portion of holding registers 0..34. The read reflects the preceding
+write. This transaction returns configuration and diagnostics, not the
+snapshot mirror.
