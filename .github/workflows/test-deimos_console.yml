@@ -1,4 +1,4 @@
-name: test-rust
+name: test-deimos_console
 
 on:
   pull_request:
