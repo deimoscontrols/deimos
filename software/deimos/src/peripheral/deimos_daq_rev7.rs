@@ -211,10 +211,12 @@ impl Peripheral for DeimosDaqRev7 {
         inputs: &[f64],
         bytes: &mut [u8],
     ) {
-        let mut packet = OperatingRoundtripInput::default();
-        packet.id = id;
-        packet.period_delta_ns = period_delta_ns;
-        packet.phase_delta_ns = phase_delta_ns;
+        let mut packet = OperatingRoundtripInput {
+            id,
+            period_delta_ns,
+            phase_delta_ns,
+            ..OperatingRoundtripInput::default()
+        };
         for i in 0..PWM_CHANNEL_COUNT {
             packet.outputs.pwm_duty_frac[i] = (inputs[i] as f32).clamp(0.0, 1.0);
             packet.outputs.pwm_freq_hz[i] =

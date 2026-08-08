@@ -156,8 +156,10 @@ fn packet_magics_are_direction_specific_and_validated() {
 
 #[test]
 fn calibration_binary_round_trips_without_protocol_magic() {
-    let mut calibration = Calibration::default();
-    calibration.firmware_calibrated = 1;
+    let mut calibration = Calibration {
+        firmware_calibrated: 1,
+        ..Calibration::default()
+    };
     calibration.voltage_cals[4] = LinearCalibration {
         slope: 1.25,
         offset: -0.125,

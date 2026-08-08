@@ -859,13 +859,13 @@ fn reference_marks(
 ) -> (Vec<Shape>, Vec<Annotation>) {
     let cycle_rate_hz =
         sampling_policy.sample_rate_hz / f64::from(sampling_policy.samples_per_cycle);
-    let mut vertical_marks = if sampling_policy.iir_cutoff_hz.is_some() {
+    let mut vertical_marks = if let Some(iir_cutoff_hz) = sampling_policy.iir_cutoff_hz {
         vec![
             (sampling_policy.sample_rate_hz, "Samplerate"),
             (sampling_policy.sample_rate_hz / 2.0, "Samplerate Nyquist"),
             (cycle_rate_hz, "Reporting rate"),
             (cycle_rate_hz / 2.0, "Reporting-rate Nyquist"),
-            (sampling_policy.iir_cutoff_hz.unwrap(), "ADC IIR cutoff"),
+            (iir_cutoff_hz, "ADC IIR cutoff"),
         ]
     } else {
         vec![
