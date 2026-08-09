@@ -238,15 +238,8 @@ impl InstrumentProxy for Shared {
         OUTPUT_SIZE
     }
 
-    fn process_request(&self, bytes: &[u8]) -> Result<u64, String> {
-        if bytes.len() == INPUT_SIZE {
-            Ok(OperatingInput::read_bytes(bytes).id)
-        } else {
-            Err(format!(
-                "expected {INPUT_SIZE} request bytes, got {}",
-                bytes.len()
-            ))
-        }
+    fn process_request(&self, bytes: &[u8]) -> u64 {
+        OperatingInput::read_bytes(bytes).id
     }
 
     fn write_response(&self, metrics: OperatingMetrics, bytes: &mut [u8]) -> Result<(), String> {

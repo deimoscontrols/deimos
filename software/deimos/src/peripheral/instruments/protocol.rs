@@ -58,8 +58,8 @@ pub(crate) trait InstrumentProxy: Send + Sync + 'static {
     fn input_size(&self) -> usize;
     /// Return the exact operating response size in bytes.
     fn output_size(&self) -> usize;
-    /// Validate and enqueue one controller request, returning its packet ID.
-    fn process_request(&self, bytes: &[u8]) -> Result<u64, String>;
+    /// Enqueue one correctly sized controller request and return its packet ID.
+    fn process_request(&self, bytes: &[u8]) -> u64;
     /// Encode the latest completed state and supplied protocol metrics.
     fn write_response(&self, metrics: OperatingMetrics, bytes: &mut [u8]) -> Result<(), String>;
     /// Request the integration's safe behavior after controller contact is lost.
@@ -343,10 +343,7 @@ fn run_protocol(
                     if payload.len() != proxy.input_size() {
                         continue;
                     }
-                    let last_input_id = match proxy.process_request(&payload) {
-                        Ok(id) => id,
-                        Err(_) => continue,
-                    };
+                    let last_input_id = proxy.process_request(&payload);
                     *last_contact = Instant::now();
                     let metrics = OperatingMetrics {
                         id: *response_id,
@@ -437,8 +434,8 @@ mod tests {
             OperatingMetrics::BYTE_LEN
         }
 
-        fn process_request(&self, bytes: &[u8]) -> Result<u64, String> {
-            Ok(u64::from_le_bytes(bytes.try_into().unwrap()))
+        fn process_request(&self, bytes: &[u8]) -> u64 {
+            u64::from_le_bytes(bytes.try_into().unwrap())
         }
 
         fn write_response(

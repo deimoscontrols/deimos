@@ -136,16 +136,4 @@ Instrument data is asynchronous and has loose, host-observed timing:
 
 ## Testing policy
 
-Automated tests use a deterministic local fake appropriate to the integration's transport and protocol. No normal test requires laboratory hardware or network discovery.
-
-Each integration tests:
-
-- fixed packet encode/decode and semantic validation;
-- Binding, Configuring, and Operating over `ThreadChannelSocket`;
-- required startup and operating protocol exchanges;
-- delayed replies without blocking the controller protocol responder;
-- request coalescing or repeated-value behavior, when applicable;
-- timeout, malformed response, and identity mismatch failures; and
-- bounded shutdown, including any required safe-state operations.
-
-Hardware smoke tests are stored as examples, ignored by default, and require addresses from command-line arguments.
+Automated tests use a HOOTL mockup. No laboratory hardware or network discovery required.

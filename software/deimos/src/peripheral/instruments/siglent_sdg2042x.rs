@@ -489,14 +489,6 @@ impl Shared {
             changed: Condvar::new(),
         }
     }
-
-    /// Latch an invalid-request error and enqueue a disabled safe state.
-    fn reject_request(&self, message: String) {
-        let mut state = self.state.lock().unwrap();
-        state.next = Some(InstrumentState::default());
-        self.changed.notify_one();
-        state.status.latch_error(message);
-    }
 }
 
 impl InstrumentProxy for Shared {
@@ -512,20 +504,14 @@ impl InstrumentProxy for Shared {
         OUTPUT_SIZE
     }
 
-    fn process_request(&self, bytes: &[u8]) -> Result<u64, String> {
-        let (id, request) = match parse_request(bytes) {
-            Ok(packet) => packet,
-            Err(err) => {
-                self.reject_request(format!("SDG2042X rejected operating request: {err}"));
-                return Err(err);
-            }
-        };
-        let request = request.normalized(&self.config.channels);
+    fn process_request(&self, bytes: &[u8]) -> u64 {
+        let packet = OperatingInput::read_bytes(bytes);
+        let request = packet.state.normalized(&self.config.channels);
 
         let mut state = self.state.lock().unwrap();
         state.next = Some(request);
         self.changed.notify_one();
-        Ok(id)
+        packet.id
     }
 
     fn write_response(&self, metrics: OperatingMetrics, bytes: &mut [u8]) -> Result<(), String> {
@@ -927,18 +913,6 @@ fn expect_operation_complete(client: &mut ScpiClient) -> Result<(), String> {
     }
 }
 
-/// Decode the fixed-width operating packet into a two-channel request.
-fn parse_request(bytes: &[u8]) -> Result<(u64, InstrumentState), String> {
-    if bytes.len() != INPUT_SIZE {
-        return Err(format!(
-            "expected {INPUT_SIZE} request bytes, got {}",
-            bytes.len()
-        ));
-    }
-    let packet = OperatingInput::read_bytes(bytes);
-    Ok((packet.id, packet.state))
-}
-
 fn scpi_number(value: f64) -> String {
     format!("{value:.17e}")
 }
@@ -981,12 +955,12 @@ mod tests {
         }
         .write_bytes(&mut bytes);
         let expected = request.normalized(&driver.shared.config.channels);
-        assert_eq!(driver.shared.process_request(&bytes).unwrap(), 1);
+        assert_eq!(driver.shared.process_request(&bytes), 1);
         assert_eq!(
             driver.shared.state.lock().unwrap().next.take(),
             Some(expected)
         );
-        assert_eq!(driver.shared.process_request(&bytes).unwrap(), 1);
+        assert_eq!(driver.shared.process_request(&bytes), 1);
         assert_eq!(driver.shared.state.lock().unwrap().next, Some(expected));
     }
 
@@ -1046,7 +1020,7 @@ mod tests {
             state: request,
         }
         .write_bytes(&mut bytes);
-        assert_eq!(driver.shared.process_request(&bytes).unwrap(), 1);
+        assert_eq!(driver.shared.process_request(&bytes), 1);
         let request = driver.shared.state.lock().unwrap().next.unwrap();
         assert_eq!(request.ch1, ChannelState::default());
         assert_eq!(request.ch2.enabled, 1.0);
@@ -1162,11 +1136,10 @@ mod tests {
         driver
             .peripheral()
             .emit_operating_roundtrip(8, 0, 0, &inputs, &mut bytes);
-        let expected = parse_request(&bytes)
-            .unwrap()
-            .1
+        let expected = OperatingInput::read_bytes(&bytes)
+            .state
             .normalized(&driver.shared.config.channels);
-        assert_eq!(driver.shared.process_request(&bytes).unwrap(), 8);
+        assert_eq!(driver.shared.process_request(&bytes), 8);
 
         let deadline = Instant::now() + Duration::from_secs(1);
         loop {
