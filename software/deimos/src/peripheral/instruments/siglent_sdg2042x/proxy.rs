@@ -1,0 +1,76 @@
+//! Deimos operating-packet adapter for the live SDG2042X driver.
+
+use std::sync::Arc;
+
+use deimos_shared::peripherals::PeripheralId;
+use deimos_shared::states::{ByteStruct, OperatingMetrics};
+
+use super::super::responder::{InstrumentProxy, InstrumentRunHandle, start_driver};
+use super::driver::SiglentSdg2042XDriver;
+use super::peripheral::{INPUT_SIZE, OUTPUT_SIZE, OperatingInput, OperatingOutput};
+use crate::controller::context::ControllerCtx;
+use crate::peripheral::Peripheral;
+
+impl SiglentSdg2042XDriver {
+    /// Connect, validate identity, apply the safe state, and start both threads.
+    ///
+    /// Args:
+    ///   ctx: Controller context containing the matching thread channel.
+    ///
+    /// Returns:
+    ///   A handle that owns shutdown and joining for the responder and worker.
+    ///
+    /// Errors:
+    ///   Returns an error for connection, identity, setup, readback, or thread
+    ///   startup failures. The protocol responder is not started until physical
+    ///   instrument setup has succeeded.
+    pub fn run(&self, ctx: &ControllerCtx) -> Result<InstrumentRunHandle, String> {
+        let worker = self.shared_handle();
+        start_driver(
+            ctx,
+            self.channel_name(),
+            format!("sdg2042x-{}", self.peripheral().serial_number),
+            "SDG2042X",
+            self.startup_timeout(),
+            Arc::new(self.shared_handle()),
+            move |stop, startup| worker.run_worker(stop, startup),
+        )
+    }
+}
+
+impl InstrumentProxy for SiglentSdg2042XDriver {
+    fn id(&self) -> PeripheralId {
+        self.peripheral().id()
+    }
+
+    fn input_size(&self) -> usize {
+        INPUT_SIZE
+    }
+
+    fn output_size(&self) -> usize {
+        OUTPUT_SIZE
+    }
+
+    fn process_request(&self, bytes: &[u8]) -> u64 {
+        let packet = OperatingInput::read_bytes(bytes);
+        self.submit(packet.state);
+        packet.id
+    }
+
+    fn write_response(&self, metrics: OperatingMetrics, bytes: &mut [u8]) -> Result<(), String> {
+        OperatingOutput {
+            metrics,
+            state: self.applied()?,
+        }
+        .write_bytes(bytes);
+        Ok(())
+    }
+
+    fn on_loss_of_contact(&self) {
+        self.request_safe_state();
+    }
+
+    fn error(&self) -> Option<String> {
+        self.latched_error()
+    }
+}

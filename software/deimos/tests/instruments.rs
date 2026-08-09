@@ -110,10 +110,10 @@ fn controller_runs_configured_instruments_and_both_siglent_channels() {
 
     let mut controller = Controller::new(ctx);
     controller.clear_sockets();
-    let mut siglent_config = siglent_sdg2042x::SiglentSdg2042XConfig::new(siglent_address, 101);
-    siglent_config.channels[0].waveform = siglent_sdg2042x::SiglentWaveform::Sine;
-    siglent_config.channels[1].waveform = siglent_sdg2042x::SiglentWaveform::Square;
-    let dmm_config = keithley_dmm6500::KeithleyDmm6500Config::new(dmm_address, 102);
+    let mut siglent_config = siglent_sdg2042x::Config::new(siglent_address, 101);
+    siglent_config.channels[0].waveform = siglent_sdg2042x::Waveform::Sine;
+    siglent_config.channels[1].waveform = siglent_sdg2042x::Waveform::Square;
+    let dmm_config = keithley_dmm6500::Config::new(dmm_address, 102);
     let mut siglent_handle =
         siglent_sdg2042x::attach("siglent", siglent_config, &mut controller).unwrap();
     let mut dmm_handle = keithley_dmm6500::attach("dmm", dmm_config, &mut controller).unwrap();

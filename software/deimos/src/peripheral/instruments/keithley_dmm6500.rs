@@ -18,7 +18,7 @@ use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::states::{ByteStruct, ByteStructLen, OperatingMetrics};
 
 use super::SOFTWARE_MODEL_NUMBER_BASE;
-use super::protocol::{
+use super::responder::{
     InstrumentProxy, InstrumentRunHandle, WorkerStatus, attach_instrument, start_driver,
 };
 use super::scpi::{ScpiClient, ScpiTcpConfig};
@@ -58,7 +58,7 @@ pub const MODEL_NUMBER: u64 = SOFTWARE_MODEL_NUMBER_BASE + 2;
 
 /// Connection and DC-voltage acquisition configuration for a DMM6500.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct KeithleyDmm6500Config {
+pub struct Config {
     /// Shared SCPI/TCP connection, identity, and timeout settings.
     pub connection: ScpiTcpConfig,
     /// `None` enables autorange; `Some(volts)` selects a fixed voltage range.
@@ -69,7 +69,7 @@ pub struct KeithleyDmm6500Config {
     pub autozero: bool,
 }
 
-impl KeithleyDmm6500Config {
+impl Config {
     /// Build a configuration from a host name or address, adding SCPI port 5025.
     ///
     /// Args:
@@ -201,13 +201,13 @@ impl State {
 
 /// Validated configuration plus synchronized measurement state.
 struct Shared {
-    config: KeithleyDmm6500Config,
+    config: Config,
     channel_name: String,
     state: Mutex<State>,
 }
 
 impl Shared {
-    fn new(config: KeithleyDmm6500Config) -> Self {
+    fn new(config: Config) -> Self {
         let channel_name = format!(
             "instrument-dmm6500-{:016x}",
             config.connection.serial_number
@@ -280,7 +280,7 @@ impl KeithleyDmm6500Driver {
     ///
     /// Errors:
     ///   Returns an error when configuration fields are invalid.
-    pub fn new(config: KeithleyDmm6500Config) -> Result<Self, String> {
+    pub fn new(config: Config) -> Result<Self, String> {
         config.validate()?;
         Ok(Self {
             shared: Arc::new(Shared::new(config)),
@@ -359,7 +359,7 @@ impl KeithleyDmm6500Driver {
 ///   failure, or controller registration failure.
 pub fn attach(
     peripheral_name: &str,
-    config: KeithleyDmm6500Config,
+    config: Config,
     controller: &mut Controller,
 ) -> Result<InstrumentRunHandle, String> {
     let driver = KeithleyDmm6500Driver::new(config)?;
@@ -441,7 +441,7 @@ fn dmm_worker_inner(
 }
 
 /// Verify the model and configure single-sample ASCII DC-voltage acquisition.
-fn setup_dmm(client: &mut ScpiClient, config: &KeithleyDmm6500Config) -> Result<String, String> {
+fn setup_dmm(client: &mut ScpiClient, config: &Config) -> Result<String, String> {
     let identity = client.identify()?;
     config.connection.validate_identity(&identity)?;
     client.command(":SENSe:FUNCtion \"VOLTage\"")?;
@@ -505,14 +505,14 @@ mod tests {
 
     #[test]
     fn thread_channel_name_is_derived_from_model_and_serial() {
-        let config = KeithleyDmm6500Config::new("localhost", 0x2a);
+        let config = Config::new("localhost", 0x2a);
         let driver = KeithleyDmm6500Driver::new(config).unwrap();
         assert_eq!(driver.channel_name(), "instrument-dmm6500-000000000000002a");
     }
 
     #[test]
     fn configuration_rejects_invalid_measurement_settings() {
-        let mut config = KeithleyDmm6500Config::new("localhost", 1);
+        let mut config = Config::new("localhost", 1);
         config.nplc = f64::NAN;
         assert!(config.validate().is_err());
         config.nplc = 1.0;
@@ -552,7 +552,7 @@ mod tests {
             commands
         });
 
-        let config = KeithleyDmm6500Config::new(address.to_string(), 2);
+        let config = Config::new(address.to_string(), 2);
         let driver = KeithleyDmm6500Driver::new(config).unwrap();
         let ctx = ControllerCtx::default();
         let mut handle = driver.run(&ctx).unwrap();

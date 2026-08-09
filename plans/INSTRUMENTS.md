@@ -62,9 +62,13 @@ Instrument code lives below:
 
 ```text
 deimos::peripheral::instruments
-├── protocol                  private lifecycle and registration helpers
+├── responder                 shared private lifecycle and registration helpers
 ├── scpi                      shared public settings and private TCP transport
 └── <instrument>              one module per supported integration
+    ├── config                public instrument configuration
+    ├── peripheral            serializable controller-side representation
+    ├── proxy                 device-side responder adapter
+    └── driver                live state and instrument communication
 ```
 
 The `peripheral` module exposes the `instruments` namespace but does not re-export concrete instrument module internals.

@@ -12,11 +12,11 @@
 #![deny(missing_docs)]
 
 pub mod keithley_dmm6500;
-mod protocol;
+mod responder;
 mod scpi;
 pub mod siglent_sdg2042x;
 
-pub use protocol::InstrumentRunHandle;
+pub use responder::InstrumentRunHandle;
 pub use scpi::ScpiTcpConfig;
 
 use deimos_shared::peripherals::ModelNumber;

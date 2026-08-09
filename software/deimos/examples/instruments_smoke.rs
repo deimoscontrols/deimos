@@ -17,8 +17,8 @@ use std::time::{Duration, Instant};
 use deimos::{
     Controller, ControllerCtx, LoopMethod, Termination, ThreadChannelSocket,
     peripheral::instruments::{
-        keithley_dmm6500::{KeithleyDmm6500Config, KeithleyDmm6500Driver},
-        siglent_sdg2042x::{SiglentSdg2042XConfig, SiglentSdg2042XDriver, SiglentWaveform},
+        keithley_dmm6500::{Config as KeithleyConfig, KeithleyDmm6500Driver},
+        siglent_sdg2042x::{Config as SiglentConfig, SiglentSdg2042XDriver, Waveform},
     },
 };
 
@@ -48,12 +48,12 @@ fn main() -> Result<(), String> {
         return Err("smoke-test voltage must be finite and within -2..=2 V".to_owned());
     }
 
-    let mut siglent_config = SiglentSdg2042XConfig::new(siglent_host, 1);
-    siglent_config.channels[0].waveform = SiglentWaveform::Dc;
+    let mut siglent_config = SiglentConfig::new(siglent_host, 1);
+    siglent_config.channels[0].waveform = Waveform::Dc;
     siglent_config.channels[0].offset_voltage_v = (-2.0, 2.0);
-    siglent_config.channels[1].waveform = SiglentWaveform::Dc;
+    siglent_config.channels[1].waveform = Waveform::Dc;
     let siglent = SiglentSdg2042XDriver::new(siglent_config)?;
-    let dmm = KeithleyDmm6500Driver::new(KeithleyDmm6500Config::new(dmm_host, 1))?;
+    let dmm = KeithleyDmm6500Driver::new(KeithleyConfig::new(dmm_host, 1))?;
 
     let mut ctx = ControllerCtx::default();
     ctx.op_name = "instruments-smoke".to_owned();
