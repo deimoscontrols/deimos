@@ -8,6 +8,8 @@ use std::io::{BufRead, BufReader, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
+use serde::{Deserialize, Serialize};
+
 const DEFAULT_MAX_RESPONSE_LEN: usize = 16 * 1024;
 
 /// Add the standard raw-SCPI port when the caller supplied only a host.
@@ -40,6 +42,82 @@ pub(crate) fn address_with_default_port(host: String) -> String {
     }
 }
 
+/// Shared network, identity, and timeout settings for a SCPI/TCP instrument.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct ScpiTcpConfig {
+    /// TCP address in `host:port` form.
+    pub address: String,
+    /// Logical software serial number used in the Deimos peripheral ID.
+    pub serial_number: u64,
+    /// Case-insensitive manufacturer substring required in `*IDN?`.
+    pub expected_vendor: String,
+    /// Case-insensitive model substring required in `*IDN?`.
+    pub expected_model: String,
+    /// Maximum time allowed to establish the TCP connection.
+    pub connect_timeout: Duration,
+    /// Maximum time allowed for each SCPI response.
+    pub read_timeout: Duration,
+    /// Maximum time allowed for each SCPI command write.
+    pub write_timeout: Duration,
+}
+
+impl ScpiTcpConfig {
+    /// Build common settings from an address and expected identity.
+    ///
+    /// Args:
+    ///   host: Host name, IP address, or address with an explicit port.
+    ///   serial_number: Logical software serial used in the peripheral ID.
+    ///   expected_vendor: Manufacturer substring required in `*IDN?`.
+    ///   expected_model: Model substring required in `*IDN?`.
+    ///
+    /// Returns:
+    ///   Settings using SCPI port 5025 and two-second socket timeouts.
+    pub fn new(
+        host: impl Into<String>,
+        serial_number: u64,
+        expected_vendor: impl Into<String>,
+        expected_model: impl Into<String>,
+    ) -> Self {
+        Self {
+            address: address_with_default_port(host.into()),
+            serial_number,
+            expected_vendor: expected_vendor.into(),
+            expected_model: expected_model.into(),
+            connect_timeout: Duration::from_secs(2),
+            read_timeout: Duration::from_secs(2),
+            write_timeout: Duration::from_secs(2),
+        }
+    }
+
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        if self.address.trim().is_empty() {
+            return Err("address cannot be empty".to_owned());
+        }
+        if self.expected_vendor.trim().is_empty() || self.expected_model.trim().is_empty() {
+            return Err("expected_vendor and expected_model cannot be empty".to_owned());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn startup_timeout(&self) -> Duration {
+        self.connect_timeout + self.read_timeout + self.write_timeout + Duration::from_secs(1)
+    }
+
+    pub(crate) fn validate_identity(&self, identity: &str) -> Result<(), String> {
+        let uppercase = identity.to_ascii_uppercase();
+        if uppercase.contains(&self.expected_vendor.to_ascii_uppercase())
+            && uppercase.contains(&self.expected_model.to_ascii_uppercase())
+        {
+            Ok(())
+        } else {
+            Err(format!(
+                "identity `{identity}` did not match {} {}",
+                self.expected_vendor, self.expected_model
+            ))
+        }
+    }
+}
+
 /// Minimal newline-delimited SCPI client for one worker-owned TCP connection.
 ///
 /// One worker owns each client for its entire lifetime, so command/query
@@ -53,34 +131,29 @@ impl ScpiClient {
     /// Resolve and connect to an instrument with bounded socket operations.
     ///
     /// Args:
-    ///   address: Host and port accepted by `ToSocketAddrs`.
-    ///   connect_timeout: Per-address TCP connection deadline.
-    ///   read_timeout: Deadline applied to each response read.
-    ///   write_timeout: Deadline applied to each command write.
+    ///   config: Validated address, identity, and socket timeout settings.
     ///
     /// Returns:
     ///   A buffered client owning the connected stream.
     ///
     /// Errors:
     ///   Returns contextual resolution, connection, or socket-configuration errors.
-    pub(crate) fn connect(
-        address: &str,
-        connect_timeout: Duration,
-        read_timeout: Duration,
-        write_timeout: Duration,
-    ) -> Result<Self, String> {
+    pub(crate) fn connect(config: &ScpiTcpConfig) -> Result<Self, String> {
+        let address = &config.address;
         let addresses = address
             .to_socket_addrs()
             .map_err(|err| format!("unable to resolve `{address}`: {err}"))?;
         let mut last_error = None;
         for resolved in addresses {
-            match TcpStream::connect_timeout(&resolved, connect_timeout) {
+            match TcpStream::connect_timeout(&resolved, config.connect_timeout) {
                 Ok(stream) => {
-                    stream.set_read_timeout(Some(read_timeout)).map_err(|err| {
-                        format!("unable to set read timeout for `{address}`: {err}")
-                    })?;
                     stream
-                        .set_write_timeout(Some(write_timeout))
+                        .set_read_timeout(Some(config.read_timeout))
+                        .map_err(|err| {
+                            format!("unable to set read timeout for `{address}`: {err}")
+                        })?;
+                    stream
+                        .set_write_timeout(Some(config.write_timeout))
                         .map_err(|err| {
                             format!("unable to set write timeout for `{address}`: {err}")
                         })?;
@@ -247,14 +320,13 @@ mod tests {
             }
             command
         });
-        let client = ScpiClient::connect(
-            &address.to_string(),
-            Duration::from_secs(1),
-            Duration::from_secs(1),
-            Duration::from_secs(1),
-        )
-        .unwrap()
-        .with_max_response_len(max_response_len);
+        let mut config = ScpiTcpConfig::new(address.to_string(), 1, "TEST", "MODEL");
+        config.connect_timeout = Duration::from_secs(1);
+        config.read_timeout = Duration::from_secs(1);
+        config.write_timeout = Duration::from_secs(1);
+        let client = ScpiClient::connect(&config)
+            .unwrap()
+            .with_max_response_len(max_response_len);
         (client, server)
     }
 
@@ -293,6 +365,22 @@ mod tests {
         assert_eq!(
             address_with_default_port("[::1]:1234".to_owned()),
             "[::1]:1234"
+        );
+    }
+
+    #[test]
+    fn connection_config_validates_identity_case_insensitively() {
+        let config = ScpiTcpConfig::new("instrument", 7, "Siglent", "SDG2042X");
+        assert_eq!(config.address, "instrument:5025");
+        assert!(
+            config
+                .validate_identity("SIGLENT TECHNOLOGIES,sdg2042x,123,1.0")
+                .is_ok()
+        );
+        assert!(
+            config
+                .validate_identity("KEITHLEY,DMM6500,123,1.0")
+                .is_err()
         );
     }
 }

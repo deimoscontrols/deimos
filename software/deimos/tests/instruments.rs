@@ -143,10 +143,6 @@ fn controller_runs_configured_instruments_and_both_siglent_channels() {
     let mut observed_repeated_sample = false;
     loop {
         let values = run.read().values;
-        let command_sequence = values
-            .get("siglent.command_sequence")
-            .copied()
-            .unwrap_or_default();
         let applied_offset = values
             .get("siglent.ch1_applied_offset_voltage_v")
             .copied()
@@ -164,11 +160,7 @@ fn controller_runs_configured_instruments_and_both_siglent_channels() {
             observed_repeated_sample = true;
         }
         prior_sample = Some(sample_sequence);
-        if command_sequence >= 1.0
-            && applied_offset == 0.75
-            && channel_2_applied
-            && sample_sequence >= 2.0
-        {
+        if applied_offset == 0.75 && channel_2_applied && sample_sequence >= 2.0 {
             assert!(values["dmm.voltage_v"].is_finite());
             assert!(values["dmm.sample_age_s"].is_finite());
             break;

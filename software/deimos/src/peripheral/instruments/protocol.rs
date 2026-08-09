@@ -7,6 +7,7 @@
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -16,8 +17,38 @@ use deimos_shared::states::{
     ConfiguringInput, ConfiguringOutput, OperatingMetrics,
 };
 
+use crate::controller::Controller;
 use crate::controller::channel::{Endpoint, Msg};
 use crate::controller::context::ControllerCtx;
+use crate::peripheral::Peripheral;
+use crate::socket::thread_channel::ThreadChannelSocket;
+
+/// Validated identity and first failure shared with the protocol responder.
+#[derive(Debug, Default)]
+pub(crate) struct WorkerStatus {
+    identity: Option<String>,
+    error: Option<String>,
+}
+
+impl WorkerStatus {
+    pub(crate) fn identity(&self) -> Option<String> {
+        self.identity.clone()
+    }
+
+    pub(crate) fn set_identity(&mut self, identity: String) {
+        self.identity = Some(identity);
+    }
+
+    pub(crate) fn error(&self) -> Option<String> {
+        self.error.clone()
+    }
+
+    pub(crate) fn latch_error(&mut self, error: String) {
+        if self.error.is_none() {
+            self.error = Some(error);
+        }
+    }
+}
 
 /// Instrument-specific state exchange used by the nonblocking responder.
 pub(crate) trait InstrumentProxy: Send + Sync + 'static {
@@ -61,23 +92,9 @@ impl InstrumentRunHandle {
         }
     }
 
-    /// Signal both instrument threads to stop.
-    ///
-    /// The request is asynchronous. Output-capable workers apply their safe
-    /// state before returning from [`Self::join`].
-    pub fn stop(&self) {
+    /// Signal both instrument threads to stop without waiting for them.
+    fn request_stop(&self) {
         self.stop.store(true, Ordering::Relaxed);
-    }
-
-    /// Whether either instrument thread remains active.
-    ///
-    /// Returns:
-    ///   `true` while the protocol responder or instrument worker has not exited.
-    pub fn is_running(&self) -> bool {
-        self.protocol
-            .as_ref()
-            .is_some_and(|join| !join.is_finished())
-            || self.worker.as_ref().is_some_and(|join| !join.is_finished())
     }
 
     /// Stop and join both threads, reporting panics and latched errors.
@@ -89,7 +106,7 @@ impl InstrumentRunHandle {
     ///   Returns all responder errors, worker errors, and thread panics joined
     ///   into one message.
     pub fn join(&mut self) -> Result<(), String> {
-        self.stop();
+        self.request_stop();
         let mut errors = Vec::new();
         join_one("protocol responder", &mut self.protocol, &mut errors);
         join_one("instrument worker", &mut self.worker, &mut errors);
@@ -103,8 +120,88 @@ impl InstrumentRunHandle {
 
 impl Drop for InstrumentRunHandle {
     fn drop(&mut self) {
-        self.stop();
+        self.request_stop();
     }
+}
+
+/// Start a worker, wait for validated startup, then start its protocol responder.
+pub(crate) fn start_driver<P, W>(
+    ctx: &ControllerCtx,
+    channel_name: &str,
+    worker_name: String,
+    instrument_name: &'static str,
+    startup_timeout: Duration,
+    proxy: Arc<P>,
+    worker_fn: W,
+) -> Result<InstrumentRunHandle, String>
+where
+    P: InstrumentProxy,
+    W: FnOnce(Arc<AtomicBool>, mpsc::SyncSender<Result<(), String>>) -> Result<(), String>
+        + Send
+        + 'static,
+{
+    let stop = Arc::new(AtomicBool::new(false));
+    let (startup_tx, startup_rx) = mpsc::sync_channel(1);
+    let worker_stop = stop.clone();
+    let worker = thread::Builder::new()
+        .name(worker_name)
+        .spawn(move || worker_fn(worker_stop, startup_tx))
+        .map_err(|err| format!("failed to spawn {instrument_name} worker: {err}"))?;
+
+    match startup_rx.recv_timeout(startup_timeout) {
+        Ok(Ok(())) => {}
+        Ok(Err(err)) => {
+            let _ = worker.join();
+            return Err(err);
+        }
+        Err(err) => {
+            stop.store(true, Ordering::Relaxed);
+            let _ = worker.join();
+            return Err(format!("{instrument_name} startup did not complete: {err}"));
+        }
+    }
+
+    let protocol = match spawn_protocol(ctx, channel_name, proxy, stop.clone()) {
+        Ok(protocol) => protocol,
+        Err(err) => {
+            stop.store(true, Ordering::Relaxed);
+            let _ = worker.join();
+            return Err(err);
+        }
+    };
+    Ok(InstrumentRunHandle::new(stop, protocol, worker))
+}
+
+/// Start and register a configured instrument with its generated socket.
+pub(crate) fn attach_instrument<P, S>(
+    peripheral_name: &str,
+    channel_name: &str,
+    peripheral: P,
+    instrument_name: &'static str,
+    controller: &mut Controller,
+    start: S,
+) -> Result<InstrumentRunHandle, String>
+where
+    P: Peripheral + 'static,
+    S: FnOnce(&ControllerCtx) -> Result<InstrumentRunHandle, String>,
+{
+    if controller.peripherals().contains_key(peripheral_name) {
+        return Err(format!("Peripheral name `{peripheral_name}` is duplicated"));
+    }
+    let mut handle = start(&controller.ctx)?;
+    if let Err(err) = controller.add_peripheral(peripheral_name, Box::new(peripheral)) {
+        return match handle.join() {
+            Ok(()) => Err(err),
+            Err(cleanup) => Err(format!(
+                "{err}; additionally failed to stop {instrument_name}: {cleanup}"
+            )),
+        };
+    }
+    controller.add_socket(
+        channel_name,
+        Box::new(ThreadChannelSocket::new(channel_name)),
+    );
+    Ok(handle)
 }
 
 /// Consume one thread handle and append any failure to a shared error list.
@@ -309,6 +406,19 @@ mod tests {
         model_number: 99,
         serial_number: 7,
     };
+
+    #[test]
+    fn worker_status_preserves_the_first_error() {
+        let mut status = WorkerStatus::default();
+        status.set_identity("vendor,model,serial,version".to_owned());
+        status.latch_error("first".to_owned());
+        status.latch_error("second".to_owned());
+        assert_eq!(
+            status.identity().as_deref(),
+            Some("vendor,model,serial,version")
+        );
+        assert_eq!(status.error().as_deref(), Some("first"));
+    }
 
     struct TestProxy {
         losses: AtomicUsize,

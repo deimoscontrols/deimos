@@ -15,8 +15,10 @@ pub mod keithley_dmm6500;
 mod protocol;
 mod scpi;
 pub mod siglent_sdg2042x;
+mod wire;
 
 pub use protocol::InstrumentRunHandle;
+pub use scpi::ScpiTcpConfig;
 
 use deimos_shared::peripherals::ModelNumber;
 

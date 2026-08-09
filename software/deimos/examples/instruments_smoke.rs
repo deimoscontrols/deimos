@@ -141,10 +141,9 @@ fn main() -> Result<(), String> {
                 || values.get("siglent.ch1_applied_offset_voltage_v") != Some(&voltage_v)
             {
                 return Err(format!(
-                    "Siglent left the requested applied state while sampling: enabled={:?}, offset={:?}, sequence={:?}",
+                    "Siglent left the requested applied state while sampling: enabled={:?}, offset={:?}",
                     values.get("siglent.ch1_applied_enabled"),
-                    values.get("siglent.ch1_applied_offset_voltage_v"),
-                    values.get("siglent.command_sequence")
+                    values.get("siglent.ch1_applied_offset_voltage_v")
                 ));
             }
             let sequence = values

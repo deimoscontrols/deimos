@@ -2,36 +2,41 @@
 //!
 //! A blocking worker owns the SCPI-over-TCP connection and continuously issues
 //! `:READ?`. The controller-facing responder repeats the latest completed
-//! finite sample, sequence number, sample age, and query duration without
-//! blocking the control loop. Sample timestamps are host-observed completion
-//! bounds rather than cycle-synchronous measurement times.
+//! finite sample, sequence number, and sample age without blocking the control
+//! loop. Sample timestamps are host-observed completion bounds rather than
+//! cycle-synchronous measurement times.
 
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
-use std::thread;
 use std::time::{Duration, Instant};
 
+use byte_struct::ByteStructUnspecifiedByteOrder;
 use serde::{Deserialize, Serialize};
 
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::states::{ByteStruct, ByteStructLen, OperatingMetrics};
 
 use super::SOFTWARE_MODEL_NUMBER_BASE;
-use super::protocol::{InstrumentProxy, InstrumentRunHandle, spawn_protocol};
-use super::scpi::{ScpiClient, address_with_default_port};
+use super::protocol::{
+    InstrumentProxy, InstrumentRunHandle, WorkerStatus, attach_instrument, start_driver,
+};
+use super::scpi::{ScpiClient, ScpiTcpConfig};
+use super::wire::{instrument_fields, operating_packets};
 use crate::calc::Calc;
 use crate::controller::Controller;
 use crate::controller::context::ControllerCtx;
 use crate::peripheral::Peripheral;
-use crate::socket::thread_channel::ThreadChannelSocket;
 
-const INPUT_SIZE: usize = 8;
-const OUTPUT_COUNT: usize = 4;
+const INPUT_COUNT: usize = 0;
+instrument_fields!(OUTPUT_FIELDS = [voltage_v, sample_sequence, sample_age_s,]);
+const OUTPUT_COUNT: usize = OUTPUT_FIELDS.len();
+operating_packets!(OperatingInput, OperatingOutput, INPUT_COUNT, OUTPUT_COUNT);
 // Request: the controller's little-endian u64 packet ID.
-// Response: OperatingMetrics followed by voltage, sample sequence, sample age,
-// and query duration as little-endian f64 values.
-const OUTPUT_SIZE: usize = OperatingMetrics::BYTE_LEN + OUTPUT_COUNT * 8;
+// Response: OperatingMetrics followed by voltage, sample sequence, and sample
+// age as little-endian f64 values.
+const INPUT_SIZE: usize = OperatingInput::BYTE_LEN;
+const OUTPUT_SIZE: usize = OperatingOutput::BYTE_LEN;
 const MAX_EXACT_F64_INTEGER: u64 = (1_u64 << 53) - 1;
 
 /// Software model number for the Keithley DMM6500 integration.
@@ -40,18 +45,8 @@ pub const MODEL_NUMBER: u64 = SOFTWARE_MODEL_NUMBER_BASE + 2;
 /// Connection and DC-voltage acquisition configuration for a DMM6500.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct KeithleyDmm6500Config {
-    /// TCP address in `host:port` form.
-    pub address: String,
-    /// Logical software serial number used in the Deimos peripheral ID.
-    pub serial_number: u64,
-    /// Case-insensitive model substring required in the `*IDN?` response.
-    pub expected_model: String,
-    /// Maximum time allowed to establish the TCP connection.
-    pub connect_timeout: Duration,
-    /// Maximum time allowed for each SCPI response.
-    pub read_timeout: Duration,
-    /// Maximum time allowed for each SCPI command write.
-    pub write_timeout: Duration,
+    /// Shared SCPI/TCP connection, identity, and timeout settings.
+    pub connection: ScpiTcpConfig,
     /// `None` enables autorange; `Some(volts)` selects a fixed voltage range.
     pub range_v: Option<f64>,
     /// Integration aperture in power-line cycles.
@@ -71,14 +66,10 @@ impl KeithleyDmm6500Config {
     ///   An autoranging DC-voltage configuration with one NPLC, autozero
     ///   enabled, and bounded connection and I/O timeouts.
     pub fn new(host: impl Into<String>, serial_number: u64) -> Self {
-        let address = address_with_default_port(host.into());
+        let mut connection = ScpiTcpConfig::new(host, serial_number, "KEITHLEY", "DMM6500");
+        connection.read_timeout = Duration::from_secs(5);
         Self {
-            address,
-            serial_number,
-            expected_model: "DMM6500".to_owned(),
-            connect_timeout: Duration::from_secs(2),
-            read_timeout: Duration::from_secs(5),
-            write_timeout: Duration::from_secs(2),
+            connection,
             range_v: None,
             nplc: 1.0,
             autozero: true,
@@ -86,12 +77,7 @@ impl KeithleyDmm6500Config {
     }
 
     fn validate(&self) -> Result<(), String> {
-        if self.address.trim().is_empty() {
-            return Err("address cannot be empty".to_owned());
-        }
-        if self.expected_model.trim().is_empty() {
-            return Err("expected_model cannot be empty".to_owned());
-        }
+        self.connection.validate()?;
         if !self.nplc.is_finite() || self.nplc <= 0.0 {
             return Err("nplc must be finite and positive".to_owned());
         }
@@ -139,14 +125,7 @@ impl Peripheral for KeithleyDmm6500 {
     }
 
     fn output_names(&self) -> Vec<String> {
-        [
-            "voltage_v",
-            "sample_sequence",
-            "sample_age_s",
-            "query_duration_s",
-        ]
-        .map(str::to_owned)
-        .to_vec()
+        OUTPUT_FIELDS.iter().map(ToString::to_string).collect()
     }
 
     fn operating_roundtrip_input_size(&self) -> usize {
@@ -165,21 +144,21 @@ impl Peripheral for KeithleyDmm6500 {
         _inputs: &[f64],
         bytes: &mut [u8],
     ) {
-        write_u64(bytes, 0, id);
+        OperatingInput { id, values: [] }.write_bytes(bytes);
     }
 
     fn parse_operating_roundtrip(&self, bytes: &[u8], outputs: &mut [f64]) -> OperatingMetrics {
-        let metrics = OperatingMetrics::read_bytes(&bytes[..OperatingMetrics::BYTE_LEN]);
-        for (index, output) in outputs.iter_mut().take(OUTPUT_COUNT).enumerate() {
-            *output = read_f64(bytes, OperatingMetrics::BYTE_LEN + index * 8);
-        }
-        metrics
+        let response = OperatingOutput::read_bytes(bytes);
+        outputs[..OUTPUT_COUNT].copy_from_slice(&response.values);
+        response.metrics
     }
 
     fn validate_operating_roundtrip(&self, bytes: &[u8]) -> bool {
         bytes.len() == OUTPUT_SIZE
-            && (0..OUTPUT_COUNT)
-                .all(|index| read_f64(bytes, OperatingMetrics::BYTE_LEN + index * 8).is_finite())
+            && OperatingOutput::read_bytes(bytes)
+                .values
+                .iter()
+                .all(|value| value.is_finite())
     }
 
     fn standard_calcs(&self, _name: &str) -> BTreeMap<String, Box<dyn Calc>> {
@@ -192,9 +171,15 @@ struct State {
     voltage_v: f64,
     sample_sequence: u64,
     sampled_at: Instant,
-    query_duration: Duration,
-    identity: Option<String>,
-    error: Option<String>,
+    status: WorkerStatus,
+}
+
+impl State {
+    fn publish_sample(&mut self, voltage_v: f64) {
+        self.voltage_v = voltage_v;
+        self.sample_sequence = self.sample_sequence.wrapping_add(1);
+        self.sampled_at = Instant::now();
+    }
 }
 
 /// Validated configuration plus synchronized measurement state.
@@ -206,7 +191,10 @@ struct Shared {
 
 impl Shared {
     fn new(config: KeithleyDmm6500Config) -> Self {
-        let channel_name = format!("instrument-dmm6500-{:016x}", config.serial_number);
+        let channel_name = format!(
+            "instrument-dmm6500-{:016x}",
+            config.connection.serial_number
+        );
         Self {
             config,
             channel_name,
@@ -214,9 +202,7 @@ impl Shared {
                 voltage_v: 0.0,
                 sample_sequence: 0,
                 sampled_at: Instant::now(),
-                query_duration: Duration::ZERO,
-                identity: None,
-                error: None,
+                status: WorkerStatus::default(),
             }),
         }
     }
@@ -224,7 +210,7 @@ impl Shared {
 
 impl InstrumentProxy for Shared {
     fn id(&self) -> PeripheralId {
-        KeithleyDmm6500::new(self.config.serial_number).id()
+        KeithleyDmm6500::new(self.config.connection.serial_number).id()
     }
 
     fn input_size(&self) -> usize {
@@ -237,7 +223,7 @@ impl InstrumentProxy for Shared {
 
     fn process_request(&self, bytes: &[u8]) -> Result<u64, String> {
         if bytes.len() == INPUT_SIZE {
-            Ok(read_u64(bytes, 0))
+            Ok(OperatingInput::read_bytes(bytes).id)
         } else {
             Err(format!(
                 "expected {INPUT_SIZE} request bytes, got {}",
@@ -248,28 +234,25 @@ impl InstrumentProxy for Shared {
 
     fn write_response(&self, metrics: OperatingMetrics, bytes: &mut [u8]) -> Result<(), String> {
         let state = self.state.lock().map_err(|_| "DMM6500 state poisoned")?;
-        if let Some(error) = &state.error {
-            return Err(error.clone());
+        if let Some(error) = state.status.error() {
+            return Err(error);
         }
-        metrics.write_bytes(&mut bytes[..OperatingMetrics::BYTE_LEN]);
-        for (index, value) in [
-            state.voltage_v,
-            state.sample_sequence.min(MAX_EXACT_F64_INTEGER) as f64,
-            state.sampled_at.elapsed().as_secs_f64(),
-            state.query_duration.as_secs_f64(),
-        ]
-        .into_iter()
-        .enumerate()
-        {
-            write_f64(bytes, OperatingMetrics::BYTE_LEN + index * 8, value);
+        OperatingOutput {
+            metrics,
+            values: [
+                state.voltage_v,
+                state.sample_sequence.min(MAX_EXACT_F64_INTEGER) as f64,
+                state.sampled_at.elapsed().as_secs_f64(),
+            ],
         }
+        .write_bytes(bytes);
         Ok(())
     }
 
     fn on_loss_of_contact(&self) {}
 
     fn error(&self) -> Option<String> {
-        self.state.lock().ok()?.error.clone()
+        self.state.lock().ok()?.status.error()
     }
 }
 
@@ -301,7 +284,7 @@ impl KeithleyDmm6500Driver {
     /// Returns:
     ///   A serializable peripheral carrying the driver's logical identity.
     pub fn peripheral(&self) -> KeithleyDmm6500 {
-        KeithleyDmm6500::new(self.shared.config.serial_number)
+        KeithleyDmm6500::new(self.shared.config.connection.serial_number)
     }
 
     /// Return the internal thread-channel name expected by the driver.
@@ -317,7 +300,7 @@ impl KeithleyDmm6500Driver {
     /// Returns:
     ///   The complete `*IDN?` response, or `None` before startup succeeds.
     pub fn identity(&self) -> Option<String> {
-        self.shared.state.lock().ok()?.identity.clone()
+        self.shared.state.lock().ok()?.status.identity()
     }
 
     /// Connect, configure DC acquisition, obtain one sample, and start both threads.
@@ -333,46 +316,16 @@ impl KeithleyDmm6500Driver {
     ///   reading, parse, or thread startup failures. The protocol responder is
     ///   not started until one finite voltage reading has completed.
     pub fn run(&self, ctx: &ControllerCtx) -> Result<InstrumentRunHandle, String> {
-        let stop = Arc::new(AtomicBool::new(false));
-        let (startup_tx, startup_rx) = mpsc::sync_channel(1);
-        let worker_shared = self.shared.clone();
-        let worker_stop = stop.clone();
-        let worker = thread::Builder::new()
-            .name(format!("dmm6500-{}", self.shared.config.serial_number))
-            .spawn(move || dmm_worker(worker_shared, worker_stop, startup_tx))
-            .map_err(|err| format!("failed to spawn DMM6500 worker: {err}"))?;
-
-        let startup_wait = self.shared.config.connect_timeout
-            + self.shared.config.read_timeout
-            + self.shared.config.write_timeout
-            + Duration::from_secs(1);
-        match startup_rx.recv_timeout(startup_wait) {
-            Ok(Ok(())) => {}
-            Ok(Err(err)) => {
-                let _ = worker.join();
-                return Err(err);
-            }
-            Err(err) => {
-                stop.store(true, Ordering::Relaxed);
-                let _ = worker.join();
-                return Err(format!("DMM6500 startup did not complete: {err}"));
-            }
-        }
-
-        let protocol = match spawn_protocol(
+        let shared = self.shared.clone();
+        start_driver(
             ctx,
             &self.shared.channel_name,
+            format!("dmm6500-{}", self.shared.config.connection.serial_number),
+            "DMM6500",
+            self.shared.config.connection.startup_timeout(),
             self.shared.clone(),
-            stop.clone(),
-        ) {
-            Ok(protocol) => protocol,
-            Err(err) => {
-                stop.store(true, Ordering::Relaxed);
-                let _ = worker.join();
-                return Err(err);
-            }
-        };
-        Ok(InstrumentRunHandle::new(stop, protocol, worker))
+            move |stop, startup| dmm_worker(shared, stop, startup),
+        )
     }
 }
 
@@ -401,25 +354,16 @@ pub fn attach(
     config: KeithleyDmm6500Config,
     controller: &mut Controller,
 ) -> Result<InstrumentRunHandle, String> {
-    if controller.peripherals().contains_key(peripheral_name) {
-        return Err(format!("Peripheral name `{peripheral_name}` is duplicated"));
-    }
     let driver = KeithleyDmm6500Driver::new(config)?;
     let channel_name = driver.channel_name().to_owned();
-    let mut handle = driver.run(&controller.ctx)?;
-    if let Err(err) = controller.add_peripheral(peripheral_name, Box::new(driver.peripheral())) {
-        return match handle.join() {
-            Ok(()) => Err(err),
-            Err(cleanup) => Err(format!(
-                "{err}; additionally failed to stop DMM6500: {cleanup}"
-            )),
-        };
-    }
-    controller.add_socket(
+    attach_instrument(
+        peripheral_name,
         &channel_name,
-        Box::new(ThreadChannelSocket::new(&channel_name)),
-    );
-    Ok(handle)
+        driver.peripheral(),
+        "DMM6500",
+        controller,
+        |ctx| driver.run(ctx),
+    )
 }
 
 fn dmm_worker(
@@ -432,9 +376,8 @@ fn dmm_worker(
     let result = dmm_worker_inner(&shared, &stop, &startup);
     if let Err(error) = &result
         && let Ok(mut state) = shared.state.lock()
-        && state.error.is_none()
     {
-        state.error = Some(format!("DMM6500: {error}"));
+        state.status.latch_error(format!("DMM6500: {error}"));
     }
     result
 }
@@ -450,12 +393,7 @@ fn dmm_worker_inner(
     startup: &mpsc::SyncSender<Result<(), String>>,
 ) -> Result<(), String> {
     let config = &shared.config;
-    let mut client = match ScpiClient::connect(
-        &config.address,
-        config.connect_timeout,
-        config.read_timeout,
-        config.write_timeout,
-    ) {
+    let mut client = match ScpiClient::connect(&config.connection) {
         Ok(client) => client,
         Err(err) => {
             let _ = startup.send(Err(format!("DMM6500 connection failed: {err}")));
@@ -470,7 +408,7 @@ fn dmm_worker_inner(
             return Err(err);
         }
     };
-    let (voltage_v, query_duration) = match read_voltage(&mut client) {
+    let voltage_v = match read_voltage(&mut client) {
         Ok(sample) => sample,
         Err(err) => {
             let _ = startup.send(Err(format!("DMM6500 initial read failed: {err}")));
@@ -479,23 +417,17 @@ fn dmm_worker_inner(
     };
     {
         let mut state = shared.state.lock().unwrap();
-        state.identity = Some(identity);
-        state.voltage_v = voltage_v;
-        state.sample_sequence = 1;
-        state.sampled_at = Instant::now();
-        state.query_duration = query_duration;
+        state.status.set_identity(identity);
+        state.publish_sample(voltage_v);
     }
     let _ = startup.send(Ok(()));
 
     while !stop.load(Ordering::Relaxed) {
-        let (voltage_v, query_duration) = read_voltage(&mut client)?;
+        let voltage_v = read_voltage(&mut client)?;
         let mut state = shared.state.lock().unwrap();
         // Timestamp after the complete response arrives. This bounds sample
         // freshness but does not claim cycle-synchronous acquisition timing.
-        state.voltage_v = voltage_v;
-        state.sample_sequence = state.sample_sequence.wrapping_add(1);
-        state.sampled_at = Instant::now();
-        state.query_duration = query_duration;
+        state.publish_sample(voltage_v);
     }
     Ok(())
 }
@@ -503,15 +435,7 @@ fn dmm_worker_inner(
 /// Verify the model and configure single-sample ASCII DC-voltage acquisition.
 fn setup_dmm(client: &mut ScpiClient, config: &KeithleyDmm6500Config) -> Result<String, String> {
     let identity = client.identify()?;
-    let uppercase = identity.to_ascii_uppercase();
-    if !uppercase.contains("KEITHLEY")
-        || !uppercase.contains(&config.expected_model.to_ascii_uppercase())
-    {
-        return Err(format!(
-            "identity `{identity}` did not match KEITHLEY {}",
-            config.expected_model
-        ));
-    }
+    config.connection.validate_identity(&identity)?;
     client.command(":SENSe:FUNCtion \"VOLTage\"")?;
     client.command(":FORMat:DATA ASCii")?;
     client.command(":SENSe:COUNt 1")?;
@@ -531,17 +455,15 @@ fn setup_dmm(client: &mut ScpiClient, config: &KeithleyDmm6500Config) -> Result<
     Ok(identity)
 }
 
-/// Read one finite voltage and measure the host-observed query duration.
+/// Read one finite voltage.
 ///
 /// Returns:
-///   The voltage in volts and elapsed wall time around the SCPI query.
+///   The voltage in volts.
 ///
 /// Errors:
 ///   Returns transport errors or a nonnumeric/non-finite instrument response.
-fn read_voltage(client: &mut ScpiClient) -> Result<(f64, Duration), String> {
-    let started = Instant::now();
+fn read_voltage(client: &mut ScpiClient) -> Result<f64, String> {
     let response = client.query(":READ?")?;
-    let duration = started.elapsed();
     let value = response
         .trim()
         .parse::<f64>()
@@ -549,27 +471,11 @@ fn read_voltage(client: &mut ScpiClient) -> Result<(f64, Duration), String> {
     if !value.is_finite() {
         return Err(format!("non-finite voltage response `{response}`"));
     }
-    Ok((value, duration))
+    Ok(value)
 }
 
 fn scpi_number(value: f64) -> String {
     format!("{value:.17e}")
-}
-
-fn read_u64(bytes: &[u8], offset: usize) -> u64 {
-    u64::from_le_bytes(bytes[offset..offset + 8].try_into().unwrap())
-}
-
-fn write_u64(bytes: &mut [u8], offset: usize, value: u64) {
-    bytes[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
-}
-
-fn read_f64(bytes: &[u8], offset: usize) -> f64 {
-    f64::from_le_bytes(bytes[offset..offset + 8].try_into().unwrap())
-}
-
-fn write_f64(bytes: &mut [u8], offset: usize, value: f64) {
-    bytes[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
 }
 
 #[cfg(test)]
@@ -577,6 +483,8 @@ mod tests {
     use super::*;
     use std::io::{BufRead, BufReader, Write};
     use std::net::TcpListener;
+    use std::thread;
+    use std::time::Instant;
 
     #[test]
     fn packet_shape_and_names_are_stable() {
@@ -654,7 +562,6 @@ mod tests {
         {
             let state = driver.shared.state.lock().unwrap();
             assert!(state.voltage_v >= 1.5);
-            assert!(state.query_duration >= Duration::from_millis(1));
             assert!(state.sampled_at.elapsed() < Duration::from_secs(1));
         }
         handle.join().unwrap();

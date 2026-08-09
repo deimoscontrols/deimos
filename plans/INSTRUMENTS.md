@@ -62,8 +62,9 @@ Instrument code lives below:
 
 ```text
 deimos::peripheral::instruments
-├── protocol                  private lifecycle and packet helpers
-├── <protocol or transport>   private communication helpers, when useful
+├── protocol                  private lifecycle and registration helpers
+├── scpi                      shared public settings and private TCP transport
+├── wire                      private field-list and packet declaration macros
 └── <instrument>              one module per supported integration
 ```
 
@@ -78,6 +79,8 @@ Instrument model numbers occupy an explicitly documented software-only range and
 Each integration uses the simplest reliable transport and protocol supported by the instrument.
 
 Addresses, connection settings, timeouts, and response limits are explicit configuration.
+
+SCPI integrations group their shared network, identity, and timeout settings in `ScpiTcpConfig`.
 
 Where the instrument provides an identity query, the worker verifies and logs the configured identity.
 
@@ -100,9 +103,9 @@ Startup failure returns an error before controller operation begins.
 
 The protocol responder acknowledges every valid controller request using the latest completed instrument state.
 
-State-changing requests may be coalesced only when doing so preserves their validity. The worker must eventually apply the latest output state or report failure.
+Instruments may run at a lower rate than the controller.
 
-Acquisition may complete at a lower rate than the controller.
+The latest commanded full instrument state is reasserted when the previous transaction has finished and a new command has arrived from the controller.
 
 ### Shutdown
 

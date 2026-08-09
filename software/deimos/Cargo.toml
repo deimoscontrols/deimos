@@ -22,6 +22,7 @@ rustdoc-args = ["--extend-css", "docs/rustdoc.css", "--default-theme", "dark"]
 # Packet formats and math shared with hardware
 deimos_shared = { path = "../deimos_shared", version = "0.19.1" }
 deimos_numerics = { path = "../deimos_numerics", version = "0.19.1" }
+byte_struct = "0.9.0"
 
 # Control loop
 chrono = { version = "^0.4.42", features = ["std"], default-features = false }  # timestamp formatting
