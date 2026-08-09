@@ -1,4 +1,4 @@
-//! Keithley DMM6500 DC-voltage acquisition integration.
+//! Keithley DMM6500 DC-voltage and four-wire-resistance integration.
 //!
 //! A blocking worker owns the SCPI-over-TCP connection and continuously issues
 //! `:READ?`. The controller-facing responder repeats the latest completed
@@ -27,7 +27,8 @@ use crate::controller::Controller;
 use crate::controller::context::ControllerCtx;
 use crate::peripheral::Peripheral;
 
-const OUTPUT_FIELDS: &[&str] = &["voltage_v", "sample_sequence", "sample_age_s"];
+const SAMPLE_SEQUENCE_OUTPUT: &str = "sample_sequence";
+const SAMPLE_AGE_OUTPUT: &str = "sample_age_s";
 
 /// Controller request for the latest completed DMM reading.
 #[derive(ByteStruct, Clone, Copy, Debug, Default)]
@@ -41,28 +42,90 @@ struct OperatingInput {
 #[byte_struct_le]
 struct OperatingOutput {
     metrics: OperatingMetrics,
-    voltage_v: f64,
+    value: f64,
     sample_sequence: f64,
     sample_age_s: f64,
 }
 
 // Request: the controller's little-endian u64 packet ID.
-// Response: OperatingMetrics followed by voltage, sample sequence, and sample
+// Response: OperatingMetrics followed by value, sample sequence, and sample
 // age as little-endian f64 values.
 const INPUT_SIZE: usize = OperatingInput::BYTE_LEN;
 const OUTPUT_SIZE: usize = OperatingOutput::BYTE_LEN;
 const MAX_EXACT_F64_INTEGER: u64 = (1_u64 << 53) - 1;
+const OVERFLOW_READING_ABS: f64 = 9.9e37;
 
 /// Software model number for the Keithley DMM6500 integration.
 pub const MODEL_NUMBER: u64 = SOFTWARE_MODEL_NUMBER_BASE + 2;
 
-/// Connection and DC-voltage acquisition configuration for a DMM6500.
+/// DMM6500 measurement function selected once during driver startup.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub enum Function {
+    /// DC-voltage measurement with an optional fixed range in volts.
+    DcVoltage {
+        /// `None` enables autorange; `Some(volts)` selects a fixed range.
+        range_v: Option<f64>,
+    },
+    /// Four-wire resistance measurement with an optional fixed range in ohms.
+    FourWireResistance {
+        /// `None` enables autorange; `Some(ohms)` selects a fixed range.
+        range_ohm: Option<f64>,
+        /// Whether to enable offset-compensated resistance measurements.
+        offset_compensation: bool,
+    },
+}
+
+impl Default for Function {
+    fn default() -> Self {
+        Self::DcVoltage { range_v: None }
+    }
+}
+
+impl Function {
+    fn kind(self) -> FunctionKind {
+        match self {
+            Self::DcVoltage { .. } => FunctionKind::DcVoltage,
+            Self::FourWireResistance { .. } => FunctionKind::FourWireResistance,
+        }
+    }
+
+    fn validate(self) -> Result<(), String> {
+        let (name, range) = match self {
+            Self::DcVoltage { range_v } => ("range_v", range_v),
+            Self::FourWireResistance { range_ohm, .. } => ("range_ohm", range_ohm),
+        };
+        if range.is_some_and(|value| value.is_nan() || value <= 0.0 || value == f64::INFINITY) {
+            Err(format!("{name} must be finite and positive when supplied"))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+enum FunctionKind {
+    #[default]
+    DcVoltage,
+    FourWireResistance,
+}
+
+impl FunctionKind {
+    fn output_name(self) -> &'static str {
+        match self {
+            Self::DcVoltage => "voltage_v",
+            Self::FourWireResistance => "resistance_ohm",
+        }
+    }
+}
+
+/// Connection and measurement configuration for a DMM6500.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Config {
     /// Shared SCPI/TCP connection, identity, and timeout settings.
     pub connection: ScpiTcpConfig,
-    /// `None` enables autorange; `Some(volts)` selects a fixed voltage range.
-    pub range_v: Option<f64>,
+    /// Measurement function and function-specific settings fixed for the run.
+    #[serde(default)]
+    pub function: Function,
     /// Integration aperture in power-line cycles.
     pub nplc: f64,
     /// Whether automatic zero correction is enabled.
@@ -84,7 +147,7 @@ impl Config {
         connection.read_timeout = Duration::from_secs(5);
         Self {
             connection,
-            range_v: None,
+            function: Function::default(),
             nplc: 1.0,
             autozero: true,
         }
@@ -95,13 +158,7 @@ impl Config {
         if self.nplc.is_nan() || self.nplc <= 0.0 || self.nplc == f64::INFINITY {
             return Err("nplc must be finite and positive".to_owned());
         }
-        if self
-            .range_v
-            .is_some_and(|range| range.is_nan() || range <= 0.0 || range == f64::INFINITY)
-        {
-            return Err("range_v must be finite and positive when supplied".to_owned());
-        }
-        Ok(())
+        self.function.validate()
     }
 }
 
@@ -110,6 +167,8 @@ impl Config {
 pub struct KeithleyDmm6500 {
     /// Logical software serial number used in the Deimos peripheral ID.
     pub serial_number: u64,
+    #[serde(default)]
+    function: FunctionKind,
 }
 
 impl KeithleyDmm6500 {
@@ -121,7 +180,17 @@ impl KeithleyDmm6500 {
     /// Returns:
     ///   A serializable peripheral with no connection or worker state.
     pub fn new(serial_number: u64) -> Self {
-        Self { serial_number }
+        Self {
+            serial_number,
+            function: FunctionKind::default(),
+        }
+    }
+
+    fn with_function(serial_number: u64, function: Function) -> Self {
+        Self {
+            serial_number,
+            function: function.kind(),
+        }
     }
 }
 
@@ -139,7 +208,14 @@ impl Peripheral for KeithleyDmm6500 {
     }
 
     fn output_names(&self) -> Vec<String> {
-        OUTPUT_FIELDS.iter().map(ToString::to_string).collect()
+        [
+            self.function.output_name(),
+            SAMPLE_SEQUENCE_OUTPUT,
+            SAMPLE_AGE_OUTPUT,
+        ]
+        .into_iter()
+        .map(ToOwned::to_owned)
+        .collect()
     }
 
     fn operating_roundtrip_input_size(&self) -> usize {
@@ -163,7 +239,7 @@ impl Peripheral for KeithleyDmm6500 {
 
     fn parse_operating_roundtrip(&self, bytes: &[u8], outputs: &mut [f64]) -> OperatingMetrics {
         let response = OperatingOutput::read_bytes(bytes);
-        outputs[0] = response.voltage_v;
+        outputs[0] = response.value;
         outputs[1] = response.sample_sequence;
         outputs[2] = response.sample_age_s;
         response.metrics
@@ -172,7 +248,7 @@ impl Peripheral for KeithleyDmm6500 {
     fn validate_operating_roundtrip(&self, bytes: &[u8]) -> bool {
         bytes.len() == OUTPUT_SIZE && {
             let response = OperatingOutput::read_bytes(bytes);
-            !response.voltage_v.is_nan()
+            !response.value.is_nan()
                 && !response.sample_sequence.is_nan()
                 && !response.sample_age_s.is_nan()
         }
@@ -185,15 +261,15 @@ impl Peripheral for KeithleyDmm6500 {
 
 /// Latest complete measurement published by the blocking SCPI worker.
 struct State {
-    voltage_v: f64,
+    value: f64,
     sample_sequence: u64,
     sampled_at: Instant,
     status: WorkerStatus,
 }
 
 impl State {
-    fn publish_sample(&mut self, voltage_v: f64) {
-        self.voltage_v = voltage_v;
+    fn publish_sample(&mut self, value: f64) {
+        self.value = value;
         self.sample_sequence = self.sample_sequence.wrapping_add(1);
         self.sampled_at = Instant::now();
     }
@@ -216,7 +292,7 @@ impl Shared {
             config,
             channel_name,
             state: Mutex::new(State {
-                voltage_v: 0.0,
+                value: 0.0,
                 sample_sequence: 0,
                 sampled_at: Instant::now(),
                 status: WorkerStatus::default(),
@@ -227,7 +303,8 @@ impl Shared {
 
 impl InstrumentProxy for Shared {
     fn id(&self) -> PeripheralId {
-        KeithleyDmm6500::new(self.config.connection.serial_number).id()
+        KeithleyDmm6500::with_function(self.config.connection.serial_number, self.config.function)
+            .id()
     }
 
     fn input_size(&self) -> usize {
@@ -249,7 +326,7 @@ impl InstrumentProxy for Shared {
         }
         OperatingOutput {
             metrics,
-            voltage_v: state.voltage_v,
+            value: state.value,
             sample_sequence: state.sample_sequence.min(MAX_EXACT_F64_INTEGER) as f64,
             sample_age_s: state.sampled_at.elapsed().as_secs_f64(),
         }
@@ -292,7 +369,10 @@ impl KeithleyDmm6500Driver {
     /// Returns:
     ///   A serializable peripheral carrying the driver's logical identity.
     pub fn peripheral(&self) -> KeithleyDmm6500 {
-        KeithleyDmm6500::new(self.shared.config.connection.serial_number)
+        KeithleyDmm6500::with_function(
+            self.shared.config.connection.serial_number,
+            self.shared.config.function,
+        )
     }
 
     /// Return the internal thread-channel name expected by the driver.
@@ -311,7 +391,7 @@ impl KeithleyDmm6500Driver {
         self.shared.state.lock().ok()?.status.identity()
     }
 
-    /// Connect, configure DC acquisition, obtain one sample, and start both threads.
+    /// Connect, configure acquisition, obtain one sample, and start both threads.
     ///
     /// Args:
     ///   ctx: Controller context containing the matching thread channel.
@@ -322,7 +402,7 @@ impl KeithleyDmm6500Driver {
     /// Errors:
     ///   Returns an error for connection, identity, configuration, initial
     ///   reading, parse, or thread startup failures. The protocol responder is
-    ///   not started until one non-NaN voltage reading has completed.
+    ///   not started until one valid configured-function reading has completed.
     pub fn run(&self, ctx: &ControllerCtx) -> Result<InstrumentRunHandle, String> {
         let shared = self.shared.clone();
         start_driver(
@@ -345,7 +425,7 @@ impl KeithleyDmm6500Driver {
 ///
 /// Args:
 ///   peripheral_name: Unique name used for controller fields such as
-///   `peripheral_name.voltage_v`.
+///   `peripheral_name.voltage_v` or `peripheral_name.resistance_ohm`.
 ///   config: Complete connection, identity, measurement, and timeout
 ///   configuration.
 ///   controller: Controller to receive the peripheral and generated socket.
@@ -390,7 +470,7 @@ fn dmm_worker(
     result
 }
 
-/// Own the SCPI connection and continuously publish complete voltage samples.
+/// Own the SCPI connection and continuously publish complete measurement samples.
 ///
 /// Startup is not reported until identity validation, configuration, and the
 /// first non-NaN reading succeeds, so the controller never observes placeholder
@@ -416,7 +496,7 @@ fn dmm_worker_inner(
             return Err(err);
         }
     };
-    let voltage_v = match read_voltage(&mut client) {
+    let value = match read_measurement(&mut client) {
         Ok(sample) => sample,
         Err(err) => {
             let _ = startup.send(Err(format!("DMM6500 initial read failed: {err}")));
@@ -426,58 +506,95 @@ fn dmm_worker_inner(
     {
         let mut state = shared.state.lock().unwrap();
         state.status.set_identity(identity);
-        state.publish_sample(voltage_v);
+        state.publish_sample(value);
     }
     let _ = startup.send(Ok(()));
 
     while !stop.load(Ordering::Relaxed) {
-        let voltage_v = read_voltage(&mut client)?;
+        let value = read_measurement(&mut client)?;
         let mut state = shared.state.lock().unwrap();
         // Timestamp after the complete response arrives. This bounds sample
         // freshness but does not claim cycle-synchronous acquisition timing.
-        state.publish_sample(voltage_v);
+        state.publish_sample(value);
     }
     Ok(())
 }
 
-/// Verify the model and configure single-sample ASCII DC-voltage acquisition.
+/// Verify the model and configure single-sample ASCII acquisition.
 fn setup_dmm(client: &mut ScpiClient, config: &Config) -> Result<String, String> {
     let identity = client.identify()?;
     config.connection.validate_identity(&identity)?;
-    client.command(":SENSe:FUNCtion \"VOLTage\"")?;
     client.command(":FORMat:DATA ASCii")?;
     client.command(":SENSe:COUNt 1")?;
-    match config.range_v {
-        Some(range) => client.command(&format!(":SENSe:VOLTage:RANGe {}", scpi_number(range)))?,
-        None => client.command(":SENSe:VOLTage:RANGe:AUTO ON")?,
+    match config.function {
+        Function::DcVoltage { range_v } => {
+            client.command(":SENSe:FUNCtion \"VOLTage\"")?;
+            match range_v {
+                Some(range) => {
+                    client.command(&format!(":SENSe:VOLTage:RANGe {}", scpi_number(range)))?
+                }
+                None => client.command(":SENSe:VOLTage:RANGe:AUTO ON")?,
+            }
+            client.command(&format!(
+                ":SENSe:VOLTage:NPLCycles {}",
+                scpi_number(config.nplc)
+            ))?;
+            client.command(if config.autozero {
+                ":SENSe:VOLTage:AZERo ON"
+            } else {
+                ":SENSe:VOLTage:AZERo OFF"
+            })?;
+        }
+        Function::FourWireResistance {
+            range_ohm,
+            offset_compensation,
+        } => {
+            client.command(":SENS:FUNC \"FRES\"")?;
+            match range_ohm {
+                Some(range) => {
+                    client.command(&format!(":SENS:FRES:RANG {}", scpi_number(range)))?
+                }
+                None => client.command(":SENS:FRES:RANG:AUTO ON")?,
+            }
+            client.command(if offset_compensation {
+                ":SENS:FRES:OCOM ON"
+            } else {
+                ":SENS:FRES:OCOM OFF"
+            })?;
+            client.command(if config.autozero {
+                ":SENS:FRES:AZER ON"
+            } else {
+                ":SENS:FRES:AZER OFF"
+            })?;
+            client.command(&format!(":SENS:FRES:NPLC {}", scpi_number(config.nplc)))?;
+        }
     }
-    client.command(&format!(
-        ":SENSe:VOLTage:NPLCycles {}",
-        scpi_number(config.nplc)
-    ))?;
-    client.command(if config.autozero {
-        ":SENSe:VOLTage:AZERo ON"
-    } else {
-        ":SENSe:VOLTage:AZERo OFF"
-    })?;
     Ok(identity)
 }
 
-/// Read one numeric voltage.
+/// Read one numeric measurement.
 ///
 /// Returns:
-///   The voltage in volts.
+///   The configured measurement in volts or ohms.
 ///
 /// Errors:
-///   Returns transport errors or a nonnumeric/NaN instrument response.
-fn read_voltage(client: &mut ScpiClient) -> Result<f64, String> {
+///   Returns transport errors or a nonnumeric, NaN, infinite, or overrange
+///   instrument response.
+fn read_measurement(client: &mut ScpiClient) -> Result<f64, String> {
     let response = client.query(":READ?")?;
+    parse_measurement(&response)
+}
+
+fn parse_measurement(response: &str) -> Result<f64, String> {
     let value = response
         .trim()
         .parse::<f64>()
-        .map_err(|err| format!("invalid voltage response `{response}`: {err}"))?;
+        .map_err(|err| format!("invalid measurement response `{response}`: {err}"))?;
     if value.is_nan() {
-        return Err(format!("NaN voltage response `{response}`"));
+        return Err(format!("NaN measurement response `{response}`"));
+    }
+    if value.abs() >= OVERFLOW_READING_ABS {
+        return Err(format!("overrange measurement response `{response}`"));
     }
     Ok(value)
 }
@@ -496,11 +613,32 @@ mod tests {
 
     #[test]
     fn packet_shape_and_names_are_stable() {
-        let peripheral = KeithleyDmm6500::new(9);
-        assert!(peripheral.input_names().is_empty());
-        assert_eq!(peripheral.output_names().len(), OUTPUT_FIELDS.len());
-        assert_eq!(peripheral.operating_roundtrip_input_size(), INPUT_SIZE);
-        assert_eq!(peripheral.operating_roundtrip_output_size(), OUTPUT_SIZE);
+        let voltage = KeithleyDmm6500::new(9);
+        let resistance = KeithleyDmm6500::with_function(
+            9,
+            Function::FourWireResistance {
+                range_ohm: None,
+                offset_compensation: true,
+            },
+        );
+        assert!(voltage.input_names().is_empty());
+        assert_eq!(
+            voltage.output_names(),
+            ["voltage_v", "sample_sequence", "sample_age_s"]
+        );
+        assert_eq!(
+            resistance.output_names(),
+            ["resistance_ohm", "sample_sequence", "sample_age_s"]
+        );
+        assert_eq!(voltage.operating_roundtrip_input_size(), INPUT_SIZE);
+        assert_eq!(voltage.operating_roundtrip_output_size(), OUTPUT_SIZE);
+        assert_eq!(
+            voltage.operating_roundtrip_output_size(),
+            resistance.operating_roundtrip_output_size()
+        );
+        let serialized = serde_json::to_string(&resistance).unwrap();
+        let restored: KeithleyDmm6500 = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(restored.output_names()[0], "resistance_ohm");
     }
 
     #[test]
@@ -516,8 +654,22 @@ mod tests {
         config.nplc = f64::NAN;
         assert!(config.validate().is_err());
         config.nplc = 1.0;
-        config.range_v = Some(0.0);
+        config.function = Function::DcVoltage { range_v: Some(0.0) };
         assert!(config.validate().is_err());
+        config.function = Function::FourWireResistance {
+            range_ohm: Some(f64::INFINITY),
+            offset_compensation: true,
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn measurement_parser_rejects_invalid_and_overrange_values() {
+        assert_eq!(parse_measurement("-1.25e-3\n").unwrap(), -1.25e-3);
+        assert!(parse_measurement("not-a-number").is_err());
+        assert!(parse_measurement("NaN").is_err());
+        assert!(parse_measurement("inf").is_err());
+        assert!(parse_measurement("9.9e37").is_err());
     }
 
     #[test]
@@ -552,7 +704,10 @@ mod tests {
             commands
         });
 
-        let config = Config::new(address.to_string(), 2);
+        let mut config = Config::new(address.to_string(), 2);
+        config.function = Function::DcVoltage {
+            range_v: Some(10.0),
+        };
         let driver = KeithleyDmm6500Driver::new(config).unwrap();
         let ctx = ControllerCtx::default();
         let mut handle = driver.run(&ctx).unwrap();
@@ -569,7 +724,7 @@ mod tests {
         }
         {
             let state = driver.shared.state.lock().unwrap();
-            assert!(state.voltage_v >= 1.5);
+            assert!(state.value >= 1.5);
             assert!(state.sampled_at.elapsed() < Duration::from_secs(1));
         }
         handle.join().unwrap();
@@ -583,7 +738,7 @@ mod tests {
         assert!(
             commands
                 .iter()
-                .any(|command| command == ":SENSe:VOLTage:RANGe:AUTO ON")
+                .any(|command| command == ":SENSe:VOLTage:RANGe 1.00000000000000000e1")
         );
         assert!(
             commands
@@ -592,5 +747,64 @@ mod tests {
                 .count()
                 >= 3
         );
+    }
+
+    #[test]
+    fn worker_configures_four_wire_resistance_and_offset_compensation() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(stream.try_clone().unwrap());
+            let mut writer = stream;
+            let mut commands = Vec::new();
+            loop {
+                let mut command = String::new();
+                if reader.read_line(&mut command).unwrap() == 0 {
+                    break;
+                }
+                let command = command.trim_end().to_owned();
+                match command.as_str() {
+                    "*IDN?" => writer
+                        .write_all(b"KEITHLEY INSTRUMENTS,DMM6500,TEST,1.0\n")
+                        .unwrap(),
+                    ":READ?" => writer.write_all(b"1000.25\n").unwrap(),
+                    _ => {}
+                }
+                commands.push(command);
+            }
+            commands
+        });
+
+        let mut config = Config::new(address.to_string(), 3);
+        config.function = Function::FourWireResistance {
+            range_ohm: None,
+            offset_compensation: true,
+        };
+        let driver = KeithleyDmm6500Driver::new(config).unwrap();
+        assert_eq!(driver.peripheral().output_names()[0], "resistance_ohm");
+        let ctx = ControllerCtx::default();
+        let mut handle = driver.run(&ctx).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(1);
+        while driver.shared.state.lock().unwrap().sample_sequence < 2 {
+            assert!(
+                Instant::now() < deadline,
+                "resistance sample was not published"
+            );
+            thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(driver.shared.state.lock().unwrap().value, 1000.25);
+        handle.join().unwrap();
+        let commands = server.join().unwrap();
+
+        for expected in [
+            ":SENS:FUNC \"FRES\"",
+            ":SENS:FRES:RANG:AUTO ON",
+            ":SENS:FRES:OCOM ON",
+            ":SENS:FRES:AZER ON",
+            ":SENS:FRES:NPLC 1.00000000000000000e0",
+        ] {
+            assert!(commands.iter().any(|command| command == expected));
+        }
     }
 }

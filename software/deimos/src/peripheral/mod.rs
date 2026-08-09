@@ -83,11 +83,9 @@ pub fn parse_binding(
             }))
         }
 
-        instruments::keithley_dmm6500::MODEL_NUMBER => {
-            Ok(Box::new(instruments::keithley_dmm6500::KeithleyDmm6500 {
-                serial_number: msg.peripheral_id.serial_number,
-            }))
-        }
+        instruments::keithley_dmm6500::MODEL_NUMBER => Ok(Box::new(
+            instruments::keithley_dmm6500::KeithleyDmm6500::new(msg.peripheral_id.serial_number),
+        )),
 
         _ => Err(format!("Unrecognized model number {m}").to_owned()),
     }
