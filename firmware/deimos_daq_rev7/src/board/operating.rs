@@ -578,7 +578,8 @@ impl<'a> Board<'a> {
                             if Some(meta) == self.controller
                                 && recv_buf.len() == OperatingRoundtripInput::BYTE_LEN =>
                         {
-                            let candidate = OperatingRoundtripInput::read_bytes(recv_buf);
+                            let mut candidate = OperatingRoundtripInput::read_bytes(recv_buf);
+                            candidate.outputs.normalize();
                             if !candidate.is_valid() {
                                 continue;
                             }

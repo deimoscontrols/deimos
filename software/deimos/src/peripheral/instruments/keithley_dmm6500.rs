@@ -2,7 +2,7 @@
 //!
 //! A blocking worker owns the SCPI-over-TCP connection and continuously issues
 //! `:READ?`. The controller-facing responder repeats the latest completed
-//! finite sample, sequence number, and sample age without blocking the control
+//! numeric sample, sequence number, and sample age without blocking the control
 //! loop. Sample timestamps are host-observed completion bounds rather than
 //! cycle-synchronous measurement times.
 
@@ -22,16 +22,30 @@ use super::protocol::{
     InstrumentProxy, InstrumentRunHandle, WorkerStatus, attach_instrument, start_driver,
 };
 use super::scpi::{ScpiClient, ScpiTcpConfig};
-use super::wire::{instrument_fields, operating_packets};
 use crate::calc::Calc;
 use crate::controller::Controller;
 use crate::controller::context::ControllerCtx;
 use crate::peripheral::Peripheral;
 
-const INPUT_COUNT: usize = 0;
-instrument_fields!(OUTPUT_FIELDS = [voltage_v, sample_sequence, sample_age_s,]);
-const OUTPUT_COUNT: usize = OUTPUT_FIELDS.len();
-operating_packets!(OperatingInput, OperatingOutput, INPUT_COUNT, OUTPUT_COUNT);
+const OUTPUT_FIELDS: &[&str] = &["voltage_v", "sample_sequence", "sample_age_s"];
+
+/// Controller request for the latest completed DMM reading.
+#[derive(ByteStruct, Clone, Copy, Debug, Default)]
+#[byte_struct_le]
+struct OperatingInput {
+    id: u64,
+}
+
+/// Latest completed DMM reading returned to the controller.
+#[derive(ByteStruct, Clone, Copy, Debug, Default)]
+#[byte_struct_le]
+struct OperatingOutput {
+    metrics: OperatingMetrics,
+    voltage_v: f64,
+    sample_sequence: f64,
+    sample_age_s: f64,
+}
+
 // Request: the controller's little-endian u64 packet ID.
 // Response: OperatingMetrics followed by voltage, sample sequence, and sample
 // age as little-endian f64 values.
@@ -78,12 +92,12 @@ impl KeithleyDmm6500Config {
 
     fn validate(&self) -> Result<(), String> {
         self.connection.validate()?;
-        if !self.nplc.is_finite() || self.nplc <= 0.0 {
+        if self.nplc.is_nan() || self.nplc <= 0.0 || self.nplc == f64::INFINITY {
             return Err("nplc must be finite and positive".to_owned());
         }
         if self
             .range_v
-            .is_some_and(|range| !range.is_finite() || range <= 0.0)
+            .is_some_and(|range| range.is_nan() || range <= 0.0 || range == f64::INFINITY)
         {
             return Err("range_v must be finite and positive when supplied".to_owned());
         }
@@ -144,21 +158,24 @@ impl Peripheral for KeithleyDmm6500 {
         _inputs: &[f64],
         bytes: &mut [u8],
     ) {
-        OperatingInput { id, values: [] }.write_bytes(bytes);
+        OperatingInput { id }.write_bytes(bytes);
     }
 
     fn parse_operating_roundtrip(&self, bytes: &[u8], outputs: &mut [f64]) -> OperatingMetrics {
         let response = OperatingOutput::read_bytes(bytes);
-        outputs[..OUTPUT_COUNT].copy_from_slice(&response.values);
+        outputs[0] = response.voltage_v;
+        outputs[1] = response.sample_sequence;
+        outputs[2] = response.sample_age_s;
         response.metrics
     }
 
     fn validate_operating_roundtrip(&self, bytes: &[u8]) -> bool {
-        bytes.len() == OUTPUT_SIZE
-            && OperatingOutput::read_bytes(bytes)
-                .values
-                .iter()
-                .all(|value| value.is_finite())
+        bytes.len() == OUTPUT_SIZE && {
+            let response = OperatingOutput::read_bytes(bytes);
+            !response.voltage_v.is_nan()
+                && !response.sample_sequence.is_nan()
+                && !response.sample_age_s.is_nan()
+        }
     }
 
     fn standard_calcs(&self, _name: &str) -> BTreeMap<String, Box<dyn Calc>> {
@@ -239,11 +256,9 @@ impl InstrumentProxy for Shared {
         }
         OperatingOutput {
             metrics,
-            values: [
-                state.voltage_v,
-                state.sample_sequence.min(MAX_EXACT_F64_INTEGER) as f64,
-                state.sampled_at.elapsed().as_secs_f64(),
-            ],
+            voltage_v: state.voltage_v,
+            sample_sequence: state.sample_sequence.min(MAX_EXACT_F64_INTEGER) as f64,
+            sample_age_s: state.sampled_at.elapsed().as_secs_f64(),
         }
         .write_bytes(bytes);
         Ok(())
@@ -314,7 +329,7 @@ impl KeithleyDmm6500Driver {
     /// Errors:
     ///   Returns an error for connection, identity, configuration, initial
     ///   reading, parse, or thread startup failures. The protocol responder is
-    ///   not started until one finite voltage reading has completed.
+    ///   not started until one non-NaN voltage reading has completed.
     pub fn run(&self, ctx: &ControllerCtx) -> Result<InstrumentRunHandle, String> {
         let shared = self.shared.clone();
         start_driver(
@@ -385,7 +400,7 @@ fn dmm_worker(
 /// Own the SCPI connection and continuously publish complete voltage samples.
 ///
 /// Startup is not reported until identity validation, configuration, and the
-/// first finite reading succeed, so the controller never observes placeholder
+/// first non-NaN reading succeeds, so the controller never observes placeholder
 /// acquisition data from an unverified instrument.
 fn dmm_worker_inner(
     shared: &Arc<Shared>,
@@ -455,21 +470,21 @@ fn setup_dmm(client: &mut ScpiClient, config: &KeithleyDmm6500Config) -> Result<
     Ok(identity)
 }
 
-/// Read one finite voltage.
+/// Read one numeric voltage.
 ///
 /// Returns:
 ///   The voltage in volts.
 ///
 /// Errors:
-///   Returns transport errors or a nonnumeric/non-finite instrument response.
+///   Returns transport errors or a nonnumeric/NaN instrument response.
 fn read_voltage(client: &mut ScpiClient) -> Result<f64, String> {
     let response = client.query(":READ?")?;
     let value = response
         .trim()
         .parse::<f64>()
         .map_err(|err| format!("invalid voltage response `{response}`: {err}"))?;
-    if !value.is_finite() {
-        return Err(format!("non-finite voltage response `{response}`"));
+    if value.is_nan() {
+        return Err(format!("NaN voltage response `{response}`"));
     }
     Ok(value)
 }
@@ -490,7 +505,7 @@ mod tests {
     fn packet_shape_and_names_are_stable() {
         let peripheral = KeithleyDmm6500::new(9);
         assert!(peripheral.input_names().is_empty());
-        assert_eq!(peripheral.output_names().len(), OUTPUT_COUNT);
+        assert_eq!(peripheral.output_names().len(), OUTPUT_FIELDS.len());
         assert_eq!(peripheral.operating_roundtrip_input_size(), INPUT_SIZE);
         assert_eq!(peripheral.operating_roundtrip_output_size(), OUTPUT_SIZE);
     }

@@ -1,4 +1,4 @@
-//! Holding-register encoding and validated atomic writes.
+//! Holding-register encoding and normalized atomic writes.
 
 use super::super::{ModbusInitialConfig, DAC_CHANNEL_COUNT, MIN_CYCLE_RATE_HZ, PWM_CHANNEL_COUNT};
 use super::{codec::*, *};
@@ -49,8 +49,9 @@ pub fn holding_registers(
 /// The function accepts only the writable base-configuration range `0..3`, a
 /// contiguous range within the output block `6..27`, or a contiguous range
 /// within the timing-correction block `27..35`. Both ends must coincide with
-/// scalar-field boundaries. The candidate is validated in full before it is
-/// returned, so rejected writes cannot partially alter state.
+/// scalar-field boundaries. Output values are normalized and the candidate is
+/// validated in full before it is returned, so rejected writes cannot partially
+/// alter state.
 ///
 /// Args:
 ///   current: Configuration to preserve for omitted fields.
@@ -126,11 +127,10 @@ pub fn apply_holding_write(
         }
     }
     if field_is_covered(start, end, HOLDING_GPIO as usize, 1) {
-        candidate.outputs.gpio = values[usize::from(HOLDING_GPIO) - start]
-            .try_into()
-            .map_err(|_| HoldingWriteError::IllegalDataValue)?;
+        candidate.outputs.gpio = values[usize::from(HOLDING_GPIO) - start] as u8;
     }
 
+    candidate.outputs.normalize();
     if !candidate.outputs.is_valid() {
         return Err(HoldingWriteError::IllegalDataValue);
     }

@@ -26,26 +26,145 @@ use super::protocol::{
     InstrumentProxy, InstrumentRunHandle, WorkerStatus, attach_instrument, start_driver,
 };
 use super::scpi::{ScpiClient, ScpiTcpConfig};
-use super::wire::{instrument_value_fields, operating_packets};
 use crate::calc::Calc;
 use crate::controller::Controller;
 use crate::controller::context::ControllerCtx;
 use crate::peripheral::Peripheral;
 
 const CHANNEL_COUNT: usize = 2;
-instrument_value_fields!(
-    ChannelRequest, CHANNEL_FIELDS, VALUES_PER_CHANNEL {
-        enabled: bool => f64::from,
-        frequency_hz: f64 => std::convert::identity,
-        offset_voltage_v: f64 => std::convert::identity,
-        pulse_duty_cycle: f64 => std::convert::identity,
-        phase_deg: f64 => std::convert::identity,
-        stdev: f64 => std::convert::identity,
-    }
-);
+const CHANNEL_FIELDS: &[&str] = &[
+    "enabled",
+    "frequency_hz",
+    "offset_voltage_v",
+    "pulse_duty_cycle",
+    "phase_deg",
+    "stdev",
+];
+const VALUES_PER_CHANNEL: usize = CHANNEL_FIELDS.len();
 const INPUT_COUNT: usize = CHANNEL_COUNT * VALUES_PER_CHANNEL;
 const OUTPUT_COUNT: usize = INPUT_COUNT;
-operating_packets!(OperatingInput, OperatingOutput, INPUT_COUNT, OUTPUT_COUNT);
+
+/// Complete dynamic state for one output channel.
+#[derive(ByteStruct, Clone, Copy, Debug, Default, PartialEq)]
+#[byte_struct_le]
+struct ChannelState {
+    enabled: f64,
+    frequency_hz: f64,
+    offset_voltage_v: f64,
+    pulse_duty_cycle: f64,
+    phase_deg: f64,
+    stdev: f64,
+}
+
+impl ChannelState {
+    fn from_values(values: &[f64]) -> Self {
+        Self {
+            enabled: values[0],
+            frequency_hz: values[1],
+            offset_voltage_v: values[2],
+            pulse_duty_cycle: values[3],
+            phase_deg: values[4],
+            stdev: values[5],
+        }
+    }
+
+    fn write_values(self, values: &mut [f64]) {
+        values[0] = self.enabled;
+        values[1] = self.frequency_hz;
+        values[2] = self.offset_voltage_v;
+        values[3] = self.pulse_duty_cycle;
+        values[4] = self.phase_deg;
+        values[5] = self.stdev;
+    }
+
+    fn contains_nan(self) -> bool {
+        self.enabled.is_nan()
+            || self.frequency_hz.is_nan()
+            || self.offset_voltage_v.is_nan()
+            || self.pulse_duty_cycle.is_nan()
+            || self.phase_deg.is_nan()
+            || self.stdev.is_nan()
+    }
+
+    /// Clamp one controller command to the configured channel envelope.
+    ///
+    /// A NaN in any field disables the channel rather than allowing a partial
+    /// command to reach the instrument.
+    fn normalized(self, config: &SiglentChannelConfig) -> Self {
+        if self.contains_nan() {
+            return Self::default();
+        }
+        Self {
+            enabled: f64::from(self.enabled >= 0.5),
+            frequency_hz: self
+                .frequency_hz
+                .clamp(config.frequency_hz.0, config.frequency_hz.1),
+            offset_voltage_v: self
+                .offset_voltage_v
+                .clamp(config.offset_voltage_v.0, config.offset_voltage_v.1),
+            pulse_duty_cycle: self
+                .pulse_duty_cycle
+                .clamp(config.pulse_duty_cycle.0, config.pulse_duty_cycle.1),
+            phase_deg: self.phase_deg.clamp(config.phase_deg.0, config.phase_deg.1),
+            stdev: self.stdev.clamp(config.stdev.0, config.stdev.1),
+        }
+    }
+}
+
+/// Complete dynamic state for both output channels.
+#[derive(ByteStruct, Clone, Copy, Debug, Default, PartialEq)]
+#[byte_struct_le]
+struct InstrumentState {
+    ch1: ChannelState,
+    ch2: ChannelState,
+}
+
+impl InstrumentState {
+    fn from_values(values: &[f64]) -> Self {
+        Self {
+            ch1: ChannelState::from_values(&values[..VALUES_PER_CHANNEL]),
+            ch2: ChannelState::from_values(&values[VALUES_PER_CHANNEL..INPUT_COUNT]),
+        }
+    }
+
+    fn channels(self) -> [ChannelState; CHANNEL_COUNT] {
+        [self.ch1, self.ch2]
+    }
+
+    fn write_values(self, values: &mut [f64]) {
+        self.ch1.write_values(&mut values[..VALUES_PER_CHANNEL]);
+        self.ch2
+            .write_values(&mut values[VALUES_PER_CHANNEL..OUTPUT_COUNT]);
+    }
+
+    fn contains_nan(self) -> bool {
+        self.ch1.contains_nan() || self.ch2.contains_nan()
+    }
+
+    fn normalized(self, configs: &[SiglentChannelConfig; CHANNEL_COUNT]) -> Self {
+        Self {
+            ch1: self.ch1.normalized(&configs[0]),
+            ch2: self.ch2.normalized(&configs[1]),
+        }
+    }
+}
+
+/// Controller packet containing one coherent two-channel state.
+#[derive(ByteStruct, Clone, Copy, Debug, Default)]
+#[byte_struct_le]
+struct OperatingInput {
+    id: u64,
+    state: InstrumentState,
+}
+
+/// Last completely applied two-channel state returned to the controller.
+#[derive(ByteStruct, Clone, Copy, Debug, Default)]
+#[byte_struct_le]
+struct OperatingOutput {
+    metrics: OperatingMetrics,
+    state: InstrumentState,
+}
+
 // Request: u64 packet ID, then six little-endian f64 values per channel.
 // Response: OperatingMetrics followed by both applied channel vectors.
 const INPUT_SIZE: usize = OperatingInput::BYTE_LEN;
@@ -135,7 +254,7 @@ impl SiglentLoad {
     }
 }
 
-/// Fixed channel settings and accepted dynamic-command ranges.
+/// Fixed channel settings and dynamic-command clamp ranges.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SiglentChannelConfig {
     /// Basic waveform selected whenever this channel is enabled.
@@ -144,15 +263,15 @@ pub struct SiglentChannelConfig {
     pub amplitude_vpp: f64,
     /// Load used for output-level compensation.
     pub load: SiglentLoad,
-    /// Inclusive accepted frequency range in hertz.
+    /// Inclusive frequency clamp range in hertz.
     pub frequency_hz: (f64, f64),
-    /// Inclusive accepted DC offset or noise-mean range in volts.
+    /// Inclusive DC offset or noise-mean clamp range in volts.
     pub offset_voltage_v: (f64, f64),
-    /// Inclusive accepted square/pulse duty-cycle range as a fraction.
+    /// Inclusive square/pulse duty-cycle clamp range as a fraction.
     pub pulse_duty_cycle: (f64, f64),
-    /// Inclusive accepted phase range in degrees.
+    /// Inclusive phase clamp range in degrees.
     pub phase_deg: (f64, f64),
-    /// Inclusive accepted noise standard-deviation range in volts.
+    /// Inclusive noise standard-deviation clamp range in volts.
     pub stdev: (f64, f64),
 }
 
@@ -177,7 +296,9 @@ impl SiglentChannelConfig {
             .validate()
             .map_err(|err| format!("channel {channel}: {err}"))?;
         if self.waveform.uses_amplitude()
-            && (!self.amplitude_vpp.is_finite() || self.amplitude_vpp <= 0.0)
+            && (self.amplitude_vpp.is_nan()
+                || self.amplitude_vpp <= 0.0
+                || self.amplitude_vpp == f64::INFINITY)
         {
             return Err(format!(
                 "channel {channel}: amplitude_vpp must be finite and positive"
@@ -198,7 +319,12 @@ impl SiglentChannelConfig {
 }
 
 fn validate_range(name: &str, range: (f64, f64), channel: usize) -> Result<(), String> {
-    if range.0.is_finite() && range.1.is_finite() && range.0 <= range.1 {
+    if !range.0.is_nan()
+        && !range.1.is_nan()
+        && range.0 != f64::NEG_INFINITY
+        && range.1 != f64::INFINITY
+        && range.0 <= range.1
+    {
         Ok(())
     } else {
         Err(format!(
@@ -295,26 +421,21 @@ impl Peripheral for SiglentSdg2042X {
         inputs: &[f64],
         bytes: &mut [u8],
     ) {
-        let mut packet = OperatingInput {
+        OperatingInput {
             id,
-            ..OperatingInput::default()
-        };
-        packet.values.copy_from_slice(&inputs[..INPUT_COUNT]);
-        packet.write_bytes(bytes);
+            state: InstrumentState::from_values(&inputs[..INPUT_COUNT]),
+        }
+        .write_bytes(bytes);
     }
 
     fn parse_operating_roundtrip(&self, bytes: &[u8], outputs: &mut [f64]) -> OperatingMetrics {
         let response = OperatingOutput::read_bytes(bytes);
-        outputs[..OUTPUT_COUNT].copy_from_slice(&response.values);
+        response.state.write_values(&mut outputs[..OUTPUT_COUNT]);
         response.metrics
     }
 
     fn validate_operating_roundtrip(&self, bytes: &[u8]) -> bool {
-        bytes.len() == OUTPUT_SIZE
-            && OperatingOutput::read_bytes(bytes)
-                .values
-                .iter()
-                .all(|value| value.is_finite())
+        bytes.len() == OUTPUT_SIZE && !OperatingOutput::read_bytes(bytes).state.contains_nan()
     }
 
     fn standard_calcs(&self, _name: &str) -> BTreeMap<String, Box<dyn Calc>> {
@@ -332,20 +453,14 @@ fn channel_names(infix: &str) -> Vec<String> {
     names
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-/// One coherent two-channel commanded state.
-struct Request {
-    channels: [ChannelRequest; CHANNEL_COUNT],
-}
-
 /// State shared between the real-time responder and blocking SCPI worker.
 ///
 /// Every valid controller packet replaces `next` without comparison. The worker
 /// owns the in-flight request, and `applied` changes only after every SCPI
 /// operation for it completes.
 struct State {
-    next: Option<Request>,
-    applied: Request,
+    next: Option<InstrumentState>,
+    applied: InstrumentState,
     status: WorkerStatus,
 }
 
@@ -368,7 +483,7 @@ impl Shared {
             channel_name,
             state: Mutex::new(State {
                 next: None,
-                applied: Request::default(),
+                applied: InstrumentState::default(),
                 status: WorkerStatus::default(),
             }),
             changed: Condvar::new(),
@@ -378,7 +493,7 @@ impl Shared {
     /// Latch an invalid-request error and enqueue a disabled safe state.
     fn reject_request(&self, message: String) {
         let mut state = self.state.lock().unwrap();
-        state.next = Some(Request::default());
+        state.next = Some(InstrumentState::default());
         self.changed.notify_one();
         state.status.latch_error(message);
     }
@@ -398,19 +513,14 @@ impl InstrumentProxy for Shared {
     }
 
     fn process_request(&self, bytes: &[u8]) -> Result<u64, String> {
-        let id = OperatingInput::read_bytes(bytes).id;
-        let request = match parse_request(bytes) {
-            Ok(request) => request,
+        let (id, request) = match parse_request(bytes) {
+            Ok(packet) => packet,
             Err(err) => {
                 self.reject_request(format!("SDG2042X rejected operating request: {err}"));
                 return Err(err);
             }
         };
-        if let Err(err) = validate_request(request, &self.config.channels) {
-            let message = format!("SDG2042X rejected operating request: {err}");
-            self.reject_request(message.clone());
-            return Err(message);
-        }
+        let request = request.normalized(&self.config.channels);
 
         let mut state = self.state.lock().unwrap();
         state.next = Some(request);
@@ -423,24 +533,17 @@ impl InstrumentProxy for Shared {
         if let Some(error) = state.status.error() {
             return Err(error);
         }
-        let mut response = OperatingOutput {
+        let response = OperatingOutput {
             metrics,
-            values: [0.0; OUTPUT_COUNT],
+            state: state.applied,
         };
-        let mut index = 0;
-        for channel in state.applied.channels {
-            for value in channel.values() {
-                response.values[index] = value;
-                index += 1;
-            }
-        }
         response.write_bytes(bytes);
         Ok(())
     }
 
     fn on_loss_of_contact(&self) {
         let mut state = self.state.lock().unwrap();
-        state.next = Some(Request::default());
+        state.next = Some(InstrumentState::default());
         self.changed.notify_one();
     }
 
@@ -762,12 +865,11 @@ fn parameter_value<'a>(response: &'a str, name: &str) -> Option<&'a str> {
 fn apply_request(
     client: &mut ScpiClient,
     config: &SiglentSdg2042XConfig,
-    request: Request,
+    request: InstrumentState,
 ) -> Result<(), String> {
-    for index in 0..CHANNEL_COUNT {
+    for (index, desired) in request.channels().into_iter().enumerate() {
         let number = index + 1;
-        let desired = request.channels[index];
-        if !desired.enabled {
+        if desired.enabled == 0.0 {
             safe_channel(client, number)?;
             continue;
         }
@@ -787,7 +889,7 @@ fn apply_request(
 fn basic_wave_command(
     channel_number: usize,
     config: &SiglentChannelConfig,
-    request: ChannelRequest,
+    request: ChannelState,
 ) -> String {
     let waveform = config.waveform;
     let mut command = format!("C{channel_number}:BSWV WVTP,{}", waveform.scpi());
@@ -826,7 +928,7 @@ fn expect_operation_complete(client: &mut ScpiClient) -> Result<(), String> {
 }
 
 /// Decode the fixed-width operating packet into a two-channel request.
-fn parse_request(bytes: &[u8]) -> Result<Request, String> {
+fn parse_request(bytes: &[u8]) -> Result<(u64, InstrumentState), String> {
     if bytes.len() != INPUT_SIZE {
         return Err(format!(
             "expected {INPUT_SIZE} request bytes, got {}",
@@ -834,92 +936,7 @@ fn parse_request(bytes: &[u8]) -> Result<Request, String> {
         ));
     }
     let packet = OperatingInput::read_bytes(bytes);
-    let mut request = Request::default();
-    for (index, channel) in request.channels.iter_mut().enumerate() {
-        let start = index * VALUES_PER_CHANNEL;
-        let enabled = packet.values[start];
-        if enabled != 0.0 && enabled != 1.0 {
-            return Err(format!(
-                "channel {} enabled must be exactly 0 or 1",
-                index + 1
-            ));
-        }
-        *channel = ChannelRequest {
-            enabled: enabled == 1.0,
-            frequency_hz: packet.values[start + 1],
-            offset_voltage_v: packet.values[start + 2],
-            pulse_duty_cycle: packet.values[start + 3],
-            phase_deg: packet.values[start + 4],
-            stdev: packet.values[start + 5],
-        };
-    }
-    Ok(request)
-}
-
-/// Validate only fields meaningful to each channel's active waveform.
-fn validate_request(
-    request: Request,
-    configs: &[SiglentChannelConfig; CHANNEL_COUNT],
-) -> Result<(), String> {
-    for (index, (request, config)) in request.channels.iter().zip(configs).enumerate() {
-        for (name, value) in [
-            ("frequency_hz", request.frequency_hz),
-            ("offset_voltage_v", request.offset_voltage_v),
-            ("pulse_duty_cycle", request.pulse_duty_cycle),
-            ("phase_deg", request.phase_deg),
-            ("stdev", request.stdev),
-        ] {
-            if !value.is_finite() {
-                return Err(format!("channel {} {name} must be finite", index + 1));
-            }
-        }
-        if !request.enabled {
-            continue;
-        }
-        let waveform = config.waveform;
-        if waveform.uses_frequency() {
-            in_range(
-                "frequency_hz",
-                request.frequency_hz,
-                config.frequency_hz,
-                index + 1,
-            )?;
-        }
-        if waveform.uses_offset() || waveform == SiglentWaveform::Noise {
-            in_range(
-                "offset_voltage_v",
-                request.offset_voltage_v,
-                config.offset_voltage_v,
-                index + 1,
-            )?;
-        }
-        if waveform.uses_duty() {
-            in_range(
-                "pulse_duty_cycle",
-                request.pulse_duty_cycle,
-                config.pulse_duty_cycle,
-                index + 1,
-            )?;
-        }
-        if waveform.uses_phase() {
-            in_range("phase_deg", request.phase_deg, config.phase_deg, index + 1)?;
-        }
-        if waveform == SiglentWaveform::Noise {
-            in_range("stdev", request.stdev, config.stdev, index + 1)?;
-        }
-    }
-    Ok(())
-}
-
-fn in_range(name: &str, value: f64, range: (f64, f64), channel: usize) -> Result<(), String> {
-    if (range.0..=range.1).contains(&value) {
-        Ok(())
-    } else {
-        Err(format!(
-            "channel {channel} {name} {value} is outside {}..={}",
-            range.0, range.1
-        ))
-    }
+    Ok((packet.id, packet.state))
 }
 
 fn scpi_number(value: f64) -> String {
@@ -949,35 +966,28 @@ mod tests {
     fn repeated_controller_state_is_queued_for_reassertion() {
         let driver =
             SiglentSdg2042XDriver::new(SiglentSdg2042XConfig::new("localhost", 1)).unwrap();
-        let request = Request {
-            channels: [
-                ChannelRequest {
-                    enabled: true,
-                    offset_voltage_v: 1.0,
-                    ..ChannelRequest::default()
-                },
-                ChannelRequest::default(),
-            ],
+        let request = InstrumentState {
+            ch1: ChannelState {
+                enabled: 1.0,
+                offset_voltage_v: 1.0,
+                ..ChannelState::default()
+            },
+            ch2: ChannelState::default(),
         };
         let mut bytes = vec![0; INPUT_SIZE];
         OperatingInput {
             id: 1,
-            values: request
-                .channels
-                .into_iter()
-                .flat_map(ChannelRequest::values)
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap(),
+            state: request,
         }
         .write_bytes(&mut bytes);
+        let expected = request.normalized(&driver.shared.config.channels);
         assert_eq!(driver.shared.process_request(&bytes).unwrap(), 1);
         assert_eq!(
             driver.shared.state.lock().unwrap().next.take(),
-            Some(request)
+            Some(expected)
         );
         assert_eq!(driver.shared.process_request(&bytes).unwrap(), 1);
-        assert_eq!(driver.shared.state.lock().unwrap().next, Some(request));
+        assert_eq!(driver.shared.state.lock().unwrap().next, Some(expected));
     }
 
     #[test]
@@ -991,21 +1001,57 @@ mod tests {
     }
 
     #[test]
-    fn active_parameters_are_validated_by_waveform() {
-        let mut configs = std::array::from_fn(|_| SiglentChannelConfig::default());
-        configs[0].waveform = SiglentWaveform::Sine;
-        let mut request = Request::default();
-        request.channels[0] = ChannelRequest {
-            enabled: true,
-            frequency_hz: 1_000.0,
-            offset_voltage_v: 0.0,
-            pulse_duty_cycle: 99.0,
-            phase_deg: 10.0,
-            stdev: 99.0,
+    fn controller_values_are_clamped_to_configured_ranges() {
+        let configs = std::array::from_fn(|_| SiglentChannelConfig::default());
+        let request = InstrumentState {
+            ch1: ChannelState {
+                enabled: f64::INFINITY,
+                frequency_hz: f64::INFINITY,
+                offset_voltage_v: f64::NEG_INFINITY,
+                pulse_duty_cycle: 99.0,
+                phase_deg: -10.0,
+                stdev: f64::INFINITY,
+            },
+            ..InstrumentState::default()
+        }
+        .normalized(&configs);
+        assert_eq!(request.ch1.enabled, 1.0);
+        assert_eq!(request.ch1.frequency_hz, configs[0].frequency_hz.1);
+        assert_eq!(request.ch1.offset_voltage_v, configs[0].offset_voltage_v.0);
+        assert_eq!(request.ch1.pulse_duty_cycle, configs[0].pulse_duty_cycle.1);
+        assert_eq!(request.ch1.phase_deg, configs[0].phase_deg.0);
+        assert_eq!(request.ch1.stdev, configs[0].stdev.1);
+    }
+
+    #[test]
+    fn nan_safe_states_only_the_affected_channel() {
+        let driver =
+            SiglentSdg2042XDriver::new(SiglentSdg2042XConfig::new("localhost", 1)).unwrap();
+        let request = InstrumentState {
+            ch1: ChannelState {
+                enabled: 1.0,
+                offset_voltage_v: f64::NAN,
+                ..ChannelState::default()
+            },
+            ch2: ChannelState {
+                enabled: 1.0,
+                frequency_hz: 1_000.0,
+                offset_voltage_v: 2.0,
+                ..ChannelState::default()
+            },
         };
-        assert!(validate_request(request, &configs).is_ok());
-        request.channels[0].frequency_hz = 50.0e6;
-        assert!(validate_request(request, &configs).is_err());
+        let mut bytes = vec![0; INPUT_SIZE];
+        OperatingInput {
+            id: 1,
+            state: request,
+        }
+        .write_bytes(&mut bytes);
+        assert_eq!(driver.shared.process_request(&bytes).unwrap(), 1);
+        let request = driver.shared.state.lock().unwrap().next.unwrap();
+        assert_eq!(request.ch1, ChannelState::default());
+        assert_eq!(request.ch2.enabled, 1.0);
+        assert_eq!(request.ch2.offset_voltage_v, 2.0);
+        assert!(driver.shared.error().is_none());
     }
 
     #[test]
@@ -1015,8 +1061,8 @@ mod tests {
 
     #[test]
     fn every_waveform_emits_only_its_applicable_fields() {
-        let request = ChannelRequest {
-            enabled: true,
+        let request = ChannelState {
+            enabled: 1.0,
             frequency_hz: 1_000.0,
             offset_voltage_v: 0.25,
             pulse_duty_cycle: 0.4,
@@ -1116,7 +1162,10 @@ mod tests {
         driver
             .peripheral()
             .emit_operating_roundtrip(8, 0, 0, &inputs, &mut bytes);
-        let expected = parse_request(&bytes).unwrap();
+        let expected = parse_request(&bytes)
+            .unwrap()
+            .1
+            .normalized(&driver.shared.config.channels);
         assert_eq!(driver.shared.process_request(&bytes).unwrap(), 8);
 
         let deadline = Instant::now() + Duration::from_secs(1);

@@ -218,19 +218,21 @@ impl Peripheral for DeimosDaqRev7 {
             ..OperatingRoundtripInput::default()
         };
         for i in 0..PWM_CHANNEL_COUNT {
-            packet.outputs.pwm_duty_frac[i] = (inputs[i] as f32).clamp(0.0, 1.0);
+            packet.outputs.pwm_duty_frac[i] = inputs[i] as f32;
             packet.outputs.pwm_freq_hz[i] =
                 inputs[i + PWM_CHANNEL_COUNT].clamp(1.0, u32::MAX as f64) as u32;
         }
         let dac_start = PWM_CHANNEL_COUNT * 2;
-        packet.outputs.dac_v = [
-            (inputs[dac_start] as f32).clamp(0.0, VREF),
-            (inputs[dac_start + 1] as f32).clamp(0.0, VREF),
-        ];
+        for i in 0..DAC_CHANNEL_COUNT {
+            packet.outputs.dac_v[i] = inputs[dac_start + i] as f32;
+        }
         let digital_output_start = dac_start + DAC_CHANNEL_COUNT;
         for i in 0..DIGITAL_OUTPUT_COUNT {
-            packet.outputs.gpio |= u8::from(inputs[digital_output_start + i] != 0.0) << i;
+            let value = inputs[digital_output_start + i];
+            packet.outputs.gpio |= u8::from(value.clamp(0.0, 1.0) >= 0.5) << i;
         }
+        packet.outputs.normalize();
+        debug_assert!(packet.outputs.is_valid());
         packet.write_bytes(bytes);
     }
 
@@ -392,5 +394,35 @@ mod tests {
             .position(|name| name == "sample_time_ns")
             .expect("sample timestamp output");
         assert_eq!(outputs[sample_time_index], packet.sample_time_ns as f64);
+    }
+
+    #[test]
+    fn operating_outputs_clamp_overshoot_and_safe_state_nan() {
+        let peripheral = DeimosDaqRev7::default();
+        let inputs = [
+            f64::NEG_INFINITY,
+            f64::INFINITY,
+            f64::NAN,
+            0.5,
+            0.0,
+            f64::INFINITY,
+            1_000.0,
+            f64::NAN,
+            f64::NAN,
+            f64::INFINITY,
+            f64::NAN,
+            f64::INFINITY,
+            -0.1,
+            0.6,
+        ];
+        let mut bytes = vec![0; OperatingRoundtripInput::BYTE_LEN];
+        peripheral.emit_operating_roundtrip(1, 0, 0, &inputs, &mut bytes);
+        let packet = OperatingRoundtripInput::read_bytes(&bytes);
+
+        assert!(packet.is_valid());
+        assert_eq!(packet.outputs.pwm_duty_frac, [0.0, 1.0, 0.0, 0.5]);
+        assert_eq!(packet.outputs.pwm_freq_hz, [1, u32::MAX, 1_000, 1_000_000]);
+        assert_eq!(packet.outputs.dac_v, [0.0, VREF]);
+        assert_eq!(packet.outputs.gpio, 0b1010);
     }
 }

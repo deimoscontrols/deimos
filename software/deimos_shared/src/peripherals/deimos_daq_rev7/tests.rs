@@ -225,6 +225,32 @@ fn operating_output_settings_round_trip_as_one_preserved_value() {
 }
 
 #[test]
+fn operating_output_settings_normalize_to_safe_valid_values() {
+    let mut settings = OperatingOutputSettings {
+        pwm_duty_frac: [f32::NAN, f32::NEG_INFINITY, f32::INFINITY, 0.5],
+        pwm_freq_hz: [0, 1, 1_000, u32::MAX],
+        dac_v: [f32::NAN, f32::INFINITY],
+        gpio: u8::MAX,
+    };
+
+    settings.normalize();
+
+    assert!(settings.is_valid());
+    assert_eq!(settings.pwm_duty_frac, [0.0, 0.0, 1.0, 0.5]);
+    assert_eq!(
+        settings.pwm_freq_hz,
+        [
+            OperatingOutputSettings::default().pwm_freq_hz[0],
+            1,
+            1_000,
+            u32::MAX,
+        ]
+    );
+    assert_eq!(settings.dac_v, [0.0, VREF]);
+    assert_eq!(settings.gpio, 0x0f);
+}
+
+#[test]
 fn engineering_conversion_preserves_channel_order_and_calibration_placement() {
     use crate::calcs::{ktype_voltage_v_f32, pt100_resistance_ohm_f32};
 

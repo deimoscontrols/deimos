@@ -162,21 +162,18 @@ fn holding_writes_preserve_omitted_fields_and_validate_atomically() {
         apply_holding_write(current, 2, &[1, 2, 3, 4]),
         Err(HoldingWriteError::IllegalDataAddress)
     );
-    assert_eq!(
-        apply_holding_write(current, HOLDING_GPIO, &[0x10]),
-        Err(HoldingWriteError::IllegalDataValue)
-    );
+    let normalized_gpio = apply_holding_write(current, HOLDING_GPIO, &[0x10]).unwrap();
+    assert_eq!(normalized_gpio.outputs.gpio, 0);
     assert_eq!(
         apply_holding_write(current, HOLDING_LOSS_OF_CONTACT_LIMIT, &[0]),
         Err(HoldingWriteError::IllegalDataValue)
     );
     let nan = f32::NAN.to_bits();
-    assert_eq!(
-        apply_holding_write(
-            current,
-            HOLDING_PWM_DUTY_FRAC,
-            &[(nan >> 16) as u16, nan as u16],
-        ),
-        Err(HoldingWriteError::IllegalDataValue)
-    );
+    let normalized_pwm = apply_holding_write(
+        current,
+        HOLDING_PWM_DUTY_FRAC,
+        &[(nan >> 16) as u16, nan as u16],
+    )
+    .unwrap();
+    assert_eq!(normalized_pwm.outputs.pwm_duty_frac[0], 0.0);
 }

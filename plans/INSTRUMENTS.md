@@ -64,7 +64,6 @@ Instrument code lives below:
 deimos::peripheral::instruments
 ├── protocol                  private lifecycle and registration helpers
 ├── scpi                      shared public settings and private TCP transport
-├── wire                      private field-list and packet declaration macros
 └── <instrument>              one module per supported integration
 ```
 
@@ -126,7 +125,7 @@ Instrument data is asynchronous and has loose, host-observed timing:
 
 ## Failure and safety policy
 
-- Reject invalid outputs.
+- Clamp source commands to explicitly configured limits. NaN maps to safe-state.
 - Limits, safe states, and expected identity are explicit configuration.
 - Error on startup identity mismatch.
 - A timeout, disconnect, malformed response, or invalid acquired value latches a driver error.
