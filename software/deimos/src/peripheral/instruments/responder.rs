@@ -11,6 +11,7 @@ use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
+use crossbeam::channel::SendTimeoutError;
 use deimos_shared::peripherals::PeripheralId;
 use deimos_shared::states::{
     AcknowledgeConfiguration, BindingInput, BindingOutput, ByteStruct, ByteStructLen,
@@ -22,6 +23,8 @@ use crate::controller::channel::{Endpoint, Msg};
 use crate::controller::context::ControllerCtx;
 use crate::peripheral::Peripheral;
 use crate::socket::thread_channel::ThreadChannelSocket;
+
+const CHANNEL_POLL_INTERVAL: Duration = Duration::from_millis(2);
 
 /// Validated identity and first failure shared with the protocol responder.
 #[derive(Debug, Default)]
@@ -284,7 +287,7 @@ fn run_protocol(
 
         match &mut state {
             State::Binding => {
-                let Some(payload) = receive_payload(&endpoint, Duration::from_millis(2)) else {
+                let Some(payload) = receive_payload(&endpoint, CHANNEL_POLL_INTERVAL) else {
                     continue;
                 };
                 if payload.len() != BindingInput::BYTE_LEN {
@@ -296,7 +299,7 @@ fn run_protocol(
                 };
                 let mut bytes = vec![0; BindingOutput::BYTE_LEN];
                 response.write_bytes(&mut bytes);
-                if !send_payload(&endpoint, proxy.id(), bytes) {
+                if !send_payload(&endpoint, proxy.id(), bytes, &stop) {
                     proxy.on_loss_of_contact();
                     return Ok(());
                 }
@@ -312,7 +315,7 @@ fn run_protocol(
                 }
                 let timeout = (*deadline)
                     .saturating_duration_since(Instant::now())
-                    .min(Duration::from_millis(2));
+                    .min(CHANNEL_POLL_INTERVAL);
                 let Some(payload) = receive_payload(&endpoint, timeout) else {
                     continue;
                 };
@@ -325,7 +328,7 @@ fn run_protocol(
                 };
                 let mut bytes = vec![0; ConfiguringOutput::BYTE_LEN];
                 response.write_bytes(&mut bytes);
-                if !send_payload(&endpoint, proxy.id(), bytes) {
+                if !send_payload(&endpoint, proxy.id(), bytes, &stop) {
                     proxy.on_loss_of_contact();
                     return Ok(());
                 }
@@ -347,7 +350,7 @@ fn run_protocol(
             } => {
                 let timeout = (*loss_of_contact_timeout)
                     .saturating_sub(last_contact.elapsed())
-                    .min(Duration::from_millis(2));
+                    .min(CHANNEL_POLL_INTERVAL);
                 if let Some(payload) = receive_payload(&endpoint, timeout) {
                     if payload.len() != proxy.input_size() {
                         continue;
@@ -361,7 +364,7 @@ fn run_protocol(
                     };
                     let mut bytes = vec![0; proxy.output_size()];
                     proxy.write_response(metrics, &mut bytes)?;
-                    if !send_payload(&endpoint, proxy.id(), bytes) {
+                    if !send_payload(&endpoint, proxy.id(), bytes, &stop) {
                         proxy.on_loss_of_contact();
                         return Ok(());
                     }
@@ -400,13 +403,28 @@ fn receive_payload(endpoint: &Endpoint, timeout: Duration) -> Option<Vec<u8>> {
 /// Prefix a response with its peripheral ID and send it to the controller.
 ///
 /// Returns:
-///   `false` when the controller has dropped the receiving endpoint. This is a
-///   normal responder shutdown condition rather than an instrument failure.
-fn send_payload(endpoint: &Endpoint, id: PeripheralId, payload: Vec<u8>) -> bool {
+///   `false` when shutdown is requested or the controller has dropped the
+///   receiving endpoint. Both are normal responder shutdown conditions.
+fn send_payload(
+    endpoint: &Endpoint,
+    id: PeripheralId,
+    payload: Vec<u8>,
+    stop: &AtomicBool,
+) -> bool {
     let mut bytes = vec![0; PeripheralId::BYTE_LEN + payload.len()];
     id.write_bytes(&mut bytes[..PeripheralId::BYTE_LEN]);
     bytes[PeripheralId::BYTE_LEN..].copy_from_slice(&payload);
-    endpoint.tx().send(Msg::Packet(bytes)).is_ok()
+    let mut message = Msg::Packet(bytes);
+    loop {
+        if stop.load(Ordering::Relaxed) {
+            return false;
+        }
+        match endpoint.tx().send_timeout(message, CHANNEL_POLL_INTERVAL) {
+            Ok(()) => return true,
+            Err(SendTimeoutError::Timeout(unsent)) => message = unsent,
+            Err(SendTimeoutError::Disconnected(_)) => return false,
+        }
+    }
 }
 
 #[cfg(test)]
