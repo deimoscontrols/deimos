@@ -2,8 +2,9 @@
 //!
 //! The peripheral exposes requested settings for both output channels while a
 //! dedicated worker serializes SCPI commands over TCP. The controller-facing
-//! responder publishes only the most recently completed two-channel state, so
-//! the controller never waits for network or relay latency.
+//! responder publishes only the most recently transmitted two-channel state,
+//! so the controller never waits for network or relay latency. Physical state
+//! is read back during startup and shutdown, not on each operating cycle.
 //!
 //! A disabled channel is physically driven to 0 V DC before its output relay is
 //! opened. Startup, controller loss, explicit disable, worker failure, and

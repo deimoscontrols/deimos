@@ -15,7 +15,7 @@ const SAFE_LOAD: &str = "100000";
 ///
 /// Every valid controller packet replaces `next` without comparison. A safe
 /// state requested while returning to Binding takes priority over `next`, and
-/// `applied` changes only after every SCPI operation for it completes.
+/// `applied` changes only after every SCPI command for it is transmitted.
 struct State {
     // Separate from `next` so safety cannot be overwritten by a command that
     // arrives during a rapid Binding/configuration cycle.
@@ -23,7 +23,8 @@ struct State {
     // Latest coherent controller state not yet owned by the worker. Replacing
     // this value implements the full-state reassertion contract without a queue.
     next: Option<InstrumentState>,
-    // Published only after all SCPI operations for both channels succeed.
+    // Published only after all SCPI writes for both channels succeed. Physical
+    // readback is intentionally limited to startup and shutdown.
     applied: InstrumentState,
     status: WorkerStatus,
 }
@@ -246,13 +247,24 @@ fn siglent_worker_inner(
         if let Err(err) = apply_request(&mut client, config, request) {
             break Err(format!("failed to apply commanded state: {err}"));
         }
-        // Never report a partially issued two-channel request as applied.
+        // Never report a partially transmitted two-channel request as applied.
         driver.inner.state.lock().unwrap().applied = request;
     };
 
     let shutdown_result = safe_outputs(&mut client);
+    combine_worker_results(run_result, shutdown_result)
+}
+
+/// Preserve an operating failure without concealing a later safing failure.
+pub(super) fn combine_worker_results(
+    run_result: Result<(), String>,
+    shutdown_result: Result<(), String>,
+) -> Result<(), String> {
     match (run_result, shutdown_result) {
-        (Err(err), _) => Err(err),
+        (Err(err), Err(shutdown_err)) => Err(format!(
+            "{err}; additionally failed to apply safe state during shutdown: {shutdown_err}"
+        )),
+        (Err(err), Ok(())) => Err(err),
         (Ok(()), Err(err)) => Err(format!("failed to apply safe state during shutdown: {err}")),
         (Ok(()), Ok(())) => Ok(()),
     }
@@ -289,6 +301,11 @@ fn safe_outputs(client: &mut ScpiClient) -> Result<(), String> {
         errors.push(format!("zero completion: {err}"));
     }
     for number in 1..=CHANNEL_COUNT {
+        if let Err(err) = verify_safe_waveform(client, number) {
+            errors.push(format!("channel {number} zero readback: {err}"));
+        }
+    }
+    for number in 1..=CHANNEL_COUNT {
         if let Err(err) = client.command(&format!("C{number}:OUTP OFF,LOAD,{SAFE_LOAD}")) {
             errors.push(format!("channel {number} output-off command: {err}"));
         }
@@ -308,13 +325,12 @@ fn safe_outputs(client: &mut ScpiClient) -> Result<(), String> {
     }
 }
 
-/// Apply and verify the safe state on one channel during an explicit disable.
-fn safe_channel(client: &mut ScpiClient, number: usize) -> Result<(), String> {
+/// Transmit the safe state without adding readback traffic to Operating.
+fn command_safe_channel(client: &mut ScpiClient, number: usize) -> Result<(), String> {
+    // The SDG processes commands in order, so the waveform becomes 0 V DC
+    // before the following command opens the physical output relay.
     client.command(&safe_waveform_command(number))?;
-    expect_operation_complete(client)?;
-    client.command(&format!("C{number}:OUTP OFF,LOAD,{SAFE_LOAD}"))?;
-    expect_operation_complete(client)?;
-    verify_output_state(client, number, false, SAFE_LOAD)
+    client.command(&format!("C{number}:OUTP OFF,LOAD,{SAFE_LOAD}"))
 }
 
 fn safe_waveform_command(channel_number: usize) -> String {
@@ -376,8 +392,9 @@ fn parameter_value<'a>(response: &'a str, name: &str) -> Option<&'a str> {
 
 /// Reassert all channel values and output-relay states.
 ///
-/// A channel is configured before its relay closes. Disabling uses
-/// [`safe_channel`] so it is driven to 0 V DC before its relay opens.
+/// Operating deliberately performs no readback queries. A channel is
+/// configured before its relay closes, and disabling transmits 0 V DC before
+/// opening its relay.
 fn apply_request(
     client: &mut ScpiClient,
     config: &Config,
@@ -389,17 +406,15 @@ fn apply_request(
     for (index, desired) in request.channels().into_iter().enumerate() {
         let number = index + 1;
         if desired.enabled == 0.0 {
-            safe_channel(client, number)?;
+            command_safe_channel(client, number)?;
             continue;
         }
 
         let channel = &config.channels[index];
         let command = basic_wave_command(number, channel, desired);
         client.command(&command)?;
-        expect_operation_complete(client)?;
         let load = channel.load.scpi();
         client.command(&format!("C{number}:OUTP ON,LOAD,{load}"))?;
-        verify_output_state(client, number, true, &load)?;
     }
     Ok(())
 }

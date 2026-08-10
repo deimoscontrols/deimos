@@ -140,7 +140,7 @@ pub(super) struct OperatingInput {
     pub(super) state: InstrumentState,
 }
 
-/// Last completely applied two-channel state returned to the controller.
+/// Last completely transmitted two-channel state returned to the controller.
 #[derive(ByteStruct, Clone, Copy, Debug, Default)]
 #[byte_struct_le]
 pub(super) struct OperatingOutput {
@@ -221,8 +221,8 @@ impl Peripheral for SiglentSdg2042X {
 
     fn parse_operating_roundtrip(&self, bytes: &[u8], outputs: &mut [f64]) -> OperatingMetrics {
         let response = OperatingOutput::read_bytes(bytes);
-        // These are worker-confirmed applied values, not an echo of the most
-        // recently emitted controller request.
+        // These are the last values completely transmitted by the worker, not
+        // an echo of a request that may still be queued.
         response.state.write_values(&mut outputs[..OUTPUT_COUNT]);
         response.metrics
     }

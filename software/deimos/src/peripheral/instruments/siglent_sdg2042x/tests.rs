@@ -7,7 +7,7 @@ use deimos_shared::states::ByteStruct;
 
 use super::super::responder::InstrumentProxy;
 use super::config::CHANNEL_COUNT;
-use super::driver::{basic_wave_command, scpi_number};
+use super::driver::{basic_wave_command, combine_worker_results, scpi_number};
 use super::peripheral::{
     ChannelState, INPUT_COUNT, INPUT_SIZE, InstrumentState, OUTPUT_COUNT, OUTPUT_SIZE,
     OperatingInput,
@@ -185,6 +185,114 @@ fn every_waveform_emits_only_its_applicable_fields() {
 }
 
 #[test]
+fn startup_rejects_an_unverified_safe_state() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        let mut reader = BufReader::new(stream.try_clone().unwrap());
+        let mut writer = stream;
+        loop {
+            let mut command = String::new();
+            if reader.read_line(&mut command).unwrap() == 0 {
+                break;
+            }
+            match command.trim_end() {
+                "*IDN?" => writer
+                    .write_all(b"Siglent Technologies,SDG2042X,TEST,1.0\n")
+                    .unwrap(),
+                "*OPC?" => writer.write_all(b"1\n").unwrap(),
+                "C1:BSWV?" => writer
+                    .write_all(b"C1:BSWV WVTP,SINE,FRQ,1000HZ,AMP,1V,OFST,0V,PHSE,0\n")
+                    .unwrap(),
+                "C2:BSWV?" => writer
+                    .write_all(b"C2:BSWV WVTP,SINE,FRQ,1000HZ,AMP,1V,OFST,0V,PHSE,0\n")
+                    .unwrap(),
+                "C1:OUTP?" => writer
+                    .write_all(b"C1:OUTP OFF,LOAD,100000,PLRT,NOR\n")
+                    .unwrap(),
+                "C2:OUTP?" => writer
+                    .write_all(b"C2:OUTP OFF,LOAD,100000,PLRT,NOR\n")
+                    .unwrap(),
+                _ => {}
+            }
+        }
+    });
+
+    let driver = SiglentSdg2042XDriver::new(Config::new(address.to_string(), 1)).unwrap();
+    let error = match driver.run(&ControllerCtx::default()) {
+        Ok(mut handle) => {
+            let _ = handle.join();
+            panic!("startup accepted an unverified safe state");
+        }
+        Err(error) => error,
+    };
+    assert!(error.contains("setup failed"));
+    assert!(error.contains("was not 0 V DC"));
+    server.join().unwrap();
+}
+
+#[test]
+fn operating_and_shutdown_failures_are_both_reported() {
+    let error = combine_worker_results(
+        Err("operating failure".to_owned()),
+        Err("safe-state failure".to_owned()),
+    )
+    .unwrap_err();
+    assert!(error.contains("operating failure"));
+    assert!(error.contains("additionally failed to apply safe state during shutdown"));
+    assert!(error.contains("safe-state failure"));
+}
+
+#[test]
+fn shutdown_rejects_an_unverified_safe_state() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        let mut reader = BufReader::new(stream.try_clone().unwrap());
+        let mut writer = stream;
+        let mut waveform_queries = 0;
+        loop {
+            let mut command = String::new();
+            if reader.read_line(&mut command).unwrap() == 0 {
+                break;
+            }
+            match command.trim_end() {
+                "*IDN?" => writer
+                    .write_all(b"Siglent Technologies,SDG2042X,TEST,1.0\n")
+                    .unwrap(),
+                "*OPC?" => writer.write_all(b"1\n").unwrap(),
+                "C1:OUTP?" => writer
+                    .write_all(b"C1:OUTP OFF,LOAD,100000,PLRT,NOR\n")
+                    .unwrap(),
+                "C2:OUTP?" => writer
+                    .write_all(b"C2:OUTP OFF,LOAD,100000,PLRT,NOR\n")
+                    .unwrap(),
+                query @ ("C1:BSWV?" | "C2:BSWV?") => {
+                    let channel = &query[..2];
+                    let response = if waveform_queries < 4 {
+                        format!("{channel}:BSWV WVTP,DC,OFST,0V")
+                    } else {
+                        format!("{channel}:BSWV WVTP,SINE,FRQ,1000HZ,AMP,1V,OFST,0V,PHSE,0")
+                    };
+                    writeln!(writer, "{response}").unwrap();
+                    waveform_queries += 1;
+                }
+                _ => {}
+            }
+        }
+    });
+
+    let driver = SiglentSdg2042XDriver::new(Config::new(address.to_string(), 1)).unwrap();
+    let mut handle = driver.run(&ControllerCtx::default()).unwrap();
+    let error = handle.join().unwrap_err();
+    assert!(error.contains("failed to apply safe state during shutdown"));
+    assert!(error.contains("was not 0 V DC"));
+    server.join().unwrap();
+}
+
+#[test]
 fn worker_applies_complete_two_channel_state_and_shuts_down_safe() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
@@ -194,6 +302,8 @@ fn worker_applies_complete_two_channel_state_and_shuts_down_safe() {
         let mut writer = stream;
         let mut commands = Vec::new();
         let mut output_enabled = [false; CHANNEL_COUNT];
+        let mut waveforms: [String; CHANNEL_COUNT] =
+            std::array::from_fn(|number| format!("C{}:BSWV WVTP,DC,OFST,0V", number + 1));
         loop {
             let mut command = String::new();
             if reader.read_line(&mut command).unwrap() == 0 {
@@ -205,6 +315,8 @@ fn worker_applies_complete_two_channel_state_and_shuts_down_safe() {
                     output_enabled[number - 1] = true;
                 } else if command.starts_with(&format!("C{number}:OUTP OFF")) {
                     output_enabled[number - 1] = false;
+                } else if command.starts_with(&format!("C{number}:BSWV ")) {
+                    waveforms[number - 1] = command.clone();
                 }
             }
             match command.as_str() {
@@ -223,8 +335,8 @@ fn worker_applies_complete_two_channel_state_and_shuts_down_safe() {
                     if output_enabled[1] { "ON" } else { "OFF" }
                 )
                 .unwrap(),
-                "C1:BSWV?" => writer.write_all(b"C1:BSWV WVTP,DC,OFST,0V\n").unwrap(),
-                "C2:BSWV?" => writer.write_all(b"C2:BSWV WVTP,DC,OFST,0V\n").unwrap(),
+                "C1:BSWV?" => writeln!(writer, "{}", waveforms[0]).unwrap(),
+                "C2:BSWV?" => writeln!(writer, "{}", waveforms[1]).unwrap(),
                 "*OPC?" => writer.write_all(b"1\n").unwrap(),
                 _ => {}
             }
@@ -283,12 +395,22 @@ fn worker_applies_complete_two_channel_state_and_shuts_down_safe() {
             .iter()
             .any(|command| command == "C2:OUTP ON,LOAD,100000")
     );
+    // Four startup readbacks and two shutdown readbacks; Operating adds none.
     assert_eq!(
-        &commands[commands.len() - 8..],
+        commands
+            .iter()
+            .filter(|command| command.ends_with(":BSWV?"))
+            .count(),
+        6
+    );
+    assert_eq!(
+        &commands[commands.len() - 10..],
         [
             "C1:BSWV WVTP,DC,OFST,0",
             "C2:BSWV WVTP,DC,OFST,0",
             "*OPC?",
+            "C1:BSWV?",
+            "C2:BSWV?",
             "C1:OUTP OFF,LOAD,100000",
             "C2:OUTP OFF,LOAD,100000",
             "*OPC?",

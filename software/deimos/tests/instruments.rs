@@ -18,6 +18,8 @@ fn start_siglent() -> (String, thread::JoinHandle<Vec<String>>) {
         let mut writer = stream;
         let mut commands = Vec::new();
         let mut output_enabled = [false; 2];
+        let mut waveforms: [String; 2] =
+            std::array::from_fn(|number| format!("C{}:BSWV WVTP,DC,OFST,0V", number + 1));
         loop {
             let mut command = String::new();
             if reader.read_line(&mut command).unwrap() == 0 {
@@ -29,6 +31,8 @@ fn start_siglent() -> (String, thread::JoinHandle<Vec<String>>) {
                     output_enabled[number - 1] = true;
                 } else if command.starts_with(&format!("C{number}:OUTP OFF")) {
                     output_enabled[number - 1] = false;
+                } else if command.starts_with(&format!("C{number}:BSWV ")) {
+                    waveforms[number - 1] = command.clone();
                 }
             }
             match command.as_str() {
@@ -47,8 +51,8 @@ fn start_siglent() -> (String, thread::JoinHandle<Vec<String>>) {
                     if output_enabled[1] { "ON" } else { "OFF" }
                 )
                 .unwrap(),
-                "C1:BSWV?" => writer.write_all(b"C1:BSWV WVTP,DC,OFST,0V\n").unwrap(),
-                "C2:BSWV?" => writer.write_all(b"C2:BSWV WVTP,DC,OFST,0V\n").unwrap(),
+                "C1:BSWV?" => writeln!(writer, "{}", waveforms[0]).unwrap(),
+                "C2:BSWV?" => writeln!(writer, "{}", waveforms[1]).unwrap(),
                 "*OPC?" => writer.write_all(b"1\n").unwrap(),
                 _ => {}
             }
@@ -201,11 +205,13 @@ fn controller_runs_configured_instruments_and_both_siglent_channels() {
             .any(|command| command == "C2:OUTP ON,LOAD,100000")
     );
     assert_eq!(
-        &siglent_commands[siglent_commands.len() - 8..],
+        &siglent_commands[siglent_commands.len() - 10..],
         [
             "C1:BSWV WVTP,DC,OFST,0",
             "C2:BSWV WVTP,DC,OFST,0",
             "*OPC?",
+            "C1:BSWV?",
+            "C2:BSWV?",
             "C1:OUTP OFF,LOAD,100000",
             "C2:OUTP OFF,LOAD,100000",
             "*OPC?",
