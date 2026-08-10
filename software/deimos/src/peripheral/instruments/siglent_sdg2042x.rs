@@ -9,6 +9,10 @@
 //! opened. Startup, controller loss, explicit disable, worker failure, and
 //! shutdown all use this safe state. Arbitrary waveforms, modulation, burst,
 //! and the generator's internal sweep subsystem are intentionally unsupported.
+//!
+//! `peripheral` remains a pure, serializable description of the Deimos wire
+//! contract. `driver` owns the live SCPI state, and `proxy` is the only module
+//! that translates between their packet types and the shared responder.
 
 mod config;
 mod driver;

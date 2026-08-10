@@ -53,6 +53,37 @@ fn repeated_controller_state_is_queued_for_reassertion() {
 }
 
 #[test]
+fn safe_state_precedes_commands_received_after_returning_to_binding() {
+    let driver = SiglentSdg2042XDriver::new(Config::new("localhost", 1)).unwrap();
+    let old = InstrumentState {
+        ch1: ChannelState {
+            enabled: 1.0,
+            offset_voltage_v: 1.0,
+            ..ChannelState::default()
+        },
+        ..InstrumentState::default()
+    };
+    let new = InstrumentState {
+        ch1: ChannelState {
+            enabled: 1.0,
+            offset_voltage_v: 2.0,
+            ..ChannelState::default()
+        },
+        ..InstrumentState::default()
+    };
+    let configs = std::array::from_fn(|_| ChannelConfig::default());
+    let expected_new = new.normalized(&configs);
+
+    driver.submit(old);
+    driver.request_safe_state();
+    driver.submit(new);
+
+    assert_eq!(driver.take_queued(), Some(InstrumentState::default()));
+    assert_eq!(driver.take_queued(), Some(expected_new));
+    assert_eq!(driver.take_queued(), None);
+}
+
+#[test]
 fn thread_channel_name_is_derived_from_model_and_serial() {
     let config = Config::new("localhost", 0x2a);
     let driver = SiglentSdg2042XDriver::new(config).unwrap();

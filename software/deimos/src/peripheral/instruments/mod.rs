@@ -4,6 +4,9 @@
 //! configuration, blocking-I/O driver, and a convenience `attach` function.
 //! Live connections remain on worker threads; the controller communicates with
 //! a nonblocking protocol responder through an internal thread-channel socket.
+//! The shared responder knows only the Deimos packet lifecycle, while the SCPI
+//! transport knows only newline-delimited TCP. Instrument-specific modules are
+//! the narrow adapter between those two pieces.
 //!
 //! Retain every returned [`InstrumentRunHandle`] until after the controller has
 //! stopped, then join it so output-capable instruments can enter their safe

@@ -167,6 +167,8 @@ impl Config {
 pub struct KeithleyDmm6500 {
     /// Logical software serial number used in the Deimos peripheral ID.
     pub serial_number: u64,
+    // The pure peripheral needs only the function category to preserve its
+    // output field name across serialization; ranges remain driver concerns.
     #[serde(default)]
     function: FunctionKind,
 }
@@ -316,6 +318,8 @@ impl InstrumentProxy for Shared {
     }
 
     fn process_request(&self, bytes: &[u8]) -> u64 {
+        // The DMM has no dynamic controller inputs. Each request merely asks for
+        // the latest sample and carries the ID needed for protocol metrics.
         OperatingInput::read_bytes(bytes).id
     }
 
@@ -327,13 +331,16 @@ impl InstrumentProxy for Shared {
         OperatingOutput {
             metrics,
             value: state.value,
+            // f64 represents every integer exactly only through 2^53 - 1.
             sample_sequence: state.sample_sequence.min(MAX_EXACT_F64_INTEGER) as f64,
+            // Age makes the loose worker timing explicit to controller calcs.
             sample_age_s: state.sampled_at.elapsed().as_secs_f64(),
         }
         .write_bytes(bytes);
         Ok(())
     }
 
+    // This input-only instrument has no energized output to safe on contact loss.
     fn on_loss_of_contact(&self) {}
 
     fn error(&self) -> Option<String> {
@@ -511,6 +518,8 @@ fn dmm_worker_inner(
     let _ = startup.send(Ok(()));
 
     while !stop.load(Ordering::Relaxed) {
+        // `:READ?` blocks only this worker. The responder continues returning
+        // the previous complete sample, together with its increasing age.
         let value = read_measurement(&mut client)?;
         let mut state = shared.state.lock().unwrap();
         // Timestamp after the complete response arrives. This bounds sample

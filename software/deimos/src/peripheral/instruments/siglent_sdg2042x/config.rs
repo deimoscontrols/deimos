@@ -24,6 +24,9 @@ pub enum Waveform {
 }
 
 impl Waveform {
+    // These predicates keep waveform-specific SCPI knowledge out of the packet
+    // and driver control flow. Inputs stay shape-stable even when a field is not
+    // meaningful for the selected waveform.
     pub(super) fn scpi(self) -> &'static str {
         match self {
             Self::Sine => "SINE",
@@ -136,6 +139,9 @@ impl ChannelConfig {
                 "channel {channel}: amplitude_vpp must be finite and positive"
             ));
         }
+        // Validate every range, including ranges unused by the current
+        // waveform, because the configuration may later be serialized and
+        // reused with a different waveform.
         validate_range("frequency_hz", self.frequency_hz, channel)?;
         validate_range("offset_voltage_v", self.offset_voltage_v, channel)?;
         validate_range("pulse_duty_cycle", self.pulse_duty_cycle, channel)?;

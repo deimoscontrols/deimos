@@ -123,6 +123,8 @@ impl ScpiTcpConfig {
 /// One worker owns each client for its entire lifetime, so command/query
 /// ordering requires no additional synchronization.
 pub(crate) struct ScpiClient {
+    // Buffering is required because one TCP read may contain the end of the
+    // current response and the beginning of a later response.
     stream: BufReader<TcpStream>,
     max_response_len: usize,
 }
@@ -144,6 +146,8 @@ impl ScpiClient {
             .to_socket_addrs()
             .map_err(|err| format!("unable to resolve `{address}`: {err}"))?;
         let mut last_error = None;
+        // DNS may return several IPv4/IPv6 candidates. Try each candidate so a
+        // failed first family does not make an otherwise reachable host fail.
         for resolved in addresses {
             match TcpStream::connect_timeout(&resolved, config.connect_timeout) {
                 Ok(stream) => {
@@ -257,6 +261,8 @@ impl ScpiClient {
 
             let newline = available.iter().position(|byte| *byte == b'\n');
             let take = newline.map_or(available.len(), |position| position + 1);
+            // Enforce the limit while consuming rather than using `read_line`,
+            // which may allocate an unbounded response before it can be checked.
             if bytes.len() + take > self.max_response_len {
                 return Err(format!(
                     "response to `{command}` exceeded {} bytes",

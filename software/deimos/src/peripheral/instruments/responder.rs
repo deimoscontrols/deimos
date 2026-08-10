@@ -26,7 +26,10 @@ use crate::socket::thread_channel::ThreadChannelSocket;
 /// Validated identity and first failure shared with the protocol responder.
 #[derive(Debug, Default)]
 pub(crate) struct WorkerStatus {
+    // Identity is published only after the worker has completed physical setup.
     identity: Option<String>,
+    // Retaining the first error preserves the failure that made later state
+    // and responses untrustworthy.
     error: Option<String>,
 }
 
@@ -148,6 +151,8 @@ where
         .spawn(move || worker_fn(worker_stop, startup_tx))
         .map_err(|err| format!("failed to spawn {instrument_name} worker: {err}"))?;
 
+    // Do not advertise the software peripheral until its worker has connected,
+    // validated the model, and established the instrument-specific baseline.
     match startup_rx.recv_timeout(startup_timeout) {
         Ok(Ok(())) => {}
         Ok(Err(err)) => {
@@ -188,6 +193,8 @@ where
     if controller.peripherals().contains_key(peripheral_name) {
         return Err(format!("Peripheral name `{peripheral_name}` is duplicated"));
     }
+    // Start first so a connection/setup failure cannot leave a controller with
+    // a registered peripheral that has no functioning instrument behind it.
     let mut handle = start(&controller.ctx)?;
     if let Err(err) = controller.add_peripheral(peripheral_name, Box::new(peripheral)) {
         return match handle.join() {
@@ -300,7 +307,7 @@ fn run_protocol(
             }
             State::Configuring { deadline } => {
                 if Instant::now() >= *deadline {
-                    state = State::Binding;
+                    return_to_binding(&mut state, proxy.as_ref());
                     continue;
                 }
                 let timeout = (*deadline)
@@ -326,6 +333,8 @@ fn run_protocol(
                     .saturating_mul(u64::from(request.loss_of_contact_limit))
                     .max(1_000_000);
                 state = State::Operating {
+                    // Response IDs are scoped to one Operating session, just as
+                    // they are for hardware peripheral protocol responders.
                     response_id: 1,
                     last_contact: Instant::now(),
                     loss_of_contact_timeout: Duration::from_nanos(timeout_ns),
@@ -358,14 +367,22 @@ fn run_protocol(
                     }
                     *response_id = response_id.wrapping_add(1);
                 } else if last_contact.elapsed() >= *loss_of_contact_timeout {
-                    proxy.on_loss_of_contact();
-                    state = State::Binding;
+                    return_to_binding(&mut state, proxy.as_ref());
                 }
             }
         }
     }
     proxy.on_loss_of_contact();
     Ok(())
+}
+
+/// Reenter Binding only after requesting the integration's safe behavior.
+fn return_to_binding(state: &mut State, proxy: &dyn InstrumentProxy) {
+    // The hook is intentionally issued on every transition, even if Binding
+    // traffic follows immediately. Output drivers treat it as a priority
+    // request, so a rapid rebind cannot overwrite the safety transition.
+    proxy.on_loss_of_contact();
+    *state = State::Binding;
 }
 
 /// Receive one framed packet and remove its peripheral-ID prefix.
@@ -524,5 +541,47 @@ mod tests {
         stop.store(true, Ordering::Relaxed);
         thread.join().unwrap().unwrap();
         assert_eq!(proxy.losses.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn configuring_timeout_requests_safe_state_before_returning_to_binding() {
+        let ctx = ControllerCtx::default();
+        let endpoint = ctx.source_endpoint("instrument-binding-safety-test");
+        let proxy = Arc::new(TestProxy {
+            losses: AtomicUsize::new(0),
+        });
+        let stop = Arc::new(AtomicBool::new(false));
+        let thread = spawn_protocol(
+            &ctx,
+            "instrument-binding-safety-test",
+            proxy.clone(),
+            stop.clone(),
+        )
+        .unwrap();
+
+        let binding = BindingInput {
+            configuring_timeout_ms: 1,
+        };
+        let mut bytes = vec![0; BindingInput::BYTE_LEN];
+        binding.write_bytes(&mut bytes);
+        send(&endpoint, &bytes);
+        let _ = receive(&endpoint);
+
+        let deadline = Instant::now() + Duration::from_secs(1);
+        while proxy.losses.load(Ordering::Relaxed) == 0 {
+            assert!(
+                Instant::now() < deadline,
+                "responder did not request safe state"
+            );
+            thread::sleep(Duration::from_millis(1));
+        }
+
+        send(&endpoint, &bytes);
+        assert_eq!(
+            BindingOutput::read_bytes(&receive(&endpoint)).peripheral_id,
+            TEST_ID
+        );
+        stop.store(true, Ordering::Relaxed);
+        thread.join().unwrap().unwrap();
     }
 }

@@ -13,11 +13,17 @@ const SAFE_LOAD: &str = "100000";
 
 /// State shared between the real-time responder and blocking SCPI worker.
 ///
-/// Every valid controller packet replaces `next` without comparison. The worker
-/// owns the in-flight request, and `applied` changes only after every SCPI
-/// operation for it completes.
+/// Every valid controller packet replaces `next` without comparison. A safe
+/// state requested while returning to Binding takes priority over `next`, and
+/// `applied` changes only after every SCPI operation for it completes.
 struct State {
+    // Separate from `next` so safety cannot be overwritten by a command that
+    // arrives during a rapid Binding/configuration cycle.
+    safe_state_pending: bool,
+    // Latest coherent controller state not yet owned by the worker. Replacing
+    // this value implements the full-state reassertion contract without a queue.
     next: Option<InstrumentState>,
+    // Published only after all SCPI operations for both channels succeed.
     applied: InstrumentState,
     status: WorkerStatus,
 }
@@ -57,6 +63,7 @@ impl SiglentSdg2042XDriver {
                 config,
                 channel_name,
                 state: Mutex::new(State {
+                    safe_state_pending: false,
                     next: None,
                     applied: InstrumentState::default(),
                     status: WorkerStatus::default(),
@@ -119,7 +126,10 @@ impl SiglentSdg2042XDriver {
     /// Queue the disabled safe state without waiting for the SCPI worker.
     pub(super) fn request_safe_state(&self) {
         let mut state = self.inner.state.lock().unwrap();
-        state.next = Some(InstrumentState::default());
+        state.safe_state_pending = true;
+        // A command from before contact was lost is stale. A command received
+        // after this point may populate `next`, but the safety latch stays set.
+        state.next = None;
         self.inner.changed.notify_one();
     }
 
@@ -144,12 +154,23 @@ impl SiglentSdg2042XDriver {
 
     #[cfg(test)]
     pub(super) fn take_queued(&self) -> Option<InstrumentState> {
-        self.inner.state.lock().unwrap().next.take()
+        take_pending(&mut self.inner.state.lock().unwrap())
     }
 
     #[cfg(test)]
     pub(super) fn queued(&self) -> Option<InstrumentState> {
         self.inner.state.lock().unwrap().next
+    }
+}
+
+fn take_pending(state: &mut State) -> Option<InstrumentState> {
+    // Consume the safety latch first while preserving any newer command in
+    // `next`; the worker will pick that command up on its following iteration.
+    if state.safe_state_pending {
+        state.safe_state_pending = false;
+        Some(InstrumentState::default())
+    } else {
+        state.next.take()
     }
 }
 
@@ -206,7 +227,7 @@ fn siglent_worker_inner(
 
     let run_result = loop {
         let mut state = driver.inner.state.lock().unwrap();
-        while state.next.is_none() && !stop.load(Ordering::Relaxed) {
+        while !state.safe_state_pending && state.next.is_none() && !stop.load(Ordering::Relaxed) {
             state = driver
                 .inner
                 .changed
@@ -217,12 +238,15 @@ fn siglent_worker_inner(
         if stop.load(Ordering::Relaxed) {
             break Ok(());
         }
-        let request = state.next.take().unwrap();
+        // Removing the request while holding the mutex makes it the worker's
+        // in-flight state. The responder can now replace `next` independently.
+        let request = take_pending(&mut state).unwrap();
         drop(state);
 
         if let Err(err) = apply_request(&mut client, config, request) {
             break Err(format!("failed to apply commanded state: {err}"));
         }
+        // Never report a partially issued two-channel request as applied.
         driver.inner.state.lock().unwrap().applied = request;
     };
 
@@ -359,6 +383,9 @@ fn apply_request(
     config: &Config,
     request: InstrumentState,
 ) -> Result<(), String> {
+    // Always reassert the complete state. Besides keeping the protocol simple,
+    // this preserves the desired behavior for transports where commands may be
+    // dropped and periodic state reassertion is useful.
     for (index, desired) in request.channels().into_iter().enumerate() {
         let number = index + 1;
         if desired.enabled == 0.0 {

@@ -21,6 +21,8 @@ const CHANNEL_FIELDS: &[&str] = &[
     "phase_deg",
     "stdev",
 ];
+// `CHANNEL_FIELDS`, `ChannelState`, and the value conversion methods must retain
+// this exact order: controller field indices and the byte packet share it.
 pub(super) const VALUES_PER_CHANNEL: usize = CHANNEL_FIELDS.len();
 pub(super) const INPUT_COUNT: usize = CHANNEL_COUNT * VALUES_PER_CHANNEL;
 pub(super) const OUTPUT_COUNT: usize = INPUT_COUNT;
@@ -207,6 +209,9 @@ impl Peripheral for SiglentSdg2042X {
         inputs: &[f64],
         bytes: &mut [u8],
     ) {
+        // Normalization happens in the live driver, where the fixed per-channel
+        // clamp configuration is available. This pure peripheral intentionally
+        // carries only identity and the stable wire contract.
         OperatingInput {
             id,
             state: InstrumentState::from_values(&inputs[..INPUT_COUNT]),
@@ -216,6 +221,8 @@ impl Peripheral for SiglentSdg2042X {
 
     fn parse_operating_roundtrip(&self, bytes: &[u8], outputs: &mut [f64]) -> OperatingMetrics {
         let response = OperatingOutput::read_bytes(bytes);
+        // These are worker-confirmed applied values, not an echo of the most
+        // recently emitted controller request.
         response.state.write_values(&mut outputs[..OUTPUT_COUNT]);
         response.metrics
     }

@@ -1,4 +1,9 @@
 //! Deimos operating-packet adapter for the live SDG2042X driver.
+//!
+//! This module is deliberately the only place where the driver implements the
+//! shared responder interface. The driver itself deals in typed instrument
+//! states, while the responder deals in opaque byte packets and lifecycle
+//! events.
 
 use std::sync::Arc;
 
@@ -53,6 +58,8 @@ impl InstrumentProxy for SiglentSdg2042XDriver {
 
     fn process_request(&self, bytes: &[u8]) -> u64 {
         let packet = OperatingInput::read_bytes(bytes);
+        // Submission only updates shared memory and wakes the worker; no SCPI
+        // operation can block the protocol responder.
         self.submit(packet.state);
         packet.id
     }
@@ -67,6 +74,7 @@ impl InstrumentProxy for SiglentSdg2042XDriver {
     }
 
     fn on_loss_of_contact(&self) {
+        // The worker gives this request priority over ordinary operating state.
         self.request_safe_state();
     }
 
