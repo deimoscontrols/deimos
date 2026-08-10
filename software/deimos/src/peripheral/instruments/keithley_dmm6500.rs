@@ -2,9 +2,10 @@
 //!
 //! A blocking worker owns the SCPI-over-TCP connection and continuously issues
 //! `:READ?`. The controller-facing responder repeats the latest completed
-//! numeric sample, sequence number, and sample age without blocking the control
-//! loop. Sample timestamps are host-observed completion bounds rather than
-//! cycle-synchronous measurement times.
+//! numeric sample in a static voltage/resistance output schema, together with
+//! active-function flags, sequence number, and sample age. Sample timestamps
+//! are host-observed completion bounds rather than cycle-synchronous
+//! measurement times.
 
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -27,6 +28,10 @@ use crate::controller::Controller;
 use crate::controller::context::ControllerCtx;
 use crate::peripheral::Peripheral;
 
+const VOLTAGE_OUTPUT: &str = "voltage_v";
+const RESISTANCE_OUTPUT: &str = "resistance_ohm";
+const VOLTAGE_ACTIVE_OUTPUT: &str = "voltage_active";
+const RESISTANCE_ACTIVE_OUTPUT: &str = "resistance_active";
 const SAMPLE_SEQUENCE_OUTPUT: &str = "sample_sequence";
 const SAMPLE_AGE_OUTPUT: &str = "sample_age_s";
 const MINIMUM_LINE_FREQUENCY_HZ: f64 = 50.0;
@@ -45,14 +50,17 @@ struct OperatingInput {
 #[byte_struct_le]
 struct OperatingOutput {
     metrics: OperatingMetrics,
-    value: f64,
+    voltage_v: f64,
+    resistance_ohm: f64,
+    voltage_active: f64,
+    resistance_active: f64,
     sample_sequence: f64,
     sample_age_s: f64,
 }
 
 // Request: the controller's little-endian u64 packet ID.
-// Response: OperatingMetrics followed by value, sample sequence, and sample
-// age as little-endian f64 values.
+// Response: OperatingMetrics followed by both measurement fields, both active
+// flags, sample sequence, and sample age as little-endian f64 values.
 const INPUT_SIZE: usize = OperatingInput::BYTE_LEN;
 const OUTPUT_SIZE: usize = OperatingOutput::BYTE_LEN;
 const MAX_EXACT_F64_INTEGER: u64 = (1_u64 << 53) - 1;
@@ -85,13 +93,6 @@ impl Default for Function {
 }
 
 impl Function {
-    fn kind(self) -> FunctionKind {
-        match self {
-            Self::DcVoltage { .. } => FunctionKind::DcVoltage,
-            Self::FourWireResistance { .. } => FunctionKind::FourWireResistance,
-        }
-    }
-
     fn validate(self) -> Result<(), String> {
         let (name, range) = match self {
             Self::DcVoltage { range_v } => ("range_v", range_v),
@@ -101,22 +102,6 @@ impl Function {
             Err(format!("{name} must be finite and positive when supplied"))
         } else {
             Ok(())
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-enum FunctionKind {
-    #[default]
-    DcVoltage,
-    FourWireResistance,
-}
-
-impl FunctionKind {
-    fn output_name(self) -> &'static str {
-        match self {
-            Self::DcVoltage => "voltage_v",
-            Self::FourWireResistance => "resistance_ohm",
         }
     }
 }
@@ -216,10 +201,6 @@ impl Config {
 pub struct KeithleyDmm6500 {
     /// Logical software serial number used in the Deimos peripheral ID.
     pub serial_number: u64,
-    // The pure peripheral needs only the function category to preserve its
-    // output field name across serialization; ranges remain driver concerns.
-    #[serde(default)]
-    function: FunctionKind,
 }
 
 impl KeithleyDmm6500 {
@@ -231,17 +212,7 @@ impl KeithleyDmm6500 {
     /// Returns:
     ///   A serializable peripheral with no connection or worker state.
     pub fn new(serial_number: u64) -> Self {
-        Self {
-            serial_number,
-            function: FunctionKind::default(),
-        }
-    }
-
-    fn with_function(serial_number: u64, function: Function) -> Self {
-        Self {
-            serial_number,
-            function: function.kind(),
-        }
+        Self { serial_number }
     }
 }
 
@@ -260,7 +231,10 @@ impl Peripheral for KeithleyDmm6500 {
 
     fn output_names(&self) -> Vec<String> {
         [
-            self.function.output_name(),
+            VOLTAGE_OUTPUT,
+            RESISTANCE_OUTPUT,
+            VOLTAGE_ACTIVE_OUTPUT,
+            RESISTANCE_ACTIVE_OUTPUT,
             SAMPLE_SEQUENCE_OUTPUT,
             SAMPLE_AGE_OUTPUT,
         ]
@@ -290,16 +264,22 @@ impl Peripheral for KeithleyDmm6500 {
 
     fn parse_operating_roundtrip(&self, bytes: &[u8], outputs: &mut [f64]) -> OperatingMetrics {
         let response = OperatingOutput::read_bytes(bytes);
-        outputs[0] = response.value;
-        outputs[1] = response.sample_sequence;
-        outputs[2] = response.sample_age_s;
+        outputs[0] = response.voltage_v;
+        outputs[1] = response.resistance_ohm;
+        outputs[2] = response.voltage_active;
+        outputs[3] = response.resistance_active;
+        outputs[4] = response.sample_sequence;
+        outputs[5] = response.sample_age_s;
         response.metrics
     }
 
     fn validate_operating_roundtrip(&self, bytes: &[u8]) -> bool {
         bytes.len() == OUTPUT_SIZE && {
             let response = OperatingOutput::read_bytes(bytes);
-            !response.value.is_nan()
+            !response.voltage_v.is_nan()
+                && !response.resistance_ohm.is_nan()
+                && !response.voltage_active.is_nan()
+                && !response.resistance_active.is_nan()
                 && !response.sample_sequence.is_nan()
                 && !response.sample_age_s.is_nan()
         }
@@ -354,8 +334,7 @@ impl Shared {
 
 impl InstrumentProxy for Shared {
     fn id(&self) -> PeripheralId {
-        KeithleyDmm6500::with_function(self.config.connection.serial_number, self.config.function)
-            .id()
+        KeithleyDmm6500::new(self.config.connection.serial_number).id()
     }
 
     fn input_size(&self) -> usize {
@@ -377,9 +356,17 @@ impl InstrumentProxy for Shared {
         if let Some(error) = state.status.error() {
             return Err(error);
         }
+        let (voltage_v, resistance_ohm, voltage_active, resistance_active) =
+            match self.config.function {
+                Function::DcVoltage { .. } => (state.value, 0.0, 1.0, 0.0),
+                Function::FourWireResistance { .. } => (0.0, state.value, 0.0, 1.0),
+            };
         OperatingOutput {
             metrics,
-            value: state.value,
+            voltage_v,
+            resistance_ohm,
+            voltage_active,
+            resistance_active,
             // f64 represents every integer exactly only through 2^53 - 1.
             sample_sequence: state.sample_sequence.min(MAX_EXACT_F64_INTEGER) as f64,
             // Age makes the loose worker timing explicit to controller calcs.
@@ -425,10 +412,7 @@ impl KeithleyDmm6500Driver {
     /// Returns:
     ///   A serializable peripheral carrying the driver's logical identity.
     pub fn peripheral(&self) -> KeithleyDmm6500 {
-        KeithleyDmm6500::with_function(
-            self.shared.config.connection.serial_number,
-            self.shared.config.function,
-        )
+        KeithleyDmm6500::new(self.shared.config.connection.serial_number)
     }
 
     /// Return the internal thread-channel name expected by the driver.
@@ -481,7 +465,8 @@ impl KeithleyDmm6500Driver {
 ///
 /// Args:
 ///   peripheral_name: Unique name used for controller fields such as
-///   `peripheral_name.voltage_v` or `peripheral_name.resistance_ohm`.
+///   `peripheral_name.voltage_v`, `peripheral_name.resistance_ohm`, and their
+///   corresponding active-function flags.
 ///   config: Complete connection, identity, measurement, and timeout
 ///   configuration.
 ///   controller: Controller to receive the peripheral and generated socket.
@@ -671,36 +656,6 @@ mod tests {
     use std::time::Instant;
 
     #[test]
-    fn packet_shape_and_names_are_stable() {
-        let voltage = KeithleyDmm6500::new(9);
-        let resistance = KeithleyDmm6500::with_function(
-            9,
-            Function::FourWireResistance {
-                range_ohm: None,
-                offset_compensation: true,
-            },
-        );
-        assert!(voltage.input_names().is_empty());
-        assert_eq!(
-            voltage.output_names(),
-            ["voltage_v", "sample_sequence", "sample_age_s"]
-        );
-        assert_eq!(
-            resistance.output_names(),
-            ["resistance_ohm", "sample_sequence", "sample_age_s"]
-        );
-        assert_eq!(voltage.operating_roundtrip_input_size(), INPUT_SIZE);
-        assert_eq!(voltage.operating_roundtrip_output_size(), OUTPUT_SIZE);
-        assert_eq!(
-            voltage.operating_roundtrip_output_size(),
-            resistance.operating_roundtrip_output_size()
-        );
-        let serialized = serde_json::to_string(&resistance).unwrap();
-        let restored: KeithleyDmm6500 = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(restored.output_names()[0], "resistance_ohm");
-    }
-
-    #[test]
     fn thread_channel_name_is_derived_from_model_and_serial() {
         let config = Config::new("localhost", 0x2a);
         let driver = KeithleyDmm6500Driver::new(config).unwrap();
@@ -786,6 +741,18 @@ mod tests {
             assert!(state.value >= 1.5);
             assert!(state.sampled_at.elapsed() < Duration::from_secs(1));
         }
+        let mut bytes = vec![0; OUTPUT_SIZE];
+        driver
+            .shared
+            .write_response(OperatingMetrics::default(), &mut bytes)
+            .unwrap();
+        let peripheral = driver.peripheral();
+        let mut outputs = [0.0; 6];
+        peripheral.parse_operating_roundtrip(&bytes, &mut outputs);
+        assert!(outputs[0] >= 1.5);
+        assert_eq!(outputs[1], 0.0);
+        assert_eq!(outputs[2], 1.0);
+        assert_eq!(outputs[3], 0.0);
         handle.join().unwrap();
         let commands = server.join().unwrap();
 
@@ -841,7 +808,6 @@ mod tests {
             offset_compensation: true,
         };
         let driver = KeithleyDmm6500Driver::new(config).unwrap();
-        assert_eq!(driver.peripheral().output_names()[0], "resistance_ohm");
         let ctx = ControllerCtx::default();
         let mut handle = driver.run(&ctx).unwrap();
         let deadline = Instant::now() + Duration::from_secs(1);
@@ -853,6 +819,18 @@ mod tests {
             thread::sleep(Duration::from_millis(1));
         }
         assert_eq!(driver.shared.state.lock().unwrap().value, 1000.25);
+        let mut bytes = vec![0; OUTPUT_SIZE];
+        driver
+            .shared
+            .write_response(OperatingMetrics::default(), &mut bytes)
+            .unwrap();
+        let peripheral = driver.peripheral();
+        let mut outputs = [0.0; 6];
+        peripheral.parse_operating_roundtrip(&bytes, &mut outputs);
+        assert_eq!(outputs[0], 0.0);
+        assert_eq!(outputs[1], 1000.25);
+        assert_eq!(outputs[2], 0.0);
+        assert_eq!(outputs[3], 1.0);
         handle.join().unwrap();
         let commands = server.join().unwrap();
 

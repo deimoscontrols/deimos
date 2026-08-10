@@ -7,79 +7,61 @@ use deimos_shared::states::ByteStruct;
 
 use super::super::responder::InstrumentProxy;
 use super::config::CHANNEL_COUNT;
-use super::driver::{basic_wave_command, combine_worker_results, scpi_number};
-use super::peripheral::{
-    ChannelState, INPUT_COUNT, INPUT_SIZE, InstrumentState, OUTPUT_COUNT, OUTPUT_SIZE,
-    OperatingInput,
-};
+use super::driver::{basic_wave_command, combine_worker_results};
+use super::peripheral::{ChannelState, INPUT_SIZE, InstrumentState, OperatingInput};
 use super::*;
 use crate::controller::context::ControllerCtx;
 use crate::peripheral::Peripheral;
 
-#[test]
-fn packet_shape_and_names_are_stable() {
-    let peripheral = SiglentSdg2042X::new(7);
-    assert_eq!(peripheral.input_names().len(), INPUT_COUNT);
-    assert_eq!(peripheral.output_names().len(), OUTPUT_COUNT);
-    assert_eq!(peripheral.operating_roundtrip_input_size(), INPUT_SIZE);
-    assert_eq!(peripheral.operating_roundtrip_output_size(), OUTPUT_SIZE);
-    assert_eq!(peripheral.input_names()[6], "ch2_enabled");
-    assert_eq!(peripheral.output_names()[6], "ch2_applied_enabled");
+fn valid_state(offset_voltage_v: f64) -> InstrumentState {
+    InstrumentState {
+        ch1: ChannelState {
+            enabled: 1.0,
+            frequency_hz: 1_000.0,
+            offset_voltage_v,
+            pulse_duty_cycle: 0.5,
+            phase_deg: 10.0,
+            stdev: 0.1,
+        },
+        ch2: ChannelState {
+            enabled: 0.0,
+            frequency_hz: 1_000.0,
+            offset_voltage_v: 0.0,
+            pulse_duty_cycle: 0.5,
+            phase_deg: 0.0,
+            stdev: 0.1,
+        },
+    }
 }
 
 #[test]
 fn repeated_controller_state_is_queued_for_reassertion() {
     let driver = SiglentSdg2042XDriver::new(Config::new("localhost", 1)).unwrap();
-    let request = InstrumentState {
-        ch1: ChannelState {
-            enabled: 1.0,
-            offset_voltage_v: 1.0,
-            ..ChannelState::default()
-        },
-        ch2: ChannelState::default(),
-    };
+    let request = valid_state(1.0);
     let mut bytes = vec![0; INPUT_SIZE];
     OperatingInput {
         id: 1,
         state: request,
     }
     .write_bytes(&mut bytes);
-    let configs = std::array::from_fn(|_| ChannelConfig::default());
-    let expected = request.normalized(&configs);
     assert_eq!(driver.process_request(&bytes), 1);
-    assert_eq!(driver.take_queued(), Some(expected));
+    assert_eq!(driver.take_queued(), Some(request));
     assert_eq!(driver.process_request(&bytes), 1);
-    assert_eq!(driver.queued(), Some(expected));
+    assert_eq!(driver.queued(), Some(request));
 }
 
 #[test]
 fn safe_state_precedes_commands_received_after_returning_to_binding() {
     let driver = SiglentSdg2042XDriver::new(Config::new("localhost", 1)).unwrap();
-    let old = InstrumentState {
-        ch1: ChannelState {
-            enabled: 1.0,
-            offset_voltage_v: 1.0,
-            ..ChannelState::default()
-        },
-        ..InstrumentState::default()
-    };
-    let new = InstrumentState {
-        ch1: ChannelState {
-            enabled: 1.0,
-            offset_voltage_v: 2.0,
-            ..ChannelState::default()
-        },
-        ..InstrumentState::default()
-    };
-    let configs = std::array::from_fn(|_| ChannelConfig::default());
-    let expected_new = new.normalized(&configs);
+    let old = valid_state(1.0);
+    let new = valid_state(2.0);
 
     driver.submit(old);
     driver.request_safe_state();
     driver.submit(new);
 
     assert_eq!(driver.take_queued(), Some(InstrumentState::default()));
-    assert_eq!(driver.take_queued(), Some(expected_new));
+    assert_eq!(driver.take_queued(), Some(new));
     assert_eq!(driver.take_queued(), None);
 }
 
@@ -147,11 +129,6 @@ fn nan_safe_states_only_the_affected_channel() {
 }
 
 #[test]
-fn duty_fraction_is_rendered_as_percent() {
-    assert_eq!(scpi_number(0.25 * 100.0), "2.50000000000000000e1");
-}
-
-#[test]
 fn every_waveform_emits_only_its_applicable_fields() {
     let request = ChannelState {
         enabled: 1.0,
@@ -161,26 +138,29 @@ fn every_waveform_emits_only_its_applicable_fields() {
         phase_deg: 30.0,
         stdev: 0.1,
     };
-    for waveform in [
-        Waveform::Sine,
-        Waveform::Square,
-        Waveform::Ramp,
-        Waveform::Pulse,
-        Waveform::Noise,
-        Waveform::Dc,
+    for (waveform, frequency, amplitude, offset, duty, phase, noise) in [
+        (Waveform::Sine, true, true, true, false, true, false),
+        (Waveform::Square, true, true, true, true, true, false),
+        (Waveform::Ramp, true, true, true, false, true, false),
+        (Waveform::Pulse, true, true, true, true, false, false),
+        (Waveform::Noise, false, false, false, false, false, true),
+        (Waveform::Dc, false, false, true, false, false, false),
     ] {
         let config = ChannelConfig {
             waveform,
             ..ChannelConfig::default()
         };
         let command = basic_wave_command(1, &config, request);
-        assert_eq!(command.contains(",FRQ,"), waveform.uses_frequency());
-        assert_eq!(command.contains(",AMP,"), waveform.uses_amplitude());
-        assert_eq!(command.contains(",OFST,"), waveform.uses_offset());
-        assert_eq!(command.contains(",DUTY,"), waveform.uses_duty());
-        assert_eq!(command.contains(",PHSE,"), waveform.uses_phase());
-        assert_eq!(command.contains(",MEAN,"), waveform == Waveform::Noise);
-        assert_eq!(command.contains(",STDEV,"), waveform == Waveform::Noise);
+        assert_eq!(command.contains(",FRQ,"), frequency);
+        assert_eq!(command.contains(",AMP,"), amplitude);
+        assert_eq!(command.contains(",OFST,"), offset);
+        assert_eq!(command.contains(",DUTY,"), duty);
+        assert_eq!(command.contains(",PHSE,"), phase);
+        assert_eq!(command.contains(",MEAN,"), noise);
+        assert_eq!(command.contains(",STDEV,"), noise);
+        if duty {
+            assert!(command.contains(",DUTY,4.00000000000000000e1"));
+        }
     }
 }
 

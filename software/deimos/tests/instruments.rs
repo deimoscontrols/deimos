@@ -166,6 +166,9 @@ fn controller_runs_configured_instruments_and_both_siglent_channels() {
         prior_sample = Some(sample_sequence);
         if applied_offset == 0.75 && channel_2_applied && sample_sequence >= 2.0 {
             assert!(values["dmm.voltage_v"].is_finite());
+            assert_eq!(values["dmm.resistance_ohm"], 0.0);
+            assert_eq!(values["dmm.voltage_active"], 1.0);
+            assert_eq!(values["dmm.resistance_active"], 0.0);
             assert!(values["dmm.sample_age_s"].is_finite());
             break;
         }
