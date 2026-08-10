@@ -29,6 +29,9 @@ use crate::peripheral::Peripheral;
 
 const SAMPLE_SEQUENCE_OUTPUT: &str = "sample_sequence";
 const SAMPLE_AGE_OUTPUT: &str = "sample_age_s";
+const MINIMUM_LINE_FREQUENCY_HZ: f64 = 50.0;
+const MEASUREMENT_PROCESSING_MARGIN: Duration = Duration::from_millis(250);
+const STARTUP_PROCESSING_MARGIN: Duration = Duration::from_millis(250);
 
 /// Controller request for the latest completed DMM reading.
 #[derive(ByteStruct, Clone, Copy, Debug, Default)]
@@ -122,11 +125,14 @@ impl FunctionKind {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Config {
     /// Shared SCPI/TCP connection, identity, and timeout settings.
+    ///
+    /// `read_timeout` is a lower bound; the driver raises its socket read
+    /// timeout when the configured NPLC and correction modes require longer.
     pub connection: ScpiTcpConfig,
     /// Measurement function and function-specific settings fixed for the run.
     #[serde(default)]
     pub function: Function,
-    /// Integration aperture in power-line cycles.
+    /// Integration aperture in power-line cycles, also used to budget reads.
     pub nplc: f64,
     /// Whether automatic zero correction is enabled.
     pub autozero: bool,
@@ -143,10 +149,8 @@ impl Config {
     ///   An autoranging DC-voltage configuration with one NPLC, autozero
     ///   enabled, and bounded connection and I/O timeouts.
     pub fn new(host: impl Into<String>, serial_number: u64) -> Self {
-        let mut connection = ScpiTcpConfig::new(host, serial_number, "KEITHLEY", "DMM6500");
-        connection.read_timeout = Duration::from_secs(5);
         Self {
-            connection,
+            connection: ScpiTcpConfig::new(host, serial_number, "KEITHLEY", "DMM6500"),
             function: Function::default(),
             nplc: 1.0,
             autozero: true,
@@ -159,6 +163,51 @@ impl Config {
             return Err("nplc must be finite and positive".to_owned());
         }
         self.function.validate()
+    }
+
+    /// Estimate a complete reading using worst-case 50 Hz line timing.
+    fn measurement_read_timeout(&self) -> Duration {
+        let mut aperture_count = if self.autozero { 3 } else { 1 };
+        if matches!(
+            self.function,
+            Function::FourWireResistance {
+                offset_compensation: true,
+                ..
+            }
+        ) {
+            aperture_count *= 2;
+        }
+        let aperture_s = self.nplc * f64::from(aperture_count) / MINIMUM_LINE_FREQUENCY_HZ;
+        let aperture = if aperture_s >= Duration::MAX.as_secs_f64() {
+            Duration::MAX
+        } else {
+            Duration::from_secs_f64(aperture_s)
+        };
+        let estimated = aperture.saturating_add(MEASUREMENT_PROCESSING_MARGIN);
+        self.connection.read_timeout.max(estimated)
+    }
+
+    /// Build socket settings with enough read time for the configured aperture.
+    fn effective_connection(&self) -> ScpiTcpConfig {
+        let mut connection = self.connection.clone();
+        connection.read_timeout = self.measurement_read_timeout();
+        connection
+    }
+
+    /// Budget identity, configuration, and the first complete measurement.
+    fn startup_timeout(&self) -> Duration {
+        let configuration_command_count = match self.function {
+            Function::DcVoltage { .. } => 6,
+            Function::FourWireResistance { .. } => 7,
+        };
+        // `*IDN?` uses the ordinary query budget. `:READ?` contributes one
+        // command write plus its independently calculated measurement time.
+        self.connection.startup_timeout(
+            1,
+            configuration_command_count + 1,
+            self.measurement_read_timeout()
+                .saturating_add(STARTUP_PROCESSING_MARGIN),
+        )
     }
 }
 
@@ -417,7 +466,7 @@ impl KeithleyDmm6500Driver {
             &self.shared.channel_name,
             format!("dmm6500-{}", self.shared.config.connection.serial_number),
             "DMM6500",
-            self.shared.config.connection.startup_timeout(),
+            self.shared.config.startup_timeout(),
             self.shared.clone(),
             move |stop, startup| dmm_worker(shared, stop, startup),
         )
@@ -488,7 +537,8 @@ fn dmm_worker_inner(
     startup: &mpsc::SyncSender<Result<(), String>>,
 ) -> Result<(), String> {
     let config = &shared.config;
-    let mut client = match ScpiClient::connect(&config.connection) {
+    let connection = config.effective_connection();
+    let mut client = match ScpiClient::connect(&connection) {
         Ok(client) => client,
         Err(err) => {
             let _ = startup.send(Err(format!("DMM6500 connection failed: {err}")));

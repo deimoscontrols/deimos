@@ -11,6 +11,8 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 const DEFAULT_MAX_RESPONSE_LEN: usize = 16 * 1024;
+const DEFAULT_READ_TIMEOUT: Duration = Duration::from_millis(250);
+const DEFAULT_WRITE_TIMEOUT: Duration = Duration::from_millis(100);
 
 /// Add the standard raw-SCPI port when the caller supplied only a host.
 ///
@@ -71,7 +73,8 @@ impl ScpiTcpConfig {
     ///   expected_model: Model substring required in `*IDN?`.
     ///
     /// Returns:
-    ///   Settings using SCPI port 5025 and two-second socket timeouts.
+    ///   Settings using SCPI port 5025, a two-second connection timeout, a
+    ///   250-millisecond response timeout, and a 100-millisecond write timeout.
     pub fn new(
         host: impl Into<String>,
         serial_number: u64,
@@ -84,8 +87,8 @@ impl ScpiTcpConfig {
             expected_vendor: expected_vendor.into(),
             expected_model: expected_model.into(),
             connect_timeout: Duration::from_secs(2),
-            read_timeout: Duration::from_secs(2),
-            write_timeout: Duration::from_secs(2),
+            read_timeout: DEFAULT_READ_TIMEOUT,
+            write_timeout: DEFAULT_WRITE_TIMEOUT,
         }
     }
 
@@ -99,8 +102,18 @@ impl ScpiTcpConfig {
         Ok(())
     }
 
-    pub(crate) fn startup_timeout(&self) -> Duration {
-        self.connect_timeout + self.read_timeout + self.write_timeout + Duration::from_secs(1)
+    /// Budget a startup sequence from its sequential SCPI operations.
+    pub(crate) fn startup_timeout(
+        &self,
+        query_count: u32,
+        command_count: u32,
+        additional_time: Duration,
+    ) -> Duration {
+        let query_timeout = self.read_timeout.saturating_add(self.write_timeout);
+        self.connect_timeout
+            .saturating_add(query_timeout.saturating_mul(query_count))
+            .saturating_add(self.write_timeout.saturating_mul(command_count))
+            .saturating_add(additional_time)
     }
 
     pub(crate) fn validate_identity(&self, identity: &str) -> Result<(), String> {

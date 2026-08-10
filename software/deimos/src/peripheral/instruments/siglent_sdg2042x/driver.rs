@@ -10,6 +10,11 @@ use super::config::{CHANNEL_COUNT, ChannelConfig, Config};
 use super::peripheral::{ChannelState, InstrumentState, SiglentSdg2042X};
 
 const SAFE_LOAD: &str = "100000";
+// Identity and safe-state setup perform eleven queries and six additional
+// write-only commands before the responder may start.
+const STARTUP_QUERY_COUNT: u32 = 11;
+const STARTUP_COMMAND_COUNT: u32 = 6;
+const STARTUP_PROCESSING_MARGIN: Duration = Duration::from_millis(250);
 
 /// State shared between the real-time responder and blocking SCPI worker.
 ///
@@ -105,7 +110,11 @@ impl SiglentSdg2042XDriver {
     }
 
     pub(super) fn startup_timeout(&self) -> Duration {
-        self.inner.config.connection.startup_timeout()
+        self.inner.config.connection.startup_timeout(
+            STARTUP_QUERY_COUNT,
+            STARTUP_COMMAND_COUNT,
+            STARTUP_PROCESSING_MARGIN,
+        )
     }
 
     pub(super) fn run_worker(
