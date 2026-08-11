@@ -54,6 +54,7 @@ fn start_siglent() -> (String, thread::JoinHandle<Vec<String>>) {
                 "C1:BSWV?" => writeln!(writer, "{}", waveforms[0]).unwrap(),
                 "C2:BSWV?" => writeln!(writer, "{}", waveforms[1]).unwrap(),
                 "*OPC?" => writer.write_all(b"1\n").unwrap(),
+                "*ESR?" => writer.write_all(b"*ESR 0\n").unwrap(),
                 _ => {}
             }
             commands.push(command);
@@ -82,6 +83,7 @@ fn start_dmm() -> (String, thread::JoinHandle<Vec<String>>) {
                 "*IDN?" => writer
                     .write_all(b"KEITHLEY INSTRUMENTS,DMM6500,FAKE,1.0\n")
                     .unwrap(),
+                ":SYSTem:ERRor:NEXT?" => writer.write_all(b"0,\"No error;0;0 0\"\n").unwrap(),
                 ":READ?" => {
                     thread::sleep(Duration::from_millis(25));
                     writeln!(writer, "{:.6e}", 0.5 + sample as f64 * 0.001).unwrap();

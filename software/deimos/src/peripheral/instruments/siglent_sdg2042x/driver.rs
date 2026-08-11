@@ -10,11 +10,12 @@ use super::config::{CHANNEL_COUNT, ChannelConfig, Config};
 use super::peripheral::{ChannelState, InstrumentState, SiglentSdg2042X};
 
 const SAFE_LOAD: &str = "100000";
-// Identity and safe-state setup perform eleven queries and six additional
+// Identity, safe-state setup, and status validation perform twelve queries and seven additional
 // write-only commands before the responder may start.
-const STARTUP_QUERY_COUNT: u32 = 11;
-const STARTUP_COMMAND_COUNT: u32 = 6;
+const STARTUP_QUERY_COUNT: u32 = 12;
+const STARTUP_COMMAND_COUNT: u32 = 7;
 const STARTUP_PROCESSING_MARGIN: Duration = Duration::from_millis(250);
+const ESR_ERROR_MASK: u8 = 0b0011_1100;
 
 /// State shared between the real-time responder and blocking SCPI worker.
 ///
@@ -269,6 +270,9 @@ pub(super) fn combine_worker_results(
 fn setup_siglent(client: &mut ScpiClient, config: &Config) -> Result<String, String> {
     let identity = client.identify()?;
     config.connection.validate_identity(&identity)?;
+    // The SDG2042X does not expose a documented textual error queue. Clear
+    // stale event status so the final ESR query covers only this setup.
+    client.command("*CLS")?;
     safe_outputs(client)?;
     for (index, channel) in config.channels.iter().enumerate() {
         let number = index + 1;
@@ -277,7 +281,28 @@ fn setup_siglent(client: &mut ScpiClient, config: &Config) -> Result<String, Str
         verify_output_state(client, number, false, &load)?;
         verify_safe_waveform(client, number)?;
     }
+    verify_standard_event_status(client)?;
     Ok(identity)
+}
+
+/// Reject command, execution, device-dependent, and query errors from setup.
+fn verify_standard_event_status(client: &mut ScpiClient) -> Result<(), String> {
+    let response = client.query("*ESR?")?;
+    // SDG firmware commonly prefixes the register value with `*ESR`, while
+    // some revisions return only the decimal value.
+    let value = response
+        .split_ascii_whitespace()
+        .next_back()
+        .ok_or_else(|| "empty SDG2042X *ESR? response".to_owned())?
+        .parse::<u8>()
+        .map_err(|err| format!("invalid SDG2042X *ESR? response `{response}`: {err}"))?;
+    if value & ESR_ERROR_MASK == 0 {
+        Ok(())
+    } else {
+        Err(format!(
+            "SDG2042X setup set SCPI error bits in event status `{response}`"
+        ))
+    }
 }
 
 /// Drive both channels to 0 V DC, then open both output relays.

@@ -185,11 +185,13 @@ impl Config {
             Function::DcVoltage { .. } => 6,
             Function::FourWireResistance { .. } => 7,
         };
-        // `*IDN?` uses the ordinary query budget. `:READ?` contributes one
-        // command write plus its independently calculated measurement time.
+        // `*IDN?` and the startup error-queue check use ordinary query
+        // budgets. `:READ?` contributes one command write plus its
+        // independently calculated measurement time. `*CLS` contributes the
+        // other additional write.
         self.connection.startup_timeout(
-            1,
-            configuration_command_count + 1,
+            2,
+            configuration_command_count + 2,
             self.measurement_read_timeout()
                 .saturating_add(STARTUP_PROCESSING_MARGIN),
         )
@@ -551,6 +553,9 @@ fn dmm_worker_inner(
 fn setup_dmm(client: &mut ScpiClient, config: &Config) -> Result<String, String> {
     let identity = client.identify()?;
     config.connection.validate_identity(&identity)?;
+    // Clear stale status first so the following queue read reports only errors
+    // caused by this driver's configuration sequence.
+    client.command("*CLS")?;
     client.command(":FORMat:DATA ASCii")?;
     client.command(":SENSe:COUNt 1")?;
     match config.function {
@@ -596,7 +601,24 @@ fn setup_dmm(client: &mut ScpiClient, config: &Config) -> Result<String, String>
             client.command(&format!(":SENS:FRES:NPLC {}", scpi_number(config.nplc)))?;
         }
     }
+    verify_error_queue_empty(client)?;
     Ok(identity)
+}
+
+/// Reject an error produced by the startup configuration sequence.
+fn verify_error_queue_empty(client: &mut ScpiClient) -> Result<(), String> {
+    let response = client.query(":SYSTem:ERRor:NEXT?")?;
+    let code = response
+        .split_once(',')
+        .map_or(response.as_str(), |(code, _)| code)
+        .trim()
+        .parse::<i64>()
+        .map_err(|err| format!("invalid DMM6500 error-queue response `{response}`: {err}"))?;
+    if code == 0 {
+        Ok(())
+    } else {
+        Err(format!("DMM6500 configuration error `{response}`"))
+    }
 }
 
 /// Read one numeric measurement.
@@ -663,6 +685,49 @@ mod tests {
     }
 
     #[test]
+    fn startup_rejects_a_queued_configuration_error_before_reading() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(stream.try_clone().unwrap());
+            let mut writer = stream;
+            let mut commands = Vec::new();
+            loop {
+                let mut command = String::new();
+                if reader.read_line(&mut command).unwrap() == 0 {
+                    break;
+                }
+                let command = command.trim_end().to_owned();
+                match command.as_str() {
+                    "*IDN?" => writer
+                        .write_all(b"KEITHLEY INSTRUMENTS,DMM6500,TEST,1.0\n")
+                        .unwrap(),
+                    ":SYSTem:ERRor:NEXT?" => writer
+                        .write_all(b"-222,\"Data out of range;1;2026/08/10 12:00:00\"\n")
+                        .unwrap(),
+                    _ => {}
+                }
+                commands.push(command);
+            }
+            commands
+        });
+
+        let driver = KeithleyDmm6500Driver::new(Config::new(address.to_string(), 4)).unwrap();
+        let error = match driver.run(&ControllerCtx::default()) {
+            Err(error) => error,
+            Ok(mut handle) => {
+                let _ = handle.join();
+                panic!("startup accepted a queued configuration error");
+            }
+        };
+        assert!(error.contains("setup failed"));
+        assert!(error.contains("-222"));
+        let commands = server.join().unwrap();
+        assert!(!commands.iter().any(|command| command == ":READ?"));
+    }
+
+    #[test]
     fn worker_configures_dc_voltage_and_publishes_fresh_samples() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
@@ -682,6 +747,7 @@ mod tests {
                     "*IDN?" => writer
                         .write_all(b"KEITHLEY INSTRUMENTS,DMM6500,TEST,1.0\n")
                         .unwrap(),
+                    ":SYSTem:ERRor:NEXT?" => writer.write_all(b"0,\"No error;0;0 0\"\n").unwrap(),
                     ":READ?" => {
                         thread::sleep(Duration::from_millis(1));
                         writeln!(writer, "{sample}").unwrap();
@@ -770,6 +836,7 @@ mod tests {
                     "*IDN?" => writer
                         .write_all(b"KEITHLEY INSTRUMENTS,DMM6500,TEST,1.0\n")
                         .unwrap(),
+                    ":SYSTem:ERRor:NEXT?" => writer.write_all(b"0,\"No error;0;0 0\"\n").unwrap(),
                     ":READ?" => writer.write_all(b"1000.25\n").unwrap(),
                     _ => {}
                 }

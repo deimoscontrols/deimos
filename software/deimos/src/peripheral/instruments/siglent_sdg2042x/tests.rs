@@ -172,6 +172,7 @@ fn startup_rejects_an_unverified_safe_state() {
                     .write_all(b"Siglent Technologies,SDG2042X,TEST,1.0\n")
                     .unwrap(),
                 "*OPC?" => writer.write_all(b"1\n").unwrap(),
+                "*ESR?" => writer.write_all(b"*ESR 0\n").unwrap(),
                 "C1:BSWV?" => writer
                     .write_all(b"C1:BSWV WVTP,SINE,FRQ,1000HZ,AMP,1V,OFST,0V,PHSE,0\n")
                     .unwrap(),
@@ -199,6 +200,59 @@ fn startup_rejects_an_unverified_safe_state() {
     };
     assert!(error.contains("setup failed"));
     assert!(error.contains("was not 0 V DC"));
+    server.join().unwrap();
+}
+
+#[test]
+fn startup_rejects_scpi_errors_reported_by_the_event_status_register() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        let mut reader = BufReader::new(stream.try_clone().unwrap());
+        let mut writer = stream;
+        let mut waveforms: [String; CHANNEL_COUNT] =
+            std::array::from_fn(|number| format!("C{}:BSWV WVTP,DC,OFST,0V", number + 1));
+        loop {
+            let mut command = String::new();
+            if reader.read_line(&mut command).unwrap() == 0 {
+                break;
+            }
+            let command = command.trim_end().to_owned();
+            for number in 1..=CHANNEL_COUNT {
+                if command.starts_with(&format!("C{number}:BSWV ")) {
+                    waveforms[number - 1] = command.clone();
+                }
+            }
+            match command.as_str() {
+                "*IDN?" => writer
+                    .write_all(b"Siglent Technologies,SDG2042X,TEST,1.0\n")
+                    .unwrap(),
+                "*OPC?" => writer.write_all(b"1\n").unwrap(),
+                "*ESR?" => writer.write_all(b"*ESR 32\n").unwrap(),
+                "C1:BSWV?" => writeln!(writer, "{}", waveforms[0]).unwrap(),
+                "C2:BSWV?" => writeln!(writer, "{}", waveforms[1]).unwrap(),
+                "C1:OUTP?" => writer
+                    .write_all(b"C1:OUTP OFF,LOAD,100000,PLRT,NOR\n")
+                    .unwrap(),
+                "C2:OUTP?" => writer
+                    .write_all(b"C2:OUTP OFF,LOAD,100000,PLRT,NOR\n")
+                    .unwrap(),
+                _ => {}
+            }
+        }
+    });
+
+    let driver = SiglentSdg2042XDriver::new(Config::new(address.to_string(), 2)).unwrap();
+    let error = match driver.run(&ControllerCtx::default()) {
+        Err(error) => error,
+        Ok(mut handle) => {
+            let _ = handle.join();
+            panic!("startup accepted an event-status command error");
+        }
+    };
+    assert!(error.contains("setup failed"));
+    assert!(error.contains("SCPI error bits"));
     server.join().unwrap();
 }
 
@@ -233,6 +287,7 @@ fn shutdown_rejects_an_unverified_safe_state() {
                     .write_all(b"Siglent Technologies,SDG2042X,TEST,1.0\n")
                     .unwrap(),
                 "*OPC?" => writer.write_all(b"1\n").unwrap(),
+                "*ESR?" => writer.write_all(b"*ESR 0\n").unwrap(),
                 "C1:OUTP?" => writer
                     .write_all(b"C1:OUTP OFF,LOAD,100000,PLRT,NOR\n")
                     .unwrap(),
@@ -308,6 +363,7 @@ fn worker_applies_complete_two_channel_state_and_shuts_down_safe() {
                 "C1:BSWV?" => writeln!(writer, "{}", waveforms[0]).unwrap(),
                 "C2:BSWV?" => writeln!(writer, "{}", waveforms[1]).unwrap(),
                 "*OPC?" => writer.write_all(b"1\n").unwrap(),
+                "*ESR?" => writer.write_all(b"*ESR 0\n").unwrap(),
                 _ => {}
             }
             commands.push(command);
