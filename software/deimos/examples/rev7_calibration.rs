@@ -2,7 +2,8 @@
 //!
 //! This module collects and postprocesses rev7 calibration runs for its analog
 //! inputs and DAC outputs. The 0-2.5 V inputs use their paired DAC as a source
-//! and a DMM6500 as the independent reference.
+//! and a DMM6500 as the independent reference. The other voltage inputs use an
+//! SDG2042X as the source and the DMM6500 as the reference.
 //!
 //! # References
 //!
@@ -41,14 +42,14 @@ use deimos_shared::states::{ByteStruct, ByteStructLen};
 use deimos::peripheral::{
     DeimosDaqRev7,
     deimos_daq_rev7::{CalRecord, CalRecordCore, LinearCal},
-    instruments::keithley_dmm6500,
+    instruments::{keithley_dmm6500, siglent_sdg2042x},
 };
 use serde::{Deserialize, Serialize};
 use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 const MODEL_NAME: &str = "deimos_daq_rev7";
 const PROCEDURE_NAME: &str = "deimos_daq_rev7_calibration";
-const PROCEDURE_VERSION: u16 = 2;
+const PROCEDURE_VERSION: u16 = 3;
 const PERIPHERAL_NAME: &str = "p1";
 const RATE_HZ: f64 = 100.0;
 const REPORTING_MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(239, 255, 0, 1);
@@ -62,31 +63,31 @@ const MIN_STEP_DURATION_S: f64 = 2.5;
 const CAPTURE_SECONDS: u64 = 90;
 const REFERENCE_RESISTOR_OHM: f64 = 75.0;
 const FLUKE_707_CURRENT_ACCURACY_A: f64 = REFERENCE_MAX_A * 0.015 / 100.0 + 2.0e-6;
-const FLUKE_707_VOLTAGE_ACCURACY_READING_FRAC: f64 = 0.015 / 100.0;
-const FLUKE_707_VOLTAGE_ACCURACY_V: f64 = 2.0e-3;
 const VOLTAGE_FIT_ORDER: usize = 1;
 const VOLTAGE_HOLD_SECONDS: f64 = 5.0;
 const MIN_VOLTAGE_HOLD_DURATION_S: f64 = 2.0;
 const VOLTAGE_CAPTURE_SECONDS: u64 = 300;
-const VOLTAGE_0_15V_MAX_V: f64 = 15.0;
+const VOLTAGE_0_15V_CALIBRATION_MAX_V: f64 = 10.0;
 const DAC_2V5_TARGETS_V: [f64; 6] = [0.02, 0.5, 1.0, 1.5, 2.0, 2.45];
 const DAC_HOLD_SECONDS: f64 = 2.0;
 const MIN_DAC_HOLD_DURATION_S: f64 = 1.5;
 const DAC_CAPTURE_SECONDS: u64 = 30;
+const DEFAULT_SIGLENT_HOST: &str = "192.168.10.169";
 const DEFAULT_DMM_HOST: &str = "192.168.10.213";
+const SIGLENT_NAME: &str = "siglent";
+const SIGLENT_LOGICAL_SERIAL_NUMBER: u64 = 1;
 const DMM_NAME: &str = "dmm";
 const DMM_LOGICAL_SERIAL_NUMBER: u64 = 1;
-const DMM_VOLTAGE_RANGE: keithley_dmm6500::DcVoltageRange =
-    keithley_dmm6500::DcVoltageRange::Volts10;
+const DMM_10V_RANGE: keithley_dmm6500::DcVoltageRange = keithley_dmm6500::DcVoltageRange::Volts10;
 const DMM_ACCURACY_INTERVAL: keithley_dmm6500::AccuracyInterval =
     keithley_dmm6500::AccuracyInterval::OneYear;
 const VOLTAGE_0_15V_HOLDS_V: [f64; 4] = [
     0.0,
-    VOLTAGE_0_15V_MAX_V / 3.0,
-    2.0 * VOLTAGE_0_15V_MAX_V / 3.0,
-    VOLTAGE_0_15V_MAX_V,
+    VOLTAGE_0_15V_CALIBRATION_MAX_V / 3.0,
+    2.0 * VOLTAGE_0_15V_CALIBRATION_MAX_V / 3.0,
+    VOLTAGE_0_15V_CALIBRATION_MAX_V,
 ];
-const VOLTAGE_X26_HOLDS_V: [f64; 5] = [-0.035, -0.035 / 2.0, 0.0, 0.055 / 2.0, 0.055];
+const VOLTAGE_X26_HOLDS_V: [f64; 6] = [-0.035, -0.017, 0.0, 0.017, 0.035, 0.054];
 
 const ZERO_C_K: f64 = 273.15;
 const RTD_MIN_REFERENCE_K: f64 = ZERO_C_K - 200.0;
@@ -131,6 +132,7 @@ const DEFAULT_SERIAL_NUMBER: u64 = 2;
 
 struct Args {
     sn: u64,
+    siglent_host: String,
     dmm_host: String,
     collect: bool,
     process: bool,
@@ -139,17 +141,19 @@ struct Args {
 
 fn main() -> Result<(), String> {
     let args = parse_args()?;
-    run_procedure_with_dmm(
+    run_procedure_with_instruments(
         args.sn,
         args.collect,
         args.process,
         &args.dst,
+        &args.siglent_host,
         &args.dmm_host,
     )
 }
 
 fn parse_args() -> Result<Args, String> {
     let mut sn = DEFAULT_SERIAL_NUMBER;
+    let mut siglent_host = DEFAULT_SIGLENT_HOST.to_owned();
     let mut dmm_host = DEFAULT_DMM_HOST.to_owned();
     let mut mode = Mode::CollectAndProcess;
     let mut dst = None;
@@ -164,6 +168,10 @@ fn parse_args() -> Result<Args, String> {
             sn = value
                 .parse::<u64>()
                 .map_err(|e| format!("Expected integer serial number after --sn: {e}"))?;
+        } else if arg == "--siglent-host" {
+            siglent_host = args
+                .next()
+                .ok_or_else(|| "Missing value after --siglent-host".to_owned())?;
         } else if arg == "--dmm-host" {
             dmm_host = args
                 .next()
@@ -193,6 +201,7 @@ fn parse_args() -> Result<Args, String> {
 
     Ok(Args {
         sn,
+        siglent_host,
         dmm_host,
         collect: mode.collect(),
         process: mode.process(),
@@ -226,7 +235,7 @@ fn default_calibration_dir(sn: u64) -> PathBuf {
 }
 
 fn usage() -> String {
-    "Usage:\n  rev7_calibration [--sn <serial>] [--dmm-host <host>] [<dst>]\n  rev7_calibration [--sn <serial>] [--dmm-host <host>] collect [<dst>]\n  rev7_calibration [--sn <serial>] process [<dst>]".to_owned()
+    "Usage:\n  rev7_calibration [--sn <serial>] [--siglent-host <host>] [--dmm-host <host>] [<dst>]\n  rev7_calibration [--sn <serial>] [--siglent-host <host>] [--dmm-host <host>] collect [<dst>]\n  rev7_calibration [--sn <serial>] process [<dst>]".to_owned()
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -466,27 +475,25 @@ impl CalibrationChannel {
 
     fn error_accuracy_limit_at_reference(self, reference: f64) -> f64 {
         match self.kind {
-            CalibrationKind::Voltage if self.dac_index().is_some() => {
-                keithley_dmm6500::dc_voltage_accuracy_v(
-                    reference,
-                    DMM_VOLTAGE_RANGE,
-                    DMM_ACCURACY_INTERVAL,
-                )
-            }
-            CalibrationKind::Voltage => fluke_707_voltage_accuracy_v(reference),
+            CalibrationKind::Voltage => keithley_dmm6500::dc_voltage_accuracy_v(
+                reference,
+                self.dmm_voltage_range()
+                    .expect("voltage channels have a DMM range"),
+                DMM_ACCURACY_INTERVAL,
+            ),
             _ => self.error_accuracy_limit(),
         }
     }
 
     fn error_accuracy_label(self) -> &'static str {
-        if self.dac_index().is_some() {
-            return "Keithley DMM6500 one-year accuracy (10 V range, Tcal ±5°C)";
+        if matches!(self.kind, CalibrationKind::Voltage) {
+            return self.dmm_accuracy_label();
         }
         match self.kind {
             CalibrationKind::Current4To20 => "Fluke 707 accuracy",
             CalibrationKind::Rtd => "VA720 accuracy",
             CalibrationKind::Thermocouple => "VA710 approximate accuracy",
-            CalibrationKind::Voltage => "Fluke 707 voltage accuracy",
+            CalibrationKind::Voltage => unreachable!(),
         }
     }
 
@@ -556,35 +563,29 @@ impl CalibrationChannel {
 
     fn residual_accuracy_limit_at_reference(self, reference: f64) -> f64 {
         match self.kind {
-            CalibrationKind::Voltage if self.dac_index().is_some() => {
-                keithley_dmm6500::dc_voltage_accuracy_v(
-                    reference,
-                    DMM_VOLTAGE_RANGE,
-                    DMM_ACCURACY_INTERVAL,
-                )
-            }
-            CalibrationKind::Voltage => fluke_707_voltage_accuracy_v(reference),
+            CalibrationKind::Voltage => keithley_dmm6500::dc_voltage_accuracy_v(
+                reference,
+                self.dmm_voltage_range()
+                    .expect("voltage channels have a DMM range"),
+                DMM_ACCURACY_INTERVAL,
+            ),
             _ => self.residual_accuracy_limit(),
         }
     }
 
     fn residual_accuracy_label(self) -> &'static str {
-        if self.dac_index().is_some() {
-            return "Keithley DMM6500 one-year accuracy (10 V range, Tcal ±5°C)";
+        if matches!(self.kind, CalibrationKind::Voltage) {
+            return self.dmm_accuracy_label();
         }
         match self.kind {
             CalibrationKind::Current4To20 => "Fluke 707 accuracy",
             CalibrationKind::Rtd => "VA720 accuracy",
             CalibrationKind::Thermocouple => "VA710 approximate accuracy",
-            CalibrationKind::Voltage => "Fluke 707 voltage accuracy",
+            CalibrationKind::Voltage => unreachable!(),
         }
     }
 
-    /// Returns the ordered manual calibration targets for a voltage channel.
-    ///
-    /// Returns:
-    ///     Target signal-generator voltages [V, shape: (n_holds,)], or `None`
-    ///     when this is not a voltage channel.
+    /// Return the ordered source targets for a voltage channel.
     fn voltage_reference_targets_v(self) -> Option<&'static [f64]> {
         match self.slug {
             "0_2V5_0" | "0_2V5_1" => Some(&DAC_2V5_TARGETS_V),
@@ -603,6 +604,28 @@ impl CalibrationChannel {
             "0_2V5_0" => Some(0),
             "0_2V5_1" => Some(1),
             _ => None,
+        }
+    }
+
+    fn uses_siglent(self) -> bool {
+        matches!(self.kind, CalibrationKind::Voltage) && self.dac_index().is_none()
+    }
+
+    fn dmm_voltage_range(self) -> Option<keithley_dmm6500::DcVoltageRange> {
+        match self.slug {
+            "0_2V5_0" | "0_2V5_1" | "0_15V_0" | "0_15V_1" => Some(DMM_10V_RANGE),
+            "x26_0" | "x26_1" => Some(keithley_dmm6500::DcVoltageRange::Millivolts100),
+            _ => None,
+        }
+    }
+
+    fn dmm_accuracy_label(self) -> &'static str {
+        match self.dmm_voltage_range() {
+            Some(keithley_dmm6500::DcVoltageRange::Millivolts100) => {
+                "Keithley DMM6500 one-year accuracy (100 mV range, Tcal ±5°C)"
+            }
+            Some(DMM_10V_RANGE) => "Keithley DMM6500 one-year accuracy (10 V range, Tcal ±5°C)",
+            _ => unreachable!("unsupported DMM range for voltage channel"),
         }
     }
 }
@@ -912,14 +935,22 @@ pub fn run_procedure(
     process: bool,
     dst: impl AsRef<Path>,
 ) -> Result<(), String> {
-    run_procedure_with_dmm(sn, collect, process, dst, DEFAULT_DMM_HOST)
+    run_procedure_with_instruments(
+        sn,
+        collect,
+        process,
+        dst,
+        DEFAULT_SIGLENT_HOST,
+        DEFAULT_DMM_HOST,
+    )
 }
 
-fn run_procedure_with_dmm(
+fn run_procedure_with_instruments(
     sn: u64,
     collect: bool,
     process: bool,
     dst: impl AsRef<Path>,
+    siglent_host: &str,
     dmm_host: &str,
 ) -> Result<(), String> {
     let dst = dst.as_ref();
@@ -927,7 +958,7 @@ fn run_procedure_with_dmm(
     match (collect, process) {
         (true, true) => {
             create_dir_all(dst).map_err(|e| format!("Failed to create {}: {e}", dst.display()))?;
-            let paths = collect_all_channels(sn, dst, true, dmm_host)?;
+            let paths = collect_all_channels(sn, dst, true, siglent_host, dmm_host)?;
             println!(
                 "Collected and processed {} raw calibration run files.",
                 paths.len()
@@ -935,7 +966,7 @@ fn run_procedure_with_dmm(
         }
         (true, false) => {
             create_dir_all(dst).map_err(|e| format!("Failed to create {}: {e}", dst.display()))?;
-            let paths = collect_all_channels(sn, dst, false, dmm_host)?;
+            let paths = collect_all_channels(sn, dst, false, siglent_host, dmm_host)?;
             println!("Collected {} raw calibration run files.", paths.len());
             for path in paths {
                 println!("  {}", path.display());
@@ -957,6 +988,7 @@ fn collect_all_channels(
     sn: u64,
     output_root: &Path,
     process_after_each_run: bool,
+    siglent_host: &str,
     dmm_host: &str,
 ) -> Result<Vec<PathBuf>, String> {
     println!("Rev7 calibration collection");
@@ -970,7 +1002,7 @@ fn collect_all_channels(
         "Thermocouple channels use a VA710 simulator with manual holds stepping from -200 C to +1370 C and back down to -200 C during the recording. Below -100 C, hold only at -200 C and -150 C on both ramps; do not stop at intermediate temperatures because doing so can contaminate the widened low-temperature hold data. From -100 C upward, target 50 K increments through +100 C and 100 K increments above +100 C. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
-        "Each 0-2.5 V channel uses its paired DAC and the DMM6500 at {dmm_host} for six 2 s holds ascending and descending. The 0-15 V channels use four manually measured signal-generator holds. Each 25.7x channel uses five holds over -0.035 V to +0.055 V."
+        "Each 0-2.5 V channel uses its paired DAC and the DMM6500 at {dmm_host} for six 2 s holds ascending and descending. The 0-15 V and 25.7x channels use the SDG2042X at {siglent_host} as the source and the DMM6500 as the reference. The 0-15 V calibration covers 0-10 V; each 25.7x channel uses holds at -0.035, -0.017, 0, 0.017, 0.035, and 0.054 V."
     );
     println!(
         "Monitor live channels with: cargo run -p deimos_console -- --config {CONSOLE_CONFIG_PATH}"
@@ -994,6 +1026,7 @@ fn collect_all_channels(
             output_root,
             channel,
             calibrator_cold_junction_temperature_k,
+            siglent_host,
             dmm_host,
         )?;
         let summary_dir = raw_path
@@ -1024,6 +1057,11 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
     if let Some(dac_index) = channel.dac_index() {
         println!(
             "Connect DAC{dac_index}, {}, and the Keithley DMM6500 together.",
+            channel.label
+        );
+    } else if channel.uses_siglent() {
+        println!(
+            "Connect Siglent channel 1, {}, and the Keithley DMM6500 together.",
             channel.label
         );
     } else {
@@ -1081,11 +1119,11 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
                 );
             } else if matches!(channel.slug, "x26_0" | "x26_1") {
                 println!(
-                    "Connect the signal generator to this 25.7x input and measure it with the Fluke 707. This run uses five holds over -0.035 V to +0.055 V: -0.035, -0.0175 (-0.035/2), 0.0, +0.0275 (+0.055/2), and +0.055 V."
+                    "The Siglent will command six 5 s holds at -0.035, -0.017, 0, 0.017, 0.035, and 0.054 V. The Keithley reading is the input calibration reference."
                 );
             } else {
                 println!(
-                    "Connect the signal generator to this input and measure it with the Fluke 707. This run will prompt for {} target holds from {:.6} V to {:.6} V.",
+                    "The Siglent will command {} 5 s holds from {:.6} V to {:.6} V. The Keithley reading is the input calibration reference.",
                     targets_v.len(),
                     targets_v[0],
                     targets_v[targets_v.len() - 1],
@@ -1118,6 +1156,7 @@ fn run_channel_capture(
     output_root: &Path,
     channel: CalibrationChannel,
     calibrator_cold_junction_temperature_k: Option<f64>,
+    siglent_host: &str,
     dmm_host: &str,
 ) -> Result<PathBuf, String> {
     let op_name = op_name_for_channel(sn, channel)?;
@@ -1130,12 +1169,35 @@ fn run_channel_capture(
         PERIPHERAL_NAME,
         Box::new(DeimosDaqRev7 { serial_number: sn }),
     )?;
-    let mut dmm_handle = if channel.dac_index().is_some() {
+    let mut siglent_handle = if channel.uses_siglent() {
+        let targets_v = channel
+            .voltage_reference_targets_v()
+            .expect("Siglent channels have voltage targets");
+        let mut config = siglent_sdg2042x::Config::new(siglent_host, SIGLENT_LOGICAL_SERIAL_NUMBER);
+        config.channels[0].waveform = siglent_sdg2042x::Waveform::Dc;
+        config.channels[0].offset_voltage_v = (targets_v[0], targets_v[targets_v.len() - 1]);
+        Some(siglent_sdg2042x::attach(
+            SIGLENT_NAME,
+            config,
+            &mut controller,
+        )?)
+    } else {
+        None
+    };
+    let mut dmm_handle = if let Some(range) = channel.dmm_voltage_range() {
         let mut config = keithley_dmm6500::Config::new(dmm_host, DMM_LOGICAL_SERIAL_NUMBER);
         config.function = keithley_dmm6500::Function::DcVoltage {
-            range_v: Some(DMM_VOLTAGE_RANGE.full_scale_v()),
+            range_v: Some(range.full_scale_v()),
         };
-        Some(keithley_dmm6500::attach(DMM_NAME, config, &mut controller)?)
+        match keithley_dmm6500::attach(DMM_NAME, config, &mut controller) {
+            Ok(handle) => Some(handle),
+            Err(err) => {
+                if let Some(handle) = &mut siglent_handle {
+                    let _ = handle.join();
+                }
+                return Err(err);
+            }
+        }
     } else {
         None
     };
@@ -1155,6 +1217,9 @@ fn run_channel_capture(
     let mut run_handle = match controller.run_nonblocking(None, None, true) {
         Ok(handle) => handle,
         Err(err) => {
+            if let Some(handle) = &mut siglent_handle {
+                let _ = handle.join();
+            }
             if let Some(handle) = &mut dmm_handle {
                 let _ = handle.join();
             }
@@ -1164,8 +1229,10 @@ fn run_channel_capture(
     let run_start = Instant::now();
     let capture_result = if channel.dac_index().is_some() {
         collect_dac_reference_windows(&run_handle, channel, run_start)
+    } else if channel.uses_siglent() {
+        collect_siglent_reference_windows(&run_handle, channel, run_start)
     } else if matches!(channel.kind, CalibrationKind::Voltage) {
-        collect_voltage_reference_windows(channel, run_start)
+        unreachable!("every voltage channel has an automated source")
     } else {
         println!(
             "Recording {} for up to {} seconds. Perform the calibration stepping now. Press Enter to stop this run early.",
@@ -1182,9 +1249,13 @@ fn run_channel_capture(
         run_handle.stop();
     }
     let controller_result = run_handle.join();
+    let siglent_result = siglent_handle
+        .as_mut()
+        .map_or(Ok(()), |handle| handle.join());
     let dmm_result = dmm_handle.as_mut().map_or(Ok(()), |handle| handle.join());
     let manual_reference_windows = capture_result?;
     let stop_reason = controller_result?;
+    siglent_result?;
     dmm_result?;
     println!("Stopped {}: {stop_reason}", channel.label);
 
@@ -1211,7 +1282,8 @@ fn run_channel_capture(
     Ok(raw_zip_path)
 }
 
-fn collect_voltage_reference_windows(
+fn collect_siglent_reference_windows(
+    run_handle: &RunHandle,
     channel: CalibrationChannel,
     run_start: Instant,
 ) -> Result<Vec<ManualReferenceWindow>, String> {
@@ -1220,32 +1292,30 @@ fn collect_voltage_reference_windows(
         .ok_or_else(|| format!("Missing voltage reference targets for {}", channel.label))?;
     let mut windows = Vec::with_capacity(targets_v.len());
 
-    for (hold_idx, target_v) in targets_v.iter().copied().enumerate() {
-        println!(
-            "Hold {}/{} for {}: tune the signal generator to about {:.6} V. When stable, enter the Fluke 707 measured voltage in V and press Enter.",
-            hold_idx + 1,
-            targets_v.len(),
-            channel.label,
-            target_v,
-        );
-        let line = read_operator_line()?;
-        let reference_a = line.trim().parse::<f64>().map_err(|e| {
-            format!(
-                "Expected Fluke voltage in V for {}, got '{}': {e}",
-                channel.label,
-                line.trim()
-            )
-        })?;
+    for (hold_index, command_v) in targets_v.iter().copied().enumerate() {
+        run_handle.write(HashMap::from([
+            (format!("{SIGLENT_NAME}.ch1_enabled"), 1.0),
+            (format!("{SIGLENT_NAME}.ch1_offset_voltage_v"), command_v),
+        ]))?;
+        wait_for_siglent_applied(run_handle, command_v)?;
         let start_time_s = run_start.elapsed().as_secs_f64();
-        println!(
-            "Recording hold {}/{} for {:.1} s at reference {:.9} V.",
-            hold_idx + 1,
-            targets_v.len(),
+        let context = format!("Siglent hold {} at {command_v:.6} V", hold_index + 1);
+        let (reference_a, sample_count) = collect_dmm_reference(
+            run_handle,
             VOLTAGE_HOLD_SECONDS,
-            reference_a,
-        );
-        sleep(Duration::from_secs_f64(VOLTAGE_HOLD_SECONDS));
+            |values| {
+                values.get(&format!("{SIGLENT_NAME}.ch1_applied_enabled")) == Some(&1.0)
+                    && values.get(&format!("{SIGLENT_NAME}.ch1_applied_offset_voltage_v"))
+                        == Some(&command_v)
+            },
+            &context,
+        )?;
         let stop_time_s = run_start.elapsed().as_secs_f64();
+        println!(
+            "Siglent hold {}/{}: command={command_v:.6} V, Keithley mean={reference_a:.9} V from {sample_count} samples",
+            hold_index + 1,
+            targets_v.len(),
+        );
         windows.push(ManualReferenceWindow {
             reference_a,
             dac_command_v: None,
@@ -1255,6 +1325,87 @@ fn collect_voltage_reference_windows(
     }
 
     Ok(windows)
+}
+
+fn wait_for_siglent_applied(run_handle: &RunHandle, command_v: f64) -> Result<(), String> {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        if !run_handle.is_running() {
+            return Err(format!(
+                "controller stopped while applying Siglent {command_v:.6} V hold"
+            ));
+        }
+        let values = run_handle.read().values;
+        if values.get(&format!("{SIGLENT_NAME}.ch1_applied_enabled")) == Some(&1.0)
+            && values.get(&format!("{SIGLENT_NAME}.ch1_applied_offset_voltage_v"))
+                == Some(&command_v)
+        {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            return Err(format!(
+                "timed out waiting for Siglent to apply {command_v:.6} V"
+            ));
+        }
+        sleep(Duration::from_millis(5));
+    }
+}
+
+fn collect_dmm_reference(
+    run_handle: &RunHandle,
+    hold_seconds: f64,
+    source_is_applied: impl Fn(&HashMap<String, f64>) -> bool,
+    context: &str,
+) -> Result<(f64, usize), String> {
+    let hold_start = Instant::now();
+    let accept_start = Duration::from_secs_f64(0.25 * hold_seconds);
+    let accept_stop = Duration::from_secs_f64(0.75 * hold_seconds);
+    let hold_duration = Duration::from_secs_f64(hold_seconds);
+    let mut last_sequence = run_handle
+        .read()
+        .values
+        .get(&format!("{DMM_NAME}.sample_sequence"))
+        .copied()
+        .unwrap_or_default();
+    let mut samples = Vec::new();
+
+    while hold_start.elapsed() < hold_duration {
+        if !run_handle.is_running() {
+            return Err(format!("controller stopped during {context}"));
+        }
+        let snapshot = run_handle.read();
+        let sample_sequence = snapshot
+            .values
+            .get(&format!("{DMM_NAME}.sample_sequence"))
+            .copied()
+            .unwrap_or_default();
+        if sample_sequence > last_sequence {
+            let elapsed = hold_start.elapsed();
+            if elapsed >= accept_start
+                && elapsed <= accept_stop
+                && source_is_applied(&snapshot.values)
+                && snapshot.values.get(&format!("{DMM_NAME}.voltage_active")) == Some(&1.0)
+                && snapshot
+                    .values
+                    .get(&format!("{DMM_NAME}.sample_age_s"))
+                    .is_some_and(|age| *age < 0.5)
+                && let Some(&voltage_v) = snapshot.values.get(&format!("{DMM_NAME}.voltage_v"))
+                && voltage_v.is_finite()
+            {
+                samples.push(voltage_v);
+            }
+            last_sequence = sample_sequence;
+        }
+        sleep(Duration::from_millis(5));
+    }
+
+    if samples.is_empty() {
+        return Err(format!("{context} produced no fresh Keithley samples"));
+    }
+    Ok((
+        samples.iter().sum::<f64>() / samples.len() as f64,
+        samples.len(),
+    ))
 }
 
 fn collect_dac_reference_windows(
@@ -1274,63 +1425,15 @@ fn collect_dac_reference_windows(
             command_v,
         )]))?;
         let start_time_s = run_start.elapsed().as_secs_f64();
-        let hold_start = Instant::now();
-        let accept_start = Duration::from_secs_f64(0.25 * DAC_HOLD_SECONDS);
-        let accept_stop = Duration::from_secs_f64(0.75 * DAC_HOLD_SECONDS);
-        let hold_duration = Duration::from_secs_f64(DAC_HOLD_SECONDS);
-        let initial = run_handle.read();
-        let mut last_sequence = initial
-            .values
-            .get(&format!("{DMM_NAME}.sample_sequence"))
-            .copied()
-            .unwrap_or_default();
-        let mut dmm_samples = Vec::new();
-
-        while hold_start.elapsed() < hold_duration {
-            if !run_handle.is_running() {
-                return Err(format!(
-                    "controller stopped during DAC{dac_index} hold {}",
-                    hold_index + 1
-                ));
-            }
-            let snapshot = run_handle.read();
-            let sample_sequence = snapshot
-                .values
-                .get(&format!("{DMM_NAME}.sample_sequence"))
-                .copied()
-                .unwrap_or_default();
-            if sample_sequence > last_sequence {
-                let elapsed = hold_start.elapsed();
-                if elapsed >= accept_start
-                    && elapsed <= accept_stop
-                    && snapshot.values.get(&format!("{DMM_NAME}.voltage_active")) == Some(&1.0)
-                    && snapshot
-                        .values
-                        .get(&format!("{DMM_NAME}.sample_age_s"))
-                        .is_some_and(|age| *age < 0.5)
-                    && let Some(&voltage_v) = snapshot.values.get(&format!("{DMM_NAME}.voltage_v"))
-                    && voltage_v.is_finite()
-                {
-                    dmm_samples.push(voltage_v);
-                }
-                last_sequence = sample_sequence;
-            }
-            sleep(Duration::from_millis(5));
-        }
-
-        if dmm_samples.is_empty() {
-            return Err(format!(
-                "DAC{dac_index} hold {} at {command_v:.6} V produced no fresh Keithley samples",
-                hold_index + 1
-            ));
-        }
-        let reference_a = dmm_samples.iter().sum::<f64>() / dmm_samples.len() as f64;
+        let context = format!("DAC{dac_index} hold {} at {command_v:.6} V", hold_index + 1);
+        let (reference_a, sample_count) =
+            collect_dmm_reference(run_handle, DAC_HOLD_SECONDS, |_| true, &context)?;
         let stop_time_s = run_start.elapsed().as_secs_f64();
         println!(
             "DAC{dac_index} hold {}/{}: command={command_v:.6} V, Keithley mean={reference_a:.9} V from {} samples",
             hold_index + 1,
             sequence.len(),
-            dmm_samples.len()
+            sample_count
         );
         windows.push(ManualReferenceWindow {
             reference_a,
@@ -2255,7 +2358,7 @@ fn fit_expected_value(
         CalibrationKind::Current4To20 => fit_current_voltage(samples),
         CalibrationKind::Rtd => fit_rtd_voltage_from_temperature_error(samples),
         CalibrationKind::Thermocouple => fit_thermocouple_voltage(samples),
-        CalibrationKind::Voltage => fit_voltage(samples, segments, channel.dac_index().is_none()),
+        CalibrationKind::Voltage => fit_voltage(samples, segments, channel),
     }
 }
 
@@ -2284,14 +2387,16 @@ fn fit_current_voltage(samples: &[ErrorSample]) -> Result<VoltageFit, String> {
 fn fit_voltage(
     samples: &[ErrorSample],
     segments: &[StepSegment],
-    allow_identity: bool,
+    channel: CalibrationChannel,
 ) -> Result<VoltageFit, String> {
     let points = samples
         .iter()
         .map(|sample| (sample.measured_a, sample.reference_a))
         .collect::<Vec<_>>();
 
-    if allow_identity && voltage_hold_means_within_calibrator_accuracy(samples, segments) {
+    if channel.dac_index().is_none()
+        && voltage_hold_means_within_calibrator_accuracy(samples, segments, channel)
+    {
         return Ok(identity_voltage_fit(&points));
     }
 
@@ -2329,6 +2434,7 @@ fn fit_dac_transfer(points: &[(f64, f64)]) -> Result<VoltageFit, String> {
 fn voltage_hold_means_within_calibrator_accuracy(
     samples: &[ErrorSample],
     segments: &[StepSegment],
+    channel: CalibrationChannel,
 ) -> bool {
     let mut sample_offset = 0;
 
@@ -2348,7 +2454,7 @@ fn voltage_hold_means_within_calibrator_accuracy(
             .map(|sample| sample.measured_a)
             .sum::<f64>()
             / hold_samples.len() as f64;
-        let accuracy_v = fluke_707_voltage_accuracy_v(segment.reference_a);
+        let accuracy_v = channel.error_accuracy_limit_at_reference(segment.reference_a);
 
         if (mean_measured_v - segment.reference_a).abs() > accuracy_v {
             return false;
@@ -2726,7 +2832,7 @@ fn no_segments_error(capture: &ChannelCapture) -> String {
             capture.channel.label,
         ),
         CalibrationKind::Voltage => format!(
-            "No manual voltage reference holds found for {}. The CSV must contain reference_a values from the voltage hold prompts.",
+            "No Siglent/Keithley reference holds found for {}.",
             capture.channel.label,
         ),
     }
@@ -2814,10 +2920,6 @@ fn rtd_voltage_from_temperature_k(temperature_k: f64) -> f64 {
 fn rtd_temperature_from_voltage_v(voltage_v: f64) -> f64 {
     let resistance_ohm = voltage_v / RTD_REFERENCE_CURRENT_A;
     pt100_temp_k(resistance_ohm)
-}
-
-fn fluke_707_voltage_accuracy_v(reading_v: f64) -> f64 {
-    FLUKE_707_VOLTAGE_ACCURACY_READING_FRAC * reading_v.abs() + FLUKE_707_VOLTAGE_ACCURACY_V
 }
 
 fn accuracy_band_xy(
@@ -3088,7 +3190,7 @@ fn dac_plot_fragments(fit: Option<&VoltageFit>) -> Result<(String, String), Stri
     let (accuracy_x, accuracy_y_v) = accuracy_band_xy(line_x[0], line_x[1], |command_v| {
         keithley_dmm6500::dc_voltage_accuracy_v(
             polyval(command_v, &fit.coefficients),
-            DMM_VOLTAGE_RANGE,
+            DMM_10V_RANGE,
             DMM_ACCURACY_INTERVAL,
         )
     });
@@ -3834,21 +3936,30 @@ mod tests {
     }
 
     #[test]
-    fn x26_voltage_holds_cover_the_range_origin_and_half_ranges() {
+    fn siglent_voltage_holds_cover_requested_calibration_ranges() {
         for slug in ["x26_0", "x26_1"] {
             let channel = channel_for_slug(slug).expect("x26 calibration channel");
             assert_eq!(
                 channel.voltage_reference_targets_v(),
                 Some(VOLTAGE_X26_HOLDS_V.as_slice()),
             );
+            assert!(channel.uses_siglent());
+            assert_eq!(
+                channel.dmm_voltage_range(),
+                Some(keithley_dmm6500::DcVoltageRange::Millivolts100),
+            );
         }
 
-        assert_eq!(VOLTAGE_X26_HOLDS_V.len(), 5);
-        assert_eq!(VOLTAGE_X26_HOLDS_V[0], -0.035);
-        assert_eq!(VOLTAGE_X26_HOLDS_V[1], VOLTAGE_X26_HOLDS_V[0] / 2.0);
-        assert_eq!(VOLTAGE_X26_HOLDS_V[2], 0.0);
-        assert_eq!(VOLTAGE_X26_HOLDS_V[3], VOLTAGE_X26_HOLDS_V[4] / 2.0);
-        assert_eq!(VOLTAGE_X26_HOLDS_V[4], 0.055);
+        assert_eq!(
+            VOLTAGE_X26_HOLDS_V,
+            [-0.035, -0.017, 0.0, 0.017, 0.035, 0.054],
+        );
+        assert_eq!(VOLTAGE_0_15V_HOLDS_V, [0.0, 10.0 / 3.0, 20.0 / 3.0, 10.0],);
+        for slug in ["0_15V_0", "0_15V_1"] {
+            let channel = channel_for_slug(slug).expect("15 V calibration channel");
+            assert!(channel.uses_siglent());
+            assert_eq!(channel.dmm_voltage_range(), Some(DMM_10V_RANGE));
+        }
     }
 
     #[test]
