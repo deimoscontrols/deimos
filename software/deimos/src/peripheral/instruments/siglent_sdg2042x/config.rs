@@ -181,15 +181,8 @@ pub struct Config {
 }
 
 impl Config {
-    /// Build a configuration from a host name or address, adding SCPI port 5025.
-    ///
-    /// Args:
-    ///   host: Host name, IP address, or address with an explicit port.
-    ///   serial_number: Logical software serial used in the peripheral ID.
-    ///
-    /// Returns:
-    ///   A configuration with both channels set to DC, high-impedance load
-    ///   compensation, conservative timeouts, and output disabled at startup.
+    /// Build a configuration with both channels safely disabled and defaulted
+    /// to DC, high-impedance compensation, and conservative timeouts.
     pub fn new(host: impl Into<String>, serial_number: u64) -> Self {
         Self {
             connection: ScpiTcpConfig::new(host, serial_number, "SIGLENT", "SDG2042X"),

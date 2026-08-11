@@ -17,13 +17,8 @@ use crate::controller::context::ControllerCtx;
 use crate::peripheral::Peripheral;
 
 impl SiglentSdg2042XDriver {
-    /// Connect, validate identity, apply the safe state, and start both threads.
-    ///
-    /// Args:
-    ///   ctx: Controller context containing the identity-keyed socket registry.
-    ///
-    /// Returns:
-    ///   A handle that owns shutdown and joining for the responder and worker.
+    /// Connect, validate identity, apply the safe state, and start both threads,
+    /// returning a handle that owns their shutdown and joining.
     ///
     /// Errors:
     ///   Returns an error for connection, identity, setup, readback, or thread

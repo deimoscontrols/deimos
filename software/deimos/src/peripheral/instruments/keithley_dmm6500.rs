@@ -124,15 +124,8 @@ pub struct Config {
 }
 
 impl Config {
-    /// Build a configuration from a host name or address, adding SCPI port 5025.
-    ///
-    /// Args:
-    ///   host: Host name, IP address, or address with an explicit port.
-    ///   serial_number: Logical software serial used in the peripheral ID.
-    ///
-    /// Returns:
-    ///   An autoranging DC-voltage configuration with one NPLC, autozero
-    ///   enabled, and bounded connection and I/O timeouts.
+    /// Build an autoranging one-NPLC DC-voltage configuration with autozero and
+    /// conservative connection and I/O timeouts.
     pub fn new(host: impl Into<String>, serial_number: u64) -> Self {
         Self {
             connection: ScpiTcpConfig::new(host, serial_number, "KEITHLEY", "DMM6500"),
@@ -206,13 +199,7 @@ pub struct KeithleyDmm6500 {
 }
 
 impl KeithleyDmm6500 {
-    /// Construct the pure controller-side peripheral representation.
-    ///
-    /// Args:
-    ///   serial_number: Logical software serial used in the peripheral ID.
-    ///
-    /// Returns:
-    ///   A serializable peripheral with no connection or worker state.
+    /// Construct a pure, serializable controller-side peripheral.
     pub fn new(serial_number: u64) -> Self {
         Self { serial_number }
     }
@@ -388,12 +375,6 @@ pub struct KeithleyDmm6500Driver {
 impl KeithleyDmm6500Driver {
     /// Construct a validated DMM6500 driver without connecting it.
     ///
-    /// Args:
-    ///   config: Connection, DC measurement, and timeout settings.
-    ///
-    /// Returns:
-    ///   A driver ready to be started with [`Self::run`].
-    ///
     /// Errors:
     ///   Returns an error when configuration fields are invalid.
     pub fn new(config: Config) -> Result<Self, String> {
@@ -403,29 +384,18 @@ impl KeithleyDmm6500Driver {
         })
     }
 
-    /// Return the pure peripheral paired with this driver.
-    ///
-    /// Returns:
-    ///   A serializable peripheral carrying the driver's logical identity.
+    /// Return the pure peripheral paired with this driver's logical identity.
     pub fn peripheral(&self) -> KeithleyDmm6500 {
         KeithleyDmm6500::new(self.shared.config.connection.serial_number)
     }
 
-    /// Return the validated SCPI identity after successful startup.
-    ///
-    /// Returns:
-    ///   The complete `*IDN?` response, or `None` before startup succeeds.
+    /// Return the validated `*IDN?` response, or `None` before startup succeeds.
     pub fn identity(&self) -> Option<String> {
         self.shared.state.lock().ok()?.status.identity()
     }
 
-    /// Connect, configure acquisition, obtain one sample, and start both threads.
-    ///
-    /// Args:
-    ///   ctx: Controller context containing the identity-keyed socket registry.
-    ///
-    /// Returns:
-    ///   A handle that owns shutdown and joining for the responder and worker.
+    /// Connect, configure acquisition, obtain one sample, and start both threads,
+    /// returning a handle that owns their shutdown and joining.
     ///
     /// Errors:
     ///   Returns an error for connection, identity, configuration, initial
@@ -621,10 +591,7 @@ fn verify_error_queue_empty(client: &mut ScpiClient) -> Result<(), String> {
     }
 }
 
-/// Read one numeric measurement.
-///
-/// Returns:
-///   The configured measurement in volts or ohms.
+/// Read one configured numeric measurement in volts or ohms.
 ///
 /// Errors:
 ///   Returns transport errors or a nonnumeric, NaN, infinite, or overrange

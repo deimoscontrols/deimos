@@ -105,9 +105,6 @@ impl InstrumentRunHandle {
 
     /// Stop and join both threads, reporting panics and latched errors.
     ///
-    /// Returns:
-    ///   Success after both threads exit cleanly and physical cleanup completes.
-    ///
     /// Errors:
     ///   Returns all responder errors, worker errors, and thread panics joined
     ///   into one message.
@@ -241,14 +238,6 @@ fn join_one(
 }
 
 /// Start the controller-facing protocol responder.
-///
-/// Args:
-///   endpoint: Exclusively owned peripheral side of the thread socket.
-///   proxy: Instrument-specific state bridge shared with the worker.
-///   stop: Shutdown flag shared by both instrument threads.
-///
-/// Returns:
-///   A join handle for the responder thread.
 ///
 /// Errors:
 ///   Returns an error when the operating-system thread cannot be created.
@@ -404,11 +393,8 @@ fn receive_payload(endpoint: &SocketEndpoint, timeout: Duration) -> Option<Vec<u
     endpoint.recv_timeout(timeout).ok()
 }
 
-/// Send one complete response to the dedicated controller endpoint.
-///
-/// Returns:
-///   `false` when shutdown is requested or the controller has dropped the
-///   receiving endpoint. Both are normal responder shutdown conditions.
+/// Send one complete response, returning `false` on shutdown or controller
+/// disconnection.
 fn send_payload(endpoint: &SocketEndpoint, payload: Vec<u8>, stop: &AtomicBool) -> bool {
     let mut message = payload;
     loop {

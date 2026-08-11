@@ -50,12 +50,6 @@ pub struct SiglentSdg2042XDriver {
 impl SiglentSdg2042XDriver {
     /// Construct a validated SDG2042X driver without connecting it.
     ///
-    /// Args:
-    ///   config: Connection, waveform, load, timeout, and safety limits.
-    ///
-    /// Returns:
-    ///   A driver ready to be started with [`Self::run`].
-    ///
     /// Errors:
     ///   Returns an error when configuration fields or channel ranges are invalid.
     pub fn new(config: Config) -> Result<Self, String> {
@@ -74,18 +68,12 @@ impl SiglentSdg2042XDriver {
         })
     }
 
-    /// Return the pure peripheral paired with this driver.
-    ///
-    /// Returns:
-    ///   A serializable peripheral carrying the driver's logical identity.
+    /// Return the pure peripheral paired with this driver's logical identity.
     pub fn peripheral(&self) -> SiglentSdg2042X {
         SiglentSdg2042X::new(self.inner.config.connection.serial_number)
     }
 
-    /// Return the validated SCPI identity after successful startup.
-    ///
-    /// Returns:
-    ///   The complete `*IDN?` response, or `None` before startup succeeds.
+    /// Return the validated `*IDN?` response, or `None` before startup succeeds.
     pub fn identity(&self) -> Option<String> {
         self.inner.state.lock().ok()?.status.identity()
     }

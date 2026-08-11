@@ -14,13 +14,7 @@ const DEFAULT_MAX_RESPONSE_LEN: usize = 16 * 1024;
 const DEFAULT_READ_TIMEOUT: Duration = Duration::from_millis(250);
 const DEFAULT_WRITE_TIMEOUT: Duration = Duration::from_millis(100);
 
-/// Add the standard raw-SCPI port when the caller supplied only a host.
-///
-/// Args:
-///   host: Host name, IP literal, or socket address.
-///
-/// Returns:
-///   The input address with port 5025 added when it had no explicit port.
+/// Add the standard raw-SCPI port 5025 when an address has no explicit port.
 pub(crate) fn address_with_default_port(host: String) -> String {
     if host.parse::<SocketAddr>().is_ok() {
         return host;
@@ -64,17 +58,8 @@ pub struct ScpiTcpConfig {
 }
 
 impl ScpiTcpConfig {
-    /// Build common settings from an address and expected identity.
-    ///
-    /// Args:
-    ///   host: Host name, IP address, or address with an explicit port.
-    ///   serial_number: Logical software serial used in the peripheral ID.
-    ///   expected_vendor: Manufacturer substring required in `*IDN?`.
-    ///   expected_model: Model substring required in `*IDN?`.
-    ///
-    /// Returns:
-    ///   Settings using SCPI port 5025, a two-second connection timeout, a
-    ///   250-millisecond response timeout, and a 100-millisecond write timeout.
+    /// Build common identity settings with SCPI port 5025 and conservative
+    /// connection and I/O timeouts.
     pub fn new(
         host: impl Into<String>,
         serial_number: u64,
@@ -145,12 +130,6 @@ pub(crate) struct ScpiClient {
 impl ScpiClient {
     /// Resolve and connect to an instrument with bounded socket operations.
     ///
-    /// Args:
-    ///   config: Validated address, identity, and socket timeout settings.
-    ///
-    /// Returns:
-    ///   A buffered client owning the connected stream.
-    ///
     /// Errors:
     ///   Returns contextual resolution, connection, or socket-configuration errors.
     pub(crate) fn connect(config: &ScpiTcpConfig) -> Result<Self, String> {
@@ -200,12 +179,6 @@ impl ScpiClient {
 
     /// Write one ASCII SCPI command and its newline terminator.
     ///
-    /// Args:
-    ///   command: SCPI command without a trailing line ending.
-    ///
-    /// Returns:
-    ///   Success after the complete command has been flushed to the socket.
-    ///
     /// Errors:
     ///   Returns an error for empty, non-ASCII, multiline, write, or flush failures.
     pub(crate) fn command(&mut self, command: &str) -> Result<(), String> {
@@ -224,12 +197,6 @@ impl ScpiClient {
 
     /// Write one command and read one bounded newline-terminated response.
     ///
-    /// Args:
-    ///   command: SCPI query without a trailing line ending.
-    ///
-    /// Returns:
-    ///   The ASCII response with trailing CR/LF bytes removed.
-    ///
     /// Errors:
     ///   Returns command errors plus timeout, EOF, empty, oversized, or
     ///   non-ASCII response errors.
@@ -238,24 +205,12 @@ impl ScpiClient {
         self.read_response(command)
     }
 
-    /// Query the instrument's standard identity string.
-    ///
-    /// Returns:
-    ///   The normalized response to `*IDN?`.
-    ///
-    /// Errors:
-    ///   Returns any error produced by [`Self::query`].
+    /// Query the instrument's normalized standard identity string.
     pub(crate) fn identify(&mut self) -> Result<String, String> {
         self.query("*IDN?")
     }
 
     /// Read and validate the single-line response belonging to `command`.
-    ///
-    /// Args:
-    ///   command: Command text used to contextualize any error.
-    ///
-    /// Returns:
-    ///   The ASCII response without its CR/LF terminator.
     ///
     /// Errors:
     ///   Returns an error for socket failures or malformed response framing.

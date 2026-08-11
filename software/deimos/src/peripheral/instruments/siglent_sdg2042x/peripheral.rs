@@ -164,13 +164,7 @@ pub struct SiglentSdg2042X {
 }
 
 impl SiglentSdg2042X {
-    /// Construct the pure controller-side peripheral representation.
-    ///
-    /// Args:
-    ///   serial_number: Logical software serial used in the peripheral ID.
-    ///
-    /// Returns:
-    ///   A serializable peripheral with no connection or worker state.
+    /// Construct a pure, serializable controller-side peripheral.
     pub fn new(serial_number: u64) -> Self {
         Self { serial_number }
     }
