@@ -1,0 +1,81 @@
+{
+  "model": "deimos_daq_rev7",
+  "serial_number": 3,
+  "channel": "0_15V_0",
+  "signal_name": "p1.15V_0_V",
+  "calibrator_cold_junction_temperature_k": null,
+  "manual_reference_windows": [
+    {
+      "reference_a": 0.026377035000000004,
+      "dac_command_v": null,
+      "start_time_s": 0.061406768,
+      "stop_time_s": 2.063411224
+    },
+    {
+      "reference_a": 1.975706875,
+      "dac_command_v": null,
+      "start_time_s": 2.134744342,
+      "stop_time_s": 4.135375328
+    },
+    {
+      "reference_a": 3.9616577083333335,
+      "dac_command_v": null,
+      "start_time_s": 4.191671799,
+      "stop_time_s": 6.195470895
+    },
+    {
+      "reference_a": 5.946104604166664,
+      "dac_command_v": null,
+      "start_time_s": 6.251608732,
+      "stop_time_s": 8.254860533
+    },
+    {
+      "reference_a": 7.925729170212767,
+      "dac_command_v": null,
+      "start_time_s": 8.310930423,
+      "stop_time_s": 10.315272905
+    },
+    {
+      "reference_a": 9.899639645833334,
+      "dac_command_v": null,
+      "start_time_s": 10.371536025,
+      "stop_time_s": 12.37475818
+    },
+    {
+      "reference_a": 9.899513166666667,
+      "dac_command_v": null,
+      "start_time_s": 12.374829789,
+      "stop_time_s": 14.377730854
+    },
+    {
+      "reference_a": 7.925431312499999,
+      "dac_command_v": null,
+      "start_time_s": 14.433817781,
+      "stop_time_s": 16.438407457
+    },
+    {
+      "reference_a": 5.945792020833333,
+      "dac_command_v": null,
+      "start_time_s": 16.494584255,
+      "stop_time_s": 18.494616694
+    },
+    {
+      "reference_a": 3.961357291666667,
+      "dac_command_v": null,
+      "start_time_s": 18.550907013,
+      "stop_time_s": 20.555633398
+    },
+    {
+      "reference_a": 1.9756326170212768,
+      "dac_command_v": null,
+      "start_time_s": 20.61184688,
+      "stop_time_s": 22.612442421
+    },
+    {
+      "reference_a": 0.026396116666666667,
+      "dac_command_v": null,
+      "start_time_s": 22.683986678,
+      "stop_time_s": 24.686091022
+    }
+  ]
+}

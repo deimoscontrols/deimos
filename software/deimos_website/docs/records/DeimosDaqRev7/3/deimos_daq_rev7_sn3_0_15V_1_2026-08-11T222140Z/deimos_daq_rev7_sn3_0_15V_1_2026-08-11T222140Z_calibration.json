@@ -3,15 +3,15 @@
   "serial_number": 3,
   "channel": "ain17",
   "signal_name": "p1.15V_1_V",
-  "datestamp_utc": "2026-07-31T041821Z",
+  "datestamp_utc": "2026-08-11T222205Z",
   "polynomial_order": 1,
   "polynomial_coefficients": [
-    0.005021593630740964,
-    1.0000047098457638
+    0.0074958457498981446,
+    0.9999380155981281
   ],
-  "r2": 0.9999999892208877,
+  "r2": 0.9999999642821211,
   "input_units": "V",
   "output_units": "V",
-  "accepted_sample_count": 1000,
-  "detected_step_count": 4
+  "accepted_sample_count": 1201,
+  "detected_step_count": 12
 }
