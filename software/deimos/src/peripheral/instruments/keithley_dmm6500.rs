@@ -279,7 +279,6 @@ impl Peripheral for KeithleyDmm6500 {
     }
 }
 
-/// Latest complete measurement published by the blocking SCPI worker.
 struct State {
     value: f64,
     sample_sequence: u64,
@@ -295,7 +294,6 @@ impl State {
     }
 }
 
-/// Validated configuration plus synchronized measurement state.
 struct Shared {
     config: Config,
     state: Mutex<State>,
@@ -416,20 +414,8 @@ impl KeithleyDmm6500Driver {
 
 /// Attach one configured DMM6500 to a controller.
 ///
-/// This connects, configures, and obtains the first valid reading before
-/// registering its software peripheral and identity-keyed thread socket with
-/// `controller`.
-///
-/// Args:
-///   peripheral_name: Unique name used for controller fields such as
-///   `peripheral_name.voltage_v`, `peripheral_name.resistance_ohm`, and their
-///   corresponding active-function flags.
-///   config: Complete connection, identity, measurement, and timeout
-///   configuration.
-///   controller: Controller to receive the peripheral and thread socket.
-///
-/// Returns:
-///   A running instrument handle that must outlive the controller run.
+/// Configuration and the first valid reading complete before registration.
+/// Retain the returned handle until the controller run has stopped.
 ///
 /// Errors:
 ///   Returns an error for duplicate peripheral names, invalid configuration,
@@ -622,10 +608,9 @@ fn scpi_number(value: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{BufRead, BufReader, Write};
-    use std::net::TcpListener;
     use std::thread;
-    use std::time::Instant;
+
+    use super::super::test_support::{contains_command, spawn_scpi_server, wait_until};
 
     #[test]
     fn configuration_rejects_invalid_measurement_settings() {
@@ -653,34 +638,15 @@ mod tests {
 
     #[test]
     fn startup_rejects_a_queued_configuration_error_before_reading() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let address = listener.local_addr().unwrap();
-        let server = thread::spawn(move || {
-            let (stream, _) = listener.accept().unwrap();
-            let mut reader = BufReader::new(stream.try_clone().unwrap());
-            let mut writer = stream;
-            let mut commands = Vec::new();
-            loop {
-                let mut command = String::new();
-                if reader.read_line(&mut command).unwrap() == 0 {
-                    break;
-                }
-                let command = command.trim_end().to_owned();
-                match command.as_str() {
-                    "*IDN?" => writer
-                        .write_all(b"KEITHLEY INSTRUMENTS,DMM6500,TEST,1.0\n")
-                        .unwrap(),
-                    ":SYSTem:ERRor:NEXT?" => writer
-                        .write_all(b"-222,\"Data out of range;1;2026/08/10 12:00:00\"\n")
-                        .unwrap(),
-                    _ => {}
-                }
-                commands.push(command);
+        let (address, server) = spawn_scpi_server(|command| match command {
+            "*IDN?" => Some("KEITHLEY INSTRUMENTS,DMM6500,TEST,1.0".to_owned()),
+            ":SYSTem:ERRor:NEXT?" => {
+                Some("-222,\"Data out of range;1;2026/08/10 12:00:00\"".to_owned())
             }
-            commands
+            _ => None,
         });
 
-        let driver = KeithleyDmm6500Driver::new(Config::new(address.to_string(), 4)).unwrap();
+        let driver = KeithleyDmm6500Driver::new(Config::new(address, 4)).unwrap();
         let error = match driver.run(&ControllerCtx::default()) {
             Err(error) => error,
             Ok(mut handle) => {
@@ -696,55 +662,29 @@ mod tests {
 
     #[test]
     fn worker_configures_dc_voltage_and_publishes_fresh_samples() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let address = listener.local_addr().unwrap();
-        let server = thread::spawn(move || {
-            let (stream, _) = listener.accept().unwrap();
-            let mut reader = BufReader::new(stream.try_clone().unwrap());
-            let mut writer = stream;
-            let mut commands = Vec::new();
-            let mut sample = 1.0;
-            loop {
-                let mut command = String::new();
-                if reader.read_line(&mut command).unwrap() == 0 {
-                    break;
-                }
-                let command = command.trim_end().to_owned();
-                match command.as_str() {
-                    "*IDN?" => writer
-                        .write_all(b"KEITHLEY INSTRUMENTS,DMM6500,TEST,1.0\n")
-                        .unwrap(),
-                    ":SYSTem:ERRor:NEXT?" => writer.write_all(b"0,\"No error;0;0 0\"\n").unwrap(),
-                    ":READ?" => {
-                        thread::sleep(Duration::from_millis(1));
-                        writeln!(writer, "{sample}").unwrap();
-                        sample += 0.25;
-                    }
-                    _ => {}
-                }
-                commands.push(command);
+        let mut sample = 1.0;
+        let (address, server) = spawn_scpi_server(move |command| match command {
+            "*IDN?" => Some("KEITHLEY INSTRUMENTS,DMM6500,TEST,1.0".to_owned()),
+            ":SYSTem:ERRor:NEXT?" => Some("0,\"No error;0;0 0\"".to_owned()),
+            ":READ?" => {
+                thread::sleep(Duration::from_millis(1));
+                let response = sample.to_string();
+                sample += 0.25;
+                Some(response)
             }
-            commands
+            _ => None,
         });
 
-        let mut config = Config::new(address.to_string(), 2);
+        let mut config = Config::new(address, 2);
         config.function = Function::DcVoltage {
             range_v: Some(10.0),
         };
         let driver = KeithleyDmm6500Driver::new(config).unwrap();
         let ctx = ControllerCtx::default();
         let mut handle = driver.run(&ctx).unwrap();
-        let deadline = Instant::now() + Duration::from_secs(1);
-        loop {
-            if driver.shared.state.lock().unwrap().sample_sequence >= 3 {
-                break;
-            }
-            assert!(
-                Instant::now() < deadline,
-                "fresh samples were not published"
-            );
-            thread::sleep(Duration::from_millis(1));
-        }
+        wait_until(Duration::from_secs(1), || {
+            driver.shared.state.lock().unwrap().sample_sequence >= 3
+        });
         {
             let state = driver.shared.state.lock().unwrap();
             assert!(state.value >= 1.5);
@@ -759,22 +699,15 @@ mod tests {
         let mut outputs = [0.0; 6];
         peripheral.parse_operating_roundtrip(&bytes, &mut outputs);
         assert!(outputs[0] >= 1.5);
-        assert_eq!(outputs[1], 0.0);
-        assert_eq!(outputs[2], 1.0);
-        assert_eq!(outputs[3], 0.0);
+        assert_eq!(&outputs[1..4], &[0.0, 1.0, 0.0]);
         handle.join().unwrap();
         let commands = server.join().unwrap();
 
-        assert!(
-            commands
-                .iter()
-                .any(|command| command == ":SENSe:FUNCtion \"VOLTage\"")
-        );
-        assert!(
-            commands
-                .iter()
-                .any(|command| command == ":SENSe:VOLTage:RANGe 1.00000000000000000e1")
-        );
+        assert!(contains_command(&commands, ":SENSe:FUNCtion \"VOLTage\""));
+        assert!(contains_command(
+            &commands,
+            ":SENSe:VOLTage:RANGe 1.00000000000000000e1"
+        ));
         assert!(
             commands
                 .iter()
@@ -786,33 +719,14 @@ mod tests {
 
     #[test]
     fn worker_configures_four_wire_resistance_and_offset_compensation() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let address = listener.local_addr().unwrap();
-        let server = thread::spawn(move || {
-            let (stream, _) = listener.accept().unwrap();
-            let mut reader = BufReader::new(stream.try_clone().unwrap());
-            let mut writer = stream;
-            let mut commands = Vec::new();
-            loop {
-                let mut command = String::new();
-                if reader.read_line(&mut command).unwrap() == 0 {
-                    break;
-                }
-                let command = command.trim_end().to_owned();
-                match command.as_str() {
-                    "*IDN?" => writer
-                        .write_all(b"KEITHLEY INSTRUMENTS,DMM6500,TEST,1.0\n")
-                        .unwrap(),
-                    ":SYSTem:ERRor:NEXT?" => writer.write_all(b"0,\"No error;0;0 0\"\n").unwrap(),
-                    ":READ?" => writer.write_all(b"1000.25\n").unwrap(),
-                    _ => {}
-                }
-                commands.push(command);
-            }
-            commands
+        let (address, server) = spawn_scpi_server(|command| match command {
+            "*IDN?" => Some("KEITHLEY INSTRUMENTS,DMM6500,TEST,1.0".to_owned()),
+            ":SYSTem:ERRor:NEXT?" => Some("0,\"No error;0;0 0\"".to_owned()),
+            ":READ?" => Some("1000.25".to_owned()),
+            _ => None,
         });
 
-        let mut config = Config::new(address.to_string(), 3);
+        let mut config = Config::new(address, 3);
         config.function = Function::FourWireResistance {
             range_ohm: None,
             offset_compensation: true,
@@ -820,14 +734,9 @@ mod tests {
         let driver = KeithleyDmm6500Driver::new(config).unwrap();
         let ctx = ControllerCtx::default();
         let mut handle = driver.run(&ctx).unwrap();
-        let deadline = Instant::now() + Duration::from_secs(1);
-        while driver.shared.state.lock().unwrap().sample_sequence < 2 {
-            assert!(
-                Instant::now() < deadline,
-                "resistance sample was not published"
-            );
-            thread::sleep(Duration::from_millis(1));
-        }
+        wait_until(Duration::from_secs(1), || {
+            driver.shared.state.lock().unwrap().sample_sequence >= 2
+        });
         assert_eq!(driver.shared.state.lock().unwrap().value, 1000.25);
         let mut bytes = vec![0; OUTPUT_SIZE];
         driver
@@ -837,10 +746,7 @@ mod tests {
         let peripheral = driver.peripheral();
         let mut outputs = [0.0; 6];
         peripheral.parse_operating_roundtrip(&bytes, &mut outputs);
-        assert_eq!(outputs[0], 0.0);
-        assert_eq!(outputs[1], 1000.25);
-        assert_eq!(outputs[2], 0.0);
-        assert_eq!(outputs[3], 1.0);
+        assert_eq!(&outputs[..4], &[0.0, 1000.25, 0.0, 1.0]);
         handle.join().unwrap();
         let commands = server.join().unwrap();
 
@@ -851,7 +757,7 @@ mod tests {
             ":SENS:FRES:AZER ON",
             ":SENS:FRES:NPLC 1.00000000000000000e0",
         ] {
-            assert!(commands.iter().any(|command| command == expected));
+            assert!(contains_command(&commands, expected));
         }
     }
 }

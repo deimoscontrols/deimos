@@ -86,30 +86,13 @@ pub struct InstrumentRunHandle {
 }
 
 impl InstrumentRunHandle {
-    pub(crate) fn new(
-        stop: Arc<AtomicBool>,
-        protocol: JoinHandle<Result<(), String>>,
-        worker: JoinHandle<Result<(), String>>,
-    ) -> Self {
-        Self {
-            stop,
-            protocol: Some(protocol),
-            worker: Some(worker),
-        }
-    }
-
-    /// Signal both instrument threads to stop without waiting for them.
-    fn request_stop(&self) {
-        self.stop.store(true, Ordering::Relaxed);
-    }
-
     /// Stop and join both threads, reporting panics and latched errors.
     ///
     /// Errors:
     ///   Returns all responder errors, worker errors, and thread panics joined
     ///   into one message.
     pub fn join(&mut self) -> Result<(), String> {
-        self.request_stop();
+        self.stop.store(true, Ordering::Relaxed);
         let mut errors = Vec::new();
         join_one("protocol responder", &mut self.protocol, &mut errors);
         join_one("instrument worker", &mut self.worker, &mut errors);
@@ -123,7 +106,7 @@ impl InstrumentRunHandle {
 
 impl Drop for InstrumentRunHandle {
     fn drop(&mut self) {
-        self.request_stop();
+        self.stop.store(true, Ordering::Relaxed);
     }
 }
 
@@ -176,7 +159,11 @@ where
             return Err(err);
         }
     };
-    Ok(InstrumentRunHandle::new(stop, protocol, worker))
+    Ok(InstrumentRunHandle {
+        stop,
+        protocol: Some(protocol),
+        worker: Some(worker),
+    })
 }
 
 /// Start and register a configured instrument with its identity-keyed socket.
@@ -257,7 +244,6 @@ pub(crate) fn spawn_protocol(
         .map_err(|err| format!("failed to spawn instrument protocol responder: {err}"))
 }
 
-/// Lifecycle state owned exclusively by the responder thread.
 enum State {
     Binding,
     Configuring {
@@ -287,7 +273,7 @@ fn run_protocol(
 
         match &mut state {
             State::Binding => {
-                let Some(payload) = receive_payload(&endpoint, CHANNEL_POLL_INTERVAL) else {
+                let Some(payload) = endpoint.recv_timeout(CHANNEL_POLL_INTERVAL).ok() else {
                     continue;
                 };
                 if payload.len() != BindingInput::BYTE_LEN {
@@ -316,7 +302,7 @@ fn run_protocol(
                 let timeout = (*deadline)
                     .saturating_duration_since(Instant::now())
                     .min(CHANNEL_POLL_INTERVAL);
-                let Some(payload) = receive_payload(&endpoint, timeout) else {
+                let Some(payload) = endpoint.recv_timeout(timeout).ok() else {
                     continue;
                 };
                 if payload.len() != ConfiguringInput::BYTE_LEN {
@@ -351,7 +337,7 @@ fn run_protocol(
                 let timeout = (*loss_of_contact_timeout)
                     .saturating_sub(last_contact.elapsed())
                     .min(CHANNEL_POLL_INTERVAL);
-                if let Some(payload) = receive_payload(&endpoint, timeout) {
+                if let Some(payload) = endpoint.recv_timeout(timeout).ok() {
                     if payload.len() != proxy.input_size() {
                         continue;
                     }
@@ -386,11 +372,6 @@ fn return_to_binding(state: &mut State, proxy: &dyn InstrumentProxy) {
     // request, so a rapid rebind cannot overwrite the safety transition.
     proxy.on_loss_of_contact();
     *state = State::Binding;
-}
-
-/// Receive one complete packet from the dedicated controller endpoint.
-fn receive_payload(endpoint: &SocketEndpoint, timeout: Duration) -> Option<Vec<u8>> {
-    endpoint.recv_timeout(timeout).ok()
 }
 
 /// Send one complete response, returning `false` on shutdown or controller

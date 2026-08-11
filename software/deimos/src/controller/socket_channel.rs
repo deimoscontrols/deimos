@@ -124,12 +124,6 @@ pub struct SocketEndpoint {
 impl SocketEndpoint {
     /// Send one complete packet to the opposite endpoint.
     ///
-    /// Args:
-    ///   packet: Owned packet bytes to enqueue.
-    ///
-    /// Returns:
-    ///   Success after the packet enters the bounded channel.
-    ///
     /// Errors:
     ///   Returns the unsent packet when the opposite endpoint is disconnected.
     pub fn send(&self, packet: Vec<u8>) -> Result<(), SendError<Vec<u8>>> {
@@ -137,13 +131,6 @@ impl SocketEndpoint {
     }
 
     /// Send one packet, waiting no longer than `timeout` for buffer capacity.
-    ///
-    /// Args:
-    ///   packet: Owned packet bytes to enqueue.
-    ///   timeout: Maximum time to wait for channel capacity.
-    ///
-    /// Returns:
-    ///   Success after the packet enters the bounded channel.
     ///
     /// Errors:
     ///   Returns the unsent packet after timeout or disconnection.
@@ -157,9 +144,6 @@ impl SocketEndpoint {
 
     /// Receive one packet without waiting.
     ///
-    /// Returns:
-    ///   The next complete packet from the opposite endpoint.
-    ///
     /// Errors:
     ///   Returns immediately when the channel is empty or disconnected.
     pub fn try_recv(&self) -> Result<Vec<u8>, TryRecvError> {
@@ -167,12 +151,6 @@ impl SocketEndpoint {
     }
 
     /// Receive one packet, waiting no longer than `timeout`.
-    ///
-    /// Args:
-    ///   timeout: Maximum time to wait for a packet.
-    ///
-    /// Returns:
-    ///   The next complete packet from the opposite endpoint.
     ///
     /// Errors:
     ///   Returns after timeout or disconnection.

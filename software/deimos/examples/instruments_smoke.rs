@@ -15,13 +15,10 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use deimos::{
-    Controller, ControllerCtx, LoopMethod, Termination, ThreadChannelSocket,
-    peripheral::{
-        Peripheral,
-        instruments::{
-            keithley_dmm6500::{Config as KeithleyConfig, KeithleyDmm6500Driver},
-            siglent_sdg2042x::{Config as SiglentConfig, SiglentSdg2042XDriver, Waveform},
-        },
+    Controller, ControllerCtx, LoopMethod, Termination,
+    peripheral::instruments::{
+        keithley_dmm6500,
+        siglent_sdg2042x::{self, Waveform},
     },
 };
 
@@ -51,12 +48,11 @@ fn main() -> Result<(), String> {
         return Err("smoke-test voltage must be finite and within -2..=2 V".to_owned());
     }
 
-    let mut siglent_config = SiglentConfig::new(siglent_host, 1);
+    let mut siglent_config = siglent_sdg2042x::Config::new(siglent_host, 1);
     siglent_config.channels[0].waveform = Waveform::Dc;
     siglent_config.channels[0].offset_voltage_v = (-2.0, 2.0);
     siglent_config.channels[1].waveform = Waveform::Dc;
-    let siglent = SiglentSdg2042XDriver::new(siglent_config)?;
-    let dmm = KeithleyDmm6500Driver::new(KeithleyConfig::new(dmm_host, 1))?;
+    let dmm_config = keithley_dmm6500::Config::new(dmm_host, 1);
 
     let mut ctx = ControllerCtx::default();
     ctx.op_name = "instruments-smoke".to_owned();
@@ -67,32 +63,14 @@ fn main() -> Result<(), String> {
 
     let mut controller = Controller::new(ctx);
     controller.clear_sockets();
-    let siglent_peripheral = siglent.peripheral();
-    let dmm_peripheral = dmm.peripheral();
-    controller.add_socket(
-        &ThreadChannelSocket::socket_name(siglent_peripheral.id()),
-        Box::new(ThreadChannelSocket::new(siglent_peripheral.id())),
-    );
-    controller.add_socket(
-        &ThreadChannelSocket::socket_name(dmm_peripheral.id()),
-        Box::new(ThreadChannelSocket::new(dmm_peripheral.id())),
-    );
-    controller.add_peripheral("siglent", Box::new(siglent_peripheral))?;
-    controller.add_peripheral("dmm", Box::new(dmm_peripheral))?;
-
-    let mut siglent_handle = siglent.run(&controller.ctx)?;
-    let mut dmm_handle = match dmm.run(&controller.ctx) {
+    let mut siglent_handle = siglent_sdg2042x::attach("siglent", siglent_config, &mut controller)?;
+    let mut dmm_handle = match keithley_dmm6500::attach("dmm", dmm_config, &mut controller) {
         Ok(handle) => handle,
         Err(err) => {
             siglent_handle.join()?;
             return Err(err);
         }
     };
-    println!(
-        "Siglent identity: {}",
-        siglent.identity().unwrap_or_default()
-    );
-    println!("Keithley identity: {}", dmm.identity().unwrap_or_default());
 
     let mut controller_handle = match controller.run_nonblocking(None, None, true) {
         Ok(handle) => handle,
@@ -104,26 +82,10 @@ fn main() -> Result<(), String> {
     };
 
     let test_result = (|| {
-        let initial_sample = controller_handle
-            .read()
-            .values
-            .get("dmm.sample_sequence")
-            .copied()
-            .unwrap_or_default();
         controller_handle.write(HashMap::from([
             ("siglent.ch1_enabled".to_owned(), 1.0),
             ("siglent.ch1_offset_voltage_v".to_owned(), voltage_v),
         ]))?;
-
-        wait_until(Duration::from_secs(3), || {
-            let values = controller_handle.read().values;
-            values
-                .get("siglent.ch1_applied_enabled")
-                .is_some_and(|value| *value == 1.0)
-                && values
-                    .get("siglent.ch1_applied_offset_voltage_v")
-                    .is_some_and(|value| *value == voltage_v)
-        })?;
 
         // Exclude readings initiated before the source command and allow the
         // DMM input/filter state to settle before defining the sample window.
@@ -133,22 +95,16 @@ fn main() -> Result<(), String> {
             .values
             .get("dmm.sample_sequence")
             .copied()
-            .unwrap_or(initial_sample);
+            .unwrap_or_default();
 
         let deadline = Instant::now() + Duration::from_secs(5);
         let mut last_sequence = settled_sample;
         let mut samples = Vec::with_capacity(sample_count);
+        let mut applied_once = false;
         while samples.len() < sample_count {
             let values = controller_handle.read().values;
-            if values.get("siglent.ch1_applied_enabled") != Some(&1.0)
-                || values.get("siglent.ch1_applied_offset_voltage_v") != Some(&voltage_v)
-            {
-                return Err(format!(
-                    "Siglent left the requested applied state while sampling: enabled={:?}, offset={:?}",
-                    values.get("siglent.ch1_applied_enabled"),
-                    values.get("siglent.ch1_applied_offset_voltage_v")
-                ));
-            }
+            let applied = values.get("siglent.ch1_applied_enabled") == Some(&1.0)
+                && values.get("siglent.ch1_applied_offset_voltage_v") == Some(&voltage_v);
             let sequence = values
                 .get("dmm.sample_sequence")
                 .copied()
@@ -157,10 +113,14 @@ fn main() -> Result<(), String> {
                 .get("dmm.sample_age_s")
                 .copied()
                 .unwrap_or(f64::INFINITY);
-            if sequence > last_sequence && age < 0.5 {
+            if applied && sequence > last_sequence && age < 0.5 {
                 samples.push(values["dmm.voltage_v"]);
                 last_sequence = sequence;
             }
+            if applied_once && !applied {
+                return Err("Siglent left the requested state while sampling".to_owned());
+            }
+            applied_once |= applied;
             if Instant::now() >= deadline {
                 return Err(format!(
                     "timed out after collecting {} of {sample_count} fresh DMM samples",
@@ -189,18 +149,6 @@ fn main() -> Result<(), String> {
     siglent_result?;
     dmm_result?;
     println!("Loopback smoke test passed; both Siglent outputs are off.");
-    Ok(())
-}
-
-/// Poll a condition until it succeeds or a bounded deadline expires.
-fn wait_until(timeout: Duration, mut condition: impl FnMut() -> bool) -> Result<(), String> {
-    let deadline = Instant::now() + timeout;
-    while !condition() {
-        if Instant::now() >= deadline {
-            return Err("timed out waiting for the Siglent command to be applied".to_owned());
-        }
-        std::thread::sleep(Duration::from_millis(5));
-    }
     Ok(())
 }
 

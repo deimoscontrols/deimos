@@ -1,13 +1,9 @@
 //! Third-party laboratory instruments presented as Deimos peripherals.
 //!
-//! Each concrete instrument module contains its peripheral representation,
-//! configuration, blocking-I/O driver, and a convenience `attach` function.
-//! Live connections remain on worker threads; the controller communicates with
-//! a nonblocking protocol responder through an identity-keyed one-to-one thread
-//! socket.
-//! The shared responder knows only the Deimos packet lifecycle, while the SCPI
-//! transport knows only newline-delimited TCP. Instrument-specific modules are
-//! the narrow adapter between those two pieces.
+//! Concrete modules pair a pure peripheral with a blocking-I/O worker and an
+//! `attach` helper. The controller communicates with each worker through a
+//! nonblocking, identity-keyed protocol responder; shared SCPI transport stays
+//! independent of instrument-specific commands.
 //!
 //! Retain every returned [`InstrumentRunHandle`] until after the controller has
 //! stopped, then join it so output-capable instruments can enter their safe
@@ -19,6 +15,9 @@ pub mod keithley_dmm6500;
 mod responder;
 mod scpi;
 pub mod siglent_sdg2042x;
+
+#[cfg(test)]
+mod test_support;
 
 pub use responder::InstrumentRunHandle;
 pub use scpi::ScpiTcpConfig;

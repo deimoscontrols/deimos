@@ -32,21 +32,8 @@ use crate::controller::Controller;
 
 /// Attach one configured SDG2042X to a controller.
 ///
-/// This connects and validates the instrument before registering its software
-/// peripheral and identity-keyed thread socket with `controller`.
-/// Both channel configurations and all six dynamic inputs per channel remain
-/// independent, while applied outputs are published as one completed
-/// two-channel state.
-///
-/// Args:
-///   peripheral_name: Unique name used for controller fields such as
-///   `peripheral_name.ch1_enabled`.
-///   config: Complete connection, identity, waveform, channel, and timeout
-///   configuration.
-///   controller: Controller to receive the peripheral and thread socket.
-///
-/// Returns:
-///   A running instrument handle that must outlive the controller run.
+/// Connection and safe-state validation complete before registration. Retain
+/// the returned handle until the controller run has stopped.
 ///
 /// Errors:
 ///   Returns an error for duplicate peripheral names, invalid configuration,

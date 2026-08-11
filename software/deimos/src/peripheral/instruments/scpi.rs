@@ -326,20 +326,15 @@ mod tests {
 
     #[test]
     fn default_port_handles_names_and_ipv6_literals() {
-        assert_eq!(
-            address_with_default_port("instrument".to_owned()),
-            "instrument:5025"
-        );
-        assert_eq!(
-            address_with_default_port("instrument:1234".to_owned()),
-            "instrument:1234"
-        );
-        assert_eq!(address_with_default_port("::1".to_owned()), "[::1]:5025");
-        assert_eq!(address_with_default_port("[::1]".to_owned()), "[::1]:5025");
-        assert_eq!(
-            address_with_default_port("[::1]:1234".to_owned()),
-            "[::1]:1234"
-        );
+        for (address, expected) in [
+            ("instrument", "instrument:5025"),
+            ("instrument:1234", "instrument:1234"),
+            ("::1", "[::1]:5025"),
+            ("[::1]", "[::1]:5025"),
+            ("[::1]:1234", "[::1]:1234"),
+        ] {
+            assert_eq!(address_with_default_port(address.to_owned()), expected);
+        }
     }
 
     #[test]

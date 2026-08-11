@@ -242,15 +242,7 @@ impl ControllerCtx {
         channel.sink_endpoint()
     }
 
-    /// Claim the controller side of the thread socket for `id`.
-    ///
-    /// Dropping the returned endpoint makes this role available again.
-    ///
-    /// Args:
-    ///   id: Identity whose controller endpoint should be claimed.
-    ///
-    /// Returns:
-    ///   An exclusively owned controller endpoint.
+    /// Exclusively claim the controller endpoint for `id` until it is dropped.
     ///
     /// Errors:
     ///   Returns an error while the endpoint is active or the registry is
@@ -259,16 +251,7 @@ impl ControllerCtx {
         self.socket_channels.claim_controller(id)
     }
 
-    /// Claim the peripheral side of the thread socket for `id`.
-    ///
-    /// This fails while another responder for the same identity remains active.
-    /// Dropping the returned endpoint makes this role available again.
-    ///
-    /// Args:
-    ///   id: Identity whose peripheral endpoint should be claimed.
-    ///
-    /// Returns:
-    ///   An exclusively owned peripheral endpoint.
+    /// Exclusively claim the peripheral endpoint for `id` until it is dropped.
     ///
     /// Errors:
     ///   Returns an error while the endpoint is active or the registry is
