@@ -675,7 +675,9 @@ class _SocketModule(ModuleType):
         def possible_broadcast_targets() -> list[str]: ...
 
     class ThreadChannelSocket(_SocketBase):
-        """Controller-side socket for one identity-keyed in-process peripheral responder."""
+        """Controller-side socket for one identity-keyed in-process
+        peripheral responder.
+        """
         def __init__(self, model_number: int, serial_number: int) -> None: ...
 
 socket: _SocketModule
