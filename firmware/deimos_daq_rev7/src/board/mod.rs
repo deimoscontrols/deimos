@@ -225,6 +225,7 @@ impl<'a> Board<'a> {
             &settings.pwm_duty_frac,
             &settings.pwm_freq_hz,
             &settings.dac_v,
+            &self.calibration.dac_cals,
             settings.gpio,
         );
     }

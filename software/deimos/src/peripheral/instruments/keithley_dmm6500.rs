@@ -37,6 +37,7 @@ const SAMPLE_AGE_OUTPUT: &str = "sample_age_s";
 const MINIMUM_LINE_FREQUENCY_HZ: f64 = 50.0;
 const MEASUREMENT_PROCESSING_MARGIN: Duration = Duration::from_millis(250);
 const STARTUP_PROCESSING_MARGIN: Duration = Duration::from_millis(250);
+const LOCAL_RESTART_DELAY: Duration = Duration::from_millis(10);
 
 /// Controller request for the latest completed DMM reading.
 #[derive(ByteStruct, Clone, Copy, Debug, Default)]
@@ -68,6 +69,153 @@ const OVERFLOW_READING_ABS: f64 = 9.9e37;
 
 /// Software model number for the Keithley DMM6500 integration.
 pub const MODEL_NUMBER: u64 = SOFTWARE_MODEL_NUMBER_BASE + 2;
+
+/// Fixed DC-voltage ranges supported by the DMM6500.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DcVoltageRange {
+    /// 100 mV range.
+    Millivolts100,
+    /// 1 V range.
+    Volts1,
+    /// 10 V range.
+    Volts10,
+    /// 100 V range.
+    Volts100,
+    /// 1000 V range.
+    Volts1000,
+}
+
+impl DcVoltageRange {
+    /// Return the range's nominal full-scale voltage.
+    pub const fn full_scale_v(self) -> f64 {
+        match self {
+            Self::Millivolts100 => 0.1,
+            Self::Volts1 => 1.0,
+            Self::Volts10 => 10.0,
+            Self::Volts100 => 100.0,
+            Self::Volts1000 => 1000.0,
+        }
+    }
+
+    const fn accuracy_spec(self) -> DcVoltageAccuracySpec {
+        match self {
+            Self::Millivolts100 => DcVoltageAccuracySpec {
+                accuracy_percent: [
+                    (0.0015, 0.0030),
+                    (0.0025, 0.0035),
+                    (0.0030, 0.0035),
+                    (0.0035, 0.0035),
+                ],
+                temperature_percent_per_c: (0.0001, 0.0005),
+            },
+            Self::Volts1 => DcVoltageAccuracySpec {
+                accuracy_percent: [
+                    (0.0015, 0.0006),
+                    (0.0020, 0.0006),
+                    (0.0025, 0.0006),
+                    (0.0030, 0.0006),
+                ],
+                temperature_percent_per_c: (0.0001, 0.0001),
+            },
+            Self::Volts10 => DcVoltageAccuracySpec {
+                accuracy_percent: [
+                    (0.0010, 0.0004),
+                    (0.0020, 0.0005),
+                    (0.0025, 0.0005),
+                    (0.0030, 0.0005),
+                ],
+                temperature_percent_per_c: (0.0001, 0.0001),
+            },
+            Self::Volts100 => DcVoltageAccuracySpec {
+                accuracy_percent: [
+                    (0.0015, 0.0006),
+                    (0.0035, 0.0006),
+                    (0.0040, 0.0006),
+                    (0.0050, 0.0006),
+                ],
+                temperature_percent_per_c: (0.0006, 0.0001),
+            },
+            Self::Volts1000 => DcVoltageAccuracySpec {
+                accuracy_percent: [
+                    (0.0020, 0.0006),
+                    (0.0035, 0.0006),
+                    (0.0040, 0.0006),
+                    (0.0050, 0.0006),
+                ],
+                temperature_percent_per_c: (0.0006, 0.0001),
+            },
+        }
+    }
+}
+
+/// Elapsed interval represented by a DMM6500 accuracy specification.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AccuracyInterval {
+    /// 24-hour accuracy relative to calibrator accuracy.
+    Hours24,
+    /// 90-day accuracy.
+    Days90,
+    /// One-year accuracy.
+    OneYear,
+    /// Two-year accuracy.
+    TwoYears,
+}
+
+impl AccuracyInterval {
+    const fn index(self) -> usize {
+        match self {
+            Self::Hours24 => 0,
+            Self::Days90 => 1,
+            Self::OneYear => 2,
+            Self::TwoYears => 3,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct DcVoltageAccuracySpec {
+    // Pairs are (% of reading, % of range), ordered by AccuracyInterval.
+    accuracy_percent: [(f64, f64); 4],
+    // (% of reading, % of range) added per degree Celsius outside TCAL ±5°C.
+    temperature_percent_per_c: (f64, f64),
+}
+
+/// Return the DMM6500 DCV accuracy limit in volts for one reading.
+///
+/// This implements the manufacturer's ±(% of reading + % of range) table.
+/// The specification assumes a 30-minute warmup, 1 or 5 PLC, autozero enabled,
+/// and temperature within the interval's stated band around calibration.
+/// Coefficients come from the
+/// [DMM6500 datasheet](https://download.tek.com/datasheet/1KW-61315-0_DMM6500_Datasheet_020321.pdf).
+pub fn dc_voltage_accuracy_v(
+    reading_v: f64,
+    range: DcVoltageRange,
+    interval: AccuracyInterval,
+) -> f64 {
+    let spec = range.accuracy_spec();
+    let (reading_percent, range_percent) = spec.accuracy_percent[interval.index()];
+    let reading_abs_v = reading_v.abs();
+    let high_voltage_term_v = if matches!(range, DcVoltageRange::Volts1000) {
+        // Add 0.02 mV for every volt above ±500 V.
+        (reading_abs_v - 500.0).max(0.0) * 20e-6
+    } else {
+        0.0
+    };
+    percent_of(reading_abs_v, reading_percent)
+        + percent_of(range.full_scale_v(), range_percent)
+        + high_voltage_term_v
+}
+
+/// Return the additional DCV accuracy limit per °C outside `TCAL ±5°C`.
+pub fn dc_voltage_temperature_coefficient_v_per_c(reading_v: f64, range: DcVoltageRange) -> f64 {
+    let spec = range.accuracy_spec();
+    percent_of(reading_v.abs(), spec.temperature_percent_per_c.0)
+        + percent_of(range.full_scale_v(), spec.temperature_percent_per_c.1)
+}
+
+const fn percent_of(value: f64, percent: f64) -> f64 {
+    value * percent / 100.0
+}
 
 /// DMM6500 measurement function selected once during driver startup.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
@@ -472,42 +620,94 @@ fn dmm_worker_inner(
         }
     };
 
-    let identity = match setup_dmm(&mut client, config) {
-        Ok(identity) => identity,
-        Err(err) => {
-            let _ = startup.send(Err(format!("DMM6500 setup failed: {err}")));
-            return Err(err);
+    let run_result = (|| {
+        let identity = match setup_dmm(&mut client, config) {
+            Ok(identity) => identity,
+            Err(err) => {
+                let _ = startup.send(Err(format!("DMM6500 setup failed: {err}")));
+                return Err(err);
+            }
+        };
+        let value = match read_measurement(&mut client) {
+            Ok(sample) => sample,
+            Err(err) => {
+                let _ = startup.send(Err(format!("DMM6500 initial read failed: {err}")));
+                return Err(err);
+            }
+        };
+        {
+            let mut state = shared.state.lock().unwrap();
+            state.status.set_identity(identity);
+            state.publish_sample(value);
         }
-    };
-    let value = match read_measurement(&mut client) {
-        Ok(sample) => sample,
-        Err(err) => {
-            let _ = startup.send(Err(format!("DMM6500 initial read failed: {err}")));
-            return Err(err);
-        }
-    };
-    {
-        let mut state = shared.state.lock().unwrap();
-        state.status.set_identity(identity);
-        state.publish_sample(value);
-    }
-    let _ = startup.send(Ok(()));
+        let _ = startup.send(Ok(()));
 
-    while !stop.load(Ordering::Relaxed) {
-        // `:READ?` blocks only this worker. The responder continues returning
-        // the previous complete sample, together with its increasing age.
-        let value = read_measurement(&mut client)?;
-        let mut state = shared.state.lock().unwrap();
-        // Timestamp after the complete response arrives. This bounds sample
-        // freshness but does not claim cycle-synchronous acquisition timing.
-        state.publish_sample(value);
+        while !stop.load(Ordering::Relaxed) {
+            // `:READ?` blocks only this worker. The responder continues returning
+            // the previous complete sample, together with its increasing age.
+            let value = read_measurement(&mut client)?;
+            let mut state = shared.state.lock().unwrap();
+            // Timestamp after the complete response arrives. This bounds sample
+            // freshness but does not claim cycle-synchronous acquisition timing.
+            state.publish_sample(value);
+        }
+        Ok(())
+    })();
+
+    let disconnect_result = disconnect_dmm(&mut client);
+    combine_dmm_results(run_result, disconnect_result)
+}
+
+/// Resume local continuous measurement, log out, and close the TCP session.
+fn disconnect_dmm(client: &mut ScpiClient) -> Result<(), String> {
+    let mut errors = Vec::new();
+    match client.command("TRIGger:CONTinuous RESTart") {
+        Ok(()) => std::thread::sleep(LOCAL_RESTART_DELAY),
+        Err(err) => errors.push(format!("continuous-measurement restart failed: {err}")),
     }
-    Ok(())
+    let logout_result = client.query("logout").and_then(|response| {
+        if response.eq_ignore_ascii_case("SUCCESS: Logged out") {
+            Ok(())
+        } else {
+            Err(format!("unexpected logout response `{response}`"))
+        }
+    });
+    if let Err(err) = logout_result {
+        errors.push(format!("logout failed: {err}"));
+    }
+    if let Err(err) = client.shutdown() {
+        errors.push(err);
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("; "))
+    }
+}
+
+/// Preserve an acquisition failure without concealing a disconnect failure.
+fn combine_dmm_results(
+    run_result: Result<(), String>,
+    disconnect_result: Result<(), String>,
+) -> Result<(), String> {
+    match (run_result, disconnect_result) {
+        (Err(err), Err(disconnect_err)) => Err(format!(
+            "{err}; additionally failed to disconnect DMM6500: {disconnect_err}"
+        )),
+        (Err(err), Ok(())) => Err(err),
+        (Ok(()), Err(err)) => Err(format!("failed to disconnect DMM6500: {err}")),
+        (Ok(()), Ok(())) => Ok(()),
+    }
 }
 
 /// Verify the model and configure single-sample ASCII acquisition.
 fn setup_dmm(client: &mut ScpiClient, config: &Config) -> Result<String, String> {
-    let identity = client.identify()?;
+    let mut identity = client.identify()?;
+    // Older shutdown code did not consume the DMM6500's logout acknowledgement,
+    // which the instrument may present to the next raw-socket session.
+    if identity.eq_ignore_ascii_case("SUCCESS: Logged out") {
+        identity = client.identify()?;
+    }
     config.connection.validate_identity(&identity)?;
     // Clear stale status first so the following queue read reports only errors
     // caused by this driver's configuration sequence.
@@ -613,6 +813,55 @@ mod tests {
     use super::super::test_support::{contains_command, spawn_scpi_server, wait_until};
 
     #[test]
+    fn dc_voltage_accuracy_uses_reading_and_range_terms() {
+        let zero_v = dc_voltage_accuracy_v(0.0, DcVoltageRange::Volts10, AccuracyInterval::OneYear);
+        let full_scale_v =
+            dc_voltage_accuracy_v(10.0, DcVoltageRange::Volts10, AccuracyInterval::OneYear);
+        assert!((zero_v - 50e-6).abs() < 1e-15);
+        assert!((full_scale_v - 300e-6).abs() < 1e-15);
+        assert_eq!(
+            dc_voltage_accuracy_v(-10.0, DcVoltageRange::Volts10, AccuracyInterval::OneYear,),
+            full_scale_v
+        );
+        let kilovolt_accuracy_v =
+            dc_voltage_accuracy_v(1000.0, DcVoltageRange::Volts1000, AccuracyInterval::OneYear);
+        assert!((kilovolt_accuracy_v - 0.056).abs() < 1e-15);
+    }
+
+    #[test]
+    fn dc_voltage_accuracy_covers_every_range_and_interval() {
+        let ranges = [
+            DcVoltageRange::Millivolts100,
+            DcVoltageRange::Volts1,
+            DcVoltageRange::Volts10,
+            DcVoltageRange::Volts100,
+            DcVoltageRange::Volts1000,
+        ];
+        let intervals = [
+            AccuracyInterval::Hours24,
+            AccuracyInterval::Days90,
+            AccuracyInterval::OneYear,
+            AccuracyInterval::TwoYears,
+        ];
+        for range in ranges {
+            for interval in intervals {
+                let zero_accuracy_v = dc_voltage_accuracy_v(0.0, range, interval);
+                let full_scale_accuracy_v =
+                    dc_voltage_accuracy_v(range.full_scale_v(), range, interval);
+                assert!(zero_accuracy_v > 0.0);
+                assert!(full_scale_accuracy_v > zero_accuracy_v);
+            }
+        }
+    }
+
+    #[test]
+    fn dc_voltage_temperature_coefficient_is_per_degree_outside_band() {
+        let coefficient_v_per_c =
+            dc_voltage_temperature_coefficient_v_per_c(2.5, DcVoltageRange::Volts10);
+        assert!((coefficient_v_per_c - 12.5e-6).abs() < 1e-15);
+    }
+
+    #[test]
     fn configuration_rejects_invalid_measurement_settings() {
         let mut config = Config::new("localhost", 1);
         config.nplc = f64::NAN;
@@ -640,6 +889,7 @@ mod tests {
     fn startup_rejects_a_queued_configuration_error_before_reading() {
         let (address, server) = spawn_scpi_server(|command| match command {
             "*IDN?" => Some("KEITHLEY INSTRUMENTS,DMM6500,TEST,1.0".to_owned()),
+            "logout" => Some("SUCCESS: Logged out".to_owned()),
             ":SYSTem:ERRor:NEXT?" => {
                 Some("-222,\"Data out of range;1;2026/08/10 12:00:00\"".to_owned())
             }
@@ -658,6 +908,7 @@ mod tests {
         assert!(error.contains("-222"));
         let commands = server.join().unwrap();
         assert!(!commands.iter().any(|command| command == ":READ?"));
+        assert_eq!(commands.last().map(String::as_str), Some("logout"));
     }
 
     #[test]
@@ -665,6 +916,7 @@ mod tests {
         let mut sample = 1.0;
         let (address, server) = spawn_scpi_server(move |command| match command {
             "*IDN?" => Some("KEITHLEY INSTRUMENTS,DMM6500,TEST,1.0".to_owned()),
+            "logout" => Some("SUCCESS: Logged out".to_owned()),
             ":SYSTem:ERRor:NEXT?" => Some("0,\"No error;0;0 0\"".to_owned()),
             ":READ?" => {
                 thread::sleep(Duration::from_millis(1));
@@ -715,12 +967,15 @@ mod tests {
                 .count()
                 >= 3
         );
+        assert_eq!(commands[commands.len() - 2], "TRIGger:CONTinuous RESTart");
+        assert_eq!(commands.last().map(String::as_str), Some("logout"));
     }
 
     #[test]
     fn worker_configures_four_wire_resistance_and_offset_compensation() {
         let (address, server) = spawn_scpi_server(|command| match command {
             "*IDN?" => Some("KEITHLEY INSTRUMENTS,DMM6500,TEST,1.0".to_owned()),
+            "logout" => Some("SUCCESS: Logged out".to_owned()),
             ":SYSTem:ERRor:NEXT?" => Some("0,\"No error;0;0 0\"".to_owned()),
             ":READ?" => Some("1000.25".to_owned()),
             _ => None,
@@ -759,5 +1014,6 @@ mod tests {
         ] {
             assert!(contains_command(&commands, expected));
         }
+        assert_eq!(commands.last().map(String::as_str), Some("logout"));
     }
 }

@@ -1,0 +1,81 @@
+{
+  "model": "deimos_daq_rev7",
+  "serial_number": 3,
+  "channel": "0_2V5_0",
+  "signal_name": "p1.2V5_0_V",
+  "calibrator_cold_junction_temperature_k": null,
+  "manual_reference_windows": [
+    {
+      "reference_a": 0.007536883163265306,
+      "dac_command_v": 0.02,
+      "start_time_s": 0.00003969,
+      "stop_time_s": 2.00203946
+    },
+    {
+      "reference_a": 0.4873455854166668,
+      "dac_command_v": 0.5,
+      "start_time_s": 2.00206335,
+      "stop_time_s": 4.004355672
+    },
+    {
+      "reference_a": 0.9867436571428568,
+      "dac_command_v": 1.0,
+      "start_time_s": 4.004380202,
+      "stop_time_s": 6.006451895
+    },
+    {
+      "reference_a": 1.4862008958333337,
+      "dac_command_v": 1.5,
+      "start_time_s": 6.006477445,
+      "stop_time_s": 8.007805419
+    },
+    {
+      "reference_a": 1.98553875,
+      "dac_command_v": 2.0,
+      "start_time_s": 8.007833629,
+      "stop_time_s": 10.009539054
+    },
+    {
+      "reference_a": 2.4350496875,
+      "dac_command_v": 2.45,
+      "start_time_s": 10.009561604,
+      "stop_time_s": 12.011251441
+    },
+    {
+      "reference_a": 2.435048063829788,
+      "dac_command_v": 2.45,
+      "start_time_s": 12.011272711,
+      "stop_time_s": 14.01291042
+    },
+    {
+      "reference_a": 1.9855233191489359,
+      "dac_command_v": 2.0,
+      "start_time_s": 14.01293373,
+      "stop_time_s": 16.0135114
+    },
+    {
+      "reference_a": 1.4861934375,
+      "dac_command_v": 1.5,
+      "start_time_s": 16.01353074,
+      "stop_time_s": 18.014659942
+    },
+    {
+      "reference_a": 0.9867325021276596,
+      "dac_command_v": 1.0,
+      "start_time_s": 18.014683992,
+      "stop_time_s": 20.016744795
+    },
+    {
+      "reference_a": 0.48733087021276594,
+      "dac_command_v": 0.5,
+      "start_time_s": 20.016771115,
+      "stop_time_s": 22.018773221
+    },
+    {
+      "reference_a": 0.007523190914893618,
+      "dac_command_v": 0.02,
+      "start_time_s": 22.018789721,
+      "stop_time_s": 24.020064348
+    }
+  ]
+}

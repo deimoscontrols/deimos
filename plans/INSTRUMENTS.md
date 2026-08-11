@@ -107,7 +107,7 @@ The protocol responder acknowledges every valid controller request using the lat
 
 Instruments may run at a lower rate than the controller.
 
-The latest commanded full instrument state is reasserted when the previous transaction has finished and a new command has arrived from the controller.
+Each instrument worker uses the enforcement strategy appropriate for that instrument. It may compare the latest commanded state with the last completed state and transmit only required changes, or it may reassert the complete state.
 
 ### Shutdown
 

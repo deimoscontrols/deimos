@@ -3,7 +3,8 @@ use std::time::Duration;
 use deimos_shared::states::ByteStruct;
 
 use super::super::responder::InstrumentProxy;
-use super::driver::{basic_wave_command, combine_worker_results};
+use super::super::scpi::ScpiClient;
+use super::driver::{apply_request, basic_wave_command, combine_worker_results};
 use super::peripheral::{ChannelState, INPUT_SIZE, InstrumentState, OperatingInput};
 use super::*;
 use crate::controller::context::ControllerCtx;
@@ -34,9 +35,11 @@ fn valid_state(offset_voltage_v: f64) -> InstrumentState {
 }
 
 #[test]
-fn repeated_controller_state_is_queued_for_reassertion() {
-    let driver = SiglentSdg2042XDriver::new(Config::new("localhost", 1)).unwrap();
+fn repeated_controller_state_replaces_the_pending_state() {
+    let config = Config::new("localhost", 1);
+    let driver = SiglentSdg2042XDriver::new(config.clone()).unwrap();
     let request = valid_state(1.0);
+    let normalized = request.normalized(&config.channels);
     let mut bytes = vec![0; INPUT_SIZE];
     OperatingInput {
         id: 1,
@@ -44,14 +47,15 @@ fn repeated_controller_state_is_queued_for_reassertion() {
     }
     .write_bytes(&mut bytes);
     assert_eq!(driver.process_request(&bytes), 1);
-    assert_eq!(driver.take_queued(), Some(request));
+    assert_eq!(driver.take_queued(), Some(normalized));
     assert_eq!(driver.process_request(&bytes), 1);
-    assert_eq!(driver.queued(), Some(request));
+    assert_eq!(driver.queued(), Some(normalized));
 }
 
 #[test]
 fn safe_state_precedes_commands_received_after_returning_to_binding() {
-    let driver = SiglentSdg2042XDriver::new(Config::new("localhost", 1)).unwrap();
+    let config = Config::new("localhost", 1);
+    let driver = SiglentSdg2042XDriver::new(config.clone()).unwrap();
     let old = valid_state(1.0);
     let new = valid_state(2.0);
 
@@ -60,7 +64,7 @@ fn safe_state_precedes_commands_received_after_returning_to_binding() {
     driver.submit(new);
 
     assert_eq!(driver.take_queued(), Some(InstrumentState::default()));
-    assert_eq!(driver.take_queued(), Some(new));
+    assert_eq!(driver.take_queued(), Some(new.normalized(&config.channels)));
     assert_eq!(driver.take_queued(), None);
 }
 
@@ -154,6 +158,49 @@ fn every_waveform_emits_only_its_applicable_fields() {
 }
 
 #[test]
+fn request_application_emits_only_changed_channel_commands() {
+    let (address, server) = SiglentSimulator::default().spawn();
+    let config = Config::new(address, 1);
+    let mut client = ScpiClient::connect(&config.connection).unwrap();
+    let initial = InstrumentState::default();
+    let enabled = valid_state(1.0).normalized(&config.channels);
+
+    apply_request(&mut client, &config, initial, enabled).unwrap();
+    apply_request(&mut client, &config, enabled, enabled).unwrap();
+
+    let mut unused_field_change = enabled;
+    unused_field_change.ch1.frequency_hz = 2_000.0;
+    apply_request(&mut client, &config, enabled, unused_field_change).unwrap();
+
+    let mut voltage_change = unused_field_change;
+    voltage_change.ch1.offset_voltage_v = 1.5;
+    apply_request(&mut client, &config, unused_field_change, voltage_change).unwrap();
+    apply_request(
+        &mut client,
+        &config,
+        voltage_change,
+        InstrumentState::default(),
+    )
+    .unwrap();
+    client.shutdown().unwrap();
+
+    let commands = server.join().unwrap();
+    assert_eq!(
+        commands,
+        [
+            basic_wave_command(1, &config.channels[0], enabled.ch1),
+            "C1:OUTP ON,LOAD,100000".to_owned(),
+            "*OPC?".to_owned(),
+            basic_wave_command(1, &config.channels[0], voltage_change.ch1),
+            "*OPC?".to_owned(),
+            "C1:BSWV WVTP,DC,OFST,0".to_owned(),
+            "C1:OUTP OFF,LOAD,100000".to_owned(),
+            "*OPC?".to_owned(),
+        ]
+    );
+}
+
+#[test]
 fn startup_rejects_an_unverified_safe_state() {
     let simulator = SiglentSimulator::default().failing_waveforms_after(0);
     let (address, server) = simulator.spawn();
@@ -197,7 +244,7 @@ fn operating_and_shutdown_failures_are_both_reported() {
     )
     .unwrap_err();
     assert!(error.contains("operating failure"));
-    assert!(error.contains("additionally failed to apply safe state during shutdown"));
+    assert!(error.contains("additionally failed to shut down SDG2042X"));
     assert!(error.contains("safe-state failure"));
 }
 
@@ -209,7 +256,8 @@ fn shutdown_rejects_an_unverified_safe_state() {
     let driver = SiglentSdg2042XDriver::new(Config::new(address, 1)).unwrap();
     let mut handle = driver.run(&ControllerCtx::default()).unwrap();
     let error = handle.join().unwrap_err();
-    assert!(error.contains("failed to apply safe state during shutdown"));
+    assert!(error.contains("failed to shut down SDG2042X"));
+    assert!(error.contains("safe-state failure"));
     assert!(error.contains("was not 0 V DC"));
     server.join().unwrap();
 }
@@ -278,5 +326,49 @@ fn worker_applies_complete_two_channel_state_and_shuts_down_safe() {
             "C1:OUTP?",
             "C2:OUTP?",
         ]
+    );
+}
+
+#[test]
+fn worker_does_not_reassert_an_unchanged_controller_state() {
+    let (address, server) = SiglentSimulator::default().spawn();
+    let config = Config::new(address, 1);
+    let driver = SiglentSdg2042XDriver::new(config.clone()).unwrap();
+    let mut handle = driver.run(&ControllerCtx::default()).unwrap();
+    let mut bytes = vec![0; INPUT_SIZE];
+    let request = valid_state(1.0).normalized(&config.channels);
+    OperatingInput {
+        id: 1,
+        state: request,
+    }
+    .write_bytes(&mut bytes);
+
+    for _ in 0..100 {
+        driver.process_request(&bytes);
+    }
+    wait_until(Duration::from_secs(1), || {
+        driver.applied().unwrap() == request
+    });
+    for _ in 0..100 {
+        driver.process_request(&bytes);
+    }
+    std::thread::sleep(Duration::from_millis(50));
+    handle.join().unwrap();
+
+    let commands = server.join().unwrap();
+    let waveform = basic_wave_command(1, &config.channels[0], request.ch1);
+    assert_eq!(
+        commands
+            .iter()
+            .filter(|command| command.as_str() == waveform)
+            .count(),
+        1
+    );
+    assert_eq!(
+        commands
+            .iter()
+            .filter(|command| command.as_str() == "C1:OUTP ON,LOAD,100000")
+            .count(),
+        1
     );
 }

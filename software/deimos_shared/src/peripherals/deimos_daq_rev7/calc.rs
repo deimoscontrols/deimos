@@ -4,18 +4,21 @@ use byte_struct::{ByteStruct, ByteStructLen, ByteStructUnspecifiedByteOrder};
 
 use super::{
     OperatingSnapshot, ADC_CHANNEL_COUNT, CURRENT_4_20_CHANNEL_COUNT,
-    CURRENT_REFERENCE_RESISTOR_OHM, MODULE_BUS_CURRENT_SCALE, MODULE_BUS_VOLTAGE_SCALE,
-    RTD_CHANNEL_COUNT, RTD_FRONTEND_GAIN, RTD_REFERENCE_CURRENT_A, TC_FRONTEND_GAIN,
-    TC_FRONTEND_OFFSET_V, THERMOCOUPLE_CHANNEL_COUNT,
+    CURRENT_REFERENCE_RESISTOR_OHM, DAC_CHANNEL_COUNT, MODULE_BUS_CURRENT_SCALE,
+    MODULE_BUS_VOLTAGE_SCALE, RTD_CHANNEL_COUNT, RTD_FRONTEND_GAIN, RTD_REFERENCE_CURRENT_A,
+    TC_FRONTEND_GAIN, TC_FRONTEND_OFFSET_V, THERMOCOUPLE_CHANNEL_COUNT, VREF,
 };
 
-/// One affine sensed-voltage calibration, `calibrated = slope * raw + offset`.
+/// Maximum code accepted by each 12-bit DAC channel.
+pub const DAC_MAX_CODE: u16 = 4095;
+
+/// One affine calibration, `calibrated = slope * raw + offset`.
 #[derive(ByteStruct, Clone, Copy, Debug)]
 #[byte_struct_le]
 pub struct LinearCalibration {
-    /// Dimensionless sensed-voltage scale factor.
+    /// Dimensionless scale factor.
     pub slope: f32,
-    /// Sensed-voltage offset in `V`.
+    /// Offset in the calibrated value's units.
     pub offset: f32,
 }
 
@@ -29,16 +32,16 @@ impl Default for LinearCalibration {
 }
 
 impl LinearCalibration {
-    /// Applies this affine calibration to one sensed voltage.
-    ///
-    /// Args:
-    ///   value: Uncalibrated sensed-voltage scalar in `V`.
-    ///
-    /// Returns:
-    ///   Calibrated sensed-voltage scalar in `V`.
+    /// Applies this affine calibration to one raw value.
     #[inline]
     pub fn apply(&self, value: f32) -> f32 {
         value * self.slope + self.offset
+    }
+
+    /// Solves this affine calibration for the uncalibrated input value.
+    #[inline]
+    pub fn unapply(&self, value: f32) -> f32 {
+        (value - self.offset) / self.slope
     }
 
     /// Checks that the affine conversion is finite and invertible.
@@ -50,7 +53,7 @@ impl LinearCalibration {
     }
 }
 
-/// Complete calibration image embedded in firmware.
+/// Complete input/output calibration image embedded in firmware.
 ///
 /// `firmware_calibrated` is deliberately separate from protocol packet magic: it
 /// records whether the coefficients were produced by the calibration procedure.
@@ -62,6 +65,8 @@ pub struct Calibration {
     /// Sensed-voltage calibrations with shape `(ADC_CHANNEL_COUNT,)` and
     /// channel order `ain0..ain12, ain15..ain19`.
     pub voltage_cals: [LinearCalibration; super::ADC_CHANNEL_COUNT],
+    /// DAC transfer calibrations, `actual_voltage = slope * nominal_voltage + offset`.
+    pub dac_cals: [LinearCalibration; DAC_CHANNEL_COUNT],
 }
 
 impl Default for Calibration {
@@ -69,6 +74,7 @@ impl Default for Calibration {
         Self {
             firmware_calibrated: 0,
             voltage_cals: [LinearCalibration::default(); super::ADC_CHANNEL_COUNT],
+            dac_cals: [LinearCalibration::default(); DAC_CHANNEL_COUNT],
         }
     }
 }
@@ -88,8 +94,21 @@ impl Calibration {
     ///   `true` when the record is safe to evaluate. Identity records are
     ///   valid but are reported as uncalibrated by [`Self::is_calibrated`].
     pub fn is_valid(&self) -> bool {
-        self.firmware_calibrated <= 1 && self.voltage_cals.iter().all(LinearCalibration::is_valid)
+        self.firmware_calibrated <= 1
+            && self.voltage_cals.iter().all(LinearCalibration::is_valid)
+            && self.dac_cals.iter().all(|calibration| {
+                calibration.slope.is_finite()
+                    && calibration.slope > 0.0
+                    && calibration.offset.is_finite()
+            })
     }
+}
+
+/// Converts a requested calibrated DAC voltage to a bounded hardware code.
+#[inline]
+pub fn dac_code(requested_voltage_v: f32, calibration: &LinearCalibration) -> u16 {
+    let nominal_voltage_v = calibration.unapply(requested_voltage_v).clamp(0.0, VREF);
+    (nominal_voltage_v * (DAC_MAX_CODE as f32 / VREF)) as u16
 }
 
 /// Converts the cold-junction ADC channel to unfiltered board temperature.

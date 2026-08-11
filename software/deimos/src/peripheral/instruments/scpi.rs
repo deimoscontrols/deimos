@@ -5,8 +5,8 @@
 //! general SCPI dependency and contains no instrument-specific command syntax.
 
 use std::io::{BufRead, BufReader, Write};
-use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
-use std::time::Duration;
+use std::net::{IpAddr, Shutdown, SocketAddr, TcpStream, ToSocketAddrs};
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
@@ -125,6 +125,7 @@ pub(crate) struct ScpiClient {
     // current response and the beginning of a later response.
     stream: BufReader<TcpStream>,
     max_response_len: usize,
+    read_timeout: Duration,
 }
 
 impl ScpiClient {
@@ -159,6 +160,7 @@ impl ScpiClient {
                     return Ok(Self {
                         stream: BufReader::new(stream),
                         max_response_len: DEFAULT_MAX_RESPONSE_LEN,
+                        read_timeout: config.read_timeout,
                     });
                 }
                 Err(err) => last_error = Some((resolved, err)),
@@ -210,17 +212,42 @@ impl ScpiClient {
         self.query("*IDN?")
     }
 
+    /// Explicitly close both directions of the instrument transport.
+    pub(crate) fn shutdown(&mut self) -> Result<(), String> {
+        self.stream
+            .get_mut()
+            .shutdown(Shutdown::Both)
+            .map_err(|err| format!("failed to shut down SCPI transport: {err}"))
+    }
+
     /// Read and validate the single-line response belonging to `command`.
     ///
     /// Errors:
     ///   Returns an error for socket failures or malformed response framing.
     fn read_response(&mut self, command: &str) -> Result<String, String> {
+        let deadline = Instant::now()
+            .checked_add(self.read_timeout)
+            .ok_or_else(|| "SCPI read timeout exceeds the monotonic clock range".to_owned())?;
         let mut bytes = Vec::new();
         loop {
-            let available = self
-                .stream
-                .fill_buf()
-                .map_err(|err| format!("failed to read response to `{command}`: {err}"))?;
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err(format!("response to `{command}` timed out"));
+            }
+            self.stream
+                .get_mut()
+                .set_read_timeout(Some(remaining))
+                .map_err(|err| format!("failed to set response deadline for `{command}`: {err}"))?;
+            let available = self.stream.fill_buf().map_err(|err| {
+                if matches!(
+                    err.kind(),
+                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                ) {
+                    format!("response to `{command}` timed out")
+                } else {
+                    format!("failed to read response to `{command}`: {err}")
+                }
+            })?;
             if available.is_empty() {
                 return Err(format!(
                     "connection closed before response to `{command}` was terminated"
@@ -351,5 +378,34 @@ mod tests {
                 .validate_identity("KEITHLEY,DMM6500,123,1.0")
                 .is_err()
         );
+    }
+
+    #[test]
+    fn query_uses_one_deadline_for_a_trickled_response() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(stream.try_clone().unwrap());
+            let mut command = String::new();
+            reader.read_line(&mut command).unwrap();
+            let mut writer = stream;
+            for byte in b"TRICKLE\n" {
+                if writer.write_all(&[*byte]).is_err() {
+                    break;
+                }
+                thread::sleep(Duration::from_millis(40));
+            }
+        });
+        let mut config = ScpiTcpConfig::new(address.to_string(), 1, "TEST", "MODEL");
+        config.read_timeout = Duration::from_millis(70);
+        let mut client = ScpiClient::connect(&config).unwrap();
+
+        let started = Instant::now();
+        let error = client.query("READ?").unwrap_err();
+        assert!(error.contains("timed out"));
+        assert!(started.elapsed() < Duration::from_millis(200));
+        drop(client);
+        server.join().unwrap();
     }
 }

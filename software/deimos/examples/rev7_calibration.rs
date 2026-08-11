@@ -1,9 +1,8 @@
 //! Rev7 DAQ calibration procedure and command-line entrypoint.
 //!
-//! This module collects and postprocesses manually assisted rev7 calibration
-//! runs for 4-20 mA, RTD, thermocouple, and voltage inputs. It writes one
-//! raw capture per channel, replays it through the standard calc pipeline, then
-//! processes the replayed channel data into plots and calibration records.
+//! This module collects and postprocesses rev7 calibration runs for its analog
+//! inputs and DAC outputs. The 0-2.5 V inputs use their paired DAC as a source
+//! and a DMM6500 as the independent reference.
 //!
 //! # References
 //!
@@ -16,7 +15,7 @@
 //!     NIST Monograph 175, 1993, doi: 10.6028/NIST.MONO.175.
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     env,
     fs::{self, File, create_dir_all},
     io::{copy, stdin},
@@ -30,26 +29,26 @@ use std::{
 use chrono::{DateTime, SecondsFormat, Utc};
 use deimos::{
     ChannelFilter, Controller, ControllerCtx, CsvDispatcher, CsvReplaySource, Dispatcher,
-    LoopMethod, Overflow, Termination,
+    LoopMethod, Overflow, RunHandle, Termination,
     calc::{ktype_corrected_temp_k, ktype_voltage_v, pt100_resistance_ohm, pt100_temp_k},
     dispatcher::{ReportingDispatcher, load_csv},
     math::{polyfit, polyval},
     peripheral::Peripheral,
 };
-use deimos_shared::peripherals::deimos_daq_rev7::Calibration;
-use deimos_shared::peripherals::deimos_daq_rev7::MODEL_NUMBER;
+use deimos_shared::peripherals::deimos_daq_rev7::{Calibration, DAC_CHANNEL_COUNT, MODEL_NUMBER};
 use deimos_shared::states::{ByteStruct, ByteStructLen};
 
 use deimos::peripheral::{
     DeimosDaqRev7,
     deimos_daq_rev7::{CalRecord, CalRecordCore, LinearCal},
+    instruments::keithley_dmm6500,
 };
 use serde::{Deserialize, Serialize};
 use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 const MODEL_NAME: &str = "deimos_daq_rev7";
 const PROCEDURE_NAME: &str = "deimos_daq_rev7_calibration";
-const PROCEDURE_VERSION: u16 = 1;
+const PROCEDURE_VERSION: u16 = 2;
 const PERIPHERAL_NAME: &str = "p1";
 const RATE_HZ: f64 = 100.0;
 const REPORTING_MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(239, 255, 0, 1);
@@ -69,14 +68,18 @@ const VOLTAGE_FIT_ORDER: usize = 1;
 const VOLTAGE_HOLD_SECONDS: f64 = 5.0;
 const MIN_VOLTAGE_HOLD_DURATION_S: f64 = 2.0;
 const VOLTAGE_CAPTURE_SECONDS: u64 = 300;
-const VOLTAGE_0_2V5_MAX_V: f64 = 2.5;
 const VOLTAGE_0_15V_MAX_V: f64 = 15.0;
-const VOLTAGE_0_2V5_HOLDS_V: [f64; 4] = [
-    0.0,
-    VOLTAGE_0_2V5_MAX_V / 3.0,
-    2.0 * VOLTAGE_0_2V5_MAX_V / 3.0,
-    VOLTAGE_0_2V5_MAX_V,
-];
+const DAC_2V5_TARGETS_V: [f64; 6] = [0.02, 0.5, 1.0, 1.5, 2.0, 2.45];
+const DAC_HOLD_SECONDS: f64 = 2.0;
+const MIN_DAC_HOLD_DURATION_S: f64 = 1.5;
+const DAC_CAPTURE_SECONDS: u64 = 30;
+const DEFAULT_DMM_HOST: &str = "192.168.10.213";
+const DMM_NAME: &str = "dmm";
+const DMM_LOGICAL_SERIAL_NUMBER: u64 = 1;
+const DMM_VOLTAGE_RANGE: keithley_dmm6500::DcVoltageRange =
+    keithley_dmm6500::DcVoltageRange::Volts10;
+const DMM_ACCURACY_INTERVAL: keithley_dmm6500::AccuracyInterval =
+    keithley_dmm6500::AccuracyInterval::OneYear;
 const VOLTAGE_0_15V_HOLDS_V: [f64; 4] = [
     0.0,
     VOLTAGE_0_15V_MAX_V / 3.0,
@@ -128,6 +131,7 @@ const DEFAULT_SERIAL_NUMBER: u64 = 2;
 
 struct Args {
     sn: u64,
+    dmm_host: String,
     collect: bool,
     process: bool,
     dst: PathBuf,
@@ -135,11 +139,18 @@ struct Args {
 
 fn main() -> Result<(), String> {
     let args = parse_args()?;
-    run_procedure(args.sn, args.collect, args.process, &args.dst)
+    run_procedure_with_dmm(
+        args.sn,
+        args.collect,
+        args.process,
+        &args.dst,
+        &args.dmm_host,
+    )
 }
 
 fn parse_args() -> Result<Args, String> {
     let mut sn = DEFAULT_SERIAL_NUMBER;
+    let mut dmm_host = DEFAULT_DMM_HOST.to_owned();
     let mut mode = Mode::CollectAndProcess;
     let mut dst = None;
     let mut positional = Vec::new();
@@ -153,6 +164,10 @@ fn parse_args() -> Result<Args, String> {
             sn = value
                 .parse::<u64>()
                 .map_err(|e| format!("Expected integer serial number after --sn: {e}"))?;
+        } else if arg == "--dmm-host" {
+            dmm_host = args
+                .next()
+                .ok_or_else(|| "Missing value after --dmm-host".to_owned())?;
         } else {
             positional.push(arg);
         }
@@ -178,6 +193,7 @@ fn parse_args() -> Result<Args, String> {
 
     Ok(Args {
         sn,
+        dmm_host,
         collect: mode.collect(),
         process: mode.process(),
         dst,
@@ -210,7 +226,7 @@ fn default_calibration_dir(sn: u64) -> PathBuf {
 }
 
 fn usage() -> String {
-    "Usage:\n  rev7_calibration [--sn <serial>] [<dst>]\n  rev7_calibration [--sn <serial>] collect [<dst>]\n  rev7_calibration [--sn <serial>] process [<dst>]".to_owned()
+    "Usage:\n  rev7_calibration [--sn <serial>] [--dmm-host <host>] [<dst>]\n  rev7_calibration [--sn <serial>] [--dmm-host <host>] collect [<dst>]\n  rev7_calibration [--sn <serial>] process [<dst>]".to_owned()
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -349,6 +365,9 @@ const VOLTAGE_CHANNELS: [CalibrationChannel; 6] = [
 
 impl CalibrationChannel {
     fn capture_seconds(self) -> u64 {
+        if self.dac_index().is_some() {
+            return DAC_CAPTURE_SECONDS;
+        }
         match self.kind {
             CalibrationKind::Current4To20 => CAPTURE_SECONDS,
             CalibrationKind::Rtd => RTD_CAPTURE_SECONDS,
@@ -376,6 +395,9 @@ impl CalibrationChannel {
     }
 
     fn min_step_duration_s(self) -> f64 {
+        if self.dac_index().is_some() {
+            return MIN_DAC_HOLD_DURATION_S;
+        }
         match self.kind {
             CalibrationKind::Current4To20 => MIN_STEP_DURATION_S,
             CalibrationKind::Rtd => MIN_RTD_STEP_DURATION_S,
@@ -444,12 +466,22 @@ impl CalibrationChannel {
 
     fn error_accuracy_limit_at_reference(self, reference: f64) -> f64 {
         match self.kind {
+            CalibrationKind::Voltage if self.dac_index().is_some() => {
+                keithley_dmm6500::dc_voltage_accuracy_v(
+                    reference,
+                    DMM_VOLTAGE_RANGE,
+                    DMM_ACCURACY_INTERVAL,
+                )
+            }
             CalibrationKind::Voltage => fluke_707_voltage_accuracy_v(reference),
             _ => self.error_accuracy_limit(),
         }
     }
 
     fn error_accuracy_label(self) -> &'static str {
+        if self.dac_index().is_some() {
+            return "Keithley DMM6500 one-year accuracy (10 V range, Tcal ±5°C)";
+        }
         match self.kind {
             CalibrationKind::Current4To20 => "Fluke 707 accuracy",
             CalibrationKind::Rtd => "VA720 accuracy",
@@ -524,12 +556,22 @@ impl CalibrationChannel {
 
     fn residual_accuracy_limit_at_reference(self, reference: f64) -> f64 {
         match self.kind {
+            CalibrationKind::Voltage if self.dac_index().is_some() => {
+                keithley_dmm6500::dc_voltage_accuracy_v(
+                    reference,
+                    DMM_VOLTAGE_RANGE,
+                    DMM_ACCURACY_INTERVAL,
+                )
+            }
             CalibrationKind::Voltage => fluke_707_voltage_accuracy_v(reference),
             _ => self.residual_accuracy_limit(),
         }
     }
 
     fn residual_accuracy_label(self) -> &'static str {
+        if self.dac_index().is_some() {
+            return "Keithley DMM6500 one-year accuracy (10 V range, Tcal ±5°C)";
+        }
         match self.kind {
             CalibrationKind::Current4To20 => "Fluke 707 accuracy",
             CalibrationKind::Rtd => "VA720 accuracy",
@@ -545,7 +587,7 @@ impl CalibrationChannel {
     ///     when this is not a voltage channel.
     fn voltage_reference_targets_v(self) -> Option<&'static [f64]> {
         match self.slug {
-            "0_2V5_0" | "0_2V5_1" => Some(&VOLTAGE_0_2V5_HOLDS_V),
+            "0_2V5_0" | "0_2V5_1" => Some(&DAC_2V5_TARGETS_V),
             "0_15V_0" | "0_15V_1" => Some(&VOLTAGE_0_15V_HOLDS_V),
             "x26_0" | "x26_1" => Some(&VOLTAGE_X26_HOLDS_V),
             _ => None,
@@ -554,6 +596,14 @@ impl CalibrationChannel {
 
     fn calibration_signal_name(self) -> &'static str {
         self.signal_name
+    }
+
+    fn dac_index(self) -> Option<usize> {
+        match self.slug {
+            "0_2V5_0" => Some(0),
+            "0_2V5_1" => Some(1),
+            _ => None,
+        }
     }
 }
 
@@ -574,6 +624,7 @@ struct ChannelCapture {
     times_s: Vec<f64>,
     measured_a: Vec<f64>,
     reference_a: Vec<Option<f64>>,
+    dac_points: Vec<(f64, f64)>,
     calibrator_cold_junction_temperature_k: Option<f64>,
     board_cold_junction_temperature_k: Vec<f64>,
     board_cold_junction_offset_k: Option<f64>,
@@ -583,6 +634,7 @@ struct ChannelCapture {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ManualReferenceWindow {
     reference_a: f64,
+    dac_command_v: Option<f64>,
     start_time_s: f64,
     stop_time_s: f64,
 }
@@ -621,6 +673,7 @@ struct StepSegment {
 struct ChannelAnalysis {
     segments: Vec<StepSegment>,
     voltage_fit: VoltageFit,
+    dac_fit: Option<VoltageFit>,
     rmse_a: f64,
     mean_error_a: f64,
     max_abs_error_a: f64,
@@ -689,6 +742,19 @@ struct CalibrationJsonCore {
     output_units: String,
     accepted_sample_count: usize,
     detected_step_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dac_calibration: Option<DacCalibrationJsonRecord>,
+}
+
+#[derive(Debug, Serialize)]
+struct DacCalibrationJsonRecord {
+    dac_channel: usize,
+    polynomial_order: usize,
+    polynomial_coefficients: Vec<f64>,
+    r2: f64,
+    commanded_voltage_v: Vec<f64>,
+    measured_voltage_v: Vec<f64>,
+    residual_voltage_v: Vec<f64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -722,6 +788,10 @@ struct CalibrationSummaryRecord {
     polynomial_coefficients: Vec<f64>,
     r2: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
+    dac_polynomial_coefficients: Option<Vec<f64>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dac_r2: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     temperature_error_fit: Option<NormalizedLinearFit>,
     input_units: String,
     output_units: String,
@@ -739,6 +809,7 @@ struct PlotPaths {
 struct FullCalChannelInput {
     channel: CalibrationChannel,
     linear_cal: LinearCal,
+    dac_cal: Option<LinearCal>,
     cold_junction_rtd_voltage_offset_v: Option<f64>,
 }
 
@@ -841,12 +912,22 @@ pub fn run_procedure(
     process: bool,
     dst: impl AsRef<Path>,
 ) -> Result<(), String> {
+    run_procedure_with_dmm(sn, collect, process, dst, DEFAULT_DMM_HOST)
+}
+
+fn run_procedure_with_dmm(
+    sn: u64,
+    collect: bool,
+    process: bool,
+    dst: impl AsRef<Path>,
+    dmm_host: &str,
+) -> Result<(), String> {
     let dst = dst.as_ref();
 
     match (collect, process) {
         (true, true) => {
             create_dir_all(dst).map_err(|e| format!("Failed to create {}: {e}", dst.display()))?;
-            let paths = collect_all_channels(sn, dst, true)?;
+            let paths = collect_all_channels(sn, dst, true, dmm_host)?;
             println!(
                 "Collected and processed {} raw calibration run files.",
                 paths.len()
@@ -854,7 +935,7 @@ pub fn run_procedure(
         }
         (true, false) => {
             create_dir_all(dst).map_err(|e| format!("Failed to create {}: {e}", dst.display()))?;
-            let paths = collect_all_channels(sn, dst, false)?;
+            let paths = collect_all_channels(sn, dst, false, dmm_host)?;
             println!("Collected {} raw calibration run files.", paths.len());
             for path in paths {
                 println!("  {}", path.display());
@@ -876,6 +957,7 @@ fn collect_all_channels(
     sn: u64,
     output_root: &Path,
     process_after_each_run: bool,
+    dmm_host: &str,
 ) -> Result<Vec<PathBuf>, String> {
     println!("Rev7 calibration collection");
     println!(
@@ -888,7 +970,7 @@ fn collect_all_channels(
         "Thermocouple channels use a VA710 simulator with manual holds stepping from -200 C to +1370 C and back down to -200 C during the recording. Below -100 C, hold only at -200 C and -150 C on both ramps; do not stop at intermediate temperatures because doing so can contaminate the widened low-temperature hold data. From -100 C upward, target 50 K increments through +100 C and 100 K increments above +100 C. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
-        "Voltage channels use a signal generator measured by the Fluke 707. The 0-2.5 V and 0-15 V channels use four evenly spaced target holds. Each 25.7x channel uses five holds over -0.035 V to +0.055 V: -0.035, -0.0175 (-0.035/2), 0.0, +0.0275 (+0.055/2), and +0.055 V. Enter the Fluke voltage once the signal is stable."
+        "Each 0-2.5 V channel uses its paired DAC and the DMM6500 at {dmm_host} for six 2 s holds ascending and descending. The 0-15 V channels use four manually measured signal-generator holds. Each 25.7x channel uses five holds over -0.035 V to +0.055 V."
     );
     println!(
         "Monitor live channels with: cargo run -p deimos_console -- --config {CONSOLE_CONFIG_PATH}"
@@ -912,6 +994,7 @@ fn collect_all_channels(
             output_root,
             channel,
             calibrator_cold_junction_temperature_k,
+            dmm_host,
         )?;
         let summary_dir = raw_path
             .parent()
@@ -938,7 +1021,14 @@ fn collect_all_channels(
 
 fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, String> {
     println!();
-    println!("Connect the calibrator to {}.", channel.label);
+    if let Some(dac_index) = channel.dac_index() {
+        println!(
+            "Connect DAC{dac_index}, {}, and the Keithley DMM6500 together.",
+            channel.label
+        );
+    } else {
+        println!("Connect the calibrator to {}.", channel.label);
+    }
     match channel.kind {
         CalibrationKind::Current4To20 => {
             println!(
@@ -985,7 +1075,11 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
             let targets_v = channel.voltage_reference_targets_v().ok_or_else(|| {
                 format!("Missing voltage reference targets for {}", channel.label)
             })?;
-            if matches!(channel.slug, "x26_0" | "x26_1") {
+            if channel.dac_index().is_some() {
+                println!(
+                    "The DAQ will command six 2 s holds from 20 mV through 2.45 V, then repeat them in descending order. The Keithley reading is the reference for both DAC and input fits."
+                );
+            } else if matches!(channel.slug, "x26_0" | "x26_1") {
                 println!(
                     "Connect the signal generator to this 25.7x input and measure it with the Fluke 707. This run uses five holds over -0.035 V to +0.055 V: -0.035, -0.0175 (-0.035/2), 0.0, +0.0275 (+0.055/2), and +0.055 V."
                 );
@@ -1024,6 +1118,7 @@ fn run_channel_capture(
     output_root: &Path,
     channel: CalibrationChannel,
     calibrator_cold_junction_temperature_k: Option<f64>,
+    dmm_host: &str,
 ) -> Result<PathBuf, String> {
     let op_name = op_name_for_channel(sn, channel)?;
     let op_dir = output_root.join(&op_name);
@@ -1035,6 +1130,15 @@ fn run_channel_capture(
         PERIPHERAL_NAME,
         Box::new(DeimosDaqRev7 { serial_number: sn }),
     )?;
+    let mut dmm_handle = if channel.dac_index().is_some() {
+        let mut config = keithley_dmm6500::Config::new(dmm_host, DMM_LOGICAL_SERIAL_NUMBER);
+        config.function = keithley_dmm6500::Function::DcVoltage {
+            range_v: Some(DMM_VOLTAGE_RANGE.full_scale_v()),
+        };
+        Some(keithley_dmm6500::attach(DMM_NAME, config, &mut controller)?)
+    } else {
+        None
+    };
 
     let raw_csv = CsvDispatcher::new(CSV_REPLAY_MB, Overflow::Error).with_op_name_suffix("raw");
     controller.add_dispatcher("raw_csv", raw_csv);
@@ -1048,10 +1152,20 @@ fn run_channel_capture(
     let dropped_frames = reporting.dropped_frames_handle();
     controller.add_dispatcher("reporting", reporting);
 
-    let mut run_handle = controller.run_nonblocking(None, None, true)?;
+    let mut run_handle = match controller.run_nonblocking(None, None, true) {
+        Ok(handle) => handle,
+        Err(err) => {
+            if let Some(handle) = &mut dmm_handle {
+                let _ = handle.join();
+            }
+            return Err(err);
+        }
+    };
     let run_start = Instant::now();
-    let manual_reference_windows = if matches!(channel.kind, CalibrationKind::Voltage) {
-        collect_voltage_reference_windows(channel, run_start)?
+    let capture_result = if channel.dac_index().is_some() {
+        collect_dac_reference_windows(&run_handle, channel, run_start)
+    } else if matches!(channel.kind, CalibrationKind::Voltage) {
+        collect_voltage_reference_windows(channel, run_start)
     } else {
         println!(
             "Recording {} for up to {} seconds. Perform the calibration stepping now. Press Enter to stop this run early.",
@@ -1059,15 +1173,19 @@ fn run_channel_capture(
             channel.capture_seconds(),
         );
         let mut line = String::new();
-        stdin()
+        let read_result = stdin()
             .read_line(&mut line)
-            .map_err(|e| format!("Failed to read early-stop prompt: {e}"))?;
-        Vec::new()
+            .map_err(|e| format!("Failed to read early-stop prompt: {e}"));
+        read_result.map(|_| Vec::new())
     };
     if run_handle.is_running() {
         run_handle.stop();
     }
-    let stop_reason = run_handle.join()?;
+    let controller_result = run_handle.join();
+    let dmm_result = dmm_handle.as_mut().map_or(Ok(()), |handle| handle.join());
+    let manual_reference_windows = capture_result?;
+    let stop_reason = controller_result?;
+    dmm_result?;
     println!("Stopped {}: {stop_reason}", channel.label);
 
     let dropped = dropped_frames.load(Ordering::Relaxed);
@@ -1130,12 +1248,107 @@ fn collect_voltage_reference_windows(
         let stop_time_s = run_start.elapsed().as_secs_f64();
         windows.push(ManualReferenceWindow {
             reference_a,
+            dac_command_v: None,
             start_time_s,
             stop_time_s,
         });
     }
 
     Ok(windows)
+}
+
+fn collect_dac_reference_windows(
+    run_handle: &RunHandle,
+    channel: CalibrationChannel,
+    run_start: Instant,
+) -> Result<Vec<ManualReferenceWindow>, String> {
+    let dac_index = channel
+        .dac_index()
+        .ok_or_else(|| format!("{} is not paired with a DAC", channel.label))?;
+    let sequence = dac_hold_sequence();
+    let mut windows = Vec::with_capacity(sequence.len());
+
+    for (hold_index, command_v) in sequence.iter().copied().enumerate() {
+        run_handle.write(HashMap::from([(
+            format!("{PERIPHERAL_NAME}.dac{dac_index}"),
+            command_v,
+        )]))?;
+        let start_time_s = run_start.elapsed().as_secs_f64();
+        let hold_start = Instant::now();
+        let accept_start = Duration::from_secs_f64(0.25 * DAC_HOLD_SECONDS);
+        let accept_stop = Duration::from_secs_f64(0.75 * DAC_HOLD_SECONDS);
+        let hold_duration = Duration::from_secs_f64(DAC_HOLD_SECONDS);
+        let initial = run_handle.read();
+        let mut last_sequence = initial
+            .values
+            .get(&format!("{DMM_NAME}.sample_sequence"))
+            .copied()
+            .unwrap_or_default();
+        let mut dmm_samples = Vec::new();
+
+        while hold_start.elapsed() < hold_duration {
+            if !run_handle.is_running() {
+                return Err(format!(
+                    "controller stopped during DAC{dac_index} hold {}",
+                    hold_index + 1
+                ));
+            }
+            let snapshot = run_handle.read();
+            let sample_sequence = snapshot
+                .values
+                .get(&format!("{DMM_NAME}.sample_sequence"))
+                .copied()
+                .unwrap_or_default();
+            if sample_sequence > last_sequence {
+                let elapsed = hold_start.elapsed();
+                if elapsed >= accept_start
+                    && elapsed <= accept_stop
+                    && snapshot.values.get(&format!("{DMM_NAME}.voltage_active")) == Some(&1.0)
+                    && snapshot
+                        .values
+                        .get(&format!("{DMM_NAME}.sample_age_s"))
+                        .is_some_and(|age| *age < 0.5)
+                    && let Some(&voltage_v) = snapshot.values.get(&format!("{DMM_NAME}.voltage_v"))
+                    && voltage_v.is_finite()
+                {
+                    dmm_samples.push(voltage_v);
+                }
+                last_sequence = sample_sequence;
+            }
+            sleep(Duration::from_millis(5));
+        }
+
+        if dmm_samples.is_empty() {
+            return Err(format!(
+                "DAC{dac_index} hold {} at {command_v:.6} V produced no fresh Keithley samples",
+                hold_index + 1
+            ));
+        }
+        let reference_a = dmm_samples.iter().sum::<f64>() / dmm_samples.len() as f64;
+        let stop_time_s = run_start.elapsed().as_secs_f64();
+        println!(
+            "DAC{dac_index} hold {}/{}: command={command_v:.6} V, Keithley mean={reference_a:.9} V from {} samples",
+            hold_index + 1,
+            sequence.len(),
+            dmm_samples.len()
+        );
+        windows.push(ManualReferenceWindow {
+            reference_a,
+            dac_command_v: Some(command_v),
+            start_time_s,
+            stop_time_s,
+        });
+    }
+
+    Ok(windows)
+}
+
+fn dac_hold_sequence() -> Vec<f64> {
+    DAC_2V5_TARGETS_V
+        .iter()
+        .chain(DAC_2V5_TARGETS_V.iter().rev())
+        .copied()
+        .collect()
 }
 
 fn controller_context(
@@ -1544,6 +1757,11 @@ fn process_calibration_files(
             max_abs_error: analysis.max_abs_error_a * error_scale,
             polynomial_coefficients: analysis.voltage_fit.coefficients.clone(),
             r2: analysis.voltage_fit.r2,
+            dac_polynomial_coefficients: analysis
+                .dac_fit
+                .as_ref()
+                .map(|fit| fit.coefficients.clone()),
+            dac_r2: analysis.dac_fit.as_ref().map(|fit| fit.r2),
             temperature_error_fit: analysis.voltage_fit.temperature_error_fit.clone(),
             input_units: capture.channel.fit_units().to_owned(),
             output_units: capture.channel.fit_units().to_owned(),
@@ -1560,6 +1778,12 @@ fn process_calibration_files(
             analysis.mean_error_a * error_scale,
             analysis.max_abs_error_a * error_scale,
         );
+        if let Some(fit) = &analysis.dac_fit {
+            println!(
+                "  DAC transfer: actual_V = {:.9} + {:.9} * nominal_V, R^2 = {:.9}",
+                fit.coefficients[0], fit.coefficients[1], fit.r2
+            );
+        }
         println!("  source {}", path.display());
         println!("  replay {}", replay_path.display());
         println!("  wrote {}", plot_paths.light.display());
@@ -1603,6 +1827,11 @@ fn full_cal_channel_input(
     Ok(FullCalChannelInput {
         channel: capture.channel,
         linear_cal: linear_cal_from_fit(&analysis.voltage_fit)?,
+        dac_cal: analysis
+            .dac_fit
+            .as_ref()
+            .map(linear_cal_from_fit)
+            .transpose()?,
         cold_junction_rtd_voltage_offset_v: if matches!(
             capture.channel.kind,
             CalibrationKind::Thermocouple
@@ -1657,12 +1886,27 @@ fn write_full_cal_record(
     }
 
     let mut voltage_cals: [LinearCal; 18] = std::array::from_fn(|_| LinearCal::default());
+    let mut dac_cals: [LinearCal; DAC_CHANNEL_COUNT] =
+        std::array::from_fn(|_| LinearCal::default());
+    let mut dac_calibrated = [false; DAC_CHANNEL_COUNT];
     for input in inputs_by_slug.values() {
         let index = adc_index_for_channel(input.channel)?;
         voltage_cals[index] = LinearCal {
             slope: input.linear_cal.slope,
             offset: input.linear_cal.offset,
         };
+        if let Some(dac_cal) = input.dac_cal {
+            let dac_index = input.channel.dac_index().ok_or_else(|| {
+                format!("{} unexpectedly produced a DAC fit", input.channel.label)
+            })?;
+            dac_cals[dac_index] = dac_cal;
+            dac_calibrated[dac_index] = true;
+        }
+    }
+    if let Some(missing_dac) = dac_calibrated.iter().position(|calibrated| !calibrated) {
+        return Err(format!(
+            "Cannot write full rev7 calibration record without DAC{missing_dac} calibration data"
+        ));
     }
 
     let cold_junction_offsets_v = inputs_by_slug
@@ -1692,6 +1936,7 @@ fn write_full_cal_record(
             Vec::new(),
         ),
         voltage_cals,
+        dac_cals,
     };
 
     let path = summary_dir.join("cal.json");
@@ -1934,6 +2179,15 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
     } else {
         None
     };
+    let dac_points = metadata
+        .manual_reference_windows
+        .iter()
+        .filter_map(|window| {
+            window
+                .dac_command_v
+                .map(|command_v| (command_v, window.reference_a))
+        })
+        .collect();
 
     Ok(ChannelCapture {
         serial_number: metadata.serial_number,
@@ -1943,6 +2197,7 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
         times_s,
         measured_a,
         reference_a,
+        dac_points,
         calibrator_cold_junction_temperature_k: metadata.calibrator_cold_junction_temperature_k,
         board_cold_junction_temperature_k,
         board_cold_junction_offset_k,
@@ -1960,7 +2215,12 @@ fn analyze_capture(capture: &ChannelCapture) -> Result<ChannelAnalysis, String> 
             capture.channel.label
         ));
     }
-    let voltage_fit = fit_expected_value(&samples, &segments, capture.channel.kind)?;
+    let voltage_fit = fit_expected_value(&samples, &segments, capture.channel)?;
+    let dac_fit = if capture.channel.dac_index().is_some() {
+        Some(fit_dac_transfer(&capture.dac_points)?)
+    } else {
+        None
+    };
 
     let mean_error_a =
         samples.iter().map(|sample| sample.error_a).sum::<f64>() / samples.len() as f64;
@@ -1978,6 +2238,7 @@ fn analyze_capture(capture: &ChannelCapture) -> Result<ChannelAnalysis, String> 
     Ok(ChannelAnalysis {
         segments,
         voltage_fit,
+        dac_fit,
         rmse_a,
         mean_error_a,
         max_abs_error_a,
@@ -1988,13 +2249,13 @@ fn analyze_capture(capture: &ChannelCapture) -> Result<ChannelAnalysis, String> 
 fn fit_expected_value(
     samples: &[ErrorSample],
     segments: &[StepSegment],
-    kind: CalibrationKind,
+    channel: CalibrationChannel,
 ) -> Result<VoltageFit, String> {
-    match kind {
+    match channel.kind {
         CalibrationKind::Current4To20 => fit_current_voltage(samples),
         CalibrationKind::Rtd => fit_rtd_voltage_from_temperature_error(samples),
         CalibrationKind::Thermocouple => fit_thermocouple_voltage(samples),
-        CalibrationKind::Voltage => fit_voltage(samples, segments),
+        CalibrationKind::Voltage => fit_voltage(samples, segments, channel.dac_index().is_none()),
     }
 }
 
@@ -2020,13 +2281,17 @@ fn fit_current_voltage(samples: &[ErrorSample]) -> Result<VoltageFit, String> {
     })
 }
 
-fn fit_voltage(samples: &[ErrorSample], segments: &[StepSegment]) -> Result<VoltageFit, String> {
+fn fit_voltage(
+    samples: &[ErrorSample],
+    segments: &[StepSegment],
+    allow_identity: bool,
+) -> Result<VoltageFit, String> {
     let points = samples
         .iter()
         .map(|sample| (sample.measured_a, sample.reference_a))
         .collect::<Vec<_>>();
 
-    if voltage_hold_means_within_calibrator_accuracy(samples, segments) {
+    if allow_identity && voltage_hold_means_within_calibrator_accuracy(samples, segments) {
         return Ok(identity_voltage_fit(&points));
     }
 
@@ -2037,6 +2302,25 @@ fn fit_voltage(samples: &[ErrorSample], segments: &[StepSegment]) -> Result<Volt
         r2,
         measured_x: points.iter().map(|(x, _)| *x).collect(),
         expected_y: points.iter().map(|(_, y)| *y).collect(),
+        residuals,
+        temperature_error_fit: None,
+    })
+}
+
+fn fit_dac_transfer(points: &[(f64, f64)]) -> Result<VoltageFit, String> {
+    if points.len() != 2 * DAC_2V5_TARGETS_V.len() {
+        return Err(format!(
+            "Expected {} DAC/Keithley holds, got {}",
+            2 * DAC_2V5_TARGETS_V.len(),
+            points.len()
+        ));
+    }
+    let (coefficients, r2, residuals) = fit_linear_points(points)?;
+    Ok(VoltageFit {
+        coefficients,
+        r2,
+        measured_x: points.iter().map(|(commanded, _)| *commanded).collect(),
+        expected_y: points.iter().map(|(_, measured)| *measured).collect(),
         residuals,
         temperature_error_fit: None,
     })
@@ -2437,6 +2721,10 @@ fn no_segments_error(capture: &ChannelCapture) -> String {
             TC_STEP_K,
             MIN_TC_STEP_DURATION_S,
         ),
+        CalibrationKind::Voltage if capture.channel.dac_index().is_some() => format!(
+            "No DAC/Keithley reference holds found for {}.",
+            capture.channel.label,
+        ),
         CalibrationKind::Voltage => format!(
             "No manual voltage reference holds found for {}. The CSV must contain reference_a values from the voltage hold prompts.",
             capture.channel.label,
@@ -2668,6 +2956,24 @@ fn write_calibration_json_record(
     let path = capture
         .op_dir
         .join(format!("{}_calibration.json", capture.op_name));
+    let dac_calibration = match (&analysis.dac_fit, capture.channel.dac_index()) {
+        (Some(fit), Some(dac_channel)) => Some(DacCalibrationJsonRecord {
+            dac_channel,
+            polynomial_order: VOLTAGE_FIT_ORDER,
+            polynomial_coefficients: fit.coefficients.clone(),
+            r2: fit.r2,
+            commanded_voltage_v: fit.measured_x.clone(),
+            measured_voltage_v: fit.expected_y.clone(),
+            residual_voltage_v: fit.residuals.clone(),
+        }),
+        (None, None) => None,
+        _ => {
+            return Err(format!(
+                "DAC fit/channel mismatch for {}",
+                capture.channel.label
+            ));
+        }
+    };
     let core = CalibrationJsonCore {
         model: MODEL_NAME.to_owned(),
         serial_number: capture.serial_number,
@@ -2696,6 +3002,7 @@ fn write_calibration_json_record(
         output_units: capture.channel.fit_units().to_owned(),
         accepted_sample_count: analysis.samples.len(),
         detected_step_count: analysis.segments.len(),
+        dac_calibration,
     };
 
     let json = if matches!(capture.channel.kind, CalibrationKind::Thermocouple) {
@@ -2761,6 +3068,124 @@ fn write_analysis_plots(
         light: write_analysis_plot(capture, analysis, PlotTheme::Light)?,
         dark: write_analysis_plot(capture, analysis, PlotTheme::Dark)?,
     })
+}
+
+fn dac_plot_fragments(fit: Option<&VoltageFit>) -> Result<(String, String), String> {
+    let Some(fit) = fit else {
+        return Ok((String::new(), String::new()));
+    };
+    let split = DAC_2V5_TARGETS_V.len();
+    let line_x = vec![DAC_2V5_TARGETS_V[0], DAC_2V5_TARGETS_V[split - 1]];
+    let line_y = line_x
+        .iter()
+        .map(|&command_v| polyval(command_v, &fit.coefficients))
+        .collect::<Vec<_>>();
+    let residual_uv = fit
+        .residuals
+        .iter()
+        .map(|residual_v| residual_v * 1e6)
+        .collect::<Vec<_>>();
+    let (accuracy_x, accuracy_y_v) = accuracy_band_xy(line_x[0], line_x[1], |command_v| {
+        keithley_dmm6500::dc_voltage_accuracy_v(
+            polyval(command_v, &fit.coefficients),
+            DMM_VOLTAGE_RANGE,
+            DMM_ACCURACY_INTERVAL,
+        )
+    });
+    let accuracy_y_uv = accuracy_y_v
+        .iter()
+        .map(|accuracy_v| accuracy_v * 1e6)
+        .collect::<Vec<_>>();
+    let residual_limit_uv = residual_uv
+        .iter()
+        .chain(accuracy_y_uv.iter())
+        .map(|residual_uv| residual_uv.abs())
+        .fold(0.0, f64::max)
+        .mul_add(1.1, 0.0)
+        .max(1e-3);
+    let html = format!(
+        r#"<h2 class="plot-heading">DAC transfer: actual_V = {:.9} + {:.9} × nominal_V; R² = {:.9}</h2>
+    <div id="dac-transfer" class="plot"></div>
+    <div id="dac-transfer-residual" class="plot"></div>"#,
+        fit.coefficients[0], fit.coefficients[1], fit.r2
+    );
+    let js = format!(
+        r#"
+const dacCommandAscending = {command_ascending};
+const dacCommandDescending = {command_descending};
+const dacMeasuredAscending = {measured_ascending};
+const dacMeasuredDescending = {measured_descending};
+const dacResidualAscendingUv = {residual_ascending};
+const dacResidualDescendingUv = {residual_descending};
+const dacAccuracyX = {accuracy_x};
+const dacAccuracyYUv = {accuracy_y};
+
+Plotly.newPlot("dac-transfer", [
+    {{
+        x: dacCommandAscending, y: dacMeasuredAscending, mode: "markers", type: "scatter",
+        name: "Ascending", marker: {{ size: 9, color: traceColor }}
+    }},
+    {{
+        x: dacCommandDescending, y: dacMeasuredDescending, mode: "markers", type: "scatter",
+        name: "Descending", marker: {{ size: 9, symbol: "diamond", color: statisticColor }}
+    }},
+    {{
+        x: {line_x}, y: {line_y}, mode: "lines", type: "scatter",
+        name: "Linear fit", line: {{ width: 2, color: textColor }}
+    }}
+], themedLayout({{
+    title: {{ text: "DAC transfer measured by Keithley DMM6500" }},
+    xaxis: {{ title: {{ text: "Commanded voltage (V)", standoff: 16 }}, automargin: true }},
+    yaxis: {{ title: {{ text: "Measured voltage (V)", standoff: 18 }}, automargin: true }},
+    margin: {{ l: 88, r: 24, t: 72, b: 78 }}
+}}), {{ responsive: true }});
+
+Plotly.newPlot("dac-transfer-residual", [
+    {{
+        x: dacAccuracyX, y: dacAccuracyYUv, mode: "lines", type: "scatter", fill: "toself",
+        name: "Keithley DMM6500 one-year accuracy (10 V range, Tcal ±5°C)",
+        line: {{ width: 0, color: accuracyFillColor }}, fillcolor: accuracyFillColor,
+        hoverinfo: "skip"
+    }},
+    {{
+        x: dacCommandAscending, y: dacResidualAscendingUv, mode: "markers", type: "scatter",
+        name: "Ascending", marker: {{ size: 9, color: traceColor }}
+    }},
+    {{
+        x: dacCommandDescending, y: dacResidualDescendingUv, mode: "markers", type: "scatter",
+        name: "Descending", marker: {{ size: 9, symbol: "diamond", color: statisticColor }}
+    }}
+], themedLayout({{
+    title: {{ text: "DAC residual after linear calibration" }},
+    xaxis: {{ title: {{ text: "Commanded voltage (V)", standoff: 16 }}, automargin: true }},
+    yaxis: {{ title: {{ text: "Measured − fitted voltage (µV)", standoff: 18 }}, range: {residual_range}, automargin: true }},
+    margin: {{ l: 88, r: 24, t: 72, b: 78 }}
+}}), {{ responsive: true }});
+"#,
+        command_ascending = serde_json::to_string(&fit.measured_x[..split])
+            .map_err(|e| format!("Failed to serialize ascending DAC commands: {e}"))?,
+        command_descending = serde_json::to_string(&fit.measured_x[split..])
+            .map_err(|e| format!("Failed to serialize descending DAC commands: {e}"))?,
+        measured_ascending = serde_json::to_string(&fit.expected_y[..split])
+            .map_err(|e| format!("Failed to serialize ascending DAC measurements: {e}"))?,
+        measured_descending = serde_json::to_string(&fit.expected_y[split..])
+            .map_err(|e| format!("Failed to serialize descending DAC measurements: {e}"))?,
+        residual_ascending = serde_json::to_string(&residual_uv[..split])
+            .map_err(|e| format!("Failed to serialize ascending DAC residuals: {e}"))?,
+        residual_descending = serde_json::to_string(&residual_uv[split..])
+            .map_err(|e| format!("Failed to serialize descending DAC residuals: {e}"))?,
+        accuracy_x = serde_json::to_string(&accuracy_x)
+            .map_err(|e| format!("Failed to serialize DAC accuracy x data: {e}"))?,
+        accuracy_y = serde_json::to_string(&accuracy_y_uv)
+            .map_err(|e| format!("Failed to serialize DAC accuracy y data: {e}"))?,
+        line_x = serde_json::to_string(&line_x)
+            .map_err(|e| format!("Failed to serialize DAC fit x data: {e}"))?,
+        line_y = serde_json::to_string(&line_y)
+            .map_err(|e| format!("Failed to serialize DAC fit y data: {e}"))?,
+        residual_range = serde_json::to_string(&[-residual_limit_uv, residual_limit_uv])
+            .map_err(|e| format!("Failed to serialize DAC residual range: {e}"))?,
+    );
+    Ok((html, js))
 }
 
 fn write_analysis_plot(
@@ -2947,6 +3372,7 @@ fn write_analysis_plot(
         .max(max_abs_residual)
         .max(1e-12);
     let residual_y_axis_range = vec![-residual_y_limit, residual_y_limit];
+    let (dac_plot_html, dac_plot_script) = dac_plot_fragments(analysis.dac_fit.as_ref())?;
 
     let title = format!(
         "{} SN{} {} calibration",
@@ -3004,6 +3430,7 @@ fn write_analysis_plot(
     {cold_junction_label_html}
     <div id="voltage-fit" class="plot"></div>
     <div id="voltage-fit-residual" class="plot"></div>
+    {dac_plot_html}
 </main>
 <script>
 const rawTimeS = {raw_time_s};
@@ -3239,6 +3666,7 @@ Plotly.newPlot("voltage-fit-residual", [
     boxmode: "group",
     margin: {{ l: 88, r: 24, t: 112, b: 78 }}
 }}), {{ responsive: true }});
+{dac_plot_script}
 </script>
 </body>
 </html>
@@ -3246,6 +3674,8 @@ Plotly.newPlot("voltage-fit-residual", [
         title = html_escape(&title),
         voltage_fit_label_html = report_line_html(&voltage_fit_label),
         cold_junction_label_html = cold_junction_label_html,
+        dac_plot_html = dac_plot_html,
+        dac_plot_script = dac_plot_script,
         page_background = plot_theme.page_background(),
         text_color = plot_theme.text_color(),
         report_max_width = REPORT_MAX_WIDTH,
@@ -3419,6 +3849,37 @@ mod tests {
         assert_eq!(VOLTAGE_X26_HOLDS_V[2], 0.0);
         assert_eq!(VOLTAGE_X26_HOLDS_V[3], VOLTAGE_X26_HOLDS_V[4] / 2.0);
         assert_eq!(VOLTAGE_X26_HOLDS_V[4], 0.055);
+    }
+
+    #[test]
+    fn paired_dac_holds_use_six_targets_up_and_down() {
+        assert_eq!(DAC_2V5_TARGETS_V, [0.02, 0.5, 1.0, 1.5, 2.0, 2.45]);
+        assert_eq!(
+            dac_hold_sequence(),
+            [
+                0.02, 0.5, 1.0, 1.5, 2.0, 2.45, 2.45, 2.0, 1.5, 1.0, 0.5, 0.02,
+            ]
+        );
+        assert_eq!(channel_for_slug("0_2V5_0").unwrap().dac_index(), Some(0));
+        assert_eq!(channel_for_slug("0_2V5_1").unwrap().dac_index(), Some(1));
+    }
+
+    #[test]
+    fn dac_transfer_fit_maps_nominal_command_to_keithley_voltage() {
+        let points = dac_hold_sequence()
+            .into_iter()
+            .map(|command_v| (command_v, 0.98 * command_v + 0.02))
+            .collect::<Vec<_>>();
+        let fit = fit_dac_transfer(&points).unwrap();
+        assert!((fit.coefficients[0] - 0.02).abs() < 1.0e-12);
+        assert!((fit.coefficients[1] - 0.98).abs() < 1.0e-12);
+        assert!((fit.r2 - 1.0).abs() < 1.0e-12);
+
+        let (html, script) = dac_plot_fragments(Some(&fit)).unwrap();
+        assert!(html.contains("DAC transfer"));
+        assert!(script.contains("dacCommandAscending"));
+        assert!(script.contains("dacCommandDescending"));
+        assert!(script.contains("dacAccuracyYUv"));
     }
 
     #[test]

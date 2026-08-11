@@ -116,6 +116,7 @@ fn controller_runs_both_instrument_drivers() {
     let mut sample = 0_u64;
     let (dmm_address, dmm_server) = spawn_scpi_server(move |command| match command {
         "*IDN?" => Some("KEITHLEY INSTRUMENTS,DMM6500,TEST,1.0".to_owned()),
+        "logout" => Some("SUCCESS: Logged out".to_owned()),
         ":SYSTem:ERRor:NEXT?" => Some("0,\"No error;0;0 0\"".to_owned()),
         ":READ?" => {
             thread::sleep(Duration::from_millis(25));

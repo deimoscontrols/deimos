@@ -251,7 +251,7 @@ enum State {
     },
     Operating {
         response_id: u64,
-        last_contact: Instant,
+        contact_deadline: Instant,
         loss_of_contact_timeout: Duration,
     },
 }
@@ -264,10 +264,11 @@ fn run_protocol(
 ) -> Result<(), String> {
     let mut state = State::Binding;
     while !stop.load(Ordering::Relaxed) {
-        // A latched physical-I/O error deliberately suppresses valid responses.
-        // Existing controller loss-of-contact policy then terminates or reconnects.
+        // Suppress responses after physical-I/O failure, but keep draining
+        // requests so the bounded controller channel cannot deadlock before
+        // ordinary loss-of-contact policy terminates or reconnects the run.
         if proxy.error().is_some() {
-            thread::sleep(Duration::from_millis(1));
+            let _ = endpoint.recv_timeout(CHANNEL_POLL_INTERVAL);
             continue;
         }
 
@@ -321,41 +322,49 @@ fn run_protocol(
                 let timeout_ns = u64::from(request.dt_ns)
                     .saturating_mul(u64::from(request.loss_of_contact_limit))
                     .max(1_000_000);
+                let loss_of_contact_timeout = Duration::from_nanos(timeout_ns);
+                let operating_delay =
+                    Duration::from_nanos(u64::from(request.timeout_to_operating_ns));
                 state = State::Operating {
                     // Response IDs are scoped to one Operating session, just as
                     // they are for hardware peripheral protocol responders.
                     response_id: 1,
-                    last_contact: Instant::now(),
-                    loss_of_contact_timeout: Duration::from_nanos(timeout_ns),
+                    contact_deadline: Instant::now() + operating_delay + loss_of_contact_timeout,
+                    loss_of_contact_timeout,
                 };
             }
             State::Operating {
                 response_id,
-                last_contact,
+                contact_deadline,
                 loss_of_contact_timeout,
             } => {
-                let timeout = (*loss_of_contact_timeout)
-                    .saturating_sub(last_contact.elapsed())
+                let timeout = contact_deadline
+                    .saturating_duration_since(Instant::now())
                     .min(CHANNEL_POLL_INTERVAL);
                 if let Some(payload) = endpoint.recv_timeout(timeout).ok() {
                     if payload.len() != proxy.input_size() {
                         continue;
                     }
                     let last_input_id = proxy.process_request(&payload);
-                    *last_contact = Instant::now();
+                    *contact_deadline = Instant::now() + *loss_of_contact_timeout;
                     let metrics = OperatingMetrics {
                         id: *response_id,
                         last_input_id,
                         ..OperatingMetrics::default()
                     };
                     let mut bytes = vec![0; proxy.output_size()];
-                    proxy.write_response(metrics, &mut bytes)?;
+                    if let Err(err) = proxy.write_response(metrics, &mut bytes) {
+                        if proxy.error().is_some() {
+                            continue;
+                        }
+                        return Err(err);
+                    }
                     if !send_payload(&endpoint, bytes, &stop) {
                         proxy.on_loss_of_contact();
                         return Ok(());
                     }
                     *response_id = response_id.wrapping_add(1);
-                } else if last_contact.elapsed() >= *loss_of_contact_timeout {
+                } else if Instant::now() >= *contact_deadline {
                     return_to_binding(&mut state, proxy.as_ref());
                 }
             }
@@ -417,6 +426,7 @@ mod tests {
 
     struct TestProxy {
         losses: AtomicUsize,
+        failed: AtomicBool,
     }
 
     impl InstrumentProxy for TestProxy {
@@ -441,6 +451,9 @@ mod tests {
             metrics: OperatingMetrics,
             bytes: &mut [u8],
         ) -> Result<(), String> {
+            if self.failed.load(Ordering::Relaxed) {
+                return Err("worker failed".to_owned());
+            }
             metrics.write_bytes(bytes);
             Ok(())
         }
@@ -450,7 +463,9 @@ mod tests {
         }
 
         fn error(&self) -> Option<String> {
-            None
+            self.failed
+                .load(Ordering::Relaxed)
+                .then(|| "worker failed".to_owned())
         }
     }
 
@@ -462,6 +477,38 @@ mod tests {
         endpoint.recv_timeout(Duration::from_secs(1)).unwrap()
     }
 
+    fn configure(
+        endpoint: &SocketEndpoint,
+        timeout_to_operating_ns: u32,
+        dt_ns: u32,
+        loss_of_contact_limit: u16,
+    ) {
+        let mut bytes = vec![0; BindingInput::BYTE_LEN];
+        BindingInput {
+            configuring_timeout_ms: 200,
+        }
+        .write_bytes(&mut bytes);
+        send(endpoint, &bytes);
+        assert_eq!(
+            BindingOutput::read_bytes(&receive(endpoint)).peripheral_id,
+            TEST_ID
+        );
+
+        bytes.resize(ConfiguringInput::BYTE_LEN, 0);
+        ConfiguringInput {
+            dt_ns,
+            mode: Mode::Roundtrip,
+            timeout_to_operating_ns,
+            loss_of_contact_limit,
+        }
+        .write_bytes(&mut bytes);
+        send(endpoint, &bytes);
+        assert!(matches!(
+            ConfiguringOutput::read_bytes(&receive(endpoint)).acknowledge,
+            AcknowledgeConfiguration::Ack
+        ));
+    }
+
     #[test]
     fn responder_completes_lifecycle_and_increments_response_ids() {
         let ctx = ControllerCtx::default();
@@ -469,6 +516,7 @@ mod tests {
         let responder_endpoint = ctx.peripheral_socket_endpoint(TEST_ID).unwrap();
         let proxy = Arc::new(TestProxy {
             losses: AtomicUsize::new(0),
+            failed: AtomicBool::new(false),
         });
         let stop = Arc::new(AtomicBool::new(false));
         let thread = spawn_protocol(responder_endpoint, proxy.clone(), stop.clone()).unwrap();
@@ -517,6 +565,7 @@ mod tests {
         let responder_endpoint = ctx.peripheral_socket_endpoint(TEST_ID).unwrap();
         let proxy = Arc::new(TestProxy {
             losses: AtomicUsize::new(0),
+            failed: AtomicBool::new(false),
         });
         let stop = Arc::new(AtomicBool::new(false));
         let thread = spawn_protocol(responder_endpoint, proxy.clone(), stop.clone()).unwrap();
@@ -543,6 +592,59 @@ mod tests {
             BindingOutput::read_bytes(&receive(&endpoint)).peripheral_id,
             TEST_ID
         );
+        stop.store(true, Ordering::Relaxed);
+        thread.join().unwrap().unwrap();
+    }
+
+    #[test]
+    fn operating_contact_deadline_starts_after_the_transition_delay() {
+        let ctx = ControllerCtx::default();
+        let endpoint = ctx.controller_socket_endpoint(TEST_ID).unwrap();
+        let responder_endpoint = ctx.peripheral_socket_endpoint(TEST_ID).unwrap();
+        let proxy = Arc::new(TestProxy {
+            losses: AtomicUsize::new(0),
+            failed: AtomicBool::new(false),
+        });
+        let stop = Arc::new(AtomicBool::new(false));
+        let thread = spawn_protocol(responder_endpoint, proxy.clone(), stop.clone()).unwrap();
+
+        configure(&endpoint, 100_000_000, 1_000_000, 10);
+        thread::sleep(Duration::from_millis(50));
+        assert_eq!(proxy.losses.load(Ordering::Relaxed), 0);
+        send(&endpoint, &41_u64.to_le_bytes());
+        assert_eq!(
+            OperatingMetrics::read_bytes(&receive(&endpoint)).last_input_id,
+            41
+        );
+
+        stop.store(true, Ordering::Relaxed);
+        thread.join().unwrap().unwrap();
+    }
+
+    #[test]
+    fn worker_failure_drains_requests_while_suppressing_responses() {
+        let ctx = ControllerCtx::default();
+        let endpoint = ctx.controller_socket_endpoint(TEST_ID).unwrap();
+        let responder_endpoint = ctx.peripheral_socket_endpoint(TEST_ID).unwrap();
+        let proxy = Arc::new(TestProxy {
+            losses: AtomicUsize::new(0),
+            failed: AtomicBool::new(false),
+        });
+        let stop = Arc::new(AtomicBool::new(false));
+        let thread = spawn_protocol(responder_endpoint, proxy.clone(), stop.clone()).unwrap();
+
+        configure(&endpoint, 0, 10_000_000, 100);
+        proxy.failed.store(true, Ordering::Relaxed);
+        for request_id in 0_u64..25 {
+            endpoint
+                .send_timeout(
+                    request_id.to_le_bytes().to_vec(),
+                    Duration::from_millis(100),
+                )
+                .unwrap();
+        }
+        assert!(endpoint.recv_timeout(Duration::from_millis(20)).is_err());
+
         stop.store(true, Ordering::Relaxed);
         thread.join().unwrap().unwrap();
     }

@@ -19,17 +19,17 @@ const ESR_ERROR_MASK: u8 = 0b0011_1100;
 
 /// State shared between the real-time responder and blocking SCPI worker.
 ///
-/// Every valid controller packet replaces `next` without comparison. A safe
-/// state requested while returning to Binding takes priority over `next`, and
-/// `applied` changes only after every SCPI command for it is transmitted.
+/// Every valid controller packet replaces `next`. A safe state requested while
+/// returning to Binding takes priority over `next`, and `applied` changes only
+/// after the instrument completes every SCPI command required by a changed state.
 struct State {
     // Separate from `next` so safety cannot be overwritten by a command that
     // arrives during a rapid Binding/configuration cycle.
     safe_state_pending: bool,
     // Latest coherent controller state not yet owned by the worker. Replacing
-    // this value implements the full-state reassertion contract without a queue.
+    // this value coalesces controller updates without a queue.
     next: Option<InstrumentState>,
-    // Published only after all SCPI writes for both channels succeed. Physical
+    // Published only after all required SCPI operations complete. Physical
     // readback is intentionally limited to startup and shutdown.
     applied: InstrumentState,
     status: WorkerStatus,
@@ -197,8 +197,14 @@ fn siglent_worker_inner(
     let identity = match setup {
         Ok(identity) => identity,
         Err(err) => {
-            let _ = startup.send(Err(format!("SDG2042X setup failed: {err}")));
-            return Err(err);
+            let error = match client.shutdown() {
+                Ok(()) => err,
+                Err(shutdown_err) => {
+                    format!("{err}; additionally failed to close SCPI transport: {shutdown_err}")
+                }
+            };
+            let _ = startup.send(Err(format!("SDG2042X setup failed: {error}")));
+            return Err(error);
         }
     };
     driver
@@ -226,30 +232,45 @@ fn siglent_worker_inner(
         // Removing the request while holding the mutex makes it the worker's
         // in-flight state. The responder can now replace `next` independently.
         let request = take_pending(&mut state).unwrap();
+        let applied = state.applied;
         drop(state);
 
-        if let Err(err) = apply_request(&mut client, config, request) {
+        if let Err(err) = apply_request(&mut client, config, applied, request) {
             break Err(format!("failed to apply commanded state: {err}"));
         }
-        // Never report a partially transmitted two-channel request as applied.
+        // Never report a partially completed two-channel request as applied.
         driver.inner.state.lock().unwrap().applied = request;
     };
 
-    let shutdown_result = safe_outputs(&mut client);
+    let shutdown_result = shutdown_siglent(&mut client);
     combine_worker_results(run_result, shutdown_result)
 }
 
-/// Preserve an operating failure without concealing a later safing failure.
+/// Apply the verified safe state, then explicitly close the SCPI transport.
+fn shutdown_siglent(client: &mut ScpiClient) -> Result<(), String> {
+    let safe_result = safe_outputs(client);
+    let transport_result = client.shutdown();
+    match (safe_result, transport_result) {
+        (Err(err), Err(transport_err)) => Err(format!(
+            "safe-state failure: {err}; transport shutdown also failed: {transport_err}"
+        )),
+        (Err(err), Ok(())) => Err(format!("safe-state failure: {err}")),
+        (Ok(()), Err(err)) => Err(err),
+        (Ok(()), Ok(())) => Ok(()),
+    }
+}
+
+/// Preserve an operating failure without concealing a later shutdown failure.
 pub(super) fn combine_worker_results(
     run_result: Result<(), String>,
     shutdown_result: Result<(), String>,
 ) -> Result<(), String> {
     match (run_result, shutdown_result) {
         (Err(err), Err(shutdown_err)) => Err(format!(
-            "{err}; additionally failed to apply safe state during shutdown: {shutdown_err}"
+            "{err}; additionally failed to shut down SDG2042X: {shutdown_err}"
         )),
         (Err(err), Ok(())) => Err(err),
-        (Ok(()), Err(err)) => Err(format!("failed to apply safe state during shutdown: {err}")),
+        (Ok(()), Err(err)) => Err(format!("failed to shut down SDG2042X: {err}")),
         (Ok(()), Ok(())) => Ok(()),
     }
 }
@@ -398,33 +419,64 @@ fn parameter_value<'a>(response: &'a str, name: &str) -> Option<&'a str> {
     None
 }
 
-/// Reassert all channel values and output-relay states.
+/// Apply only channel changes relative to the last completed instrument state.
 ///
-/// Operating deliberately performs no readback queries. A channel is
-/// configured before its relay closes, and disabling transmits 0 V DC before
-/// opening its relay.
-fn apply_request(
+/// A newly enabled channel is configured before its relay closes, and disabling
+/// transmits 0 V DC before opening its relay. One completion query covers all
+/// commands emitted for a coherent two-channel request.
+pub(super) fn apply_request(
     client: &mut ScpiClient,
     config: &Config,
-    request: InstrumentState,
+    applied: InstrumentState,
+    desired: InstrumentState,
 ) -> Result<(), String> {
-    // Always reassert the complete state. Besides keeping the protocol simple,
-    // this preserves the desired behavior for transports where commands may be
-    // dropped and periodic state reassertion is useful.
-    for (index, desired) in request.channels().into_iter().enumerate() {
+    let mut changed = false;
+    for (index, (applied, desired)) in applied
+        .channels()
+        .into_iter()
+        .zip(desired.channels())
+        .enumerate()
+    {
+        if applied == desired {
+            continue;
+        }
         let number = index + 1;
         if desired.enabled == 0.0 {
-            command_safe_channel(client, number)?;
+            if applied.enabled != 0.0 {
+                command_safe_channel(client, number)?;
+                changed = true;
+            }
             continue;
         }
 
         let channel = &config.channels[index];
-        let command = basic_wave_command(number, channel, desired);
-        client.command(&command)?;
-        let load = channel.load.scpi();
-        client.command(&format!("C{number}:OUTP ON,LOAD,{load}"))?;
+        if applied.enabled == 0.0 {
+            client.command(&basic_wave_command(number, channel, desired))?;
+            let load = channel.load.scpi();
+            client.command(&format!("C{number}:OUTP ON,LOAD,{load}"))?;
+            changed = true;
+        } else if waveform_settings_changed(channel, applied, desired) {
+            client.command(&basic_wave_command(number, channel, desired))?;
+            changed = true;
+        }
+    }
+    if changed {
+        expect_operation_complete(client)?;
     }
     Ok(())
+}
+
+/// Return whether a dynamic field used by the configured waveform changed.
+fn waveform_settings_changed(
+    config: &ChannelConfig,
+    applied: ChannelState,
+    desired: ChannelState,
+) -> bool {
+    applied.offset_voltage_v != desired.offset_voltage_v
+        || (config.waveform.uses_frequency() && applied.frequency_hz != desired.frequency_hz)
+        || (config.waveform.uses_duty() && applied.pulse_duty_cycle != desired.pulse_duty_cycle)
+        || (config.waveform.uses_phase() && applied.phase_deg != desired.phase_deg)
+        || (!config.waveform.uses_offset() && applied.stdev != desired.stdev)
 }
 
 /// Render the subset of `BSWV` fields applicable to the configured waveform.

@@ -1,5 +1,7 @@
 //! User-facing SDG2042X connection, waveform, and safety configuration.
 
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 
 use super::super::ScpiTcpConfig;
@@ -184,8 +186,10 @@ impl Config {
     /// Build a configuration with both channels safely disabled and defaulted
     /// to DC, high-impedance compensation, and conservative timeouts.
     pub fn new(host: impl Into<String>, serial_number: u64) -> Self {
+        let mut connection = ScpiTcpConfig::new(host, serial_number, "SIGLENT", "SDG2042X");
+        connection.read_timeout = Duration::from_secs(1);
         Self {
-            connection: ScpiTcpConfig::new(host, serial_number, "SIGLENT", "SDG2042X"),
+            connection,
             channels: std::array::from_fn(|_| ChannelConfig::default()),
         }
     }

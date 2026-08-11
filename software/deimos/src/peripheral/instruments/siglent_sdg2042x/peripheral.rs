@@ -74,11 +74,11 @@ impl ChannelState {
     /// A NaN in any field disables the channel rather than allowing a partial
     /// command to reach the instrument.
     fn normalized(self, config: &ChannelConfig) -> Self {
-        if self.contains_nan() {
+        if self.contains_nan() || self.enabled < 0.5 {
             return Self::default();
         }
         Self {
-            enabled: f64::from(self.enabled >= 0.5),
+            enabled: 1.0,
             frequency_hz: self
                 .frequency_hz
                 .clamp(config.frequency_hz.0, config.frequency_hz.1),

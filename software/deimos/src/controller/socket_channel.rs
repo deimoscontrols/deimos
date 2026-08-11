@@ -8,7 +8,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crossbeam::channel::{
     Receiver, RecvTimeoutError, SendError, SendTimeoutError, Sender, TryRecvError, bounded,
@@ -16,6 +16,7 @@ use crossbeam::channel::{
 use deimos_shared::peripherals::PeripheralId;
 
 const CHANNEL_CAPACITY: usize = 10;
+const SEND_POLL_INTERVAL: Duration = Duration::from_millis(2);
 
 type EndpointInner = (Sender<Vec<u8>>, Receiver<Vec<u8>>);
 
@@ -77,6 +78,22 @@ impl ChannelEnds {
             Side::Peripheral => &mut self.peripheral,
         }
     }
+
+    fn is_active(&self, side: Side) -> bool {
+        match side {
+            Side::Controller => self.controller.is_none(),
+            Side::Peripheral => self.peripheral.is_none(),
+        }
+    }
+}
+
+impl Side {
+    fn opposite(self) -> Self {
+        match self {
+            Self::Controller => Self::Peripheral,
+            Self::Peripheral => Self::Controller,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -127,7 +144,23 @@ impl SocketEndpoint {
     /// Errors:
     ///   Returns the unsent packet when the opposite endpoint is disconnected.
     pub fn send(&self, packet: Vec<u8>) -> Result<(), SendError<Vec<u8>>> {
-        self.inner.as_ref().unwrap().0.send(packet)
+        let mut packet = packet;
+        loop {
+            if !self.peer_is_active() {
+                return Err(SendError(packet));
+            }
+            match self
+                .inner
+                .as_ref()
+                .unwrap()
+                .0
+                .send_timeout(packet, SEND_POLL_INTERVAL)
+            {
+                Ok(()) => return Ok(()),
+                Err(SendTimeoutError::Timeout(unsent)) => packet = unsent,
+                Err(SendTimeoutError::Disconnected(unsent)) => return Err(SendError(unsent)),
+            }
+        }
     }
 
     /// Send one packet, waiting no longer than `timeout` for buffer capacity.
@@ -139,7 +172,30 @@ impl SocketEndpoint {
         packet: Vec<u8>,
         timeout: Duration,
     ) -> Result<(), SendTimeoutError<Vec<u8>>> {
-        self.inner.as_ref().unwrap().0.send_timeout(packet, timeout)
+        let deadline = Instant::now().checked_add(timeout);
+        let mut packet = packet;
+        loop {
+            if !self.peer_is_active() {
+                return Err(SendTimeoutError::Disconnected(packet));
+            }
+            let wait = deadline.map_or(SEND_POLL_INTERVAL, |deadline| {
+                deadline
+                    .saturating_duration_since(Instant::now())
+                    .min(SEND_POLL_INTERVAL)
+            });
+            match self.inner.as_ref().unwrap().0.send_timeout(packet, wait) {
+                Ok(()) => return Ok(()),
+                Err(SendTimeoutError::Timeout(unsent)) => {
+                    packet = unsent;
+                    if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+                        return Err(SendTimeoutError::Timeout(packet));
+                    }
+                }
+                Err(SendTimeoutError::Disconnected(unsent)) => {
+                    return Err(SendTimeoutError::Disconnected(unsent));
+                }
+            }
+        }
     }
 
     /// Receive one packet without waiting.
@@ -156,6 +212,13 @@ impl SocketEndpoint {
     ///   Returns after timeout or disconnection.
     pub fn recv_timeout(&self, timeout: Duration) -> Result<Vec<u8>, RecvTimeoutError> {
         self.inner.as_ref().unwrap().1.recv_timeout(timeout)
+    }
+
+    fn peer_is_active(&self) -> bool {
+        self.channel
+            .ends
+            .lock()
+            .is_ok_and(|ends| ends.is_active(self.side.opposite()))
     }
 }
 
@@ -187,6 +250,7 @@ pub(crate) fn socket_channels_default() -> SocketChannels {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::thread;
 
     const ID: PeripheralId = PeripheralId {
         model_number: 1,
@@ -211,5 +275,34 @@ mod tests {
         assert!(controller.try_recv().is_err());
         controller.send(vec![3]).unwrap();
         assert_eq!(peripheral.recv_timeout(Duration::ZERO).unwrap(), vec![3]);
+    }
+
+    #[test]
+    fn send_fails_when_the_peer_is_inactive() {
+        let channels = SocketChannels::default();
+        let controller = channels.claim_controller(ID).unwrap();
+        assert!(controller.send(vec![1]).is_err());
+
+        let peripheral = channels.claim_peripheral(ID).unwrap();
+        drop(peripheral);
+        assert!(matches!(
+            controller.send_timeout(vec![2], Duration::from_secs(1)),
+            Err(SendTimeoutError::Disconnected(_))
+        ));
+    }
+
+    #[test]
+    fn dropping_a_peer_unblocks_a_full_channel_send() {
+        let channels = SocketChannels::default();
+        let controller = channels.claim_controller(ID).unwrap();
+        let peripheral = channels.claim_peripheral(ID).unwrap();
+        for packet in 0..CHANNEL_CAPACITY {
+            controller.send(vec![packet as u8]).unwrap();
+        }
+
+        let blocked = thread::spawn(move || controller.send(vec![255]));
+        thread::sleep(Duration::from_millis(10));
+        drop(peripheral);
+        assert!(blocked.join().unwrap().is_err());
     }
 }

@@ -164,13 +164,43 @@ fn calibration_binary_round_trips_without_protocol_magic() {
         slope: 1.25,
         offset: -0.125,
     };
+    calibration.dac_cals[1] = LinearCalibration {
+        slope: 0.98,
+        offset: 0.02,
+    };
 
     let decoded = round_trip(calibration);
     assert!(decoded.is_valid());
     assert!(decoded.is_calibrated());
     assert_eq!(decoded.voltage_cals[4].slope, 1.25);
     assert_eq!(decoded.voltage_cals[4].offset, -0.125);
-    assert_eq!(Calibration::BYTE_LEN, 1 + ADC_CHANNEL_COUNT * 8);
+    assert_eq!(decoded.dac_cals[1].slope, 0.98);
+    assert_eq!(decoded.dac_cals[1].offset, 0.02);
+    assert_eq!(
+        Calibration::BYTE_LEN,
+        1 + (ADC_CHANNEL_COUNT + DAC_CHANNEL_COUNT) * 8
+    );
+}
+
+#[test]
+fn dac_calibration_is_inverted_and_saturates_unreachable_requests() {
+    let identity = LinearCalibration::default();
+    assert_eq!(calc::dac_code(0.0, &identity), 0);
+    assert_eq!(calc::dac_code(VREF / 2.0, &identity), 2047);
+    assert_eq!(calc::dac_code(VREF, &identity), calc::DAC_MAX_CODE);
+
+    let calibration = LinearCalibration {
+        slope: 0.98,
+        offset: 0.02,
+    };
+    assert!((calibration.apply(calibration.unapply(1.0)) - 1.0).abs() < f32::EPSILON);
+    assert!(calc::dac_code(2.0, &calibration) > calc::dac_code(2.0, &identity));
+    assert_eq!(calc::dac_code(0.0, &calibration), 0);
+    assert_eq!(calc::dac_code(VREF, &calibration), calc::DAC_MAX_CODE);
+
+    let mut invalid = Calibration::default();
+    invalid.dac_cals[0].slope = -1.0;
+    assert!(!invalid.is_valid());
 }
 
 #[test]

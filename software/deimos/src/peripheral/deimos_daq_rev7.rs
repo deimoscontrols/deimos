@@ -17,8 +17,8 @@ use pyo3::prelude::*;
 
 use crate::py_peripheral_methods;
 
-/// Schema version for the shared fields in a calibration record.
-pub const CURRENT_CAL_SCHEMA_VERSION: u16 = 1;
+/// Current calibration-record schema version.
+pub const CURRENT_CAL_SCHEMA_VERSION: u16 = 2;
 
 /// Procedure and instrument provenance for a generated calibration.
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -76,11 +76,11 @@ impl CalRecordCore {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-/// Human-readable affine sensed-voltage calibration.
+/// Human-readable affine calibration.
 pub struct LinearCal {
-    /// Dimensionless sensed-voltage scale factor.
+    /// Dimensionless scale factor.
     pub slope: f64,
-    /// Sensed-voltage offset in `V`.
+    /// Offset in the calibrated value's units.
     pub offset: f64,
 }
 
@@ -101,6 +101,8 @@ pub struct CalRecord {
     /// Sensed-voltage calibrations with shape `(ADC_CHANNEL_COUNT,)` and
     /// channel order `ain0..ain12, ain15..ain19`.
     pub voltage_cals: [LinearCal; ADC_CHANNEL_COUNT],
+    /// DAC transfer calibrations, `actual_voltage = slope * nominal_voltage + offset`.
+    pub dac_cals: [LinearCal; DAC_CHANNEL_COUNT],
 }
 
 impl CalRecord {
@@ -114,16 +116,21 @@ impl CalRecord {
     ///     for an identity image installed before calibration (`false`).
     ///
     /// Returns:
-    ///   Validated fixed-layout firmware calibration record, or an error if a
-    ///   narrowed coefficient is nonfinite or has zero slope.
+    ///   Validated fixed-layout firmware calibration record, or an error for
+    ///   invalid narrowed coefficients.
     pub fn firmware_calibration(&self, calibrated: bool) -> Result<Calibration, String> {
         let voltage_cals = self.voltage_cals.map(|cal| LinearCalibration {
+            slope: cal.slope as f32,
+            offset: cal.offset as f32,
+        });
+        let dac_cals = self.dac_cals.map(|cal| LinearCalibration {
             slope: cal.slope as f32,
             offset: cal.offset as f32,
         });
         let calibration = Calibration {
             firmware_calibrated: u8::from(calibrated),
             voltage_cals,
+            dac_cals,
         };
         if !calibration.is_valid() {
             return Err("Calibration contains an invalid or non-finite coefficient".to_owned());
@@ -355,6 +362,25 @@ mod tests {
         let mut record = CalRecord::default();
         record.voltage_cals[0].slope = f64::NAN;
         assert!(record.firmware_calibration(true).is_err());
+        record.voltage_cals[0] = LinearCal::default();
+        record.dac_cals[0].offset = f64::INFINITY;
+        assert!(record.firmware_calibration(true).is_err());
+    }
+
+    #[test]
+    fn calibration_record_requires_and_converts_dac_coefficients() {
+        let mut record = CalRecord::default();
+        record.dac_cals[1] = LinearCal {
+            slope: 0.98,
+            offset: 0.02,
+        };
+        let calibration = record.firmware_calibration(true).unwrap();
+        assert_eq!(calibration.dac_cals[1].slope, 0.98_f32);
+        assert_eq!(calibration.dac_cals[1].offset, 0.02_f32);
+
+        let mut legacy_shape = serde_json::to_value(CalRecord::default()).unwrap();
+        legacy_shape.as_object_mut().unwrap().remove("dac_cals");
+        assert!(serde_json::from_value::<CalRecord>(legacy_shape).is_err());
     }
 
     #[test]

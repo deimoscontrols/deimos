@@ -12,7 +12,8 @@ lto = true
 opt-level = 3
 
 [dependencies]
-cortex-m = { version = "^0.7.7", features = ["critical-section-single-core", "inline-asm"] }
+# cortex-m 0.7.8 fails to compile in enable_icache due to its inline assembly.
+cortex-m = { version = "=0.7.7", features = ["critical-section-single-core", "inline-asm"] }
 cortex-m-rt = "0.7.5"
 stm32h7xx-hal = { version = "0.16.0", features=["rt", "revision_v", "stm32h743v", "ethernet"] }
 #stm32h7xx-hal = { path = "../../../../stm32h7xx-hal", features=["rt", "revision_v", "stm32h743v", "ethernet"] }
