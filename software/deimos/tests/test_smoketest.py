@@ -18,9 +18,6 @@ from deimos import (
     socket,
 )
 
-THREAD_CHANNEL1 = "hootl_thread1"
-THREAD_CHANNEL2 = "hootl_thread2"
-THREAD_CHANNEL3 = "hootl_thread3"
 UNIX_SOCKET = "ctrl"
 RATE_HZ = 20.0
 RUN_TIMEOUT_S = 10.0  # Accommodate slow CI runners (we don't actually run this long)
@@ -44,9 +41,7 @@ def _metric_channels(peripheral_name: str) -> list[str]:
 
 def _make_transport(kind: str, name: str | None) -> peripheral.HootlTransport:
     if kind == "thread":
-        if name is None:
-            raise ValueError("thread transport requires a name")
-        return peripheral.HootlTransport.thread_channel(name)
+        return peripheral.HootlTransport.thread_channel()
     if kind == "unix":
         if not HAS_UNIX_SOCKET:
             raise RuntimeError(
@@ -68,9 +63,9 @@ def _build_controller(
     ctrl.loop_method = loop_method
 
     ctrl.clear_sockets()
-    ctrl.add_socket("thread1", socket.ThreadChannelSocket(THREAD_CHANNEL1))
-    ctrl.add_socket("thread2", socket.ThreadChannelSocket(THREAD_CHANNEL2))
-    ctrl.add_socket("thread3", socket.ThreadChannelSocket(THREAD_CHANNEL3))
+    ctrl.add_socket("thread1", socket.ThreadChannelSocket(1, 1001))
+    ctrl.add_socket("thread2", socket.ThreadChannelSocket(2, 1002))
+    ctrl.add_socket("thread3", socket.ThreadChannelSocket(6, 1006))
     if HAS_UNIX_SOCKET:
         ctrl.add_socket("unix", socket.UnixSocket(UNIX_SOCKET))
     ctrl.add_socket("udp", _loopback_udp_socket())
@@ -97,9 +92,9 @@ def _build_controller(
     ctrl.add_dataframe_dispatcher("dataframe", 1, Overflow.wrap())
 
     specs = [
-        ("analog_rev2", peripheral.AnalogIRev2, 1001, ("thread", THREAD_CHANNEL1)),
-        ("analog_rev3", peripheral.AnalogIRev3, 1002, ("thread", THREAD_CHANNEL2)),
-        ("daq_rev7", peripheral.DeimosDaqRev7, 1006, ("thread", THREAD_CHANNEL3)),
+        ("analog_rev2", peripheral.AnalogIRev2, 1001, ("thread", None)),
+        ("analog_rev3", peripheral.AnalogIRev3, 1002, ("thread", None)),
+        ("daq_rev7", peripheral.DeimosDaqRev7, 1006, ("thread", None)),
     ]
     if HAS_UNIX_SOCKET:
         specs.extend(

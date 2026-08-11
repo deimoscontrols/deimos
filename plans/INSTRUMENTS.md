@@ -2,13 +2,12 @@
 
 ## Scope
 
-Deimos may expose third-party laboratory instruments as `Peripheral` plugin implementations under `deimos::peripheral::instruments`.
-
-An integration should expose only the minimum required functions, not attempt to achieve full API coverage.
+Third-party laboratory instruments'`Peripheral` plugin implementations under `deimos::peripheral::instruments`.
 
 ## Goals
 
 - Make instrument inputs and outputs available in the control loop.
+- Expose only the minimum required functions.
 - Keep blocking I/O away from the control loop.
 - Fail safely and observably.
 - Keep dependencies and complexity small.
@@ -18,7 +17,7 @@ An integration should expose only the minimum required functions, not attempt to
 
 - Hard-realtime or phase-synchronized instrument I/O.
 - Complete coverage of a vendor's remote-control API.
-- A single transport or protocol abstraction for every instrument.
+- A single transport or protocol abstraction that covers every instrument.
 - A general framework for instrument interfaces.
 
 ## Architecture
@@ -73,7 +72,7 @@ deimos::peripheral::instruments
 
 The `peripheral` module exposes the `instruments` namespace but does not re-export concrete instrument module internals.
 
-Each concrete instrument module exposes an `attach(name, config, &mut controller) -> RunHandle` helper that registers the peripheral, adds a thread-channel socket with a name derived from the instrument model and logical serial number, and starts the instrument driver.
+Each concrete instrument module exposes an `attach(name, config, &mut controller) -> RunHandle` helper that registers the peripheral, adds a one-to-one thread socket keyed by the instrument model and logical serial number, and starts the instrument driver.
 
 Instrument model numbers occupy an explicitly documented software-only range and never overlap hardware model numbers.
 
@@ -94,7 +93,7 @@ Only the instrument worker may access its connection.
 ### Startup
 
 1. Construct the `Peripheral`, driver configuration, and driver.
-2. Add one uniquely named `ThreadChannelSocket` and peripheral to the controller.
+2. Add one identity-keyed `ThreadChannelSocket` and peripheral to the controller.
 3. Start the driver with the controller context.
   * Connect, verify identity, and enforce safe state.
 5. Enter Binding only after instrument setup succeeds.

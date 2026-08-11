@@ -66,16 +66,6 @@ fn safe_state_precedes_commands_received_after_returning_to_binding() {
 }
 
 #[test]
-fn thread_channel_name_is_derived_from_model_and_serial() {
-    let config = Config::new("localhost", 0x2a);
-    let driver = SiglentSdg2042XDriver::new(config).unwrap();
-    assert_eq!(
-        driver.channel_name(),
-        "instrument-sdg2042x-000000000000002a"
-    );
-}
-
-#[test]
 fn controller_values_are_clamped_to_configured_ranges() {
     let configs = std::array::from_fn(|_| ChannelConfig::default());
     let request = InstrumentState {

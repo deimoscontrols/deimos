@@ -1,7 +1,7 @@
 //! Controller-facing lifecycle responder shared by instrument integrations.
 //!
 //! The responder implements the standard Deimos binding, configuring, and
-//! operating packet exchange over a `ThreadChannelSocket`. It only copies
+//! operating packet exchange over a one-to-one `ThreadChannelSocket`. It only copies
 //! requested and completed state through [`InstrumentProxy`]; all blocking
 //! external I/O remains on the instrument worker.
 
@@ -19,8 +19,8 @@ use deimos_shared::states::{
 };
 
 use crate::controller::Controller;
-use crate::controller::channel::{Endpoint, Msg};
 use crate::controller::context::ControllerCtx;
+use crate::controller::socket_channel::SocketEndpoint;
 use crate::peripheral::Peripheral;
 use crate::socket::thread_channel::ThreadChannelSocket;
 
@@ -133,7 +133,6 @@ impl Drop for InstrumentRunHandle {
 /// Start a worker, wait for validated startup, then start its protocol responder.
 pub(crate) fn start_driver<P, W>(
     ctx: &ControllerCtx,
-    channel_name: &str,
     worker_name: String,
     instrument_name: &'static str,
     startup_timeout: Duration,
@@ -146,6 +145,9 @@ where
         + Send
         + 'static,
 {
+    // Reserve the one peripheral endpoint before touching the instrument. A
+    // second live responder for this identity therefore fails immediately.
+    let endpoint = ctx.peripheral_socket_endpoint(proxy.id())?;
     let stop = Arc::new(AtomicBool::new(false));
     let (startup_tx, startup_rx) = mpsc::sync_channel(1);
     let worker_stop = stop.clone();
@@ -169,7 +171,7 @@ where
         }
     }
 
-    let protocol = match spawn_protocol(ctx, channel_name, proxy, stop.clone()) {
+    let protocol = match spawn_protocol(endpoint, proxy, stop.clone()) {
         Ok(protocol) => protocol,
         Err(err) => {
             stop.store(true, Ordering::Relaxed);
@@ -180,10 +182,9 @@ where
     Ok(InstrumentRunHandle::new(stop, protocol, worker))
 }
 
-/// Start and register a configured instrument with its generated socket.
+/// Start and register a configured instrument with its identity-keyed socket.
 pub(crate) fn attach_instrument<P, S>(
     peripheral_name: &str,
-    channel_name: &str,
     peripheral: P,
     instrument_name: &'static str,
     controller: &mut Controller,
@@ -196,6 +197,14 @@ where
     if controller.peripherals().contains_key(peripheral_name) {
         return Err(format!("Peripheral name `{peripheral_name}` is duplicated"));
     }
+    let id = peripheral.id();
+    if controller
+        .peripherals()
+        .values()
+        .any(|existing| existing.id() == id)
+    {
+        return Err(format!("Peripheral ID `{id:?}` is duplicated"));
+    }
     // Start first so a connection/setup failure cannot leave a controller with
     // a registered peripheral that has no functioning instrument behind it.
     let mut handle = start(&controller.ctx)?;
@@ -207,10 +216,11 @@ where
             )),
         };
     }
-    controller.add_socket(
-        channel_name,
-        Box::new(ThreadChannelSocket::new(channel_name)),
-    );
+    let socket_name = ThreadChannelSocket::socket_name(id);
+    // Replacing an inactive socket drops and releases its controller endpoint.
+    // The peripheral endpoint was claimed before worker startup, so an active
+    // responder with the same identity has already caused `start` to fail.
+    controller.add_socket(&socket_name, Box::new(ThreadChannelSocket::new(id)));
     Ok(handle)
 }
 
@@ -233,8 +243,7 @@ fn join_one(
 /// Start the controller-facing protocol responder.
 ///
 /// Args:
-///   ctx: Controller context containing the named sink endpoint.
-///   channel_name: Name of the matching thread-channel socket.
+///   endpoint: Exclusively owned peripheral side of the thread socket.
 ///   proxy: Instrument-specific state bridge shared with the worker.
 ///   stop: Shutdown flag shared by both instrument threads.
 ///
@@ -244,13 +253,15 @@ fn join_one(
 /// Errors:
 ///   Returns an error when the operating-system thread cannot be created.
 pub(crate) fn spawn_protocol(
-    ctx: &ControllerCtx,
-    channel_name: &str,
+    endpoint: SocketEndpoint,
     proxy: Arc<dyn InstrumentProxy>,
     stop: Arc<AtomicBool>,
 ) -> Result<JoinHandle<Result<(), String>>, String> {
-    let endpoint = ctx.sink_endpoint(channel_name);
-    let thread_name = format!("instrument-proxy-{channel_name}");
+    let id = proxy.id();
+    let thread_name = format!(
+        "instrument-proxy-{:016x}-{:016x}",
+        id.model_number, id.serial_number
+    );
     thread::Builder::new()
         .name(thread_name)
         .spawn(move || run_protocol(endpoint, proxy, stop))
@@ -272,7 +283,7 @@ enum State {
 
 /// Serve the Deimos binding, configuration, and operating state machine.
 fn run_protocol(
-    endpoint: Endpoint,
+    endpoint: SocketEndpoint,
     proxy: Arc<dyn InstrumentProxy>,
     stop: Arc<AtomicBool>,
 ) -> Result<(), String> {
@@ -299,7 +310,7 @@ fn run_protocol(
                 };
                 let mut bytes = vec![0; BindingOutput::BYTE_LEN];
                 response.write_bytes(&mut bytes);
-                if !send_payload(&endpoint, proxy.id(), bytes, &stop) {
+                if !send_payload(&endpoint, bytes, &stop) {
                     proxy.on_loss_of_contact();
                     return Ok(());
                 }
@@ -328,7 +339,7 @@ fn run_protocol(
                 };
                 let mut bytes = vec![0; ConfiguringOutput::BYTE_LEN];
                 response.write_bytes(&mut bytes);
-                if !send_payload(&endpoint, proxy.id(), bytes, &stop) {
+                if !send_payload(&endpoint, bytes, &stop) {
                     proxy.on_loss_of_contact();
                     return Ok(());
                 }
@@ -364,7 +375,7 @@ fn run_protocol(
                     };
                     let mut bytes = vec![0; proxy.output_size()];
                     proxy.write_response(metrics, &mut bytes)?;
-                    if !send_payload(&endpoint, proxy.id(), bytes, &stop) {
+                    if !send_payload(&endpoint, bytes, &stop) {
                         proxy.on_loss_of_contact();
                         return Ok(());
                     }
@@ -388,38 +399,23 @@ fn return_to_binding(state: &mut State, proxy: &dyn InstrumentProxy) {
     *state = State::Binding;
 }
 
-/// Receive one framed packet and remove its peripheral-ID prefix.
-fn receive_payload(endpoint: &Endpoint, timeout: Duration) -> Option<Vec<u8>> {
-    let message = endpoint.rx().recv_timeout(timeout).ok()?;
-    let Msg::Packet(bytes) = message else {
-        return None;
-    };
-    if bytes.len() < PeripheralId::BYTE_LEN {
-        return None;
-    }
-    Some(bytes[PeripheralId::BYTE_LEN..].to_vec())
+/// Receive one complete packet from the dedicated controller endpoint.
+fn receive_payload(endpoint: &SocketEndpoint, timeout: Duration) -> Option<Vec<u8>> {
+    endpoint.recv_timeout(timeout).ok()
 }
 
-/// Prefix a response with its peripheral ID and send it to the controller.
+/// Send one complete response to the dedicated controller endpoint.
 ///
 /// Returns:
 ///   `false` when shutdown is requested or the controller has dropped the
 ///   receiving endpoint. Both are normal responder shutdown conditions.
-fn send_payload(
-    endpoint: &Endpoint,
-    id: PeripheralId,
-    payload: Vec<u8>,
-    stop: &AtomicBool,
-) -> bool {
-    let mut bytes = vec![0; PeripheralId::BYTE_LEN + payload.len()];
-    id.write_bytes(&mut bytes[..PeripheralId::BYTE_LEN]);
-    bytes[PeripheralId::BYTE_LEN..].copy_from_slice(&payload);
-    let mut message = Msg::Packet(bytes);
+fn send_payload(endpoint: &SocketEndpoint, payload: Vec<u8>, stop: &AtomicBool) -> bool {
+    let mut message = payload;
     loop {
         if stop.load(Ordering::Relaxed) {
             return false;
         }
-        match endpoint.tx().send_timeout(message, CHANNEL_POLL_INTERVAL) {
+        match endpoint.send_timeout(message, CHANNEL_POLL_INTERVAL) {
             Ok(()) => return true,
             Err(SendTimeoutError::Timeout(unsent)) => message = unsent,
             Err(SendTimeoutError::Disconnected(_)) => return false,
@@ -491,38 +487,24 @@ mod tests {
         }
     }
 
-    fn send(endpoint: &Endpoint, payload: &[u8]) {
-        let mut framed = vec![0; PeripheralId::BYTE_LEN + payload.len()];
-        framed[PeripheralId::BYTE_LEN..].copy_from_slice(payload);
-        endpoint.tx().send(Msg::Packet(framed)).unwrap();
+    fn send(endpoint: &SocketEndpoint, payload: &[u8]) {
+        endpoint.send(payload.to_vec()).unwrap();
     }
 
-    fn receive(endpoint: &Endpoint) -> Vec<u8> {
-        let Msg::Packet(bytes) = endpoint.rx().recv_timeout(Duration::from_secs(1)).unwrap() else {
-            panic!("expected packet")
-        };
-        assert_eq!(
-            PeripheralId::read_bytes(&bytes[..PeripheralId::BYTE_LEN]),
-            TEST_ID
-        );
-        bytes[PeripheralId::BYTE_LEN..].to_vec()
+    fn receive(endpoint: &SocketEndpoint) -> Vec<u8> {
+        endpoint.recv_timeout(Duration::from_secs(1)).unwrap()
     }
 
     #[test]
     fn responder_completes_lifecycle_and_increments_response_ids() {
         let ctx = ControllerCtx::default();
-        let endpoint = ctx.source_endpoint("instrument-protocol-test");
+        let endpoint = ctx.controller_socket_endpoint(TEST_ID).unwrap();
+        let responder_endpoint = ctx.peripheral_socket_endpoint(TEST_ID).unwrap();
         let proxy = Arc::new(TestProxy {
             losses: AtomicUsize::new(0),
         });
         let stop = Arc::new(AtomicBool::new(false));
-        let thread = spawn_protocol(
-            &ctx,
-            "instrument-protocol-test",
-            proxy.clone(),
-            stop.clone(),
-        )
-        .unwrap();
+        let thread = spawn_protocol(responder_endpoint, proxy.clone(), stop.clone()).unwrap();
 
         let binding = BindingInput {
             configuring_timeout_ms: 100,
@@ -564,18 +546,13 @@ mod tests {
     #[test]
     fn configuring_timeout_requests_safe_state_before_returning_to_binding() {
         let ctx = ControllerCtx::default();
-        let endpoint = ctx.source_endpoint("instrument-binding-safety-test");
+        let endpoint = ctx.controller_socket_endpoint(TEST_ID).unwrap();
+        let responder_endpoint = ctx.peripheral_socket_endpoint(TEST_ID).unwrap();
         let proxy = Arc::new(TestProxy {
             losses: AtomicUsize::new(0),
         });
         let stop = Arc::new(AtomicBool::new(false));
-        let thread = spawn_protocol(
-            &ctx,
-            "instrument-binding-safety-test",
-            proxy.clone(),
-            stop.clone(),
-        )
-        .unwrap();
+        let thread = spawn_protocol(responder_endpoint, proxy.clone(), stop.clone()).unwrap();
 
         let binding = BindingInput {
             configuring_timeout_ms: 1,

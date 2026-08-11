@@ -309,19 +309,13 @@ impl State {
 /// Validated configuration plus synchronized measurement state.
 struct Shared {
     config: Config,
-    channel_name: String,
     state: Mutex<State>,
 }
 
 impl Shared {
     fn new(config: Config) -> Self {
-        let channel_name = format!(
-            "instrument-dmm6500-{:016x}",
-            config.connection.serial_number
-        );
         Self {
             config,
-            channel_name,
             state: Mutex::new(State {
                 value: 0.0,
                 sample_sequence: 0,
@@ -415,14 +409,6 @@ impl KeithleyDmm6500Driver {
         KeithleyDmm6500::new(self.shared.config.connection.serial_number)
     }
 
-    /// Return the internal thread-channel name expected by the driver.
-    ///
-    /// Returns:
-    ///   A deterministic name derived from the model and logical serial number.
-    pub fn channel_name(&self) -> &str {
-        &self.shared.channel_name
-    }
-
     /// Return the validated SCPI identity after successful startup.
     ///
     /// Returns:
@@ -434,7 +420,7 @@ impl KeithleyDmm6500Driver {
     /// Connect, configure acquisition, obtain one sample, and start both threads.
     ///
     /// Args:
-    ///   ctx: Controller context containing the matching thread channel.
+    ///   ctx: Controller context containing the identity-keyed socket registry.
     ///
     /// Returns:
     ///   A handle that owns shutdown and joining for the responder and worker.
@@ -447,7 +433,6 @@ impl KeithleyDmm6500Driver {
         let shared = self.shared.clone();
         start_driver(
             ctx,
-            &self.shared.channel_name,
             format!("dmm6500-{}", self.shared.config.connection.serial_number),
             "DMM6500",
             self.shared.config.startup_timeout(),
@@ -460,8 +445,8 @@ impl KeithleyDmm6500Driver {
 /// Attach one configured DMM6500 to a controller.
 ///
 /// This connects, configures, and obtains the first valid reading before
-/// registering its software peripheral and automatically named thread-channel
-/// socket with `controller`.
+/// registering its software peripheral and identity-keyed thread socket with
+/// `controller`.
 ///
 /// Args:
 ///   peripheral_name: Unique name used for controller fields such as
@@ -469,7 +454,7 @@ impl KeithleyDmm6500Driver {
 ///   corresponding active-function flags.
 ///   config: Complete connection, identity, measurement, and timeout
 ///   configuration.
-///   controller: Controller to receive the peripheral and generated socket.
+///   controller: Controller to receive the peripheral and thread socket.
 ///
 /// Returns:
 ///   A running instrument handle that must outlive the controller run.
@@ -484,10 +469,8 @@ pub fn attach(
     controller: &mut Controller,
 ) -> Result<InstrumentRunHandle, String> {
     let driver = KeithleyDmm6500Driver::new(config)?;
-    let channel_name = driver.channel_name().to_owned();
     attach_instrument(
         peripheral_name,
-        &channel_name,
         driver.peripheral(),
         "DMM6500",
         controller,
@@ -654,13 +637,6 @@ mod tests {
     use std::net::TcpListener;
     use std::thread;
     use std::time::Instant;
-
-    #[test]
-    fn thread_channel_name_is_derived_from_model_and_serial() {
-        let config = Config::new("localhost", 0x2a);
-        let driver = KeithleyDmm6500Driver::new(config).unwrap();
-        assert_eq!(driver.channel_name(), "instrument-dmm6500-000000000000002a");
-    }
 
     #[test]
     fn configuration_rejects_invalid_measurement_settings() {

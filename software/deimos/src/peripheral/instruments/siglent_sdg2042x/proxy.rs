@@ -20,7 +20,7 @@ impl SiglentSdg2042XDriver {
     /// Connect, validate identity, apply the safe state, and start both threads.
     ///
     /// Args:
-    ///   ctx: Controller context containing the matching thread channel.
+    ///   ctx: Controller context containing the identity-keyed socket registry.
     ///
     /// Returns:
     ///   A handle that owns shutdown and joining for the responder and worker.
@@ -33,7 +33,6 @@ impl SiglentSdg2042XDriver {
         let worker = self.shared_handle();
         start_driver(
             ctx,
-            self.channel_name(),
             format!("sdg2042x-{}", self.peripheral().serial_number),
             "SDG2042X",
             self.startup_timeout(),

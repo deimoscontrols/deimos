@@ -35,8 +35,8 @@ use tracing::warn;
 
 use super::Peripheral;
 use crate::calc::Calc;
-use crate::controller::channel::{Endpoint, Msg};
 use crate::controller::context::ControllerCtx;
+use crate::controller::socket_channel::SocketEndpoint;
 use crate::py_json_methods;
 
 #[cfg(feature = "python")]
@@ -203,8 +203,8 @@ impl Peripheral for HootlPeripheral {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "python", pyclass(from_py_object))]
 pub enum HootlTransport {
-    /// A thread channel with this name.
-    ThreadChannel { name: String },
+    /// A thread channel keyed by the wrapped peripheral's identity.
+    ThreadChannel(),
 
     /// A unix socket with this name.
     UnixSocket { name: String },
@@ -219,8 +219,8 @@ pub enum HootlTransport {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "python", pyclass)]
 pub enum HootlTransport {
-    /// A thread channel with this name.
-    ThreadChannel { name: String },
+    /// A thread channel keyed by the wrapped peripheral's identity.
+    ThreadChannel(),
 
     // No unix socket
     /// UDP transport bound to PERIPHERAL_RX_PORT.
@@ -230,10 +230,12 @@ pub enum HootlTransport {
 }
 
 impl HootlTransport {
-    pub fn thread_channel(name: &str) -> Self {
-        Self::ThreadChannel {
-            name: name.to_owned(),
-        }
+    /// Use the identity-keyed in-process thread channel transport.
+    ///
+    /// Returns:
+    ///   A transport that claims the wrapped peripheral's dedicated endpoint.
+    pub fn thread_channel() -> Self {
+        Self::ThreadChannel()
     }
 
     #[cfg(unix)]
@@ -253,8 +255,8 @@ impl HootlTransport {
 impl HootlTransport {
     #[staticmethod]
     #[pyo3(name = "thread_channel")]
-    fn py_thread_channel(name: &str) -> Self {
-        Self::thread_channel(name)
+    fn py_thread_channel() -> Self {
+        Self::thread_channel()
     }
 
     #[cfg(unix)]
@@ -468,7 +470,7 @@ impl HootlRunner {
         stop: Arc<AtomicBool>,
     ) -> Result<Self, String> {
         let mut transport = TransportState::new(driver.transport.clone());
-        transport.open(ctx)?;
+        transport.open(ctx, driver.config.peripheral_id)?;
         let loss_of_contact_timeout =
             Duration::from_nanos(ctx.dt_ns as u64 * ctx.peripheral_loss_of_contact_limit as u64);
         Ok(Self {
@@ -543,11 +545,7 @@ impl HootlRunner {
                             };
 
                         // Send response
-                        let send_status = self.transport.send_packet(
-                            &out[..],
-                            addr.as_ref(),
-                            self.config.peripheral_id,
-                        );
+                        let send_status = self.transport.send_packet(&out[..], addr.as_ref());
                         if send_status.is_err() {
                             error!("HOOTL runner failed to send binding response: {send_status:?}");
                             break;
@@ -600,11 +598,8 @@ impl HootlRunner {
                             (out, true)
                         };
 
-                        let send_status = self.transport.send_packet(
-                            &out,
-                            controller_addr.as_ref(),
-                            self.config.peripheral_id,
-                        );
+                        let send_status =
+                            self.transport.send_packet(&out, controller_addr.as_ref());
                         if send_status.is_err() {
                             error!(
                                 "HOOTL runner failed to send configuring response: {send_status:?}"
@@ -674,11 +669,8 @@ impl HootlRunner {
                             metrics.write_bytes(&mut out[..OperatingMetrics::BYTE_LEN]);
                         }
 
-                        let send_status = self.transport.send_packet(
-                            &out,
-                            controller_addr.as_ref(),
-                            self.config.peripheral_id,
-                        );
+                        let send_status =
+                            self.transport.send_packet(&out, controller_addr.as_ref());
                         if send_status.is_err() {
                             // Return to Binding on error
                             state = DriverState::Binding;
@@ -744,8 +736,7 @@ enum TransportAddr {
 #[derive(Debug)]
 enum TransportState {
     ThreadChannel {
-        name: String,
-        endpoint: Option<Endpoint>,
+        endpoint: Option<SocketEndpoint>,
     },
     #[cfg(unix)]
     UnixSocket {
@@ -762,10 +753,7 @@ impl TransportState {
     /// Set up a fresh state for this transport layer kind.
     fn new(transport: HootlTransport) -> Self {
         match transport {
-            HootlTransport::ThreadChannel { name } => Self::ThreadChannel {
-                name,
-                endpoint: None,
-            },
+            HootlTransport::ThreadChannel() => Self::ThreadChannel { endpoint: None },
             #[cfg(unix)]
             HootlTransport::UnixSocket { name } => Self::UnixSocket {
                 name,
@@ -777,11 +765,11 @@ impl TransportState {
     }
 
     /// Open sockets.
-    fn open(&mut self, ctx: &ControllerCtx) -> Result<(), String> {
+    fn open(&mut self, ctx: &ControllerCtx, peripheral_id: PeripheralId) -> Result<(), String> {
         match self {
-            TransportState::ThreadChannel { name, endpoint } => {
-                *endpoint = Some(ctx.sink_endpoint(name));
-                info!("HOOTL driver opened thread channel socket on user channel `{name}`");
+            TransportState::ThreadChannel { endpoint } => {
+                *endpoint = Some(ctx.peripheral_socket_endpoint(peripheral_id)?);
+                info!("HOOTL driver opened thread channel socket for {peripheral_id:?}");
                 Ok(())
             }
             #[cfg(unix)]
@@ -821,7 +809,7 @@ impl TransportState {
     /// Close sockets.
     fn close(&mut self) {
         match self {
-            TransportState::ThreadChannel { endpoint, .. } => {
+            TransportState::ThreadChannel { endpoint } => {
                 *endpoint = None;
             }
             #[cfg(unix)]
@@ -844,21 +832,12 @@ impl TransportState {
     /// Receive bytes on the socket.
     fn recv_packet(&mut self, buf: &mut [u8]) -> Option<(usize, Option<TransportAddr>)> {
         match self {
-            TransportState::ThreadChannel { endpoint, .. } => {
+            TransportState::ThreadChannel { endpoint } => {
                 let endpoint = endpoint.as_ref()?;
-                let msg = endpoint.rx().try_recv().ok()?;
-                match msg {
-                    Msg::Packet(bytes) => {
-                        if bytes.len() < PeripheralId::BYTE_LEN {
-                            return None;
-                        }
-                        let payload = &bytes[PeripheralId::BYTE_LEN..];
-                        let size = payload.len().min(buf.len());
-                        buf[..size].copy_from_slice(&payload[..size]);
-                        Some((size, None))
-                    }
-                    _ => None,
-                }
+                let bytes = endpoint.try_recv().ok()?;
+                let size = bytes.len().min(buf.len());
+                buf[..size].copy_from_slice(&bytes[..size]);
+                Some((size, None))
             }
             #[cfg(unix)]
             TransportState::UnixSocket { socket, .. } => {
@@ -877,23 +856,14 @@ impl TransportState {
     }
 
     /// Send bytes on the socket.
-    fn send_packet(
-        &mut self,
-        payload: &[u8],
-        addr: Option<&TransportAddr>,
-        peripheral_id: PeripheralId,
-    ) -> Result<(), String> {
+    fn send_packet(&mut self, payload: &[u8], addr: Option<&TransportAddr>) -> Result<(), String> {
         match self {
-            TransportState::ThreadChannel { endpoint, .. } => {
+            TransportState::ThreadChannel { endpoint } => {
                 let endpoint = endpoint.as_ref().ok_or_else(|| {
                     "HOOTL driver thread channel endpoint not initialized".to_string()
                 })?;
-                let mut bytes = vec![0u8; PeripheralId::BYTE_LEN + payload.len()];
-                peripheral_id.write_bytes(&mut bytes[..PeripheralId::BYTE_LEN]);
-                bytes[PeripheralId::BYTE_LEN..].copy_from_slice(payload);
                 endpoint
-                    .tx()
-                    .send(Msg::Packet(bytes))
+                    .send(payload.to_vec())
                     .map_err(|e| format!("HOOTL driver failed to send thread channel packet: {e}"))
             }
             #[cfg(unix)]

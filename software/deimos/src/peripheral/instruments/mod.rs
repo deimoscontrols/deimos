@@ -3,7 +3,8 @@
 //! Each concrete instrument module contains its peripheral representation,
 //! configuration, blocking-I/O driver, and a convenience `attach` function.
 //! Live connections remain on worker threads; the controller communicates with
-//! a nonblocking protocol responder through an internal thread-channel socket.
+//! a nonblocking protocol responder through an identity-keyed one-to-one thread
+//! socket.
 //! The shared responder knows only the Deimos packet lifecycle, while the SCPI
 //! transport knows only newline-delimited TCP. Instrument-specific modules are
 //! the narrow adapter between those two pieces.

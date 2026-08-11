@@ -33,7 +33,7 @@ use crate::controller::Controller;
 /// Attach one configured SDG2042X to a controller.
 ///
 /// This connects and validates the instrument before registering its software
-/// peripheral and automatically named thread-channel socket with `controller`.
+/// peripheral and identity-keyed thread socket with `controller`.
 /// Both channel configurations and all six dynamic inputs per channel remain
 /// independent, while applied outputs are published as one completed
 /// two-channel state.
@@ -43,7 +43,7 @@ use crate::controller::Controller;
 ///   `peripheral_name.ch1_enabled`.
 ///   config: Complete connection, identity, waveform, channel, and timeout
 ///   configuration.
-///   controller: Controller to receive the peripheral and generated socket.
+///   controller: Controller to receive the peripheral and thread socket.
 ///
 /// Returns:
 ///   A running instrument handle that must outlive the controller run.
@@ -58,10 +58,8 @@ pub fn attach(
     controller: &mut Controller,
 ) -> Result<InstrumentRunHandle, String> {
     let driver = SiglentSdg2042XDriver::new(config)?;
-    let channel_name = driver.channel_name().to_owned();
     attach_instrument(
         peripheral_name,
-        &channel_name,
         driver.peripheral(),
         "SDG2042X",
         controller,

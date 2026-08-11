@@ -80,8 +80,8 @@ class DeimosDaqRev7(_PeripheralBase):
 
 class HootlTransport:
     @staticmethod
-    def thread_channel(name: str) -> Self:
-        """A thread channel with this name."""
+    def thread_channel() -> Self:
+        """A thread channel keyed by the wrapped peripheral's identity."""
         ...
     @staticmethod
     def unix_socket(name: str) -> Self:

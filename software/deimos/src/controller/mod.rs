@@ -6,6 +6,7 @@ mod controller_state;
 mod nonblocking;
 mod peripheral_state;
 mod replay;
+pub mod socket_channel;
 mod timing;
 
 use serde::{Deserialize, Serialize};

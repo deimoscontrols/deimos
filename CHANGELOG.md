@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026-08-08 0.19.1
+## 2026-08-08 0.20.0
 
 Addition of laboratory instruments interface with concrete implementations for Keithley DMM6500 bench multimeter and Siglent SDG2042X signal generator via SCPI/TCP.
 
@@ -12,6 +12,7 @@ Addition of laboratory instruments interface with concrete implementations for K
     * Add concrete `Peripheral` implementations for DMM6500 and SDG2042X
     * Add example use of DMM6500 and SDG2042X
     * Clamp peripheral output commands and safe-state outputs commanded with NaN
+    * !Move thread-channel sockets to their own SPSC channel pool keyed by PeripheralId instead of sharing the user channel MPMC pool
 
 ## 2026-08-01 0.19.0
 

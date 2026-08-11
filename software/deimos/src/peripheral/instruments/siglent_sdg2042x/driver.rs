@@ -37,7 +37,6 @@ struct State {
 /// Validated configuration plus synchronized instrument state.
 struct Inner {
     config: Config,
-    channel_name: String,
     state: Mutex<State>,
     changed: Condvar,
 }
@@ -60,14 +59,9 @@ impl SiglentSdg2042XDriver {
     ///   Returns an error when configuration fields or channel ranges are invalid.
     pub fn new(config: Config) -> Result<Self, String> {
         config.validate()?;
-        let channel_name = format!(
-            "instrument-sdg2042x-{:016x}",
-            config.connection.serial_number
-        );
         Ok(Self {
             inner: Arc::new(Inner {
                 config,
-                channel_name,
                 state: Mutex::new(State {
                     safe_state_pending: false,
                     next: None,
@@ -85,14 +79,6 @@ impl SiglentSdg2042XDriver {
     ///   A serializable peripheral carrying the driver's logical identity.
     pub fn peripheral(&self) -> SiglentSdg2042X {
         SiglentSdg2042X::new(self.inner.config.connection.serial_number)
-    }
-
-    /// Return the internal thread-channel name expected by the driver.
-    ///
-    /// Returns:
-    ///   A deterministic name derived from the model and logical serial number.
-    pub fn channel_name(&self) -> &str {
-        &self.inner.channel_name
     }
 
     /// Return the validated SCPI identity after successful startup.

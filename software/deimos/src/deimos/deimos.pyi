@@ -546,8 +546,8 @@ calc: _CalcModule
 
 class HootlTransport:
     @staticmethod
-    def thread_channel(name: str) -> Self:
-        """A thread channel with this name."""
+    def thread_channel() -> Self:
+        """A thread channel keyed by the wrapped peripheral's identity."""
         ...
 
     @staticmethod
@@ -675,9 +675,8 @@ class _SocketModule(ModuleType):
         def possible_broadcast_targets() -> list[str]: ...
 
     class ThreadChannelSocket(_SocketBase):
-        """Socket implementation that consumes a user channel of the same name.
-        Only one peripheral can be connected per thread socket."""
-        def __init__(self, name: str) -> None: ...
+        """Controller-side socket for one identity-keyed in-process peripheral responder."""
+        def __init__(self, model_number: int, serial_number: int) -> None: ...
 
 socket: _SocketModule
 

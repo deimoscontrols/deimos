@@ -16,9 +16,12 @@ use std::time::{Duration, Instant};
 
 use deimos::{
     Controller, ControllerCtx, LoopMethod, Termination, ThreadChannelSocket,
-    peripheral::instruments::{
-        keithley_dmm6500::{Config as KeithleyConfig, KeithleyDmm6500Driver},
-        siglent_sdg2042x::{Config as SiglentConfig, SiglentSdg2042XDriver, Waveform},
+    peripheral::{
+        Peripheral,
+        instruments::{
+            keithley_dmm6500::{Config as KeithleyConfig, KeithleyDmm6500Driver},
+            siglent_sdg2042x::{Config as SiglentConfig, SiglentSdg2042XDriver, Waveform},
+        },
     },
 };
 
@@ -64,18 +67,18 @@ fn main() -> Result<(), String> {
 
     let mut controller = Controller::new(ctx);
     controller.clear_sockets();
-    let siglent_channel_name = siglent.channel_name().to_owned();
-    let dmm_channel_name = dmm.channel_name().to_owned();
+    let siglent_peripheral = siglent.peripheral();
+    let dmm_peripheral = dmm.peripheral();
     controller.add_socket(
-        &siglent_channel_name,
-        Box::new(ThreadChannelSocket::new(&siglent_channel_name)),
+        &ThreadChannelSocket::socket_name(siglent_peripheral.id()),
+        Box::new(ThreadChannelSocket::new(siglent_peripheral.id())),
     );
     controller.add_socket(
-        &dmm_channel_name,
-        Box::new(ThreadChannelSocket::new(&dmm_channel_name)),
+        &ThreadChannelSocket::socket_name(dmm_peripheral.id()),
+        Box::new(ThreadChannelSocket::new(dmm_peripheral.id())),
     );
-    controller.add_peripheral("siglent", Box::new(siglent.peripheral()))?;
-    controller.add_peripheral("dmm", Box::new(dmm.peripheral()))?;
+    controller.add_peripheral("siglent", Box::new(siglent_peripheral))?;
+    controller.add_peripheral("dmm", Box::new(dmm_peripheral))?;
 
     let mut siglent_handle = siglent.run(&controller.ctx)?;
     let mut dmm_handle = match dmm.run(&controller.ctx) {
