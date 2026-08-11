@@ -207,6 +207,9 @@ impl Controller {
         if self.peripherals.contains_key(name) {
             return Err(format!("Peripheral name `{name}` is duplicated"));
         }
+        if self.peripherals.values().any(|x| x.id() == p.id()) {
+            return Err(format!("Peripheral ID `{:?}` is duplicated", p.id()));
+        }
 
         // Add the standard set of calcs that come with this peripheral, if any.
         let calcs = p.standard_calcs(name);
