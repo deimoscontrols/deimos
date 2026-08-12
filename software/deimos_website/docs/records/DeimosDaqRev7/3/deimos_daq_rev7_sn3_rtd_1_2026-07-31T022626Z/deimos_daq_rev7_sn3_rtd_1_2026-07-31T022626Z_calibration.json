@@ -3,24 +3,24 @@
   "serial_number": 3,
   "channel": "ain8",
   "signal_name": "p1_rtd_1.temperature_K",
-  "datestamp_utc": "2026-07-31T041822Z",
+  "datestamp_utc": "2026-08-12T220429Z",
   "rtd_reference_current_a": 0.00025,
   "rtd_frontend_gain": 25.7,
   "temperature_error_fit": {
     "coefficients": [
-      -1.3464865546576785,
-      -0.6671462198268024
+      -1.3457231242283676,
+      -0.6691791475086767
     ],
-    "r2": 0.6400664544403366,
-    "x_center": 545.5673139533369,
-    "x_scale": 530.5039751091631
+    "r2": 0.6414527087045048,
+    "x_center": 545.5665505229076,
+    "x_scale": 530.5029074849049
   },
   "polynomial_order": 1,
   "polynomial_coefficients": [
-    -0.00007854549878246612,
-    0.9991957642720779
+    -0.00007826054892543279,
+    0.9991915879358548
   ],
-  "r2": 0.9999999967782423,
+  "r2": 0.999999996758473,
   "input_units": "V",
   "output_units": "V",
   "accepted_sample_count": 7723,

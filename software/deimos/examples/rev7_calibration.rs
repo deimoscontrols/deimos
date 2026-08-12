@@ -2,8 +2,10 @@
 //!
 //! This module collects and postprocesses rev7 calibration runs for its analog
 //! inputs and DAC outputs. The 0-2.5 V inputs use their paired DAC as a source
-//! and a DMM6500 as the independent reference. The other voltage inputs use an
-//! SDG2042X as the source and the DMM6500 as the reference.
+//! and a DMM6500 as the independent reference. The thermocouple and other
+//! voltage inputs use an SDG2042X as the source and the DMM6500 as the
+//! reference. A VA710 cold-junction measurement remains the reference for the
+//! board-temperature calibration during each thermocouple run.
 //!
 //! # References
 //!
@@ -49,7 +51,7 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 const MODEL_NAME: &str = "deimos_daq_rev7";
 const PROCEDURE_NAME: &str = "deimos_daq_rev7_calibration";
-const PROCEDURE_VERSION: u16 = 11;
+const PROCEDURE_VERSION: u16 = 12;
 const PERIPHERAL_NAME: &str = "p1";
 const RATE_HZ: f64 = 100.0;
 const REPORTING_MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(239, 255, 0, 1);
@@ -66,8 +68,10 @@ const FLUKE_707_CURRENT_ACCURACY_A: f64 = REFERENCE_MAX_A * 0.015 / 100.0 + 2.0e
 const VOLTAGE_FIT_ORDER: usize = 1;
 const VOLTAGE_0_15V_HOLD_SECONDS: f64 = 2.0;
 const VOLTAGE_X26_HOLD_SECONDS: f64 = 5.0;
+const THERMOCOUPLE_HOLD_SECONDS: f64 = 5.0;
+const LOWEST_THERMOCOUPLE_HOLD_SECONDS: f64 = 10.0;
 const MIN_VOLTAGE_HOLD_DURATION_S: f64 = 1.5;
-const X26_STARTUP_SETTLING_SECONDS: f64 = 5.0;
+const MILLIVOLT_STARTUP_SETTLING_SECONDS: f64 = 5.0;
 const VOLTAGE_CAPTURE_SECONDS: u64 = 300;
 const DAC_2V5_TARGETS_V: [f64; 6] = [0.02, 0.5, 1.0, 1.5, 2.0, 2.45];
 const DAC_HOLD_SECONDS: f64 = 2.0;
@@ -84,6 +88,9 @@ const DMM_ACCURACY_INTERVAL: keithley_dmm6500::AccuracyInterval =
     keithley_dmm6500::AccuracyInterval::OneYear;
 const VOLTAGE_0_15V_HOLDS_V: [f64; 6] = [0.030, 2.0, 4.0, 6.0, 8.0, 10.0];
 const VOLTAGE_X26_HOLDS_V: [f64; 6] = [-0.030, -0.017, 0.0, 0.017, 0.035, 0.054];
+// Cover nearly the full type-K EMF range of -5.9 mV at -200 C through
+// 54.8 mV at 1370 C while retaining margin at both frontend limits.
+const THERMOCOUPLE_HOLDS_V: [f64; 6] = [-0.0055, 0.0, 0.012, 0.026, 0.040, 0.054];
 
 const ZERO_C_K: f64 = 273.15;
 const RTD_MIN_REFERENCE_K: f64 = ZERO_C_K - 200.0;
@@ -98,20 +105,9 @@ const VA720_ACCURACY_K: f64 = 0.33;
 const RTD_REFERENCE_CURRENT_A: f64 = 250e-6;
 const RTD_FRONTEND_GAIN: f64 = 25.7;
 
-const TC_MIN_ACCEPTED_K: f64 = ZERO_C_K - 220.0;
-const TC_LOW_REFERENCE_K: [f64; 2] = [ZERO_C_K - 200.0, ZERO_C_K - 150.0];
-const TC_REGULAR_MIN_REFERENCE_K: f64 = ZERO_C_K - 100.0;
-// Leave one 10 C detector bin above the requested 1370 C endpoint so positive
-// measurement error does not discard the upper half of the endpoint data.
-const TC_MAX_REFERENCE_K: f64 = ZERO_C_K + 1380.0;
-const TC_STEP_K: f64 = 10.0;
-const TC_LOW_STEP_DETECTION_TOLERANCE_K: f64 = 20.0;
-const TC_STEP_DETECTION_TOLERANCE_K: f64 = 5.0;
 const MIN_TC_STEP_DURATION_S: f64 = 3.0;
-const TC_CAPTURE_SECONDS: u64 = 240;
-const VA710_TEMPERATURE_ACCURACY_K: f64 = 0.3;
+const TC_CAPTURE_SECONDS: u64 = 90;
 const VA710_COLD_JUNCTION_ACCURACY_K: f64 = 0.3;
-const VA710_NEAR_ROOM_VOLTAGE_ACCURACY_K: f64 = 0.25;
 const BOARD_COLD_JUNCTION_SIGNAL_NAME: &str = "p1.board_temp_K";
 
 const CONSOLE_CONFIG_PATH: &str = "software/deimos/examples/rev7_calibration_console.toml";
@@ -415,7 +411,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => 1e3,
             CalibrationKind::Rtd => 1.0,
-            CalibrationKind::Thermocouple => 1.0,
+            CalibrationKind::Thermocouple => 1e3,
             CalibrationKind::Voltage => 1.0,
         }
     }
@@ -424,7 +420,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Current (mA)",
             CalibrationKind::Rtd => "Temperature (K)",
-            CalibrationKind::Thermocouple => "Adjusted temperature (K)",
+            CalibrationKind::Thermocouple => "Thermocouple input voltage (mV)",
             CalibrationKind::Voltage => "Voltage (V)",
         }
     }
@@ -433,7 +429,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Reference current (mA)",
             CalibrationKind::Rtd => "Reference temperature (K)",
-            CalibrationKind::Thermocouple => "Reference temperature (K)",
+            CalibrationKind::Thermocouple => "Keithley reference voltage (mV)",
             CalibrationKind::Voltage => "Reference voltage (V)",
         }
     }
@@ -442,7 +438,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Current error vs reference",
             CalibrationKind::Rtd => "Temperature error vs reference",
-            CalibrationKind::Thermocouple => "Thermocouple temperature error vs reference",
+            CalibrationKind::Thermocouple => "Thermocouple voltage error vs reference",
             CalibrationKind::Voltage => "Voltage error vs reference",
         }
     }
@@ -451,7 +447,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Error (mA)",
             CalibrationKind::Rtd => "Error (K)",
-            CalibrationKind::Thermocouple => "Error (K)",
+            CalibrationKind::Thermocouple => "Error (µV)",
             CalibrationKind::Voltage => "Error (V)",
         }
     }
@@ -460,17 +456,21 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => FLUKE_707_CURRENT_ACCURACY_A * 1e3,
             CalibrationKind::Rtd => VA720_ACCURACY_K,
-            CalibrationKind::Thermocouple => {
-                VA710_TEMPERATURE_ACCURACY_K
-                    + VA710_COLD_JUNCTION_ACCURACY_K
-                    + VA710_NEAR_ROOM_VOLTAGE_ACCURACY_K
-            }
+            CalibrationKind::Thermocouple => 0.0,
             CalibrationKind::Voltage => 0.0,
         }
     }
 
     fn error_accuracy_limit_at_reference(self, reference: f64) -> f64 {
         match self.kind {
+            CalibrationKind::Thermocouple => {
+                keithley_dmm6500::dc_voltage_accuracy_v(
+                    reference * 1e-3,
+                    self.dmm_voltage_range()
+                        .expect("thermocouple channels have a DMM range"),
+                    DMM_ACCURACY_INTERVAL,
+                ) * 1e6
+            }
             CalibrationKind::Voltage => keithley_dmm6500::dc_voltage_accuracy_v(
                 reference,
                 self.dmm_voltage_range()
@@ -482,13 +482,16 @@ impl CalibrationChannel {
     }
 
     fn error_accuracy_label(self) -> &'static str {
+        if matches!(self.kind, CalibrationKind::Thermocouple) {
+            return "Keithley";
+        }
         if matches!(self.kind, CalibrationKind::Voltage) {
             return self.dmm_accuracy_label();
         }
         match self.kind {
             CalibrationKind::Current4To20 => "Fluke 707 accuracy",
             CalibrationKind::Rtd => "VA720 accuracy",
-            CalibrationKind::Thermocouple => "VA710 approximate accuracy",
+            CalibrationKind::Thermocouple => unreachable!(),
             CalibrationKind::Voltage => unreachable!(),
         }
     }
@@ -525,7 +528,7 @@ impl CalibrationChannel {
             CalibrationKind::Current4To20 => "Residual after voltage fit, expressed as current",
             CalibrationKind::Rtd => "Residual temperature error after voltage fit propagation",
             CalibrationKind::Thermocouple => {
-                "Residual temperature error after voltage fit propagation"
+                "Thermocouple voltage residual after linear calibration"
             }
             CalibrationKind::Voltage => "Residual after voltage fit",
         }
@@ -535,7 +538,7 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => "Estimated current residual (uA)",
             CalibrationKind::Rtd => "Temperature residual (K)",
-            CalibrationKind::Thermocouple => "Temperature residual (K)",
+            CalibrationKind::Thermocouple => "Voltage residual (µV)",
             CalibrationKind::Voltage => "Voltage residual (V)",
         }
     }
@@ -548,17 +551,21 @@ impl CalibrationChannel {
         match self.kind {
             CalibrationKind::Current4To20 => FLUKE_707_CURRENT_ACCURACY_A * 1e6,
             CalibrationKind::Rtd => VA720_ACCURACY_K,
-            CalibrationKind::Thermocouple => {
-                VA710_TEMPERATURE_ACCURACY_K
-                    + VA710_COLD_JUNCTION_ACCURACY_K
-                    + VA710_NEAR_ROOM_VOLTAGE_ACCURACY_K
-            }
+            CalibrationKind::Thermocouple => 0.0,
             CalibrationKind::Voltage => 0.0,
         }
     }
 
     fn residual_accuracy_limit_at_reference(self, reference: f64) -> f64 {
         match self.kind {
+            CalibrationKind::Thermocouple => {
+                keithley_dmm6500::dc_voltage_accuracy_v(
+                    reference * 1e-3,
+                    self.dmm_voltage_range()
+                        .expect("thermocouple channels have a DMM range"),
+                    DMM_ACCURACY_INTERVAL,
+                ) * 1e6
+            }
             CalibrationKind::Voltage => keithley_dmm6500::dc_voltage_accuracy_v(
                 reference,
                 self.dmm_voltage_range()
@@ -570,20 +577,24 @@ impl CalibrationChannel {
     }
 
     fn residual_accuracy_label(self) -> &'static str {
+        if matches!(self.kind, CalibrationKind::Thermocouple) {
+            return "Keithley";
+        }
         if matches!(self.kind, CalibrationKind::Voltage) {
             return self.dmm_accuracy_label();
         }
         match self.kind {
             CalibrationKind::Current4To20 => "Fluke 707 accuracy",
             CalibrationKind::Rtd => "VA720 accuracy",
-            CalibrationKind::Thermocouple => "VA710 approximate accuracy",
+            CalibrationKind::Thermocouple => unreachable!(),
             CalibrationKind::Voltage => unreachable!(),
         }
     }
 
-    /// Return the ordered source targets for a voltage channel.
+    /// Return the ordered source targets for an automated voltage sweep.
     fn voltage_reference_targets_v(self) -> Option<&'static [f64]> {
         match self.slug {
+            "tc_0" | "tc_1" => Some(&THERMOCOUPLE_HOLDS_V),
             "0_2V5_0" | "0_2V5_1" => Some(&DAC_2V5_TARGETS_V),
             "0_15V_0" | "0_15V_1" => Some(&VOLTAGE_0_15V_HOLDS_V),
             "x26_0" | "x26_1" => Some(&VOLTAGE_X26_HOLDS_V),
@@ -604,11 +615,18 @@ impl CalibrationChannel {
     }
 
     fn uses_siglent(self) -> bool {
-        matches!(self.kind, CalibrationKind::Voltage) && self.dac_index().is_none()
+        matches!(
+            self.kind,
+            CalibrationKind::Thermocouple | CalibrationKind::Voltage
+        ) && self.dac_index().is_none()
     }
 
-    fn siglent_hold_seconds(self) -> Option<f64> {
+    fn siglent_hold_seconds(self, command_v: f64) -> Option<f64> {
         match self.slug {
+            "tc_0" | "tc_1" if command_v == THERMOCOUPLE_HOLDS_V[0] => {
+                Some(LOWEST_THERMOCOUPLE_HOLD_SECONDS)
+            }
+            "tc_0" | "tc_1" => Some(THERMOCOUPLE_HOLD_SECONDS),
             "0_15V_0" | "0_15V_1" => Some(VOLTAGE_0_15V_HOLD_SECONDS),
             "x26_0" | "x26_1" => Some(VOLTAGE_X26_HOLD_SECONDS),
             _ => None,
@@ -618,7 +636,9 @@ impl CalibrationChannel {
     fn dmm_voltage_range(self) -> Option<keithley_dmm6500::DcVoltageRange> {
         match self.slug {
             "0_2V5_0" | "0_2V5_1" | "0_15V_0" | "0_15V_1" => Some(DMM_10V_RANGE),
-            "x26_0" | "x26_1" => Some(keithley_dmm6500::DcVoltageRange::Millivolts100),
+            "tc_0" | "tc_1" | "x26_0" | "x26_1" => {
+                Some(keithley_dmm6500::DcVoltageRange::Millivolts100)
+            }
             _ => None,
         }
     }
@@ -655,7 +675,6 @@ struct ChannelCapture {
     calibrator_cold_junction_temperature_k: Option<f64>,
     board_cold_junction_temperature_k: Vec<f64>,
     board_cold_junction_offset_k: Option<f64>,
-    thermocouple_voltage_v: Vec<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -681,8 +700,6 @@ struct ErrorSample {
     reference_a: f64,
     measured_a: f64,
     error_a: f64,
-    thermocouple_voltage_v: Option<f64>,
-    thermocouple_cold_junction_temperature_k: Option<f64>,
 }
 
 #[derive(Debug)]
@@ -1003,7 +1020,7 @@ fn collect_all_channels(
         "RTD channels use manual holds stepping up from -200 C to +800 C in 50 C steps, then back down from +800 C to -200 C during the recording. Each RTD channel records for {RTD_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
-        "Thermocouple channels use a VA710 simulator with manual holds stepping from -200 C to +1370 C and back down to -200 C during the recording. Below -100 C, hold only at -200 C and -150 C on both ramps; do not stop at intermediate temperatures because doing so can contaminate the widened low-temperature hold data. From -100 C upward, target 50 K increments through +100 C and 100 K increments above +100 C. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
+        "Each thermocouple channel uses Siglent holds from -5.5 mV through 54 mV and then back down, with 10 s at -5.5 mV and 5 s at the other levels. The DMM6500 at {dmm_host} is the voltage reference. Enter the VA710 cold-junction temperature before each run to calibrate the board-temperature measurement. The VA710 is not used as the thermocouple source."
     );
     println!(
         "Each voltage channel uses ascending and descending source sweeps with the DMM6500 at {dmm_host} as the reference. The 0-2.5 V channels use their paired DACs for six 2 s holds in each direction. The SDG2042X at {siglent_host} drives 2 s holds for the 0-15 V channels and 5 s holds for the 25.7x channels. The 0-15 V sweep uses 0.030, 2, 4, 6, 8, and 10 V; each 25.7x sweep uses -0.030, -0.017, 0, 0.017, 0.035, and 0.054 V."
@@ -1086,11 +1103,10 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
         }
         CalibrationKind::Thermocouple => {
             println!(
-                "Ready the VA710 thermocouple simulator at -200 C. During the {} second run, manually step up to +1370 C and back down to -200 C with stable holds. Below -100 C, hold only at -200 C and -150 C on both ramps. Do not stop at any intermediate temperature below -100 C; move continuously through it to avoid contaminating the widened low-temperature hold data. From -100 C upward, target 50 K increments through +100 C and 100 K increments above +100 C.",
-                channel.capture_seconds(),
+                "The Siglent will command holds at -0.0055, 0, 0.012, 0.026, 0.040, and 0.054 V, then repeat them in descending order. Each -0.0055 V hold lasts 10 s; the others last 5 s. The Keithley reading is the thermocouple frontend calibration reference."
             );
             println!(
-                "Enter the VA710 cold-junction temperature in degC, or type s then Enter to skip this run."
+                "Enter the VA710 cold-junction temperature in degC for the board-temperature calibration, or type s then Enter to skip this run."
             );
             let line = read_operator_line()?;
             if line.trim().eq_ignore_ascii_case("s") {
@@ -1102,7 +1118,9 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
                     line.trim()
                 )
             })?;
-            println!("Press Enter to start this run, or type s then Enter to skip it.");
+            println!(
+                "Press Enter to start the automated Siglent/Keithley sweep, or type s then Enter to skip it."
+            );
             let line = read_operator_line()?;
             if line.trim().eq_ignore_ascii_case("s") {
                 return Ok(PromptDecision::Skip);
@@ -1195,7 +1213,7 @@ fn run_channel_capture(
             // Siglent output relay is still open during startup. Autoranging
             // permits that initial read, then selects 100 mV once the source
             // drives the requested calibration levels.
-            range_v: if matches!(channel.slug, "x26_0" | "x26_1") {
+            range_v: if matches!(channel.slug, "tc_0" | "tc_1" | "x26_0" | "x26_1") {
                 None
             } else {
                 Some(range.full_scale_v())
@@ -1300,22 +1318,22 @@ fn collect_siglent_reference_windows(
     run_start: Instant,
 ) -> Result<Vec<ManualReferenceWindow>, String> {
     let sequence = siglent_hold_sequence(channel)?;
-    let hold_seconds = channel
-        .siglent_hold_seconds()
-        .ok_or_else(|| format!("{} does not use the Siglent", channel.label))?;
     let mut windows = Vec::with_capacity(sequence.len());
 
     for (hold_index, command_v) in sequence.iter().copied().enumerate() {
+        let hold_seconds = channel
+            .siglent_hold_seconds(command_v)
+            .ok_or_else(|| format!("{} does not use the Siglent", channel.label))?;
         run_handle.write(HashMap::from([
             (format!("{SIGLENT_NAME}.ch1_enabled"), 1.0),
             (format!("{SIGLENT_NAME}.ch1_offset_voltage_v"), command_v),
         ]))?;
         wait_for_siglent_applied(run_handle, command_v)?;
-        if hold_index == 0 && matches!(channel.slug, "x26_0" | "x26_1") {
+        if hold_index == 0 && matches!(channel.slug, "tc_0" | "tc_1" | "x26_0" | "x26_1") {
             println!(
-                "Waiting {X26_STARTUP_SETTLING_SECONDS:.1} s for the driven input and Keithley autorange to settle."
+                "Waiting {MILLIVOLT_STARTUP_SETTLING_SECONDS:.1} s for the driven input and Keithley autorange to settle."
             );
-            sleep(Duration::from_secs_f64(X26_STARTUP_SETTLING_SECONDS));
+            sleep(Duration::from_secs_f64(MILLIVOLT_STARTUP_SETTLING_SECONDS));
         }
         let start_time_s = run_start.elapsed().as_secs_f64();
         let context = format!("Siglent hold {} at {command_v:.6} V", hold_index + 1);
@@ -1852,7 +1870,7 @@ fn process_calibration_files(
     create_dir_all(summary_dir)
         .map_err(|e| format!("Failed to create {}: {e}", summary_dir.display()))?;
     let datestamp_utc = utc_datestamp();
-    let summary_path = summary_dir.join(format!("rev7_calibration_summary_{datestamp_utc}.json"));
+    let summary_path = summary_dir.join("calibration_summary.json");
     let mut summary_records = Vec::new();
     let mut full_cal_inputs = Vec::new();
 
@@ -1874,7 +1892,7 @@ fn process_calibration_files(
         let (error_scale, error_units) = match capture.channel.kind {
             CalibrationKind::Current4To20 => (1e6, "uA"),
             CalibrationKind::Rtd => (1.0, "K"),
-            CalibrationKind::Thermocouple => (1.0, "K"),
+            CalibrationKind::Thermocouple => (1e6, "uV"),
             CalibrationKind::Voltage => (1.0, "V"),
         };
         summary_records.push(CalibrationSummaryRecord {
@@ -2253,8 +2271,8 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
         }
         times_s.push(time_s);
         measured_a.push(measurement);
-        // Voltage calibration has manually entered reference windows; stepped
-        // current/RTD/TC references are detected later from the measured data.
+        // Automated voltage and thermocouple runs use Keithley reference
+        // windows; stepped current and RTD references are detected later.
         reference_a.push(
             metadata
                 .manual_reference_windows
@@ -2277,9 +2295,9 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
         ));
     }
     let board_cold_junction_offset_k = if matches!(channel.kind, CalibrationKind::Thermocouple) {
-        // Recompute the cold-junction correction from replayed board RTD data,
-        // then use the thermocouple voltage and corrected junction temperature
-        // as the measured temperature for hold detection and fitting.
+        // Calibrate the board-temperature measurement against the operator's
+        // VA710 cold-junction reading. The thermocouple frontend itself is fit
+        // directly against the Keithley voltage reference below.
         let calibrator_cold_junction_temperature_k = metadata
             .calibrator_cold_junction_temperature_k
             .ok_or_else(|| {
@@ -2301,13 +2319,7 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
                 / board_cold_junction_temperature_k.len() as f64;
         let offset_k =
             calibrator_cold_junction_temperature_k - mean_board_cold_junction_temperature_k;
-        measured_a = thermocouple_voltage_v
-            .iter()
-            .zip(board_cold_junction_temperature_k.iter())
-            .map(|(&voltage_v, &board_temperature_k)| {
-                ktype_corrected_temp_k(voltage_v, board_temperature_k + offset_k)
-            })
-            .collect::<Vec<_>>();
+        measured_a.clone_from(&thermocouple_voltage_v);
         Some(offset_k)
     } else {
         None
@@ -2334,7 +2346,6 @@ fn read_calibration_data(path: &Path) -> Result<ChannelCapture, String> {
         calibrator_cold_junction_temperature_k: metadata.calibrator_cold_junction_temperature_k,
         board_cold_junction_temperature_k,
         board_cold_junction_offset_k,
-        thermocouple_voltage_v,
     })
 }
 
@@ -2582,20 +2593,8 @@ fn fit_rtd_voltage_from_temperature_error(samples: &[ErrorSample]) -> Result<Vol
 fn fit_thermocouple_voltage(samples: &[ErrorSample]) -> Result<VoltageFit, String> {
     let points = samples
         .iter()
-        .map(|sample| {
-            let measured_voltage_v = sample.thermocouple_voltage_v.ok_or_else(|| {
-                "Thermocouple voltage fit requires thermocouple_voltage_v samples".to_owned()
-            })?;
-            let cold_junction_temperature_k = sample
-                .thermocouple_cold_junction_temperature_k
-                .ok_or_else(|| {
-                    "Thermocouple voltage fit requires cold-junction temperature samples".to_owned()
-                })?;
-            let expected_voltage_v =
-                ktype_voltage_v(sample.reference_a) - ktype_voltage_v(cold_junction_temperature_k);
-            Ok((measured_voltage_v, expected_voltage_v))
-        })
-        .collect::<Result<Vec<_>, String>>()?;
+        .map(|sample| (sample.measured_a, sample.reference_a))
+        .collect::<Vec<_>>();
     let min_x = points.iter().map(|(x, _)| *x).fold(f64::INFINITY, f64::min);
     let max_x = points
         .iter()
@@ -2609,23 +2608,12 @@ fn fit_thermocouple_voltage(samples: &[ErrorSample]) -> Result<VoltageFit, Strin
     }
 
     let (coefficients, r2, _) = fit_linear_points(&points)?;
-    let residuals = samples
+    let residuals = points
         .iter()
-        .map(|sample| {
-            let measured_voltage_v = sample.thermocouple_voltage_v.ok_or_else(|| {
-                "Thermocouple voltage fit requires thermocouple_voltage_v samples".to_owned()
-            })?;
-            let cold_junction_temperature_k = sample
-                .thermocouple_cold_junction_temperature_k
-                .ok_or_else(|| {
-                    "Thermocouple voltage fit requires cold-junction temperature samples".to_owned()
-                })?;
-            let corrected_voltage_v = polyval(measured_voltage_v, &coefficients);
-            let corrected_temperature_k =
-                ktype_corrected_temp_k(corrected_voltage_v, cold_junction_temperature_k);
-            Ok(sample.reference_a - corrected_temperature_k)
+        .map(|&(measured_voltage_v, reference_voltage_v)| {
+            reference_voltage_v - polyval(measured_voltage_v, &coefficients)
         })
-        .collect::<Result<Vec<_>, String>>()?;
+        .collect();
 
     Ok(VoltageFit {
         coefficients,
@@ -2700,7 +2688,10 @@ fn normalized_fit_value(x: f64, coefficients: &[f64], center: f64, scale: f64) -
 }
 
 fn detect_step_segments(capture: &ChannelCapture) -> Result<Vec<StepSegment>, String> {
-    if matches!(capture.channel.kind, CalibrationKind::Voltage) {
+    if matches!(
+        capture.channel.kind,
+        CalibrationKind::Thermocouple | CalibrationKind::Voltage
+    ) {
         return manual_reference_segments(capture);
     }
 
@@ -2744,8 +2735,7 @@ fn nearest_step_reference(measured: f64, kind: CalibrationKind) -> Option<f64> {
             .min_by(|a, b| (measured - *a).abs().total_cmp(&(measured - *b).abs()))
             .filter(|reference_a| (measured - *reference_a).abs() <= STEP_DETECTION_TOLERANCE_A),
         CalibrationKind::Rtd => nearest_rtd_reference_k(measured),
-        CalibrationKind::Thermocouple => nearest_thermocouple_reference_k(measured),
-        CalibrationKind::Voltage => None,
+        CalibrationKind::Thermocouple | CalibrationKind::Voltage => None,
     }
 }
 
@@ -2797,44 +2787,6 @@ fn nearest_rtd_reference_k(measured_k: f64) -> Option<f64> {
     }
 }
 
-/// Maps a measured calibrator temperature to an accepted thermocouple hold.
-///
-/// The low-temperature holds at -200 and -150 degC use wider bands so that
-/// noisy endpoint data is retained. Starting at -100 degC, the detector uses
-/// the regular 10 K reference grid and a narrower tolerance.
-///
-/// Args:
-///     measured_k: Measured calibrator temperature [K].
-///
-/// Returns:
-///     The accepted reference temperature [K], or `None` outside a hold band.
-fn nearest_thermocouple_reference_k(measured_k: f64) -> Option<f64> {
-    if !(TC_MIN_ACCEPTED_K..=TC_MAX_REFERENCE_K).contains(&measured_k) {
-        return None;
-    }
-
-    // These two non-overlapping bands are the only accepted holds below
-    // -100 degC. In particular, ramp pauses between them are not quantized
-    // onto the regular 10 K grid.
-    for reference_k in TC_LOW_REFERENCE_K {
-        if (measured_k - reference_k).abs() <= TC_LOW_STEP_DETECTION_TOLERANCE_K {
-            return Some(reference_k);
-        }
-    }
-
-    if measured_k < TC_REGULAR_MIN_REFERENCE_K - TC_STEP_DETECTION_TOLERANCE_K {
-        return None;
-    }
-
-    let reference_k = (ZERO_C_K + ((measured_k - ZERO_C_K) / TC_STEP_K).round() * TC_STEP_K)
-        // At the -105 degC boundary, round-to-nearest selects -110 degC.
-        // Clamp it back to the first regular reference before testing the
-        // tolerance so the lower half of the -100 degC band remains valid.
-        .clamp(TC_REGULAR_MIN_REFERENCE_K, TC_MAX_REFERENCE_K);
-
-    ((measured_k - reference_k).abs() <= TC_STEP_DETECTION_TOLERANCE_K).then_some(reference_k)
-}
-
 fn no_segments_error(capture: &ChannelCapture) -> String {
     match capture.channel.kind {
         CalibrationKind::Current4To20 => format!(
@@ -2850,12 +2802,8 @@ fn no_segments_error(capture: &ChannelCapture) -> String {
             capture.channel.min_step_duration_s(),
         ),
         CalibrationKind::Thermocouple => format!(
-            "No stable thermocouple temperature holds found for {} using +/- {:.1} K at -200/-150 C, +/- {:.1} K on the {:.1} K grid from -100 C upward, and {:.1} s minimum duration",
+            "No Siglent/Keithley thermocouple reference holds found for {}.",
             capture.channel.label,
-            TC_LOW_STEP_DETECTION_TOLERANCE_K,
-            TC_STEP_DETECTION_TOLERANCE_K,
-            TC_STEP_K,
-            MIN_TC_STEP_DURATION_S,
         ),
         CalibrationKind::Voltage if capture.channel.dac_index().is_some() => format!(
             "No DAC/Keithley reference holds found for {}.",
@@ -2915,19 +2863,10 @@ fn accepted_error_samples(capture: &ChannelCapture, segments: &[StepSegment]) ->
     for segment in segments {
         for idx in segment.accept_start_idx..segment.accept_end_idx {
             let measured_a = capture.measured_a[idx];
-            let thermocouple_voltage_v = capture.thermocouple_voltage_v.get(idx).copied();
-            let thermocouple_cold_junction_temperature_k = capture
-                .board_cold_junction_temperature_k
-                .get(idx)
-                .copied()
-                .zip(capture.board_cold_junction_offset_k)
-                .map(|(board_temperature_k, offset_k)| board_temperature_k + offset_k);
             samples.push(ErrorSample {
                 reference_a: segment.reference_a,
                 measured_a,
                 error_a: segment.reference_a - measured_a,
-                thermocouple_voltage_v,
-                thermocouple_cold_junction_temperature_k,
             });
         }
     }
@@ -3178,8 +3117,9 @@ fn cold_junction_label(capture: &ChannelCapture) -> Result<Option<String>, Strin
     if matches!(capture.channel.kind, CalibrationKind::Thermocouple) {
         let cold_junction = thermocouple_cold_junction_json_record(capture)?;
         Ok(Some(format!(
-            "Cold junction: calibrator = {:.3} K, temperature offset = {:.6} K, RTD voltage offset = {:.9} V",
+            "Cold junction: VA710 = {:.3} K (±{:.3} K), temperature offset = {:.6} K, RTD voltage offset = {:.9} V",
             cold_junction.calibrator_cold_junction_temperature_k,
+            VA710_COLD_JUNCTION_ACCURACY_K,
             cold_junction.cold_junction_temperature_offset_k,
             cold_junction.cold_junction_rtd_voltage_offset_v,
         )))
@@ -3320,6 +3260,269 @@ Plotly.newPlot("dac-transfer-residual", [
     Ok((html, js))
 }
 
+fn thermocouple_temperature_residual_plot_fragments(
+    capture: &ChannelCapture,
+    analysis: &ChannelAnalysis,
+) -> Result<(String, String, String), String> {
+    if !matches!(capture.channel.kind, CalibrationKind::Thermocouple) {
+        return Ok((String::new(), String::new(), String::new()));
+    }
+    let cold_junction_k = capture
+        .calibrator_cold_junction_temperature_k
+        .ok_or_else(|| "Thermocouple temperature residual requires a cold junction".to_owned())?;
+    let reference_voltage_v = analysis
+        .samples
+        .iter()
+        .map(|sample| sample.reference_a)
+        .collect::<Vec<_>>();
+    let reference_temperature_c = reference_voltage_v
+        .iter()
+        .map(|&voltage_v| ktype_corrected_temp_k(voltage_v, cold_junction_k) - ZERO_C_K)
+        .collect::<Vec<_>>();
+    let temperature_error_k = analysis
+        .samples
+        .iter()
+        .map(|sample| {
+            ktype_corrected_temp_k(sample.reference_a, cold_junction_k)
+                - ktype_corrected_temp_k(sample.measured_a, cold_junction_k)
+        })
+        .collect::<Vec<_>>();
+    let temperature_residual_k = analysis
+        .samples
+        .iter()
+        .map(|sample| {
+            let corrected_voltage_v =
+                polyval(sample.measured_a, &analysis.voltage_fit.coefficients);
+            ktype_corrected_temp_k(sample.reference_a, cold_junction_k)
+                - ktype_corrected_temp_k(corrected_voltage_v, cold_junction_k)
+        })
+        .collect::<Vec<_>>();
+    let error_mean_uncertainty =
+        plot_mean_uncertainty(&reference_temperature_c, &temperature_error_k);
+    let residual_mean_uncertainty =
+        plot_mean_uncertainty(&reference_temperature_c, &temperature_residual_k);
+
+    let min_reference_v = reference_voltage_v
+        .iter()
+        .copied()
+        .fold(f64::INFINITY, f64::min);
+    let max_reference_v = reference_voltage_v
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, f64::max);
+    const ACCURACY_POINTS: usize = 64;
+    let mut accuracy_upper = Vec::with_capacity(ACCURACY_POINTS);
+    let mut accuracy_lower = Vec::with_capacity(ACCURACY_POINTS);
+    for idx in 0..ACCURACY_POINTS {
+        let fraction = idx as f64 / (ACCURACY_POINTS - 1) as f64;
+        let voltage_v = min_reference_v + fraction * (max_reference_v - min_reference_v);
+        let temperature_k = ktype_corrected_temp_k(voltage_v, cold_junction_k);
+        let uncertainty_v = keithley_dmm6500::dc_voltage_accuracy_v(
+            voltage_v,
+            keithley_dmm6500::DcVoltageRange::Millivolts100,
+            DMM_ACCURACY_INTERVAL,
+        );
+        let temperature_c = temperature_k - ZERO_C_K;
+        accuracy_upper.push((
+            temperature_c,
+            ktype_corrected_temp_k(voltage_v + uncertainty_v, cold_junction_k) - temperature_k,
+        ));
+        accuracy_lower.push((
+            temperature_c,
+            ktype_corrected_temp_k(voltage_v - uncertainty_v, cold_junction_k) - temperature_k,
+        ));
+    }
+    let accuracy_x = accuracy_upper
+        .iter()
+        .chain(accuracy_lower.iter().rev())
+        .map(|(temperature_c, _)| *temperature_c)
+        .collect::<Vec<_>>();
+    let accuracy_y = accuracy_upper
+        .iter()
+        .chain(accuracy_lower.iter().rev())
+        .map(|(_, residual_k)| *residual_k)
+        .collect::<Vec<_>>();
+    let error_y_limit = temperature_error_k
+        .iter()
+        .chain(error_mean_uncertainty.uncertainty_y.iter())
+        .chain(accuracy_y.iter())
+        .map(|value| value.abs())
+        .fold(0.0, f64::max)
+        .mul_add(1.1, 0.0)
+        .max(1e-6);
+    let residual_y_limit = temperature_residual_k
+        .iter()
+        .chain(residual_mean_uncertainty.uncertainty_y.iter())
+        .chain(accuracy_y.iter())
+        .map(|value| value.abs())
+        .fold(0.0, f64::max)
+        .mul_add(1.1, 0.0)
+        .max(1e-6);
+    let error_html = r#"<div id="thermocouple-temperature-error" class="plot"></div>"#.to_owned();
+    let residual_html =
+        r#"<div id="thermocouple-temperature-residual" class="plot"></div>"#.to_owned();
+    let js = format!(
+        r#"
+const thermocoupleReferenceTemperatureC = {reference_temperature_c};
+const thermocoupleTemperatureErrorK = {temperature_error_k};
+const thermocoupleTemperatureResidualK = {temperature_residual_k};
+const thermocoupleTemperatureErrorMeanX = {error_mean_x};
+const thermocoupleTemperatureErrorMeanY = {error_mean_y};
+const thermocoupleTemperatureErrorUncertaintyX = {error_uncertainty_x};
+const thermocoupleTemperatureErrorUncertaintyY = {error_uncertainty_y};
+const thermocoupleTemperatureResidualMeanX = {residual_mean_x};
+const thermocoupleTemperatureResidualMeanY = {residual_mean_y};
+const thermocoupleTemperatureResidualUncertaintyX = {residual_uncertainty_x};
+const thermocoupleTemperatureResidualUncertaintyY = {residual_uncertainty_y};
+const thermocoupleTemperatureAccuracyX = {accuracy_x};
+const thermocoupleTemperatureAccuracyY = {accuracy_y};
+
+Plotly.newPlot("thermocouple-temperature-error", [
+    {{
+        x: thermocoupleTemperatureAccuracyX,
+        y: thermocoupleTemperatureAccuracyY,
+        mode: "lines",
+        type: "scatter",
+        fill: "toself",
+        name: "Keithley",
+        line: {{ width: 0, color: accuracyFillColor }},
+        fillcolor: accuracyFillColor,
+        hoverinfo: "skip"
+    }},
+    {{
+        x: thermocoupleReferenceTemperatureC,
+        y: thermocoupleTemperatureErrorK,
+        type: "box",
+        name: "Error distribution",
+        showlegend: false,
+        boxpoints: false,
+        boxmean: "sd",
+        line: {{ width: 2, color: traceColor }},
+        fillcolor: boxFillColor,
+        marker: {{ color: traceColor }}
+    }},
+    {{
+        x: thermocoupleReferenceTemperatureC,
+        y: thermocoupleTemperatureErrorK,
+        mode: "markers",
+        type: "scatter",
+        name: "Error",
+        opacity: 0.5,
+        marker: {{ symbol: "line-ew", size: 8, color: traceColor, line: {{ width: 1, color: traceColor }} }}
+    }},
+    {{
+        x: thermocoupleTemperatureErrorMeanX,
+        y: thermocoupleTemperatureErrorMeanY,
+        mode: "markers",
+        type: "scatter",
+        name: "Mean",
+        marker: {{ symbol: "diamond", size: 9, color: statisticColor }}
+    }},
+    {{
+        x: thermocoupleTemperatureErrorUncertaintyX,
+        y: thermocoupleTemperatureErrorUncertaintyY,
+        mode: "markers",
+        type: "scatter",
+        name: "3σ mean",
+        marker: {{ symbol: "line-ew", size: 16, color: statisticColor, line: {{ width: 2, color: statisticColor }} }}
+    }}
+], themedLayout({{
+    title: {{ text: "Thermocouple temperature error before calibration", y: 1.02, yanchor: "bottom" }},
+    xaxis: {{ title: {{ text: "Keithley-equivalent thermocouple temperature (°C)", standoff: 16 }}, automargin: true }},
+    yaxis: {{ title: {{ text: "Temperature error (K)", standoff: 18 }}, range: [-{error_y_limit}, {error_y_limit}], automargin: true }},
+    legend: singleRowLegend,
+    boxmode: "group",
+    margin: {{ l: 88, r: 24, t: 160, b: 78 }}
+}}), {{ responsive: true }});
+
+Plotly.newPlot("thermocouple-temperature-residual", [
+    {{
+        x: thermocoupleTemperatureAccuracyX,
+        y: thermocoupleTemperatureAccuracyY,
+        mode: "lines",
+        type: "scatter",
+        fill: "toself",
+        name: "Keithley",
+        line: {{ width: 0, color: accuracyFillColor }},
+        fillcolor: accuracyFillColor,
+        hoverinfo: "skip"
+    }},
+    {{
+        x: thermocoupleReferenceTemperatureC,
+        y: thermocoupleTemperatureResidualK,
+        type: "box",
+        name: "Residual distribution",
+        showlegend: false,
+        boxpoints: false,
+        boxmean: "sd",
+        line: {{ width: 2, color: traceColor }},
+        fillcolor: boxFillColor,
+        marker: {{ color: traceColor }}
+    }},
+    {{
+        x: thermocoupleReferenceTemperatureC,
+        y: thermocoupleTemperatureResidualK,
+        mode: "markers",
+        type: "scatter",
+        name: "Residual",
+        opacity: 0.5,
+        marker: {{ symbol: "line-ew", size: 8, color: traceColor, line: {{ width: 1, color: traceColor }} }}
+    }},
+    {{
+        x: thermocoupleTemperatureResidualMeanX,
+        y: thermocoupleTemperatureResidualMeanY,
+        mode: "markers",
+        type: "scatter",
+        name: "Mean",
+        marker: {{ symbol: "diamond", size: 9, color: statisticColor }}
+    }},
+    {{
+        x: thermocoupleTemperatureResidualUncertaintyX,
+        y: thermocoupleTemperatureResidualUncertaintyY,
+        mode: "markers",
+        type: "scatter",
+        name: "3σ mean",
+        marker: {{ symbol: "line-ew", size: 16, color: statisticColor, line: {{ width: 2, color: statisticColor }} }}
+    }}
+], themedLayout({{
+    title: {{ text: "Thermocouple temperature residual after linear calibration", y: 1.02, yanchor: "bottom" }},
+    xaxis: {{ title: {{ text: "Keithley-equivalent thermocouple temperature (°C)", standoff: 16 }}, automargin: true }},
+    yaxis: {{ title: {{ text: "Temperature residual (K)", standoff: 18 }}, range: [-{residual_y_limit}, {residual_y_limit}], automargin: true }},
+    legend: singleRowLegend,
+    boxmode: "group",
+    margin: {{ l: 88, r: 24, t: 160, b: 78 }}
+}}), {{ responsive: true }});
+"#,
+        reference_temperature_c = serde_json::to_string(&reference_temperature_c)
+            .map_err(|e| format!("Failed to serialize thermocouple reference temperatures: {e}"))?,
+        temperature_residual_k = serde_json::to_string(&temperature_residual_k)
+            .map_err(|e| format!("Failed to serialize thermocouple temperature residuals: {e}"))?,
+        temperature_error_k = serde_json::to_string(&temperature_error_k)
+            .map_err(|e| format!("Failed to serialize thermocouple temperature errors: {e}"))?,
+        error_mean_x = serde_json::to_string(&error_mean_uncertainty.mean_x)
+            .map_err(|e| format!("Failed to serialize thermocouple error means: {e}"))?,
+        error_mean_y = serde_json::to_string(&error_mean_uncertainty.mean_y)
+            .map_err(|e| format!("Failed to serialize thermocouple error means: {e}"))?,
+        error_uncertainty_x = serde_json::to_string(&error_mean_uncertainty.uncertainty_x)
+            .map_err(|e| format!("Failed to serialize thermocouple error uncertainty: {e}"))?,
+        error_uncertainty_y = serde_json::to_string(&error_mean_uncertainty.uncertainty_y)
+            .map_err(|e| format!("Failed to serialize thermocouple error uncertainty: {e}"))?,
+        residual_mean_x = serde_json::to_string(&residual_mean_uncertainty.mean_x)
+            .map_err(|e| format!("Failed to serialize thermocouple residual means: {e}"))?,
+        residual_mean_y = serde_json::to_string(&residual_mean_uncertainty.mean_y)
+            .map_err(|e| format!("Failed to serialize thermocouple residual means: {e}"))?,
+        residual_uncertainty_x = serde_json::to_string(&residual_mean_uncertainty.uncertainty_x)
+            .map_err(|e| format!("Failed to serialize thermocouple residual uncertainty: {e}"))?,
+        residual_uncertainty_y = serde_json::to_string(&residual_mean_uncertainty.uncertainty_y)
+            .map_err(|e| format!("Failed to serialize thermocouple residual uncertainty: {e}"))?,
+        accuracy_x = serde_json::to_string(&accuracy_x)
+            .map_err(|e| format!("Failed to serialize thermocouple accuracy temperatures: {e}"))?,
+        accuracy_y = serde_json::to_string(&accuracy_y)
+            .map_err(|e| format!("Failed to serialize thermocouple accuracy band: {e}"))?,
+    );
+    Ok((error_html, residual_html, js))
+}
+
 fn write_analysis_plot(
     capture: &ChannelCapture,
     analysis: &ChannelAnalysis,
@@ -3349,7 +3552,7 @@ fn write_analysis_plot(
         .map(|sample| match capture.channel.kind {
             CalibrationKind::Current4To20 => sample.error_a * 1e3,
             CalibrationKind::Rtd => sample.error_a,
-            CalibrationKind::Thermocouple => sample.error_a,
+            CalibrationKind::Thermocouple => sample.error_a * 1e6,
             CalibrationKind::Voltage => sample.error_a,
         })
         .collect::<Vec<_>>();
@@ -3408,7 +3611,7 @@ fn write_analysis_plot(
         .map(|residual| match capture.channel.kind {
             CalibrationKind::Current4To20 => residual / REFERENCE_RESISTOR_OHM * 1e6,
             CalibrationKind::Rtd => *residual,
-            CalibrationKind::Thermocouple => *residual,
+            CalibrationKind::Thermocouple => *residual * 1e6,
             CalibrationKind::Voltage => *residual,
         })
         .collect::<Vec<_>>();
@@ -3431,7 +3634,7 @@ fn write_analysis_plot(
     let residual_trace_name = match capture.channel.kind {
         CalibrationKind::Current4To20 => "Fit residual as current",
         CalibrationKind::Rtd => "Temperature residual",
-        CalibrationKind::Thermocouple => "Temperature residual",
+        CalibrationKind::Thermocouple => "Residual",
         CalibrationKind::Voltage => "Voltage fit residual",
     };
 
@@ -3504,6 +3707,11 @@ fn write_analysis_plot(
         .max(max_abs_residual)
         .max(1e-12);
     let residual_y_axis_range = vec![-residual_y_limit, residual_y_limit];
+    let (
+        thermocouple_temperature_error_html,
+        thermocouple_temperature_residual_html,
+        thermocouple_temperature_residual_script,
+    ) = thermocouple_temperature_residual_plot_fragments(capture, analysis)?;
     let (dac_plot_html, dac_plot_script) = dac_plot_fragments(analysis.dac_fit.as_ref())?;
 
     let title = format!(
@@ -3558,10 +3766,12 @@ fn write_analysis_plot(
     <h1>{title}</h1>
     <div id="time-overlay" class="plot"></div>
     <div id="relative-error" class="plot"></div>
+    {thermocouple_temperature_error_html}
     <h2 class="plot-heading">{voltage_fit_label_html}</h2>
     {cold_junction_label_html}
     <div id="voltage-fit" class="plot"></div>
     <div id="voltage-fit-residual" class="plot"></div>
+    {thermocouple_temperature_residual_html}
     {dac_plot_html}
 </main>
 <script>
@@ -3612,6 +3822,13 @@ const baseLayout = {{
         y: 1.02,
         yanchor: "bottom"
     }}
+}};
+
+const singleRowLegend = {{
+    ...baseLayout.legend,
+    y: 1.12,
+    entrywidth: 105,
+    entrywidthmode: "pixels"
 }};
 
 function themedLayout(layout) {{
@@ -3707,15 +3924,16 @@ Plotly.newPlot("relative-error", [
         y: errorUncertaintyY,
         mode: "markers",
         type: "scatter",
-        name: "3σ u<sub>μ</sub>",
+        name: "3σ mean",
         marker: {{ symbol: "line-ew", size: 16, color: statisticColor, line: {{ width: 2, color: statisticColor }} }}
     }}
 ], themedLayout({{
-    title: {{ text: {error_plot_title}, y: 1.12, yanchor: "bottom" }},
+    title: {{ text: {error_plot_title}, y: 1.02, yanchor: "bottom" }},
     xaxis: {{ title: {{ text: {reference_axis_label}, standoff: 16 }}, automargin: true }},
     yaxis: {{ title: {{ text: {error_axis_label}, standoff: 18 }}, range: errorYAxisRange, automargin: true }},
+    legend: singleRowLegend,
     boxmode: "group",
-    margin: {{ l: 88, r: 24, t: 112, b: 78 }}
+    margin: {{ l: 88, r: 24, t: 160, b: 78 }}
 }}), {{ responsive: true }});
 
 Plotly.newPlot("voltage-fit", [
@@ -3788,16 +4006,18 @@ Plotly.newPlot("voltage-fit-residual", [
         y: residualUncertaintyY,
         mode: "markers",
         type: "scatter",
-        name: "3σ u<sub>μ</sub>",
+        name: "3σ mean",
         marker: {{ symbol: "line-ew", size: 16, color: statisticColor, line: {{ width: 2, color: statisticColor }} }}
     }}
 ], themedLayout({{
-    title: {{ text: {residual_plot_title}, y: 1.12, yanchor: "bottom" }},
+    title: {{ text: {residual_plot_title}, y: 1.02, yanchor: "bottom" }},
     xaxis: {{ title: {{ text: {residual_x_axis_label}, standoff: 16 }}, automargin: true }},
     yaxis: {{ title: {{ text: {residual_axis_label}, standoff: 18 }}, range: residualYAxisRange, automargin: true }},
+    legend: singleRowLegend,
     boxmode: "group",
-    margin: {{ l: 88, r: 24, t: 112, b: 78 }}
+    margin: {{ l: 88, r: 24, t: 160, b: 78 }}
 }}), {{ responsive: true }});
+{thermocouple_temperature_residual_script}
 {dac_plot_script}
 </script>
 </body>
@@ -3806,6 +4026,9 @@ Plotly.newPlot("voltage-fit-residual", [
         title = html_escape(&title),
         voltage_fit_label_html = report_line_html(&voltage_fit_label),
         cold_junction_label_html = cold_junction_label_html,
+        thermocouple_temperature_error_html = thermocouple_temperature_error_html,
+        thermocouple_temperature_residual_html = thermocouple_temperature_residual_html,
+        thermocouple_temperature_residual_script = thermocouple_temperature_residual_script,
         dac_plot_html = dac_plot_html,
         dac_plot_script = dac_plot_script,
         page_background = plot_theme.page_background(),
@@ -3969,6 +4192,16 @@ mod tests {
     fn siglent_voltage_holds_cover_requested_calibration_ranges() {
         for (slug, expected_targets, expected_range) in [
             (
+                "tc_0",
+                THERMOCOUPLE_HOLDS_V.as_slice(),
+                keithley_dmm6500::DcVoltageRange::Millivolts100,
+            ),
+            (
+                "tc_1",
+                THERMOCOUPLE_HOLDS_V.as_slice(),
+                keithley_dmm6500::DcVoltageRange::Millivolts100,
+            ),
+            (
                 "x26_0",
                 VOLTAGE_X26_HOLDS_V.as_slice(),
                 keithley_dmm6500::DcVoltageRange::Millivolts100,
@@ -3997,6 +4230,23 @@ mod tests {
         assert_up_and_down_sequence(&dac_hold_sequence(), &DAC_2V5_TARGETS_V);
         assert_eq!(channel_for_slug("0_2V5_0").unwrap().dac_index(), Some(0));
         assert_eq!(channel_for_slug("0_2V5_1").unwrap().dac_index(), Some(1));
+    }
+
+    #[test]
+    fn thermocouple_fit_maps_recovered_frontend_voltage_to_keithley_voltage() {
+        let samples = [-0.005, 0.0, 0.025, 0.055]
+            .into_iter()
+            .map(|measured_v| ErrorSample {
+                reference_a: 1.002 * measured_v - 4.0e-6,
+                measured_a: measured_v,
+                error_a: 0.0,
+            })
+            .collect::<Vec<_>>();
+        let fit = fit_thermocouple_voltage(&samples).unwrap();
+
+        assert!((fit.coefficients[0] + 4.0e-6).abs() < 1e-12);
+        assert!((fit.coefficients[1] - 1.002).abs() < 1e-12);
+        assert!(fit.residuals.iter().all(|residual| residual.abs() < 1e-12));
     }
 
     fn assert_up_and_down_sequence(sequence: &[f64], targets: &[f64]) {
@@ -4034,55 +4284,6 @@ mod tests {
             Some(RTD_MAX_REFERENCE_K),
         );
         assert_eq!(nearest_rtd_reference_k(ZERO_C_K + 810.01), None);
-    }
-
-    #[test]
-    fn thermocouple_reference_detector_keeps_positive_1370_c_endpoint_data() {
-        assert_eq!(
-            nearest_thermocouple_reference_k(ZERO_C_K + 1370.01),
-            Some(ZERO_C_K + 1370.0),
-        );
-        assert_eq!(
-            nearest_thermocouple_reference_k(ZERO_C_K + 1380.0),
-            Some(TC_MAX_REFERENCE_K),
-        );
-        assert_eq!(nearest_thermocouple_reference_k(ZERO_C_K + 1380.01), None,);
-    }
-
-    #[test]
-    fn thermocouple_reference_detector_uses_only_the_wide_low_temperature_holds() {
-        assert_eq!(
-            nearest_thermocouple_reference_k(ZERO_C_K - 220.0),
-            Some(ZERO_C_K - 200.0),
-        );
-        assert_eq!(
-            nearest_thermocouple_reference_k(ZERO_C_K - 210.0),
-            Some(ZERO_C_K - 200.0),
-        );
-        assert_eq!(
-            nearest_thermocouple_reference_k(ZERO_C_K - 180.0),
-            Some(ZERO_C_K - 200.0),
-        );
-        assert_eq!(nearest_thermocouple_reference_k(ZERO_C_K - 175.0), None,);
-        assert_eq!(
-            nearest_thermocouple_reference_k(ZERO_C_K - 170.0),
-            Some(ZERO_C_K - 150.0),
-        );
-        assert_eq!(
-            nearest_thermocouple_reference_k(ZERO_C_K - 130.0),
-            Some(ZERO_C_K - 150.0),
-        );
-        assert_eq!(nearest_thermocouple_reference_k(ZERO_C_K - 125.0), None,);
-        assert_eq!(nearest_thermocouple_reference_k(ZERO_C_K - 110.0), None,);
-        assert_eq!(
-            nearest_thermocouple_reference_k(ZERO_C_K - 105.0),
-            Some(ZERO_C_K - 100.0),
-        );
-        assert_eq!(
-            nearest_thermocouple_reference_k(ZERO_C_K - 100.0),
-            Some(ZERO_C_K - 100.0),
-        );
-        assert_eq!(nearest_thermocouple_reference_k(ZERO_C_K - 220.01), None,);
     }
 
     #[test]

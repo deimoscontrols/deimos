@@ -45,10 +45,12 @@
     <h1>deimos_daq_rev7 SN3 x26_1 calibration</h1>
     <div id="time-overlay" class="plot"></div>
     <div id="relative-error" class="plot"></div>
+    
     <h2 class="plot-heading">Voltage fit: expected = 0.003166757 + 0.999566250 * measured,<br>R^2 = 0.999984497</h2>
     
     <div id="voltage-fit" class="plot"></div>
     <div id="voltage-fit-residual" class="plot"></div>
+    
     
 </main>
 <script>
@@ -99,6 +101,13 @@ const baseLayout = {
         y: 1.02,
         yanchor: "bottom"
     }
+};
+
+const singleRowLegend = {
+    ...baseLayout.legend,
+    y: 1.12,
+    entrywidth: 105,
+    entrywidthmode: "pixels"
 };
 
 function themedLayout(layout) {
@@ -194,15 +203,16 @@ Plotly.newPlot("relative-error", [
         y: errorUncertaintyY,
         mode: "markers",
         type: "scatter",
-        name: "3σ u<sub>μ</sub>",
+        name: "3σ mean",
         marker: { symbol: "line-ew", size: 16, color: statisticColor, line: { width: 2, color: statisticColor } }
     }
 ], themedLayout({
-    title: { text: "Voltage error vs reference", y: 1.12, yanchor: "bottom" },
+    title: { text: "Voltage error vs reference", y: 1.02, yanchor: "bottom" },
     xaxis: { title: { text: "Reference voltage (V)", standoff: 16 }, automargin: true },
     yaxis: { title: { text: "Error (V)", standoff: 18 }, range: errorYAxisRange, automargin: true },
+    legend: singleRowLegend,
     boxmode: "group",
-    margin: { l: 88, r: 24, t: 112, b: 78 }
+    margin: { l: 88, r: 24, t: 160, b: 78 }
 }), { responsive: true });
 
 Plotly.newPlot("voltage-fit", [
@@ -275,16 +285,18 @@ Plotly.newPlot("voltage-fit-residual", [
         y: residualUncertaintyY,
         mode: "markers",
         type: "scatter",
-        name: "3σ u<sub>μ</sub>",
+        name: "3σ mean",
         marker: { symbol: "line-ew", size: 16, color: statisticColor, line: { width: 2, color: statisticColor } }
     }
 ], themedLayout({
-    title: { text: "Residual after voltage fit", y: 1.12, yanchor: "bottom" },
+    title: { text: "Residual after voltage fit", y: 1.02, yanchor: "bottom" },
     xaxis: { title: { text: "Reference voltage (V)", standoff: 16 }, automargin: true },
     yaxis: { title: { text: "Voltage residual (V)", standoff: 18 }, range: residualYAxisRange, automargin: true },
+    legend: singleRowLegend,
     boxmode: "group",
-    margin: { l: 88, r: 24, t: 112, b: 78 }
+    margin: { l: 88, r: 24, t: 160, b: 78 }
 }), { responsive: true });
+
 
 </script>
 </body>
