@@ -3,15 +3,15 @@
   "serial_number": 3,
   "channel": "ain18",
   "signal_name": "p1.35mV_0_V",
-  "datestamp_utc": "2026-07-31T041823Z",
+  "datestamp_utc": "2026-08-12T031918Z",
   "polynomial_order": 1,
   "polynomial_coefficients": [
-    0.0,
-    1.0
+    0.0031984253733480334,
+    0.9991487532230553
   ],
-  "r2": 0.9998896999530963,
+  "r2": 0.9999759651285731,
   "input_units": "V",
   "output_units": "V",
-  "accepted_sample_count": 1250,
-  "detected_step_count": 5
+  "accepted_sample_count": 3000,
+  "detected_step_count": 12
 }

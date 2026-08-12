@@ -1,0 +1,81 @@
+{
+  "model": "deimos_daq_rev7",
+  "serial_number": 3,
+  "channel": "x26_1",
+  "signal_name": "p1.35mV_1_V",
+  "calibrator_cold_junction_temperature_k": null,
+  "manual_reference_windows": [
+    {
+      "reference_a": -0.03327360245762712,
+      "dac_command_v": null,
+      "start_time_s": 5.061439753,
+      "stop_time_s": 10.066112434
+    },
+    {
+      "reference_a": -0.02031558831932774,
+      "dac_command_v": null,
+      "start_time_s": 10.122380238,
+      "stop_time_s": 15.125494933
+    },
+    {
+      "reference_a": -0.0032699260504201666,
+      "dac_command_v": null,
+      "start_time_s": 15.181499467,
+      "stop_time_s": 20.183798605
+    },
+    {
+      "reference_a": 0.013638374873949585,
+      "dac_command_v": null,
+      "start_time_s": 20.244981005,
+      "stop_time_s": 25.245288077
+    },
+    {
+      "reference_a": 0.03163158383333333,
+      "dac_command_v": null,
+      "start_time_s": 25.301324221,
+      "stop_time_s": 30.301501285
+    },
+    {
+      "reference_a": 0.05055647305084745,
+      "dac_command_v": null,
+      "start_time_s": 30.362609645,
+      "stop_time_s": 35.367257235
+    },
+    {
+      "reference_a": 0.050559090924369776,
+      "dac_command_v": null,
+      "start_time_s": 35.367319155,
+      "stop_time_s": 40.369187254
+    },
+    {
+      "reference_a": 0.03162769126050421,
+      "dac_command_v": null,
+      "start_time_s": 40.420284341,
+      "stop_time_s": 45.423549666
+    },
+    {
+      "reference_a": 0.013631217142857139,
+      "dac_command_v": null,
+      "start_time_s": 45.484856465,
+      "stop_time_s": 50.48789651
+    },
+    {
+      "reference_a": -0.0032643452941176474,
+      "dac_command_v": null,
+      "start_time_s": 50.544133443,
+      "stop_time_s": 55.549137693
+    },
+    {
+      "reference_a": -0.02034005512605042,
+      "dac_command_v": null,
+      "start_time_s": 55.60032579,
+      "stop_time_s": 60.60155229
+    },
+    {
+      "reference_a": -0.03328282016806723,
+      "dac_command_v": null,
+      "start_time_s": 60.662913249,
+      "stop_time_s": 65.666533212
+    }
+  ]
+}

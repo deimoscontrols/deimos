@@ -49,7 +49,7 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 const MODEL_NAME: &str = "deimos_daq_rev7";
 const PROCEDURE_NAME: &str = "deimos_daq_rev7_calibration";
-const PROCEDURE_VERSION: u16 = 7;
+const PROCEDURE_VERSION: u16 = 11;
 const PERIPHERAL_NAME: &str = "p1";
 const RATE_HZ: f64 = 100.0;
 const REPORTING_MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(239, 255, 0, 1);
@@ -64,8 +64,10 @@ const CAPTURE_SECONDS: u64 = 90;
 const REFERENCE_RESISTOR_OHM: f64 = 75.0;
 const FLUKE_707_CURRENT_ACCURACY_A: f64 = REFERENCE_MAX_A * 0.015 / 100.0 + 2.0e-6;
 const VOLTAGE_FIT_ORDER: usize = 1;
-const VOLTAGE_HOLD_SECONDS: f64 = 2.0;
+const VOLTAGE_0_15V_HOLD_SECONDS: f64 = 2.0;
+const VOLTAGE_X26_HOLD_SECONDS: f64 = 5.0;
 const MIN_VOLTAGE_HOLD_DURATION_S: f64 = 1.5;
+const X26_STARTUP_SETTLING_SECONDS: f64 = 5.0;
 const VOLTAGE_CAPTURE_SECONDS: u64 = 300;
 const DAC_2V5_TARGETS_V: [f64; 6] = [0.02, 0.5, 1.0, 1.5, 2.0, 2.45];
 const DAC_HOLD_SECONDS: f64 = 2.0;
@@ -81,7 +83,7 @@ const DMM_10V_RANGE: keithley_dmm6500::DcVoltageRange = keithley_dmm6500::DcVolt
 const DMM_ACCURACY_INTERVAL: keithley_dmm6500::AccuracyInterval =
     keithley_dmm6500::AccuracyInterval::OneYear;
 const VOLTAGE_0_15V_HOLDS_V: [f64; 6] = [0.030, 2.0, 4.0, 6.0, 8.0, 10.0];
-const VOLTAGE_X26_HOLDS_V: [f64; 6] = [-0.035, -0.017, 0.0, 0.017, 0.035, 0.054];
+const VOLTAGE_X26_HOLDS_V: [f64; 6] = [-0.030, -0.017, 0.0, 0.017, 0.035, 0.054];
 
 const ZERO_C_K: f64 = 273.15;
 const RTD_MIN_REFERENCE_K: f64 = ZERO_C_K - 200.0;
@@ -605,6 +607,14 @@ impl CalibrationChannel {
         matches!(self.kind, CalibrationKind::Voltage) && self.dac_index().is_none()
     }
 
+    fn siglent_hold_seconds(self) -> Option<f64> {
+        match self.slug {
+            "0_15V_0" | "0_15V_1" => Some(VOLTAGE_0_15V_HOLD_SECONDS),
+            "x26_0" | "x26_1" => Some(VOLTAGE_X26_HOLD_SECONDS),
+            _ => None,
+        }
+    }
+
     fn dmm_voltage_range(self) -> Option<keithley_dmm6500::DcVoltageRange> {
         match self.slug {
             "0_2V5_0" | "0_2V5_1" | "0_15V_0" | "0_15V_1" => Some(DMM_10V_RANGE),
@@ -996,7 +1006,7 @@ fn collect_all_channels(
         "Thermocouple channels use a VA710 simulator with manual holds stepping from -200 C to +1370 C and back down to -200 C during the recording. Below -100 C, hold only at -200 C and -150 C on both ramps; do not stop at intermediate temperatures because doing so can contaminate the widened low-temperature hold data. From -100 C upward, target 50 K increments through +100 C and 100 K increments above +100 C. Enter the VA710 cold-junction temperature before each thermocouple run; each thermocouple channel records for {TC_CAPTURE_SECONDS} s at {RATE_HZ} Hz."
     );
     println!(
-        "Each voltage channel uses ascending and descending source sweeps with the DMM6500 at {dmm_host} as the reference. The 0-2.5 V channels use their paired DACs for six 2 s holds in each direction. The 0-15 V and 25.7x channels use the SDG2042X at {siglent_host} for 2 s holds. The 0-15 V sweep uses 0.030, 2, 4, 6, 8, and 10 V; each 25.7x sweep uses -0.035, -0.017, 0, 0.017, 0.035, and 0.054 V."
+        "Each voltage channel uses ascending and descending source sweeps with the DMM6500 at {dmm_host} as the reference. The 0-2.5 V channels use their paired DACs for six 2 s holds in each direction. The SDG2042X at {siglent_host} drives 2 s holds for the 0-15 V channels and 5 s holds for the 25.7x channels. The 0-15 V sweep uses 0.030, 2, 4, 6, 8, and 10 V; each 25.7x sweep uses -0.030, -0.017, 0, 0.017, 0.035, and 0.054 V."
     );
     println!(
         "Monitor live channels with: cargo run -p deimos_console -- --config {CONSOLE_CONFIG_PATH}"
@@ -1113,7 +1123,7 @@ fn prompt_for_channel(channel: CalibrationChannel) -> Result<PromptDecision, Str
                 );
             } else if matches!(channel.slug, "x26_0" | "x26_1") {
                 println!(
-                    "The Siglent will command 2 s holds at -0.035, -0.017, 0, 0.017, 0.035, and 0.054 V, then repeat them in descending order. The Keithley reading is the input calibration reference."
+                    "The Siglent will command 5 s holds at -0.030, -0.017, 0, 0.017, 0.035, and 0.054 V, then repeat them in descending order. The Keithley reading is the input calibration reference."
                 );
             } else {
                 println!(
@@ -1181,7 +1191,15 @@ fn run_channel_capture(
     let mut dmm_handle = if let Some(range) = channel.dmm_voltage_range() {
         let mut config = keithley_dmm6500::Config::new(dmm_host, DMM_LOGICAL_SERIAL_NUMBER);
         config.function = keithley_dmm6500::Function::DcVoltage {
-            range_v: Some(range.full_scale_v()),
+            // The undriven high-gain input can float beyond 100 mV while the
+            // Siglent output relay is still open during startup. Autoranging
+            // permits that initial read, then selects 100 mV once the source
+            // drives the requested calibration levels.
+            range_v: if matches!(channel.slug, "x26_0" | "x26_1") {
+                None
+            } else {
+                Some(range.full_scale_v())
+            },
         };
         match keithley_dmm6500::attach(DMM_NAME, config, &mut controller) {
             Ok(handle) => Some(handle),
@@ -1282,6 +1300,9 @@ fn collect_siglent_reference_windows(
     run_start: Instant,
 ) -> Result<Vec<ManualReferenceWindow>, String> {
     let sequence = siglent_hold_sequence(channel)?;
+    let hold_seconds = channel
+        .siglent_hold_seconds()
+        .ok_or_else(|| format!("{} does not use the Siglent", channel.label))?;
     let mut windows = Vec::with_capacity(sequence.len());
 
     for (hold_index, command_v) in sequence.iter().copied().enumerate() {
@@ -1290,11 +1311,17 @@ fn collect_siglent_reference_windows(
             (format!("{SIGLENT_NAME}.ch1_offset_voltage_v"), command_v),
         ]))?;
         wait_for_siglent_applied(run_handle, command_v)?;
+        if hold_index == 0 && matches!(channel.slug, "x26_0" | "x26_1") {
+            println!(
+                "Waiting {X26_STARTUP_SETTLING_SECONDS:.1} s for the driven input and Keithley autorange to settle."
+            );
+            sleep(Duration::from_secs_f64(X26_STARTUP_SETTLING_SECONDS));
+        }
         let start_time_s = run_start.elapsed().as_secs_f64();
         let context = format!("Siglent hold {} at {command_v:.6} V", hold_index + 1);
         let (reference_a, sample_count) = collect_dmm_reference(
             run_handle,
-            VOLTAGE_HOLD_SECONDS,
+            hold_seconds,
             |values| {
                 values.get(&format!("{SIGLENT_NAME}.ch1_applied_enabled")) == Some(&1.0)
                     && values.get(&format!("{SIGLENT_NAME}.ch1_applied_offset_voltage_v"))
@@ -3940,56 +3967,42 @@ mod tests {
 
     #[test]
     fn siglent_voltage_holds_cover_requested_calibration_ranges() {
-        for slug in ["x26_0", "x26_1"] {
+        for (slug, expected_targets, expected_range) in [
+            (
+                "x26_0",
+                VOLTAGE_X26_HOLDS_V.as_slice(),
+                keithley_dmm6500::DcVoltageRange::Millivolts100,
+            ),
+            (
+                "x26_1",
+                VOLTAGE_X26_HOLDS_V.as_slice(),
+                keithley_dmm6500::DcVoltageRange::Millivolts100,
+            ),
+            ("0_15V_0", VOLTAGE_0_15V_HOLDS_V.as_slice(), DMM_10V_RANGE),
+            ("0_15V_1", VOLTAGE_0_15V_HOLDS_V.as_slice(), DMM_10V_RANGE),
+        ] {
             let channel = channel_for_slug(slug).expect("x26 calibration channel");
             assert_eq!(
                 channel.voltage_reference_targets_v(),
-                Some(VOLTAGE_X26_HOLDS_V.as_slice()),
+                Some(expected_targets),
             );
             assert!(channel.uses_siglent());
-            assert_eq!(
-                channel.dmm_voltage_range(),
-                Some(keithley_dmm6500::DcVoltageRange::Millivolts100),
-            );
+            assert_eq!(channel.dmm_voltage_range(), Some(expected_range));
+            assert_up_and_down_sequence(&siglent_hold_sequence(channel).unwrap(), expected_targets);
         }
-
-        assert_eq!(
-            VOLTAGE_X26_HOLDS_V,
-            [-0.035, -0.017, 0.0, 0.017, 0.035, 0.054],
-        );
-        assert_eq!(VOLTAGE_0_15V_HOLDS_V, [0.030, 2.0, 4.0, 6.0, 8.0, 10.0]);
-        assert_eq!(VOLTAGE_HOLD_SECONDS, 2.0);
-        assert_eq!(MIN_VOLTAGE_HOLD_DURATION_S, 1.5);
-        for slug in ["0_15V_0", "0_15V_1"] {
-            let channel = channel_for_slug(slug).expect("15 V calibration channel");
-            assert!(channel.uses_siglent());
-            assert_eq!(channel.dmm_voltage_range(), Some(DMM_10V_RANGE));
-            assert_eq!(
-                siglent_hold_sequence(channel).unwrap(),
-                [
-                    0.030, 2.0, 4.0, 6.0, 8.0, 10.0, 10.0, 8.0, 6.0, 4.0, 2.0, 0.030,
-                ],
-            );
-        }
-        assert_eq!(
-            siglent_hold_sequence(channel_for_slug("x26_0").unwrap()).unwrap(),
-            [
-                -0.035, -0.017, 0.0, 0.017, 0.035, 0.054, 0.054, 0.035, 0.017, 0.0, -0.017, -0.035,
-            ],
-        );
     }
 
     #[test]
     fn paired_dac_holds_use_six_targets_up_and_down() {
-        assert_eq!(DAC_2V5_TARGETS_V, [0.02, 0.5, 1.0, 1.5, 2.0, 2.45]);
-        assert_eq!(
-            dac_hold_sequence(),
-            [
-                0.02, 0.5, 1.0, 1.5, 2.0, 2.45, 2.45, 2.0, 1.5, 1.0, 0.5, 0.02,
-            ]
-        );
+        assert_up_and_down_sequence(&dac_hold_sequence(), &DAC_2V5_TARGETS_V);
         assert_eq!(channel_for_slug("0_2V5_0").unwrap().dac_index(), Some(0));
         assert_eq!(channel_for_slug("0_2V5_1").unwrap().dac_index(), Some(1));
+    }
+
+    fn assert_up_and_down_sequence(sequence: &[f64], targets: &[f64]) {
+        assert_eq!(sequence.len(), 2 * targets.len());
+        assert_eq!(&sequence[..targets.len()], targets);
+        assert!(sequence[targets.len()..].iter().eq(targets.iter().rev()));
     }
 
     #[test]

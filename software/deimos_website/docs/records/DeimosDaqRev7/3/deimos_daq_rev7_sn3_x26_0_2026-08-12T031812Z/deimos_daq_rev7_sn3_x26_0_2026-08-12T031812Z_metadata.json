@@ -1,0 +1,81 @@
+{
+  "model": "deimos_daq_rev7",
+  "serial_number": 3,
+  "channel": "x26_0",
+  "signal_name": "p1.35mV_0_V",
+  "calibrator_cold_junction_temperature_k": null,
+  "manual_reference_windows": [
+    {
+      "reference_a": -0.03332443872881356,
+      "dac_command_v": null,
+      "start_time_s": 5.061398628,
+      "stop_time_s": 10.065020586
+    },
+    {
+      "reference_a": -0.020300438571428568,
+      "dac_command_v": null,
+      "start_time_s": 10.121224509,
+      "stop_time_s": 15.123356112
+    },
+    {
+      "reference_a": -0.0032704440593220347,
+      "dac_command_v": null,
+      "start_time_s": 15.184637541,
+      "stop_time_s": 20.185165947
+    },
+    {
+      "reference_a": 0.013654626890756296,
+      "dac_command_v": null,
+      "start_time_s": 20.246377457,
+      "stop_time_s": 25.24800883
+    },
+    {
+      "reference_a": 0.03164293193277309,
+      "dac_command_v": null,
+      "start_time_s": 25.304288894,
+      "stop_time_s": 30.306790114000002
+    },
+    {
+      "reference_a": 0.05055429008403363,
+      "dac_command_v": null,
+      "start_time_s": 30.363022598,
+      "stop_time_s": 35.363431614
+    },
+    {
+      "reference_a": 0.050563976722689086,
+      "dac_command_v": null,
+      "start_time_s": 35.363465834,
+      "stop_time_s": 40.364670158
+    },
+    {
+      "reference_a": 0.03164184591666666,
+      "dac_command_v": null,
+      "start_time_s": 40.420850692,
+      "stop_time_s": 45.424954197
+    },
+    {
+      "reference_a": 0.013644920588235288,
+      "dac_command_v": null,
+      "start_time_s": 45.481114261,
+      "stop_time_s": 50.483331232
+    },
+    {
+      "reference_a": -0.0032749080252100844,
+      "dac_command_v": null,
+      "start_time_s": 50.544777491,
+      "stop_time_s": 55.548110059
+    },
+    {
+      "reference_a": -0.020339473249999993,
+      "dac_command_v": null,
+      "start_time_s": 55.604338262,
+      "stop_time_s": 60.608503617
+    },
+    {
+      "reference_a": -0.03328895823529414,
+      "dac_command_v": null,
+      "start_time_s": 60.66477599,
+      "stop_time_s": 65.66735596
+    }
+  ]
+}
