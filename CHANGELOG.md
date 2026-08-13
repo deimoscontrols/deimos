@@ -6,6 +6,7 @@ Addition of laboratory instruments interface with concrete implementations for K
 
 * Rev7 Firmware
     * Normalize operating output commands before validation
+    * Add DAC calibrations
 * deimos
     * Add design doc for third-party instrument integrations
     * Add `peripheral::instruments` module with laboratory instrument wrappers and supporting partial-coverage SCPI implementation
@@ -13,6 +14,11 @@ Addition of laboratory instruments interface with concrete implementations for K
     * Add example use of DMM6500 and SDG2042X
     * Clamp peripheral output commands and safe-state outputs commanded with NaN
     * !Move thread-channel sockets to their own SPSC channel pool keyed by PeripheralId instead of sharing the user channel MPMC pool
+    * !Move calibration procedure from peripheral module to example
+    * Update calibration procedure to use automated measured-source procedures for voltage inputs, DAC outputs, and thermocouple inputs
+* deimos_website
+    * Add instrument folders and cal sheets for new instruments
+    * Update calibrations for SN3 with latest procedure and equipment
 
 ## 2026-08-01 0.19.0
 
