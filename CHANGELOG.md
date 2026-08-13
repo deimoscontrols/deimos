@@ -19,6 +19,7 @@ Addition of laboratory instruments interface with concrete implementations for K
 * deimos_website
     * Add instrument folders and cal sheets for new instruments
     * Update calibrations for SN3 with latest procedure and equipment
+    * Add modbus page
 
 ## 2026-08-01 0.19.0
 

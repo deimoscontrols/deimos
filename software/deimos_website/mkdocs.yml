@@ -112,7 +112,6 @@ nav:
     - Specs: products/specs.md
     - Dynamics: products/dynamics.md
     - Modbus: products/modbus.md
-    - Calibration Reports: records/index.md
   - System: system.md
   - Contact: contact.md
   # - Use-Cases:
