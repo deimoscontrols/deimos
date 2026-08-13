@@ -3,16 +3,16 @@
   "serial_number": 3,
   "channel": "ain6",
   "signal_name": "p1.4_20_3_A",
-  "datestamp_utc": "2026-08-12T220429Z",
+  "datestamp_utc": "2026-08-13T003248Z",
   "reference_resistor_ohm": 75.0,
   "polynomial_order": 1,
   "polynomial_coefficients": [
-    -0.020401836663260453,
-    1.0035408645780437
+    -0.0011259421188823948,
+    1.0000609000163954
   ],
-  "r2": 0.9999998193673063,
+  "r2": 0.9999996589639387,
   "input_units": "V",
   "output_units": "V",
-  "accepted_sample_count": 4256,
-  "detected_step_count": 17
+  "accepted_sample_count": 4418,
+  "detected_step_count": 18
 }
