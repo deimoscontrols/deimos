@@ -7,9 +7,10 @@ use stm32h7xx_hal::{
     traits::DacOut,
 };
 
-use crate::board::VREF;
-
-const DAC_SCALING: f32 = 4095.0 / VREF;
+use deimos_shared::peripherals::deimos_daq_rev7::{
+    DAC_CHANNEL_COUNT,
+    calc::{LinearCalibration, dac_code},
+};
 
 pub struct Outputs {
     pub pwm0: Pwm<TIM3, 1, ComplementaryImpossible>,
@@ -31,7 +32,8 @@ pub fn set_outputs(
     outputs: &mut Outputs,
     pwm_duty_frac: &[f32; 4],
     pwm_freq_hz: &[u32; 4],
-    dac_v: &[f32; 2],
+    dac_v: &[f32; DAC_CHANNEL_COUNT],
+    dac_cals: &[LinearCalibration; DAC_CHANNEL_COUNT],
     gpio: u8,
 ) {
     {
@@ -118,8 +120,8 @@ pub fn set_outputs(
         pwm.set_duty(duty);
     }
 
-    outputs.dac1.set_value((dac_v[0] * DAC_SCALING) as u16);
-    outputs.dac2.set_value((dac_v[1] * DAC_SCALING) as u16);
+    outputs.dac1.set_value(dac_code(dac_v[0], &dac_cals[0]));
+    outputs.dac2.set_value(dac_code(dac_v[1], &dac_cals[1]));
 
     if gpio & (1 << 0) != 0 {
         outputs.do0.set_high();

@@ -6,6 +6,8 @@ use byte_struct::{ByteStruct, ByteStructLen, ByteStructUnspecifiedByteOrder};
 
 use super::super::{MODBUS_DEFAULT_DT_NS, MODBUS_DEFAULT_LOSS_OF_CONTACT_LIMIT};
 
+const DEFAULT_PWM_FREQUENCY_HZ: u32 = 1_000_000;
+
 /// Complete output state shared by Deimos and Modbus operating modes.
 ///
 /// Fixed-size array fields state their wire shapes below. The struct is
@@ -37,7 +39,7 @@ impl Default for OperatingOutputSettings {
     fn default() -> Self {
         Self {
             pwm_duty_frac: [0.0_f32; super::super::PWM_CHANNEL_COUNT],
-            pwm_freq_hz: [1_000_000_u32; super::super::PWM_CHANNEL_COUNT],
+            pwm_freq_hz: [DEFAULT_PWM_FREQUENCY_HZ; super::super::PWM_CHANNEL_COUNT],
             dac_v: [0.0_f32; super::super::DAC_CHANNEL_COUNT],
             gpio: 0,
         }
@@ -45,6 +47,36 @@ impl Default for OperatingOutputSettings {
 }
 
 impl OperatingOutputSettings {
+    /// Normalize every actuator command to a safe, valid representation.
+    ///
+    /// Floating-point NaNs become the safe zero-output value. Infinite and
+    /// finite out-of-range values clamp to the supported range. A zero PWM
+    /// frequency selects the responsive default carrier, and unsupported GPIO
+    /// bits are cleared.
+    #[inline]
+    pub fn normalize(&mut self) {
+        for duty in &mut self.pwm_duty_frac {
+            *duty = if duty.is_nan() {
+                0.0
+            } else {
+                duty.clamp(0.0, 1.0)
+            };
+        }
+        for frequency in &mut self.pwm_freq_hz {
+            if *frequency == 0 {
+                *frequency = DEFAULT_PWM_FREQUENCY_HZ;
+            }
+        }
+        for voltage in &mut self.dac_v {
+            *voltage = if voltage.is_nan() {
+                0.0
+            } else {
+                voltage.clamp(0.0, super::super::VREF)
+            };
+        }
+        self.gpio &= 0x0f;
+    }
+
     /// Checks all safety-relevant output ranges.
     ///
     /// Returns:

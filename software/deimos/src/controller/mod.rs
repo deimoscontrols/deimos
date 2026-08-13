@@ -6,6 +6,7 @@ mod controller_state;
 mod nonblocking;
 mod peripheral_state;
 mod replay;
+pub mod socket_channel;
 mod timing;
 
 use serde::{Deserialize, Serialize};
@@ -206,6 +207,9 @@ impl Controller {
     pub fn add_peripheral(&mut self, name: &str, p: Box<dyn Peripheral>) -> Result<(), String> {
         if self.peripherals.contains_key(name) {
             return Err(format!("Peripheral name `{name}` is duplicated"));
+        }
+        if self.peripherals.values().any(|x| x.id() == p.id()) {
+            return Err(format!("Peripheral ID `{:?}` is duplicated", p.id()));
         }
 
         // Add the standard set of calcs that come with this peripheral, if any.

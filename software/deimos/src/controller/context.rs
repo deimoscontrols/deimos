@@ -8,7 +8,9 @@ use std::{collections::BTreeMap, default::Default};
 use super::ManualInputMap;
 use super::channel::{Channel, Endpoint};
 use super::manual_inputs_default;
+use super::socket_channel::{SocketChannels, SocketEndpoint, socket_channels_default};
 use chrono::{DateTime, Utc};
+use deimos_shared::peripherals::PeripheralId;
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
@@ -188,6 +190,14 @@ pub struct ControllerCtx {
     /// a resource leak.
     pub user_channels: Arc<RwLock<BTreeMap<String, Channel>>>,
 
+    /// One-to-one bidirectional channels used by in-process peripheral sockets.
+    ///
+    /// Each `PeripheralId` has at most one active controller endpoint and one
+    /// active peripheral endpoint. The live channels are intentionally omitted
+    /// from serialized controller configuration.
+    #[serde(skip, default = "socket_channels_default")]
+    pub socket_channels: SocketChannels,
+
     /// Manual input overrides that can be written while the controller is running.
     #[serde(skip, default = "manual_inputs_default")]
     pub manual_inputs: ManualInputMap,
@@ -231,6 +241,24 @@ impl ControllerCtx {
         let channel = writer.entry(channel_name.to_owned()).or_default();
         channel.sink_endpoint()
     }
+
+    /// Exclusively claim the controller endpoint for `id` until it is dropped.
+    ///
+    /// Errors:
+    ///   Returns an error while the endpoint is active or the registry is
+    ///   poisoned.
+    pub fn controller_socket_endpoint(&self, id: PeripheralId) -> Result<SocketEndpoint, String> {
+        self.socket_channels.claim_controller(id)
+    }
+
+    /// Exclusively claim the peripheral endpoint for `id` until it is dropped.
+    ///
+    /// Errors:
+    ///   Returns an error while the endpoint is active or the registry is
+    ///   poisoned.
+    pub fn peripheral_socket_endpoint(&self, id: PeripheralId) -> Result<SocketEndpoint, String> {
+        self.socket_channels.claim_peripheral(id)
+    }
 }
 
 impl Default for ControllerCtx {
@@ -254,6 +282,7 @@ impl Default for ControllerCtx {
             loop_method: LoopMethod::Performant,
             user_ctx: BTreeMap::new(),
             user_channels: Arc::new(RwLock::new(BTreeMap::new())),
+            socket_channels: socket_channels_default(),
             manual_inputs: manual_inputs_default(),
             enable_manual_inputs: true,
             channel_units: Vec::new(),

@@ -1,7 +1,7 @@
 //! End-to-end HOOTL lifecycle verification.
 //!
 //! Runs a controller backed by a single `DeimosDaqRev7` HOOTL peripheral over an
-//! in-process `ThreadChannelSocket`.  No OS network sockets or `/dev` nodes are
+//! identity-keyed in-process `ThreadChannelSocket`. No OS network sockets or `/dev` nodes are
 //! required.  The run terminates automatically after 3 seconds.
 //!
 //! Run with:
@@ -25,7 +25,7 @@ use deimos::{
     Controller, LoopMethod, Termination, ThreadChannelSocket,
     controller::context::ControllerCtx,
     dispatcher::CsvDispatcher,
-    peripheral::{DeimosDaqRev7, HootlTransport},
+    peripheral::{DeimosDaqRev7, HootlTransport, Peripheral},
 };
 
 fn main() {
@@ -50,16 +50,18 @@ fn main() {
 
     let mut controller = Controller::new(ctx);
 
-    // Replace the default UDP socket with an in-process thread-channel socket.
+    // Replace the default UDP socket with an identity-keyed thread-channel socket.
     controller.clear_sockets();
+    let peripheral = DeimosDaqRev7 { serial_number: 1 };
+    let peripheral_id = peripheral.id();
     controller.add_socket(
-        "hootl_chan",
-        Box::new(ThreadChannelSocket::new("hootl_chan")),
+        &ThreadChannelSocket::socket_name(peripheral_id),
+        Box::new(ThreadChannelSocket::new(peripheral_id)),
     );
 
     // Register a DeimosDaqRev7 peripheral (serial 1).
     controller
-        .add_peripheral("p1", Box::new(DeimosDaqRev7 { serial_number: 1 }))
+        .add_peripheral("p1", Box::new(peripheral))
         .unwrap();
 
     // Attach a CSV dispatcher to record output rows.
@@ -70,7 +72,7 @@ fn main() {
     // The driver will terminate itself when end is reached or the controller stops.
     let end = Some(SystemTime::now() + Duration::from_secs(5));
     let mut hootl_handle = controller
-        .attach_hootl_driver("p1", HootlTransport::thread_channel("hootl_chan"), end)
+        .attach_hootl_driver("p1", HootlTransport::thread_channel(), end)
         .expect("Failed to attach HOOTL driver");
 
     // Run the controller.  Expected lifecycle stages in the INFO logs:

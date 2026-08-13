@@ -24,6 +24,7 @@ channels = [
     "p1_rtd_0.temperature_K",
     "p1_rtd_1.temperature_K",
     "p1_rtd_2.temperature_K",
+    "p1.board_temp_K",
 ]
 
 [[panels]]

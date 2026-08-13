@@ -40,7 +40,7 @@ def _run_once() -> None:
         ctrl.loop_method = loop_method
 
         ctrl.clear_sockets()
-        ctrl.add_socket("mockup_chan", socket.ThreadChannelSocket("mockup_chan"))
+        ctrl.add_socket("mockup_thread", socket.ThreadChannelSocket(5, 1))
         if HAS_UNIX_SOCKET:
             ctrl.add_socket("ctrl", socket.UnixSocket("ctrl"))
         ctrl.add_socket("udp", _loopback_udp_socket())  # Included by default, but cleared
@@ -57,7 +57,7 @@ def _run_once() -> None:
             stack.enter_context(
                 ctrl.attach_hootl_driver(
                     "mock_thread",
-                    peripheral.HootlTransport.thread_channel("mockup_chan"),
+                    peripheral.HootlTransport.thread_channel(),
                 )
             )
             if HAS_UNIX_SOCKET:

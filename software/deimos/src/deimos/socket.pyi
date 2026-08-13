@@ -6,8 +6,8 @@ class _SocketBase:
     def from_json(cls, s: str) -> Self: ...
 
 class ThreadChannelSocket(_SocketBase):
-    """Socket implementation that consumes a user channel of the same name."""
-    def __init__(self, name: str) -> None: ...
+    """Controller-side socket for one identity-keyed in-process peripheral responder."""
+    def __init__(self, model_number: int, serial_number: int) -> None: ...
 
 class UdpSocket(_SocketBase):
     """Implementation of Socket trait for stdlib UDP socket on IPV4."""

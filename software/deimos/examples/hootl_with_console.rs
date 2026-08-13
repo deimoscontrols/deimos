@@ -88,7 +88,7 @@ use deimos::{
     calc::Affine,
     controller::context::ControllerCtx,
     dispatcher::{CsvDispatcher, ReportingDispatcher},
-    peripheral::{DeimosDaqRev7, HootlTransport},
+    peripheral::{DeimosDaqRev7, HootlTransport, Peripheral},
 };
 
 /// Multicast group used by the reporting dispatcher.
@@ -145,12 +145,14 @@ fn main() {
 
     let mut controller = Controller::new(ctx);
     controller.clear_sockets();
+    let peripheral = DeimosDaqRev7 { serial_number: 1 };
+    let peripheral_id = peripheral.id();
     controller.add_socket(
-        "hootl_chan",
-        Box::new(ThreadChannelSocket::new("hootl_chan")),
+        &ThreadChannelSocket::socket_name(peripheral_id),
+        Box::new(ThreadChannelSocket::new(peripheral_id)),
     );
     controller
-        .add_peripheral("p1", Box::new(DeimosDaqRev7 { serial_number: 1 }))
+        .add_peripheral("p1", Box::new(peripheral))
         .unwrap();
 
     // Add a unit-labeled calc that passes through the first 0-2.5 V firmware
@@ -183,7 +185,7 @@ fn main() {
 
     let end = Some(SystemTime::now() + Duration::from_secs(RUN_SECS + 10));
     let mut hootl_handle = controller
-        .attach_hootl_driver("p1", HootlTransport::thread_channel("hootl_chan"), end)
+        .attach_hootl_driver("p1", HootlTransport::thread_channel(), end)
         .expect("Failed to attach HOOTL driver");
 
     let result = controller.run(&None, None);

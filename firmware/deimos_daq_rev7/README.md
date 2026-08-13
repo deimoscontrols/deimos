@@ -2,6 +2,9 @@
 
 The calibration image is selected by `firmware/flash.py` before each build:
 
+Calibration images contain both ADC and DAC affine coefficients. Images generated
+before DAC calibration was added have a different binary layout and must be regenerated.
+
 - If the assigned unit has a generated `calibration.bin` in its website records
   directory, the script copies it to `static/calibration.in` before building.
   The completed artifact has `firmware_calibrated = 1`.

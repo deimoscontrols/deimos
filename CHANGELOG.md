@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-08-08 0.20.0
+
+Addition of laboratory instruments interface with concrete implementations for Keithley DMM6500 bench multimeter and Siglent SDG2042X signal generator via SCPI/TCP.
+
+* Rev7 Firmware
+    * Normalize operating output commands before validation
+    * Add DAC calibrations
+* deimos
+    * Add design doc for third-party instrument integrations
+    * Add `peripheral::instruments` module with laboratory instrument wrappers and supporting partial-coverage SCPI implementation
+    * Add concrete `Peripheral` implementations for DMM6500 and SDG2042X
+    * Add example use of DMM6500 and SDG2042X
+    * Clamp peripheral output commands and safe-state outputs commanded with NaN
+    * !Move thread-channel sockets to their own SPSC channel pool keyed by PeripheralId instead of sharing the user channel MPMC pool
+    * !Move calibration procedure from peripheral module to example
+    * Update calibration procedure to use automated measured-source procedures for voltage inputs, DAC outputs, and thermocouple inputs
+* deimos_website
+    * Add instrument folders and cal sheets for new instruments
+    * Update calibrations for SN3 with latest procedure and equipment
+    * Add modbus page
+
 ## 2026-08-01 0.19.0
 
 Firmware overhaul for the Rev7 DAQ.

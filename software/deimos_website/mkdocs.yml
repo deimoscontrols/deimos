@@ -111,7 +111,7 @@ nav:
     - Overview: products/deimos_daq.md
     - Specs: products/specs.md
     - Dynamics: products/dynamics.md
-    - Calibration Reports: records/index.md
+    - Modbus: products/modbus.md
   - System: system.md
   - Contact: contact.md
   # - Use-Cases:

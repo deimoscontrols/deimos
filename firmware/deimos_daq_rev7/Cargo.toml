@@ -12,7 +12,8 @@ lto = true
 opt-level = 3
 
 [dependencies]
-cortex-m = { version = "^0.7.7", features = ["critical-section-single-core", "inline-asm"] }
+# cortex-m 0.7.8 fails to compile in enable_icache due to its inline assembly.
+cortex-m = { version = "=0.7.7", features = ["critical-section-single-core", "inline-asm"] }
 cortex-m-rt = "0.7.5"
 stm32h7xx-hal = { version = "0.16.0", features=["rt", "revision_v", "stm32h743v", "ethernet"] }
 #stm32h7xx-hal = { path = "../../../../stm32h7xx-hal", features=["rt", "revision_v", "stm32h743v", "ethernet"] }
@@ -20,12 +21,12 @@ nb = "1.1.0"
 irq = "0.2.3"
 embedded-alloc = { version = "0.7.0", default-features = false, features = ["llff"] }
 
-deimos_shared = { path = "../../software/deimos_shared", version="0.19.0", features = ["alloc", "tcm"] }
+deimos_shared = { path = "../../software/deimos_shared", version="0.20.0", features = ["alloc", "tcm"] }
 rmodbus = { version = "0.12.2", default-features = false }
 cortex-m-stack = { version = "0.2.1", optional = true }
 
 [build-dependencies]
-deimos_shared = { path = "../../software/deimos_shared", version = "0.19.0" }
+deimos_shared = { path = "../../software/deimos_shared", version = "0.20.0" }
 
 [dependencies.smoltcp]
 version = "0.11.0"
