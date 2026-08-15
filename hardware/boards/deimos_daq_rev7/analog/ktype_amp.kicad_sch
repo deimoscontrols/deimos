@@ -5,6 +5,184 @@
 	(uuid "39518fd5-7cf3-4234-ae19-7a869a90eab2")
 	(paper "A4")
 	(lib_symbols
+		(symbol "Amplifier_Operational:OPA196xDBV"
+			(pin_names
+				(offset 0.127)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "U"
+				(at -1.27 6.35 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "OPA196xDBV"
+				(at -1.27 3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
+				(at -2.54 -5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "http://www.ti.com/lit/ds/symlink/opa4196.pdf"
+				(at 0 5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Single, Low-Power, Low Offset Voltage, Rail-to-Rail Operational Amplifier, SOT-23-5"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "single opamp"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "SOT?23*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "OPA196xDBV_0_1"
+				(polyline
+					(pts
+						(xy -5.08 5.08) (xy 5.08 0) (xy -5.08 -5.08) (xy -5.08 5.08)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(pin power_in line
+					(at -2.54 -7.62 90)
+					(length 3.81)
+					(name "V-"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at -2.54 7.62 270)
+					(length 3.81)
+					(name "V+"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(symbol "OPA196xDBV_1_1"
+				(pin output line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -7.62 2.54 0)
+					(length 2.54)
+					(name "+"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -7.62 -2.54 0)
+					(length 2.54)
+					(name "-"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
 		(symbol "Connector:Conn_01x02_Female"
 			(pin_names
 				(offset 1.016) hide)
@@ -1128,6 +1306,16 @@
 	)
 	(wire
 		(pts
+			(xy 247.396 135.636) (xy 247.396 102.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4ff0dddf-9350-4a64-b124-622faaf9c06e")
+	)
+	(wire
+		(pts
 			(xy 113.03 96.52) (xy 113.03 91.44)
 		)
 		(stroke
@@ -1135,6 +1323,16 @@
 			(type default)
 		)
 		(uuid "5964b7c0-8f65-4df8-861e-20f4087be2af")
+	)
+	(wire
+		(pts
+			(xy 239.014 135.636) (xy 247.396 135.636)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "73f42d03-ebd3-4a09-b295-fb00a50b42ca")
 	)
 	(wire
 		(pts
@@ -1158,7 +1356,7 @@
 	)
 	(wire
 		(pts
-			(xy 219.71 102.87) (xy 232.664 102.87)
+			(xy 219.71 102.87) (xy 247.396 102.87)
 		)
 		(stroke
 			(width 0)
@@ -1253,22 +1451,22 @@
 	)
 	(global_label "+1V024"
 		(shape input)
-		(at 232.537 102.87 0)
+		(at 223.774 133.096 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right)
 		)
-		(uuid "be79e066-128b-4234-b793-3d5b6f574cff")
+		(uuid "9b832b35-89ca-4bf9-a6cd-4da02ea603db")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 243.0212 102.87 0)
+			(at 213.2898 133.096 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
+				(justify right)
 				(hide yes)
 			)
 		)
@@ -2166,16 +2364,16 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 232.664 107.95 0)
+		(lib_id "power:-12V")
+		(at 228.854 143.256 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "07c7d49f-24e4-4264-ad73-c5923344d6f2")
-		(property "Reference" "#PWR09007"
-			(at 232.664 114.3 0)
+		(uuid "10f7ae95-509d-4774-b112-877ff43cc91f")
+		(property "Reference" "#PWR6006"
+			(at 228.854 139.446 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2183,17 +2381,16 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "GND"
-			(at 231.394 109.22 0)
+		(property "Value" "-12V"
+			(at 228.092 147.066 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify right)
 			)
 		)
 		(property "Footprint" ""
-			(at 232.664 107.95 0)
+			(at 228.854 143.256 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2202,7 +2399,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 232.664 107.95 0)
+			(at 228.854 143.256 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2210,8 +2407,8 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
-			(at 232.664 107.95 0)
+		(property "Description" "Power symbol creates a global label with name \"-12V\""
+			(at 228.854 143.256 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2220,26 +2417,16 @@
 			)
 		)
 		(pin "1"
-			(uuid "563aac14-20a1-4964-a20c-38daa03481de")
+			(uuid "c294f571-74c1-46e9-8eb6-b48f8bc415fa")
 		)
 		(instances
-			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/15b6c474-02be-417e-bc87-8489b7b45186"
-					(reference "#PWR09007")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/3688ccee-a1b0-41d3-bce5-95bc73998b83"
-					(reference "#PWR015007")
-					(unit 1)
-				)
-			)
 			(project "analog_frontend_panel"
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/15b6c474-02be-417e-bc87-8489b7b45186"
-					(reference "#PWR021")
+					(reference "#PWR6006")
 					(unit 1)
 				)
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83"
-					(reference "#PWR028")
+					(reference "#PWR7006")
 					(unit 1)
 				)
 			)
@@ -2326,32 +2513,17 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:C_Small")
-		(at 232.664 105.41 180)
+		(lib_id "power:+12V")
+		(at 228.854 128.016 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "57174aa4-ff86-449d-83d1-5bbb385a7f91")
-		(property "Reference" "C9006"
-			(at 235.966 105.918 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "0.1uF"
-			(at 229.87 105.41 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 232.664 105.41 0)
+		(fields_autoplaced yes)
+		(uuid "4b36afb6-06d7-4d6d-8a62-2908090a2db4")
+		(property "Reference" "#PWR6005"
+			(at 228.854 131.826 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2359,8 +2531,16 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
-			(at 232.664 105.41 0)
+		(property "Value" "+12V"
+			(at 228.854 122.936 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 228.854 128.016 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2368,8 +2548,17 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
-			(at 232.664 105.41 0)
+		(property "Datasheet" ""
+			(at 228.854 128.016 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+12V\""
+			(at 228.854 128.016 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2378,29 +2567,87 @@
 			)
 		)
 		(pin "1"
-			(uuid "8c8e9dc2-b79d-413c-8893-257a5edfa46e")
-		)
-		(pin "2"
-			(uuid "8e3e1303-3632-49bb-b4cb-142da5bf727f")
+			(uuid "ded39385-b060-43e1-8062-070eb560cbb5")
 		)
 		(instances
-			(project "simplicity_analog_1"
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/15b6c474-02be-417e-bc87-8489b7b45186"
-					(reference "C9006")
-					(unit 1)
-				)
-				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/3688ccee-a1b0-41d3-bce5-95bc73998b83"
-					(reference "C15006")
-					(unit 1)
-				)
-			)
 			(project "analog_frontend_panel"
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/15b6c474-02be-417e-bc87-8489b7b45186"
-					(reference "C6")
+					(reference "#PWR6005")
 					(unit 1)
 				)
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83"
-					(reference "C12")
+					(reference "#PWR7005")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 223.774 138.176 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "804da6eb-eb12-46cc-be10-87b6f66a2428")
+		(property "Reference" "#PWR6004"
+			(at 217.424 138.176 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 220.218 138.1759 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 223.774 138.176 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 223.774 138.176 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 223.774 138.176 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "da27a3a0-c706-4e2f-86a3-765ea6c42247")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/15b6c474-02be-417e-bc87-8489b7b45186"
+					(reference "#PWR6004")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83"
+					(reference "#PWR7004")
 					(unit 1)
 				)
 			)
@@ -3016,6 +3263,87 @@
 				)
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83"
 					(reference "#PWR026")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Amplifier_Operational:OPA196xDBV")
+		(at 231.394 135.636 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "d7d7836e-7ecb-453e-b0c3-5d50e21f4b6b")
+		(property "Reference" "U6001"
+			(at 223.266 129.54 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "OPA196xDBV"
+			(at 220.98 127.762 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
+			(at 228.854 140.716 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "http://www.ti.com/lit/ds/symlink/opa4196.pdf"
+			(at 231.394 130.556 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Single, Low-Power, Low Offset Voltage, Rail-to-Rail Operational Amplifier, SOT-23-5"
+			(at 231.394 135.636 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "5"
+			(uuid "42dd172a-251e-44cf-8b69-df9ccde39d69")
+		)
+		(pin "2"
+			(uuid "d50bcfb8-02e3-44d0-a9e3-083fc9bb5df0")
+		)
+		(pin "1"
+			(uuid "316a6897-fd0c-4f7c-a29b-46101ee95432")
+		)
+		(pin "4"
+			(uuid "ac40ccc1-1116-48fa-a8d7-78679aceae97")
+		)
+		(pin "3"
+			(uuid "5ac2e2ad-29cc-42f1-9632-507ec6a8f805")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/15b6c474-02be-417e-bc87-8489b7b45186"
+					(reference "U6001")
+					(unit 1)
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/3688ccee-a1b0-41d3-bce5-95bc73998b83"
+					(reference "U7001")
 					(unit 1)
 				)
 			)
