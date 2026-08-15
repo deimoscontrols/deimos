@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-08-14 Hardware Rev 7.0.3
+
+* [x] Flip orientation of IDC header
+* [x] Resolve crosstalk between 35mV channels and thermocouple channels
+    * Buffer shared 1.024V offset ref at each 35mV frontend
+* [x] Improve light-pipe LED brightness
+* [x] Improve 24V supply filtering
+    * Need better immunity to conducted EMI from the upstream power supply 
+    * Just added more capacitance for now
+* [x] Exclude testpoints from BOM
+
 ## 2026-08-08 0.20.0
 
 Addition of laboratory instruments interface with concrete implementations for Keithley DMM6500 bench multimeter and Siglent SDG2042X signal generator via SCPI/TCP.
