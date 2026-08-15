@@ -166,7 +166,7 @@ Plotly.newPlot("relative-error", [
         mode: "lines",
         type: "scatter",
         fill: "toself",
-        name: "Keithley DMM6500 one-year accuracy (10 V range, Tcal ±5°C)",
+        name: "DMM accuracy",
         line: { width: 0, color: accuracyFillColor },
         fillcolor: accuracyFillColor,
         hoverinfo: "skip"
@@ -248,7 +248,7 @@ Plotly.newPlot("voltage-fit-residual", [
         mode: "lines",
         type: "scatter",
         fill: "toself",
-        name: "Keithley DMM6500 one-year accuracy (10 V range, Tcal ±5°C)",
+        name: "DMM accuracy",
         line: { width: 0, color: accuracyFillColor },
         fillcolor: accuracyFillColor,
         hoverinfo: "skip"
@@ -270,7 +270,7 @@ Plotly.newPlot("voltage-fit-residual", [
         y: fitResidualY,
         mode: "markers",
         type: "scatter",
-        name: "Voltage fit residual",
+        name: "Residual",
         opacity: 0.5,
         marker: { symbol: "line-ew", size: 8, color: traceColor, line: { width: 1, color: traceColor } }
     },
@@ -332,7 +332,7 @@ Plotly.newPlot("dac-transfer", [
 Plotly.newPlot("dac-transfer-residual", [
     {
         x: dacAccuracyX, y: dacAccuracyYUv, mode: "lines", type: "scatter", fill: "toself",
-        name: "Keithley DMM6500 one-year accuracy (10 V range, Tcal ±5°C)",
+        name: "DMM accuracy",
         line: { width: 0, color: accuracyFillColor }, fillcolor: accuracyFillColor,
         hoverinfo: "skip"
     },

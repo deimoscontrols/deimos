@@ -486,7 +486,7 @@ impl CalibrationChannel {
             return "Keithley";
         }
         if matches!(self.kind, CalibrationKind::Voltage) {
-            return self.dmm_accuracy_label();
+            return "DMM accuracy";
         }
         match self.kind {
             CalibrationKind::Current4To20 => "Fluke 707 accuracy",
@@ -581,7 +581,7 @@ impl CalibrationChannel {
             return "Keithley";
         }
         if matches!(self.kind, CalibrationKind::Voltage) {
-            return self.dmm_accuracy_label();
+            return "DMM accuracy";
         }
         match self.kind {
             CalibrationKind::Current4To20 => "Fluke 707 accuracy",
@@ -643,13 +643,11 @@ impl CalibrationChannel {
         }
     }
 
-    fn dmm_accuracy_label(self) -> &'static str {
-        match self.dmm_voltage_range() {
-            Some(keithley_dmm6500::DcVoltageRange::Millivolts100) => {
-                "Keithley DMM6500 one-year accuracy (100 mV range, Tcal ±5°C)"
-            }
-            Some(DMM_10V_RANGE) => "Keithley DMM6500 one-year accuracy (10 V range, Tcal ±5°C)",
-            _ => unreachable!("unsupported DMM range for voltage channel"),
+    fn residual_trace_label(self) -> &'static str {
+        match self.kind {
+            CalibrationKind::Current4To20 => "Fit residual as current",
+            CalibrationKind::Rtd => "Temperature residual",
+            CalibrationKind::Thermocouple | CalibrationKind::Voltage => "Residual",
         }
     }
 }
@@ -3215,7 +3213,7 @@ Plotly.newPlot("dac-transfer", [
 Plotly.newPlot("dac-transfer-residual", [
     {{
         x: dacAccuracyX, y: dacAccuracyYUv, mode: "lines", type: "scatter", fill: "toself",
-        name: "Keithley DMM6500 one-year accuracy (10 V range, Tcal ±5°C)",
+        name: "DMM accuracy",
         line: {{ width: 0, color: accuracyFillColor }}, fillcolor: accuracyFillColor,
         hoverinfo: "skip"
     }},
@@ -3631,12 +3629,7 @@ fn write_analysis_plot(
     } else {
         String::new()
     };
-    let residual_trace_name = match capture.channel.kind {
-        CalibrationKind::Current4To20 => "Fit residual as current",
-        CalibrationKind::Rtd => "Temperature residual",
-        CalibrationKind::Thermocouple => "Residual",
-        CalibrationKind::Voltage => "Voltage fit residual",
-    };
+    let residual_trace_name = capture.channel.residual_trace_label();
 
     let mut reference_step_time_s = Vec::new();
     let mut reference_step_ma = Vec::new();
