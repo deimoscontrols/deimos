@@ -1412,7 +1412,7 @@
 		(uuid "ff7d61d8-0648-4902-815a-b3c60393cd3e")
 	)
 	(rectangle
-		(start 39.37 84.328)
+		(start 33.528 84.328)
 		(end 87.884 107.442)
 		(stroke
 			(width 0)
@@ -1425,7 +1425,7 @@
 	)
 	(text "Input filter"
 		(exclude_from_sim no)
-		(at 40.386 87.376 0)
+		(at 54.61 86.36 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -1760,6 +1760,82 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:L")
+		(at 45.974 89.916 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "39f7a491-2fe8-4891-ad0c-b8d30d3422d3")
+		(property "Reference" "L8001"
+			(at 48.006 85.852 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "220nH 0603"
+			(at 44.958 87.63 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Inductor_SMD:L_0603_1608Metric"
+			(at 45.974 89.916 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 45.974 89.916 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Inductor"
+			(at 45.974 89.916 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C22476"
+			(at 45.974 89.916 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "c0e160ab-b605-4c90-a909-a20caa204419")
+		)
+		(pin "2"
+			(uuid "4fb28122-1a47-42b3-a04a-bd50b10566d1")
+		)
+		(instances
+			(project "stm32h7_base"
+				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/e1c9a48d-0faf-4502-abd1-fd8b351cacb5"
+					(reference "L8001")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:R_Small")
 		(at 119.38 112.522 0)
 		(unit 1)
@@ -1846,7 +1922,7 @@
 	)
 	(symbol
 		(lib_id "power:+24V")
-		(at 49.784 89.916 90)
+		(at 42.164 89.916 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1855,7 +1931,7 @@
 		(fields_autoplaced yes)
 		(uuid "4255810a-05cb-44cd-9683-43fe5201766d")
 		(property "Reference" "#PWR010004"
-			(at 53.594 89.916 0)
+			(at 45.974 89.916 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1864,7 +1940,7 @@
 			)
 		)
 		(property "Value" "+24V"
-			(at 46.482 89.9159 90)
+			(at 38.862 89.9159 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1873,7 +1949,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 49.784 89.916 0)
+			(at 42.164 89.916 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1882,7 +1958,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 49.784 89.916 0)
+			(at 42.164 89.916 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1891,7 +1967,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+24V\""
-			(at 49.784 89.916 0)
+			(at 42.164 89.916 0)
 			(effects
 				(font
 					(size 1.27 1.27)
