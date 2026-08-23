@@ -1689,7 +1689,7 @@
 		(uuid "fe346c67-e40c-4398-9587-47a698a8d8e8")
 	)
 	(rectangle
-		(start 62.484 85.598)
+		(start 56.388 85.598)
 		(end 110.998 108.712)
 		(stroke
 			(width 0)
@@ -1702,7 +1702,7 @@
 	)
 	(text "Input filter"
 		(exclude_from_sim no)
-		(at 63.5 88.646 0)
+		(at 77.216 87.884 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2173,6 +2173,82 @@
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
 					(reference "L11001")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:L")
+		(at 69.088 91.186 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "481e181d-8053-41fe-ba8a-3aa7a6e93337")
+		(property "Reference" "L9002"
+			(at 71.12 87.122 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "220nH 0603"
+			(at 68.072 88.9 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Inductor_SMD:L_0603_1608Metric"
+			(at 69.088 91.186 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 69.088 91.186 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Inductor"
+			(at 69.088 91.186 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C22476"
+			(at 69.088 91.186 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "37c39b47-7843-4a78-afcb-4fb94dd52dfb")
+		)
+		(pin "2"
+			(uuid "19d803e6-19b2-46ba-bc0b-147faff07916")
+		)
+		(instances
+			(project "stm32h7_base"
+				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "L9002")
 					(unit 1)
 				)
 			)
@@ -3055,7 +3131,7 @@
 	)
 	(symbol
 		(lib_id "power:+24V")
-		(at 72.898 91.186 90)
+		(at 65.278 91.186 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -3064,7 +3140,7 @@
 		(fields_autoplaced yes)
 		(uuid "f445a792-9f74-445e-8385-4f9a0cf73445")
 		(property "Reference" "#PWR116"
-			(at 76.708 91.186 0)
+			(at 69.088 91.186 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3073,7 +3149,7 @@
 			)
 		)
 		(property "Value" "+24V"
-			(at 69.596 91.1859 90)
+			(at 61.976 91.1859 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3082,7 +3158,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 72.898 91.186 0)
+			(at 65.278 91.186 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3091,7 +3167,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 72.898 91.186 0)
+			(at 65.278 91.186 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3100,7 +3176,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+24V\""
-			(at 72.898 91.186 0)
+			(at 65.278 91.186 0)
 			(effects
 				(font
 					(size 1.27 1.27)
