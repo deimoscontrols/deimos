@@ -15,9 +15,9 @@ from deimos import LoopMethod, RunHandle, Snapshot
 
 
 QUADRATURE_SEQUENCE = (
-    (0.0, 1.0),
-    (1.0, 1.0),
     (1.0, 0.0),
+    (1.0, 1.0),
+    (0.0, 1.0),
     (0.0, 0.0),
 )
 
