@@ -7,13 +7,13 @@ use stm32h7xx_hal::{
     traits::DacOut,
 };
 
-use deimos_shared::peripherals::deimos_daq_rev7::{
+use deimos_shared::peripherals::deimos_daq_rev8::{
     DAC_CHANNEL_COUNT,
     calc::{LinearCalibration, dac_code},
 };
 
 pub struct Outputs {
-    pub pwm0: Pwm<TIM3, 1, ComplementaryImpossible>,
+    pub pwm0: Pwm<TIM15, 1, ComplementaryImpossible>,
     pub pwm1: Pwm<TIM12, 0, ComplementaryImpossible>,
     pub pwm2: Pwm<TIM16, 0, ComplementaryDisabled>,
     pub pwm3: Pwm<TIM17, 0, ComplementaryDisabled>,
@@ -45,7 +45,7 @@ pub fn set_outputs(
         let freq = pwm_freq_hz[i].max(2).Hz(); // 0Hz causes breakage
 
         // Set freq
-        let tim = unsafe { &*TIM3::ptr() };
+        let tim = unsafe { &*TIM15::ptr() };
         let (period, prescale) = calculate_frequency_16bit(clk, freq, Alignment::Left);
         // Write prescale
         tim.psc.write(|w| w.psc().bits(prescale as u16));

@@ -2,7 +2,7 @@ use super::*;
 
 use core::sync::atomic::{AtomicBool, Ordering};
 use deimos_shared::{
-    peripherals::deimos_daq_rev7::packets::{
+    peripherals::deimos_daq_rev8::packets::{
         ConfiguringInput, ConfiguringOutput, OperatingOutputSettings,
     },
     states::{AcknowledgeConfiguration, ByteStruct, ByteStructLen},

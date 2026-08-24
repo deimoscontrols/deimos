@@ -12,7 +12,7 @@
 //!   \[2\] Modbus Organization, *MODBUS Messaging on TCP/IP Implementation
 //!   Guide V1.0b*, 2006.
 
-use deimos_shared::peripherals::deimos_daq_rev7::{
+use deimos_shared::peripherals::deimos_daq_rev8::{
     modbus::{
         HOLDING_REGISTER_COUNT, HOLDING_SNAPSHOT_REGISTER_COUNT, HOLDING_SNAPSHOT_START,
         MAX_HOLDING_WRITE_REGISTERS, MODBUS_MAX_READ_REGISTERS,
@@ -794,13 +794,13 @@ fn process_read_write_multiple_registers(
 /// Returns:
 ///   Equivalent rmodbus error used to encode the Modbus exception response.
 fn holding_write_error_kind(
-    error: deimos_shared::peripherals::deimos_daq_rev7::modbus::HoldingWriteError,
+    error: deimos_shared::peripherals::deimos_daq_rev8::modbus::HoldingWriteError,
 ) -> ErrorKind {
     match error {
-        deimos_shared::peripherals::deimos_daq_rev7::modbus::HoldingWriteError::IllegalDataAddress => {
+        deimos_shared::peripherals::deimos_daq_rev8::modbus::HoldingWriteError::IllegalDataAddress => {
             ErrorKind::IllegalDataAddress
         }
-        deimos_shared::peripherals::deimos_daq_rev7::modbus::HoldingWriteError::IllegalDataValue => {
+        deimos_shared::peripherals::deimos_daq_rev8::modbus::HoldingWriteError::IllegalDataValue => {
             ErrorKind::IllegalDataValue
         }
     }
@@ -866,7 +866,7 @@ fn queue_holding_response(
 
 /// Encode a full snapshot directly into its response payload when possible.
 ///
-/// The complete 75-register read is the synchronized-snapshot use case and the
+/// The complete 79-register read is the synchronized-snapshot use case and the
 /// worst realtime request. Its direct path avoids constructing intermediate
 /// registers and then converting each one back into network byte order.
 /// Uncommon partial reads retain the generic register-slice implementation.

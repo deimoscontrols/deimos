@@ -11,7 +11,7 @@ use stm32h7xx_hal::{
     ethernet,
     ethernet::PHY,
     gpio::{Output, Pin},
-    rcc::ResetEnable,
+    qei::QeiExt,
     rcc::rec::AdcClkSel,
     timer::GetClk,
     traits::DacOut,
@@ -154,7 +154,7 @@ impl<'a> Board<'a> {
         led2.set_low();
         led3.set_low();
 
-        let pwm2_pin = gpioc.pc7.into_alternate();
+        let pwm2_pin: Pin<'E', 6, stm32h7xx_hal::gpio::Alternate<4>> = gpioe.pe6.into_alternate();
         let pwm5_pin = gpiob.pb14.into_alternate();
         let pwm6_pin = gpiob.pb8.into_alternate();
         let pwm7_pin = gpiob.pb9.into_alternate();
@@ -163,94 +163,50 @@ impl<'a> Board<'a> {
         // Quadrature encoder input
         //
 
-        // CC1S=’01’ (TIMx_CCMR1 register, TI1FP1 mapped on TI1).
-        // • CC2S=’01’ (TIMx_CCMR2 register, TI1FP2 mapped on TI2).
-        // • CC1P=’0’ and CC1NP=’0’ (TIMx_CCER register, TI1FP1 non-inverted, TI1FP1=TI1).
-        // • CC2P=’0’ and CC2NP=’0’ (TIMx_CCER register, TI1FP2 non-inverted, TI1FP2= TI2).
-        // • SMS=’011’ (TIMx_SMCR register, both inputs are active on both rising and falling
-        // edges).
-        // • CEN=’1’ (TIMx_CR1 register, Counter enabled)
-        //
-        // Counter value contains position index
-        let _encoder0_pin0: Pin<'E', 9, stm32h7xx_hal::gpio::Alternate<1>> =
-            gpioe.pe9.into_alternate();
-        let _encoder0_pin1: Pin<'E', 11, stm32h7xx_hal::gpio::Alternate<1>> =
-            gpioe.pe11.into_alternate();
-        TIM1::get_clk(&ccdr.clocks).unwrap();
-        ccdr.peripheral.TIM1.enable().reset();
-        // External clock, gated mode and encoder mode can work only if the CEN bit has been previously set by software
-        // TIM1_CH1 and TIM1_CH2 as input
-        dp.TIM1.ccmr1_input().write(|w| w.cc1s().ti1()); // 01: CC1 channel is configured as input, IC1 is mapped on TI1
-        dp.TIM1.ccmr1_input().write(|w| w.cc2s().ti2()); // 01: CC2 channel is configured as input, IC2 is mapped on TI2
-        dp.TIM1.smcr.write(|w| w.sms().encoder_mode_3());
-        dp.TIM1.cr1.write(|w| w.cen().enabled());
-        let encoder = dp.TIM1;
-
-        //
-        // Pulse Counter
-        //
-
-        // TIM8 CH1 Pulse Counter
-        // Read cnt for latest edge count (rising + falling)
-        let _counter0_pin: Pin<'C', 6, stm32h7xx_hal::gpio::Alternate<3>> =
-            gpioc.pc6.into_alternate();
-
-        TIM8::get_clk(&ccdr.clocks).unwrap();
-        ccdr.peripheral.TIM8.enable().reset();
-        dp.TIM8.ccmr1_input().write(|w| w.cc1s().ti1()); // Select input
-        dp.TIM8.ccmr1_input().write(|w| w.ic1f().no_filter()); // cycle persistence filter
-        dp.TIM8
-            .smcr
-            .write(|w| w.ts().ti1f_ed().sms().ext_clock_mode()); // Trigger on input 1
-        dp.TIM8.cr1.write(|w| w.cen().set_bit()); // Enable counter
-        let pulse_counter = dp.TIM8;
-
-        //
-        // Frequency inputs
-        //
-
-        // TIM4 CH1
-        // Read ccr1 for latest period
-        // Using second CCR with the same channel input does not work; needs its own input channel
-        //
-        // Using TIM4 CCR2 in any capacity - even just having it enabled and not connected to any reset trigger,
-        // let alone using it to measure pulse width - causes failures across multiple timer modules (TIM4
-        // CCMR1 fails to trigger, and TIM15 CH2 prescale becomes misconfigured).
-        let _pwmi0_pin: Pin<'B', 6, stm32h7xx_hal::gpio::Alternate<2>> = gpiob.pb6.into_alternate();
-        TIM4::get_clk(&ccdr.clocks).unwrap();
-        ccdr.peripheral.TIM4.enable().reset();
-        dp.TIM4.psc.write(|w| w.psc().bits(7)); // 8x prescale -> about 400Hz min freq, 80ns res
-        dp.TIM4.ccmr1_input().write(|w| w.cc1s().ti1()); // Compare/capture channel input for period
-        dp.TIM4.smcr.write(|w| w.ts().ti1fp1().sms().reset_mode()); // Trigger input, reset mode
-        dp.TIM4.ccer.write(|w| w.cc1e().set_bit()); // Enable capture output
-        dp.TIM4.cr1.write(|w| w.cen().enabled()); // Enable counter
-        let frequency_inp0 = dp.TIM4;
-
-        // TIM15 CH2
-        // Read ccr1 for latest period
-        // Using second CCR with the same channel input does not work; needs its own input channel
-        let _pwmi1_pin: Pin<'E', 6, stm32h7xx_hal::gpio::Alternate<4>> = gpioe.pe6.into_alternate(); // TIM15 CH2
-        TIM15::get_clk(&ccdr.clocks).unwrap();
-        ccdr.peripheral.TIM15.enable().reset();
-        dp.TIM15.psc.write(|w| w.psc().bits(7)); // 8x prescale -> about 400Hz min freq, 80ns res
-        dp.TIM15.ccmr1_input().write(|w| w.cc1s().ti2()); // Compare/capture channel input
-        unsafe {
-            dp.TIM15
-                .smcr
-                .write(|w| w.ts_2_0().bits(0b110).sms().bits(0b100));
-        } // Trigger input CH2, reset mode
-        dp.TIM15.ccer.write(|w| w.cc1e().set_bit()); // Enable capture output
-        dp.TIM15.cr1.write(|w| w.cen().enabled()); // Enable counter
-        let frequency_inp1 = dp.TIM15;
+        // All four timers use encoder mode 3, counting both edges of both
+        // channels. Release the HAL wrappers after configuration so the
+        // sampler can retain the existing raw-register access pattern.
+        let encoder0 = dp
+            .TIM1
+            .qei(
+                (gpioe.pe9.into_alternate(), gpioe.pe11.into_alternate()),
+                ccdr.peripheral.TIM1,
+            )
+            .release()
+            .0;
+        let encoder1 = dp
+            .TIM8
+            .qei(
+                (gpioc.pc6.into_alternate(), gpioc.pc7.into_alternate()),
+                ccdr.peripheral.TIM8,
+            )
+            .release()
+            .0;
+        let encoder2 = dp
+            .TIM4
+            .qei(
+                (gpiob.pb6.into_alternate(), gpiob.pb7.into_alternate()),
+                ccdr.peripheral.TIM4,
+            )
+            .release()
+            .0;
+        let encoder3 = dp
+            .TIM3
+            .qei(
+                (gpiob.pb4.into_alternate(), gpiob.pb5.into_alternate()),
+                ccdr.peripheral.TIM3,
+            )
+            .release()
+            .0;
 
         //
         // PWMs
         //
 
-        dp.TIM3.cr1.write(|w| w.arpe().set_bit());
+        dp.TIM15.cr1.write(|w| w.arpe().set_bit());
         let mut pwm2 = dp
-            .TIM3
-            .pwm(pwm2_pin, 100.kHz(), ccdr.peripheral.TIM3, &ccdr.clocks);
+            .TIM15
+            .pwm(pwm2_pin, 100.kHz(), ccdr.peripheral.TIM15, &ccdr.clocks);
         pwm2.set_duty(0);
         pwm2.enable();
 
@@ -320,7 +276,7 @@ impl<'a> Board<'a> {
             // startup clock tree. Cache it once so output updates do not carry
             // four `unwrap` paths through every publishing IRQ.
             pwm_clock_hz: [
-                TIM3::get_clk(&ccdr.clocks).unwrap(),
+                TIM15::get_clk(&ccdr.clocks).unwrap(),
                 TIM12::get_clk(&ccdr.clocks).unwrap(),
                 TIM16::get_clk(&ccdr.clocks).unwrap(),
                 TIM17::get_clk(&ccdr.clocks).unwrap(),
@@ -383,15 +339,7 @@ impl<'a> Board<'a> {
         };
 
         let adc = Sampler::new(
-            &ccdr.clocks,
-            adc1,
-            adc2,
-            adc3,
-            adc_pins,
-            encoder,
-            pulse_counter,
-            frequency_inp0,
-            frequency_inp1,
+            adc1, adc2, adc3, adc_pins, encoder0, encoder1, encoder2, encoder3,
         );
 
         //

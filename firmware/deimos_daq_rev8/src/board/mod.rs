@@ -29,10 +29,10 @@ use subsystems::net::*;
 use subsystems::output::*;
 use subsystems::sampling::*;
 
-pub use deimos_shared::peripherals::deimos_daq_rev7::{
+pub use deimos_shared::peripherals::deimos_daq_rev8::{
     ADC_CHANNEL_COUNT, ADC_IIR_CUTOFF_TO_REPORT_RATE, ADC_OVERSAMPLE_TARGET_HZ, MODEL_NUMBER, VREF,
 };
-use deimos_shared::peripherals::deimos_daq_rev7::{
+use deimos_shared::peripherals::deimos_daq_rev8::{
     calc::Calibration,
     packets::{ModbusInitialConfig, OperatingOutputSettings},
     timing::{AcquisitionClock, UniformIntervalScheduler, bounded_cycle_timing_correction_ns},

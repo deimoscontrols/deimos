@@ -1,4 +1,20 @@
-# Deimos DAQ firmware
+# Deimos DAQ rev8 firmware
+
+## Timer pinout
+
+| Channel | Phase | Pin | Timer channel | Alternate function |
+| --- | --- | --- | --- | --- |
+| Encoder0 | A | PE9 | TIM1_CH1 | AF1 |
+| Encoder0 | B | PE11 | TIM1_CH2 | AF1 |
+| Encoder1 | A | PC6 | TIM8_CH1 | AF3 |
+| Encoder1 | B | PC7 | TIM8_CH2 | AF3 |
+| Encoder2 | A | PB6 | TIM4_CH1 | AF2 |
+| Encoder2 | B | PB7 | TIM4_CH2 | AF2 |
+| Encoder3 | A | PB4 | TIM3_CH1 | AF2 |
+| Encoder3 | B | PB5 | TIM3_CH2 | AF2 |
+
+PWM0 moves to PE6/TIM15_CH2 AF4. PWM1 through PWM3 remain on
+PB14/TIM12_CH1 AF2, PB8/TIM16_CH1 AF1, and PB9/TIM17_CH1 AF1.
 
 The calibration image is selected by `firmware/flash.py` before each build:
 
@@ -36,3 +52,23 @@ uv run python firmware/flash.py
 
 Both commands are run from the repository root. `flash.py` selects the board,
 probe, serial number, and MAC address from `firmware/assignments.json`.
+
+## Encoder0 loopback validation on rev7 hardware
+
+Run the validation through the ordinary nonblocking controller with the normal
+rev8 firmware. Connect DO0 to Encoder0 A and DO1 to Encoder0 B, including the
+corresponding signal reference/return connections required by the front-panel
+wiring. DO0 and DO1 must remain manually writable rather than driven by calcs.
+
+The runnable application-level procedure is
+`software/deimos/examples/rev8_encoder_loopback_validation.py`. For example:
+
+```sh
+uv run --project software/deimos python \
+  software/deimos/examples/rev8_encoder_loopback_validation.py
+```
+
+It uses only the existing nonblocking `RunHandle` read/write interface, emits
+64 positive quadrature cycles, and requires `encoder0` to advance by 256 counts.
+Every phase transition is synchronized to controller snapshots, and DO0/DO1
+are restored low before the procedure returns.

@@ -3,7 +3,7 @@ use super::*;
 use core::sync::atomic::{AtomicBool, Ordering};
 use cortex_m::peripheral::DWT;
 
-use deimos_shared::peripherals::deimos_daq_rev7::*;
+use deimos_shared::peripherals::deimos_daq_rev8::*;
 use deimos_shared::states::{ByteStruct, ByteStructLen};
 use irq::{handler, scope};
 
@@ -539,8 +539,6 @@ impl<'a> Board<'a> {
         );
 
         state.output.encoder = sampled_inputs.encoder;
-        state.output.pulse_counter = sampled_inputs.pulse_counter;
-        state.output.frequency_meas = sampled_inputs.frequency_meas;
         state.output.gpio = self.read_gpio_inputs();
         state.output.metrics.id = state.output.metrics.id.wrapping_add(1);
         // `sent_time_ns` is captured after engineering conversion and as close

@@ -2,7 +2,7 @@
 
 fn main() {
     use deimos_shared::{
-        peripherals::deimos_daq_rev7::calc::Calibration,
+        peripherals::deimos_daq_rev8::calc::Calibration,
         states::{ByteStruct, ByteStructLen},
     };
     use std::{env, fs, path::PathBuf};
