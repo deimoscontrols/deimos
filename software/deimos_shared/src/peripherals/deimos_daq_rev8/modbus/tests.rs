@@ -1,7 +1,7 @@
 use super::super::{ModbusInitialConfig, OperatingSnapshot, MIN_CYCLE_RATE_HZ};
 use super::codec::{put_f32, put_u32};
 use super::*;
-use crate::peripherals::deimos_daq_rev7::OPERATING_SNAPSHOT_MAGIC;
+use crate::peripherals::deimos_daq_rev8::OPERATING_SNAPSHOT_MAGIC;
 
 #[test]
 fn snapshot_registers_are_most_significant_register_first() {
@@ -9,7 +9,7 @@ fn snapshot_registers_are_most_significant_register_first() {
     snapshot.metrics.id = 0x0123_4567_89ab_cdef;
     snapshot.sample_time_ns = 0x1122_3344_5566_7788;
     snapshot.module_bus_current_a = 1.0;
-    snapshot.encoder = -2;
+    snapshot.encoder = [-2, 3, -4, 5];
     snapshot.gpio = 3;
 
     let registers = snapshot_input_registers(&snapshot);
@@ -24,14 +24,14 @@ fn snapshot_registers_are_most_significant_register_first() {
     assert_eq!(&registers[22..26], &[0x1122, 0x3344, 0x5566, 0x7788]);
     assert_eq!(&registers[26..28], &[0x3f80, 0x0000]);
     assert_eq!(&registers[62..66], &[0xffff, 0xffff, 0xffff, 0xfffe]);
-    assert_eq!(registers[74], 3);
+    assert_eq!(registers[78], 3);
 
     let decoded = snapshot_from_input_registers(&registers).unwrap();
     assert_eq!(decoded.magic, snapshot.magic);
     assert_eq!(decoded.metrics.id, snapshot.metrics.id);
     assert_eq!(decoded.sample_time_ns, snapshot.sample_time_ns);
     assert_eq!(decoded.module_bus_current_a.to_bits(), 1.0_f32.to_bits());
-    assert_eq!(decoded.encoder, -2);
+    assert_eq!(decoded.encoder, [-2, 3, -4, 5]);
     assert_eq!(decoded.gpio, 3);
 }
 

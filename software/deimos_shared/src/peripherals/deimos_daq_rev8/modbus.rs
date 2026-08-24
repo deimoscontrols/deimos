@@ -12,7 +12,7 @@ pub use snapshot::{
 /// First input register occupied by the coherent engineering snapshot.
 pub const SNAPSHOT_INPUT_START: u16 = 0;
 /// Number of input registers occupied by one complete engineering snapshot.
-pub const SNAPSHOT_INPUT_REGISTER_COUNT: u16 = 75;
+pub const SNAPSHOT_INPUT_REGISTER_COUNT: u16 = 79;
 /// Number of wire bytes occupied by one complete engineering snapshot register block.
 pub const SNAPSHOT_INPUT_BYTE_COUNT: usize = SNAPSHOT_INPUT_REGISTER_COUNT as usize * 2;
 
@@ -81,7 +81,7 @@ pub enum HoldingWriteError {
 /// Errors encountered while decoding a complete snapshot register block.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SnapshotDecodeError {
-    /// The supplied block does not contain exactly 75 registers.
+    /// The supplied block does not contain exactly 79 registers.
     InvalidLength,
     /// The decoded packet magic or engineering-value invariants are invalid.
     InvalidSnapshot,

@@ -28,7 +28,7 @@ pub mod deimos_daq_rev7;
 pub use deimos_daq_rev7::DeimosDaqRev7;
 
 pub mod deimos_daq_rev8;
-pub use deimos_daq_rev7::DeimosDaqRev8;
+pub use deimos_daq_rev8::DeimosDaqRev8;
 
 pub mod hootl;
 pub use hootl::{HootlDriver, HootlPeripheral, HootlRunHandle, HootlTransport};

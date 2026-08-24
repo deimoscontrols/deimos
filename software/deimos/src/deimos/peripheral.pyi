@@ -78,17 +78,25 @@ class DeimosDaqRev7(_PeripheralBase):
 
     def __init__(self, serial_number: int) -> None: ...
 
+class DeimosDaqRev8(_PeripheralBase):
+    """Software interface for a Deimos DAQ rev8 peripheral.
+
+    The four counter outputs are ``encoder0`` through ``encoder3`` in timer
+    order TIM1, TIM8, TIM4, and TIM3.
+    """
+    def __init__(self, serial_number: int) -> None: ...
+
 class HootlTransport:
     @staticmethod
-    def thread_channel() -> Self:
+    def thread_channel() -> HootlTransport:
         """A thread channel keyed by the wrapped peripheral's identity."""
         ...
     @staticmethod
-    def unix_socket(name: str) -> Self:
+    def unix_socket(name: str) -> HootlTransport:
         """A unix socket with this name."""
         ...
     @staticmethod
-    def udp() -> Self:
+    def udp() -> HootlTransport:
         """UDP transport bound to PERIPHERAL_RX_PORT."""
         ...
 
@@ -123,6 +131,7 @@ __all__ = [
     "DeimosDaqRev5",
     "DeimosDaqRev6",
     "DeimosDaqRev7",
+    "DeimosDaqRev8",
     "HootlDriver",
     "HootlPeripheral",
     "HootlRunHandle",

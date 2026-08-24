@@ -39,7 +39,7 @@ mod tests;
 use super::model_numbers;
 
 /// Peripheral model number.
-pub const MODEL_NUMBER: super::ModelNumber = model_numbers::DEIMOS_DAQ_REV_7_MODEL_NUMBER;
+pub const MODEL_NUMBER: super::ModelNumber = model_numbers::DEIMOS_DAQ_REV_8_MODEL_NUMBER;
 
 /// Number of reported ADC channels.
 pub const ADC_CHANNEL_COUNT: usize = 18;
@@ -47,11 +47,8 @@ pub const ADC_CHANNEL_COUNT: usize = 18;
 /// Number of ADC low-pass filters, one per reported ADC channel.
 pub const ADC_FILTER_COUNT: usize = ADC_CHANNEL_COUNT;
 
-/// Number of reported unrolled counter channels.
-pub const COUNTER_CHANNEL_COUNT: usize = 2;
-
-/// Number of reported frequency-measurement channels.
-pub const FREQUENCY_CHANNEL_COUNT: usize = 2;
+/// Number of reported unwrapped quadrature-encoder channels.
+pub const ENCODER_CHANNEL_COUNT: usize = 4;
 
 /// Number of accepted PWM output channels.
 pub const PWM_CHANNEL_COUNT: usize = 4;
@@ -115,36 +112,28 @@ pub const ADC_OVERSAMPLE_TARGET_RATE_HZ: f64 = ADC_OVERSAMPLE_TARGET_HZ as f64;
 /// is a fixed acquisition policy, not a live protocol setting.
 pub const ADC_IIR_CUTOFF_TO_REPORT_RATE: f64 = 0.4;
 
-/// Maximum supported post-quadrature encoder count and pulse-counter edge rate.
+/// Maximum supported post-quadrature encoder count rate.
 ///
 /// This is the fastest rate the configured timer peripherals can count. The
 /// cutover assertions below prove that it cannot move by an ambiguous half of a
 /// 16-bit timer modulus between samples in either synchronous topology.
-pub const COUNTER_MAX_EDGE_RATE_HZ: u32 = 50_000_000;
-
-/// Maximum age of the latest valid frequency-input capture in `ns`.
-///
-/// The current timer configuration has a usable lower limit near `400 Hz`.
-/// Holding a valid capture for `10 ms` tolerates several missing sampling
-/// observations while ensuring that a stopped input returns promptly to zero.
-pub const FREQUENCY_INPUT_VALID_TIMEOUT_NS: i64 = 10_000_000;
+pub const ENCODER_MAX_COUNT_RATE_HZ: u32 = 50_000_000;
 
 const _: () = assert!(ADC_OVERSAMPLE_TARGET_HZ > 0);
 const _: () = assert!(ADC_IIR_CUTOFF_TO_REPORT_RATE > 0.0);
 const _: () = assert!(ADC_IIR_CUTOFF_TO_REPORT_RATE <= 0.5);
-const _: () = assert!(FREQUENCY_INPUT_VALID_TIMEOUT_NS > 0);
 // Truncating N = target / cycle gives a minimum nominal internal rate of
 // target * N / (N + 1). Its worst case occurs at the minimum N=2 and is 2/3 of
 // target. Including the longest +10% timing correction makes the maximum
-// oversampled interval 33 / (20 * target) seconds. Keep the counter
+// oversampled interval 33 / (20 * target) seconds. Keep the encoder-count
 // change strictly below half of its 2^16 modulus.
 const _: () = assert!(
-    COUNTER_MAX_EDGE_RATE_HZ as u64 * 33 < (1_u64 << 15) * ADC_OVERSAMPLE_TARGET_HZ as u64 * 20
+    ENCODER_MAX_COUNT_RATE_HZ as u64 * 33 < (1_u64 << 15) * ADC_OVERSAMPLE_TARGET_HZ as u64 * 20
 );
 // Direct operation begins above target / 2. Its longest interval is therefore
 // 2.2 / target after the +10% timing correction.
 const _: () = assert!(
-    COUNTER_MAX_EDGE_RATE_HZ as u64 * 11 < (1_u64 << 15) * ADC_OVERSAMPLE_TARGET_HZ as u64 * 5
+    ENCODER_MAX_COUNT_RATE_HZ as u64 * 11 < (1_u64 << 15) * ADC_OVERSAMPLE_TARGET_HZ as u64 * 5
 );
 
 /// ADC and DAC voltage reference.
@@ -187,17 +176,17 @@ const ADC_INPUT_RC_RESISTANCE_OHMS: f64 = 10.0;
 const ADC_INPUT_RC_CAPACITANCE_F: f64 = 1.0e-6;
 
 /// Magic marker for controller-to-board binding packets.
-pub const BINDING_INPUT_MAGIC: u32 = 0xD7B1_0001;
+pub const BINDING_INPUT_MAGIC: u32 = 0xD8B1_0001;
 /// Magic marker for board-to-controller binding packets.
-pub const BINDING_OUTPUT_MAGIC: u32 = 0xD7B1_0002;
+pub const BINDING_OUTPUT_MAGIC: u32 = 0xD8B1_0002;
 /// Magic marker for controller-to-board configuring packets.
-pub const CONFIGURING_INPUT_MAGIC: u32 = 0xD7C0_0001;
+pub const CONFIGURING_INPUT_MAGIC: u32 = 0xD8C0_0001;
 /// Magic marker for board-to-controller configuring packets.
-pub const CONFIGURING_OUTPUT_MAGIC: u32 = 0xD7C0_0002;
+pub const CONFIGURING_OUTPUT_MAGIC: u32 = 0xD8C0_0002;
 /// Magic marker for controller-to-board Deimos operating packets.
-pub const OPERATING_INPUT_MAGIC: u32 = 0xD700_0001;
+pub const OPERATING_INPUT_MAGIC: u32 = 0xD800_0001;
 /// Magic marker for board-to-controller engineering snapshots.
-pub const OPERATING_SNAPSHOT_MAGIC: u32 = 0xD700_0002;
+pub const OPERATING_SNAPSHOT_MAGIC: u32 = 0xD800_0002;
 
 /// Default Modbus publishing period, corresponding to 10 Hz.
 pub const MODBUS_DEFAULT_DT_NS: u32 = 100_000_000;

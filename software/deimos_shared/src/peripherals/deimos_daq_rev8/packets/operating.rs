@@ -271,12 +271,9 @@ pub struct OperatingSnapshot {
     pub thermocouple_temperature_k: [f32; super::super::THERMOCOUPLE_CHANNEL_COUNT],
     /// Measured voltage-channel values in `V` with shape `(VOLTAGE_CHANNEL_COUNT,)`.
     pub voltage_v: [f32; super::super::VOLTAGE_CHANNEL_COUNT],
-    /// Unwrapped quadrature-encoder count.
-    pub encoder: i64,
-    /// Unwrapped pulse count.
-    pub pulse_counter: i64,
-    /// Measured input frequencies in `Hz` with shape `(FREQUENCY_CHANNEL_COUNT,)`.
-    pub frequency_meas: [f32; super::super::FREQUENCY_CHANNEL_COUNT],
+    /// Unwrapped quadrature-encoder counts with shape `(ENCODER_CHANNEL_COUNT,)`
+    /// and timer order `[TIM1, TIM8, TIM4, TIM3]`.
+    pub encoder: [i64; super::super::ENCODER_CHANNEL_COUNT],
 
     /// GPIO input-state bit field; only bits `0..=1` are used.
     pub gpio: u8,
@@ -295,9 +292,7 @@ impl Default for OperatingSnapshot {
             rtd_resistance_ohm: [0.0; super::super::RTD_CHANNEL_COUNT],
             thermocouple_temperature_k: [0.0; super::super::THERMOCOUPLE_CHANNEL_COUNT],
             voltage_v: [0.0; super::super::VOLTAGE_CHANNEL_COUNT],
-            encoder: 0,
-            pulse_counter: 0,
-            frequency_meas: [0.0; super::super::FREQUENCY_CHANNEL_COUNT],
+            encoder: [0; super::super::ENCODER_CHANNEL_COUNT],
             gpio: 0,
         }
     }

@@ -139,10 +139,10 @@ impl CalRecord {
     }
 }
 
-/// Software interface for a Deimos DAQ rev7 peripheral.
+/// Software interface for a Deimos DAQ rev8 peripheral.
 ///
 /// The complete Modbus/TCP register map is documented in
-/// [`deimos_shared::peripherals::deimos_daq_rev7::modbus`].
+/// [`deimos_shared::peripherals::deimos_daq_rev8::modbus`].
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[cfg_attr(feature = "python", pyclass)]
 pub struct DeimosDaqRev8 {
@@ -198,7 +198,10 @@ impl Peripheral for DeimosDaqRev8 {
         ] {
             names.push(name.to_owned());
         }
-        names.extend(["encoder", "counter", "freq0", "freq1", "di0", "di1"].map(str::to_owned));
+        for i in 0..ENCODER_CHANNEL_COUNT {
+            names.push(format!("encoder{i}"));
+        }
+        names.extend(["di0", "di1"].map(str::to_owned));
         names
     }
 
@@ -276,12 +279,12 @@ impl Peripheral for DeimosDaqRev8 {
             outputs[index] = value as f64;
             index += 1;
         }
-        outputs[index] = packet.encoder as f64;
-        outputs[index + 1] = packet.pulse_counter as f64;
-        outputs[index + 2] = packet.frequency_meas[0] as f64;
-        outputs[index + 3] = packet.frequency_meas[1] as f64;
-        outputs[index + 4] = (packet.gpio & 1) as f64;
-        outputs[index + 5] = ((packet.gpio >> 1) & 1) as f64;
+        for value in packet.encoder {
+            outputs[index] = value as f64;
+            index += 1;
+        }
+        outputs[index] = (packet.gpio & 1) as f64;
+        outputs[index + 1] = ((packet.gpio >> 1) & 1) as f64;
         OperatingMetrics {
             id: packet.metrics.id,
             sent_time_ns: packet.metrics.sent_time_ns,
@@ -420,6 +423,28 @@ mod tests {
             .position(|name| name == "sample_time_ns")
             .expect("sample timestamp output");
         assert_eq!(outputs[sample_time_index], packet.sample_time_ns as f64);
+    }
+
+    #[test]
+    fn encoder_channels_are_named_and_parsed_in_timer_order() {
+        let peripheral = DeimosDaqRev8::default();
+        let packet = OperatingSnapshot {
+            encoder: [-1, 2, -3, 4],
+            ..OperatingSnapshot::default()
+        };
+        let mut bytes = vec![0; OperatingSnapshot::BYTE_LEN];
+        packet.write_bytes(&mut bytes);
+        let output_names = peripheral.output_names();
+        let mut outputs = vec![0.0; output_names.len()];
+        peripheral.parse_operating_roundtrip(&bytes, &mut outputs);
+
+        for (channel, expected) in packet.encoder.into_iter().enumerate() {
+            let index = output_names
+                .iter()
+                .position(|name| name == &format!("encoder{channel}"))
+                .expect("named encoder output");
+            assert_eq!(outputs[index], expected as f64);
+        }
     }
 
     #[test]

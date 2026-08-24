@@ -103,7 +103,7 @@ class SequenceMachine(_CalcBase):
     """A lookup-table sequence machine with transition criteria."""
     def __init__(self, entry: str) -> None: ...
     @staticmethod
-    def load_folder(path: str) -> Self:
+    def load_folder(path: str) -> SequenceMachine:
         """Read configuration JSON and sequence CSV files from a folder."""
         ...
     def save_folder(self, path: str) -> None:

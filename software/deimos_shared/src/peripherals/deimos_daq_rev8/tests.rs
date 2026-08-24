@@ -87,6 +87,21 @@ fn packet_magics_are_direction_specific_and_validated() {
     for (index, marker) in markers.iter().enumerate() {
         assert!(!markers[..index].contains(marker));
     }
+    let rev7_markers = [
+        crate::peripherals::deimos_daq_rev7::BINDING_INPUT_MAGIC,
+        crate::peripherals::deimos_daq_rev7::BINDING_OUTPUT_MAGIC,
+        crate::peripherals::deimos_daq_rev7::CONFIGURING_INPUT_MAGIC,
+        crate::peripherals::deimos_daq_rev7::CONFIGURING_OUTPUT_MAGIC,
+        crate::peripherals::deimos_daq_rev7::OPERATING_INPUT_MAGIC,
+        crate::peripherals::deimos_daq_rev7::OPERATING_SNAPSHOT_MAGIC,
+    ];
+    assert_ne!(
+        MODEL_NUMBER,
+        crate::peripherals::deimos_daq_rev7::MODEL_NUMBER
+    );
+    for (rev8, rev7) in markers.into_iter().zip(rev7_markers) {
+        assert_ne!(rev8, rev7);
+    }
 
     let mut binding_input = BindingInput::new(1_000);
     assert!(round_trip(binding_input).is_valid());
@@ -147,7 +162,7 @@ fn packet_magics_are_direction_specific_and_validated() {
     };
     assert!(round_trip(snapshot).is_valid());
     assert_eq!(round_trip(snapshot).sample_time_ns, snapshot.sample_time_ns);
-    assert_eq!(OperatingSnapshot::BYTE_LEN, 149);
+    assert_eq!(OperatingSnapshot::BYTE_LEN, 157);
     snapshot.module_bus_current_a = f32::NAN;
     assert!(round_trip(snapshot).is_valid());
     snapshot.magic ^= 1;

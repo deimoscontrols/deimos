@@ -7,13 +7,13 @@ complement.
 
 ### Input registers (FC04)
 
-Read address 0, count 75 for one coherent engineering snapshot. Partial
+Read address 0, count 79 for one coherent engineering snapshot. Partial
 in-range reads are supported, but the full block is the synchronized-sample
 contract.
 
 | Address | Count | Type | Field | Units / shape |
 | ---: | ---: | --- | --- | --- |
-| 0 | 2 | `u32` | `magic` | `0xD7000002` |
+| 0 | 2 | `u32` | `magic` | `0xD8000002` |
 | 2 | 4 | `u64` | `metrics.id` | snapshot count |
 | 6 | 4 | `i64` | `metrics.sent_time_ns` | ns |
 | 10 | 4 | `u64` | `metrics.last_input_id` | last accepted transaction ID |
@@ -27,10 +27,8 @@ contract.
 | 40 | 6 | `f32[3]` | `rtd_resistance_ohm` | ohm, channels 0..2 |
 | 46 | 4 | `f32[2]` | `thermocouple_temperature_k` | K, channels 0..1 |
 | 50 | 12 | `f32[6]` | `voltage_v` | V, channels 0..5 |
-| 62 | 4 | `i64` | `encoder` | counts |
-| 66 | 4 | `i64` | `pulse_counter` | counts |
-| 70 | 4 | `f32[2]` | `frequency_meas` | Hz, channels 0..1 |
-| 74 | 1 | `u16` | `gpio` | input bits 0..1 |
+| 62 | 16 | `i64[4]` | `encoder` | counts, channels 0..3 |
+| 78 | 1 | `u16` | `gpio` | input bits 0..1 |
 
 `sample_time_ns` is captured before the first ADC conversion group
 contributing to the snapshot. It is not corrected for fractional-delay or
@@ -56,15 +54,15 @@ must cover complete fields within one writable block: base configuration
 | 27 | 4 | R/W | `i64` | requested period delta | ns; persistent, internally clamped |
 | 31 | 4 | R/W | `i64` | requested phase delta | ns; one cycle, internally clamped |
 
-The coherent snapshot is mirrored in read-only holding registers 256..330
-(`0x0100`..`0x014A`) with the same layout as input registers 0..74. Writes
+The coherent snapshot is mirrored in read-only holding registers 256..334
+(`0x0100`..`0x014E`) with the same layout as input registers 0..78. Writes
 to the mirror or the unsupported gap at 35..255 return `Illegal Data
 Address`.
 
 ### Synchronized control (FC23)
 
 FC23 Read/Write Multiple Registers is the recommended cyclic interface.
-Read address 256, count 75 while writing one complete writable block. The
+Read address 256, count 79 while writing one complete writable block. The
 response contains the snapshot captured at the beginning of that publishing
 cycle; accepted outputs are applied afterward. It does not also return
 configuration registers 0..34.

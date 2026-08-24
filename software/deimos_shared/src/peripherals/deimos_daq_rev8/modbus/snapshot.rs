@@ -2,7 +2,7 @@
 
 use super::super::OperatingSnapshot;
 use super::{codec::*, *};
-use crate::peripherals::deimos_daq_rev7::packets::OperatingSnapshotMetrics;
+use crate::peripherals::deimos_daq_rev8::packets::OperatingSnapshotMetrics;
 use crate::states::ByteStructLen;
 
 // The Modbus image preserves the complete packet schema but widens its final
@@ -34,7 +34,7 @@ pub fn snapshot_input_registers(
 ///
 /// This is the common encoding source for the register-valued host API and the
 /// firmware's full-snapshot fast path. Writing directly into the response
-/// avoids converting 75 intermediate `u16` values back into network byte order
+/// avoids converting 79 intermediate `u16` values back into network byte order
 /// in the realtime communication interrupt.
 ///
 /// Args:
@@ -71,9 +71,9 @@ pub fn write_snapshot_input_register_bytes(
     put_f32_array_bytes(bytes, &mut position, &snapshot.rtd_resistance_ohm);
     put_f32_array_bytes(bytes, &mut position, &snapshot.thermocouple_temperature_k);
     put_f32_array_bytes(bytes, &mut position, &snapshot.voltage_v);
-    put_u64_bytes(bytes, &mut position, snapshot.encoder as u64);
-    put_u64_bytes(bytes, &mut position, snapshot.pulse_counter as u64);
-    put_f32_array_bytes(bytes, &mut position, &snapshot.frequency_meas);
+    for value in snapshot.encoder {
+        put_u64_bytes(bytes, &mut position, value as u64);
+    }
     bytes[position] = 0;
     bytes[position + 1] = snapshot.gpio;
 }
@@ -111,9 +111,12 @@ pub fn snapshot_from_input_registers(
         rtd_resistance_ohm: take_f32_array(registers, &mut position),
         thermocouple_temperature_k: take_f32_array(registers, &mut position),
         voltage_v: take_f32_array(registers, &mut position),
-        encoder: take_u64(registers, &mut position) as i64,
-        pulse_counter: take_u64(registers, &mut position) as i64,
-        frequency_meas: take_f32_array(registers, &mut position),
+        encoder: [
+            take_u64(registers, &mut position) as i64,
+            take_u64(registers, &mut position) as i64,
+            take_u64(registers, &mut position) as i64,
+            take_u64(registers, &mut position) as i64,
+        ],
         gpio: registers[position]
             .try_into()
             .map_err(|_| SnapshotDecodeError::InvalidSnapshot)?,

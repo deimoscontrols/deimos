@@ -27,6 +27,9 @@ use deimos_numerics::embedded::fixed::MedianFilter;
 use deimos_shared::peripherals::deimos_daq_rev7::{
     BindingInput as Rev7BindingInput, BindingOutput as Rev7BindingOutput,
 };
+use deimos_shared::peripherals::deimos_daq_rev8::{
+    BindingInput as Rev8BindingInput, BindingOutput as Rev8BindingOutput,
+};
 use deimos_shared::states::*;
 
 use crate::calc::{CalcOrchestrator, FieldName, PeripheralInputName};
@@ -77,7 +80,7 @@ fn validate_configuring_response(
                 "uncalibrated"
             };
             return Err(format!(
-                "Rev7 firmware must be {expected_text} for this operation (reported firmware_calibrated={firmware_calibrated})"
+                "DAQ firmware must be {expected_text} for this operation (reported firmware_calibrated={firmware_calibrated})"
             ));
         }
     }
@@ -499,6 +502,9 @@ impl Controller {
         let rev7_binding_msg = Rev7BindingInput::new(configuring_timeout_ms);
         let mut rev7_binding_buf = [0_u8; Rev7BindingInput::BYTE_LEN];
         rev7_binding_msg.write_bytes(&mut rev7_binding_buf);
+        let rev8_binding_msg = Rev8BindingInput::new(configuring_timeout_ms);
+        let mut rev8_binding_buf = [0_u8; Rev8BindingInput::BYTE_LEN];
+        rev8_binding_msg.write_bytes(&mut rev8_binding_buf);
 
         // Start the clock at transmission
         let start_of_binding = Instant::now();
@@ -522,6 +528,11 @@ impl Controller {
                     .map_err(|e| {
                         format!("Failed to send rev7 binding request to {peripheral_id:?}: {e}")
                     })?;
+                socket
+                    .send(*peripheral_id, &rev8_binding_buf)
+                    .map_err(|e| {
+                        format!("Failed to send rev8 binding request to {peripheral_id:?}: {e}")
+                    })?;
             }
         } else {
             // Bind any modules on the local network
@@ -532,6 +543,9 @@ impl Controller {
                 socket
                     .broadcast(&rev7_binding_buf)
                     .map_err(|e| format!("Failed to broadcast rev7 binding request: {e}"))?;
+                socket
+                    .broadcast(&rev8_binding_buf)
+                    .map_err(|e| format!("Failed to broadcast rev8 binding request: {e}"))?;
             }
         }
 
@@ -548,9 +562,16 @@ impl Controller {
                         Some(BindingOutput::read_bytes(&rxbuf[..amt]))
                     } else if amt == Rev7BindingOutput::BYTE_LEN {
                         let response = Rev7BindingOutput::read_bytes(&rxbuf[..amt]);
-                        response.is_valid().then_some(BindingOutput {
-                            peripheral_id: response.peripheral_id,
-                        })
+                        if response.is_valid() {
+                            Some(BindingOutput {
+                                peripheral_id: response.peripheral_id,
+                            })
+                        } else {
+                            let response = Rev8BindingOutput::read_bytes(&rxbuf[..amt]);
+                            response.is_valid().then_some(BindingOutput {
+                                peripheral_id: response.peripheral_id,
+                            })
+                        }
                     } else {
                         None
                     };
@@ -1575,6 +1596,10 @@ impl Controller {
                     let mut rev7_binding_buf = [0_u8; Rev7BindingInput::BYTE_LEN];
                     rev7_binding_msg.write_bytes(&mut rev7_binding_buf);
                     let rev7_send_result = socket_orchestrator.broadcast(sid, &rev7_binding_buf);
+                    let rev8_binding_msg = Rev8BindingInput::new(reconnect_step_timeout_ms);
+                    let mut rev8_binding_buf = [0_u8; Rev8BindingInput::BYTE_LEN];
+                    rev8_binding_msg.write_bytes(&mut rev8_binding_buf);
+                    let rev8_send_result = socket_orchestrator.broadcast(sid, &rev8_binding_buf);
 
                     // If we have lost the ability to transmit on this socket,
                     // log the error, but let the loss of contact logic handle
@@ -1584,6 +1609,10 @@ impl Controller {
                         continue;
                     }
                     if let Err(err) = rev7_send_result {
+                        error!("{err}");
+                        continue;
+                    }
+                    if let Err(err) = rev8_send_result {
                         error!("{err}");
                         continue;
                     }
