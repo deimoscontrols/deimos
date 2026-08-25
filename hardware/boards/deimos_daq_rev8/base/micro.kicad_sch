@@ -6858,16 +6858,6 @@
 	)
 	(wire
 		(pts
-			(xy 178.816 111.506) (xy 181.356 111.506)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b63dd814-e342-4652-a343-68de98dd9c8d")
-	)
-	(wire
-		(pts
 			(xy 279.908 129.286) (xy 275.844 129.286)
 		)
 		(stroke
@@ -7180,6 +7170,16 @@
 		)
 		(uuid "7431ae20-bd36-4f6d-b841-8cf460399c6a")
 	)
+	(text "TIM3_CH1"
+		(exclude_from_sim no)
+		(at 186.436 126.746 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "7d6e3731-56aa-449a-b5d6-07078e0e5585")
+	)
 	(text "RESET Button"
 		(exclude_from_sim no)
 		(at 321.183 217.551 0)
@@ -7202,7 +7202,7 @@
 		)
 		(uuid "991c3b64-58ae-4588-8762-a07c3a949b6f")
 	)
-	(text "TIM3_CH?"
+	(text "TIM8_CH2"
 		(exclude_from_sim no)
 		(at 241.808 157.48 0)
 		(effects
@@ -7232,6 +7232,16 @@
 			)
 		)
 		(uuid "c6ea2754-33d5-4174-9c9f-3e4a5051c30b")
+	)
+	(text "TIM3_CH2"
+		(exclude_from_sim no)
+		(at 183.896 126.746 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "c99c8c35-fd3b-4d3f-8003-c024457c7a46")
 	)
 	(text "Extra 10nF caps\nfor ADC-related\nVREF and VDDA"
 		(exclude_from_sim no)
@@ -7276,7 +7286,7 @@
 		)
 		(uuid "06b1230b-a4bb-4728-9c7f-1c855d1d36f5")
 	)
-	(hierarchical_label "ENCODER0_1"
+	(hierarchical_label "ENCODER0_B"
 		(shape input)
 		(at 229.616 235.966 270)
 		(effects
@@ -7430,6 +7440,17 @@
 		)
 		(uuid "1d901595-555d-4242-92a1-f83f0083160b")
 	)
+	(hierarchical_label "ENCODER2_B"
+		(shape input)
+		(at 178.816 111.506 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "1dcb15b8-fbb5-4f59-a523-9c3e412acd5b")
+	)
 	(hierarchical_label "DEBUG_TMS{slash}SWDIO"
 		(shape input)
 		(at 257.556 136.906 0)
@@ -7451,17 +7472,6 @@
 			(justify right)
 		)
 		(uuid "23f0e38a-4048-4aca-88d4-ec823b63fe15")
-	)
-	(hierarchical_label "FREQ0"
-		(shape input)
-		(at 181.356 111.506 90)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "252977da-018e-4405-ac8d-52a6f5dd3538")
 	)
 	(hierarchical_label "AIN16_Filt"
 		(shape input)
@@ -7628,17 +7638,6 @@
 		)
 		(uuid "471c4050-1b6d-4e6a-8e11-a5a424a42156")
 	)
-	(hierarchical_label "COUNTER0"
-		(shape input)
-		(at 257.556 159.766 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "47841602-3460-46bf-9de9-dbfd2269557b")
-	)
 	(hierarchical_label "AIN16_Filt"
 		(shape input)
 		(at 183.896 235.966 270)
@@ -7649,17 +7648,6 @@
 			(justify right)
 		)
 		(uuid "4c0a0f30-0505-42b0-9873-9036b7b5f618")
-	)
-	(hierarchical_label "FREQ1"
-		(shape input)
-		(at 153.416 139.446 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "4c223db5-936f-4ac5-8c9d-57690ad577eb")
 	)
 	(hierarchical_label "AIN19"
 		(shape input)
@@ -7727,6 +7715,17 @@
 		)
 		(uuid "592882cf-81a5-45a7-8892-217819d05aa4")
 	)
+	(hierarchical_label "ENCODER1_B"
+		(shape input)
+		(at 257.556 157.226 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "5ac6dc94-32e4-42b6-92cc-84e02cb1d0d3")
+	)
 	(hierarchical_label "RMII_TX_EN"
 		(shape input)
 		(at 206.756 111.506 90)
@@ -7773,14 +7772,25 @@
 	)
 	(hierarchical_label "PWM0"
 		(shape input)
-		(at 257.556 157.226 0)
+		(at 153.416 139.446 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "6f95b065-49ba-4e87-8df9-dab873ac61b6")
+	)
+	(hierarchical_label "ENCODER2_A"
+		(shape input)
+		(at 181.356 111.506 90)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left)
 		)
-		(uuid "6f95b065-49ba-4e87-8df9-dab873ac61b6")
+		(uuid "7086bc87-d1be-43ad-8760-7d67a3a24c20")
 	)
 	(hierarchical_label "AIN6_Filt"
 		(shape input)
@@ -7814,6 +7824,17 @@
 			(justify right)
 		)
 		(uuid "786d89e1-108c-4b17-85c9-87e30aab7bdf")
+	)
+	(hierarchical_label "ENCODER3_A"
+		(shape input)
+		(at 186.436 111.506 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "78d8b5cb-3261-4f83-ba92-52a0f69396f4")
 	)
 	(hierarchical_label "RMII_RXD1"
 		(shape input)
@@ -8134,7 +8155,7 @@
 		)
 		(uuid "ad84a4e7-c8a8-43d5-a71f-7e1f6fc2c3f1")
 	)
-	(hierarchical_label "ENCODER0_0"
+	(hierarchical_label "ENCODER0_A"
 		(shape input)
 		(at 219.456 235.966 270)
 		(effects
@@ -8354,6 +8375,17 @@
 		)
 		(uuid "d50b0f34-5636-45bd-a033-17e173146d05")
 	)
+	(hierarchical_label "ENCODER3_B"
+		(shape input)
+		(at 183.896 111.506 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "d651084a-8be2-4ef4-a71a-e9dde6b9eb93")
+	)
 	(hierarchical_label "AIN6"
 		(shape input)
 		(at 36.068 138.43 180)
@@ -8463,6 +8495,17 @@
 			(justify right)
 		)
 		(uuid "e8d25594-e871-4977-a732-e52a1c0b194e")
+	)
+	(hierarchical_label "ENCODER1_A"
+		(shape input)
+		(at 257.556 159.766 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "ec8bea98-fc12-4c53-a01b-d817679f6164")
 	)
 	(hierarchical_label "AIN8_Filt"
 		(shape input)
