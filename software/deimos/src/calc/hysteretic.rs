@@ -122,9 +122,19 @@ impl Hysteretic {
         high_thresh: f64,
         persistence: u32,
     ) -> Box<Self> {
-        Self::new_with_values(input_name, low_thresh, high_thresh, persistence, 1.0, 0.0)
+        Box::new(Self {
+            input_name,
+            low_thresh,
+            high_thresh,
+            persistence,
+            value_when_low: 1.0,
+            value_when_high: 0.0,
+        })
     }
 
+    /// Construct a controller with custom low-state and high-state outputs.
+    ///
+    /// Returns an error if either output value is `NaN`.
     pub fn new_with_values(
         input_name: String,
         low_thresh: f64,
@@ -132,15 +142,19 @@ impl Hysteretic {
         persistence: u32,
         value_when_low: f64,
         value_when_high: f64,
-    ) -> Box<Self> {
-        Box::new(Self {
+    ) -> Result<Box<Self>, String> {
+        if value_when_low.is_nan() || value_when_high.is_nan() {
+            return Err("Hysteretic output values must not be NaN".to_owned());
+        }
+
+        Ok(Box::new(Self {
             input_name,
             low_thresh,
             high_thresh,
             persistence,
             value_when_low,
             value_when_high,
-        })
+        }))
     }
 
     fn validate_config(low_thresh: f64, high_thresh: f64) -> Result<(), String> {
@@ -172,8 +186,8 @@ py_json_methods!(
         persistence: u32,
         value_when_low: f64,
         value_when_high: f64,
-    ) -> Self {
-        *Self::new_with_values(
+    ) -> PyResult<Self> {
+        Self::new_with_values(
             input_name,
             low_thresh,
             high_thresh,
@@ -181,6 +195,8 @@ py_json_methods!(
             value_when_low,
             value_when_high,
         )
+        .map(|calc| *calc)
+        .map_err(pyo3::exceptions::PyValueError::new_err)
     }
 );
 
@@ -261,12 +277,31 @@ mod tests {
 
     #[test]
     fn supports_custom_and_inverted_output_values() {
-        let calc = Hysteretic::new_with_values("source".to_owned(), 2.0, 8.0, 0, -4.0, 12.5);
+        let calc =
+            Hysteretic::new_with_values("source".to_owned(), 2.0, 8.0, 0, -4.0, 12.5).unwrap();
         let mut evaluator = calc.init(ControllerCtx::default()).unwrap();
         let mut outputs = [0.0];
         for (input, expected) in [(5.0, 12.5), (1.0, -4.0), (5.0, -4.0), (9.0, 12.5)] {
             evaluator(&[input], &mut outputs).unwrap();
             assert_eq!(outputs[0], expected);
+        }
+    }
+
+    #[test]
+    fn rejects_nan_output_values_during_construction() {
+        for (value_when_low, value_when_high) in [(f64::NAN, 0.0), (1.0, f64::NAN)] {
+            let error = Hysteretic::new_with_values(
+                "source".to_owned(),
+                2.0,
+                8.0,
+                0,
+                value_when_low,
+                value_when_high,
+            )
+            .err()
+            .unwrap();
+
+            assert_eq!(error, "Hysteretic output values must not be NaN");
         }
     }
 

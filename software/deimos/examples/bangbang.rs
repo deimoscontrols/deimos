@@ -30,7 +30,7 @@ fn main() -> Result<(), String> {
     // before triggering a state change.
     controller.add_calc(
         "bangbang",
-        Hysteretic::new_with_values("tc_min.y".to_owned(), 80.0, 90.0, 20, 0.0, 1.0),
+        Hysteretic::new_with_values("tc_min.y".to_owned(), 80.0, 90.0, 20, 0.0, 1.0)?,
     );
     controller.set_peripheral_input_source("daq.do0", "bangbang.y");
 
@@ -38,7 +38,7 @@ fn main() -> Result<(), String> {
     let mut run_handle = controller.run_nonblocking(None, None, true)?;
 
     // Periodically print the temperatures and output state.
-    println!("");  // A blank line to be deleted on the first cycle.
+    println!(""); // A blank line to be deleted on the first cycle.
     while run_handle.is_running() {
         // Wait
         thread::sleep(Duration::from_millis(100));
