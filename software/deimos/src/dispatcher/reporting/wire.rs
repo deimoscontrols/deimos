@@ -11,8 +11,6 @@ pub enum ReportingMessage {
     /// the final packet of the run.
     Schema {
         channel_names: Vec<String>,
-        /// `None` means unknown or not applicable.
-        channel_units: Vec<Option<String>>,
         /// Wall-clock Unix-epoch ns captured at dispatcher `init`, approximately the wall time
         /// at which `Row::timestamp` reads zero. Viewers add `Row::timestamp` to recover an
         /// approximate display time.
@@ -60,7 +58,6 @@ mod tests {
     fn schema_round_trip() {
         let msg = ReportingMessage::Schema {
             channel_names: vec!["daq7_tc_K".to_string(), "daq7_rtd_ohm".to_string()],
-            channel_units: vec![Some("K".to_string()), Some("ohm".to_string())],
             monotonic_epoch_ns: 1_713_530_000_000_000_000_u64,
             is_session_end: false,
         };
@@ -91,7 +88,6 @@ mod tests {
         // postcard encodes enum variant 0 (Schema) as a leading 0x00 byte.
         let msg = ReportingMessage::Schema {
             channel_names: vec![],
-            channel_units: vec![],
             monotonic_epoch_ns: 0,
             is_session_end: false,
         };
@@ -119,7 +115,6 @@ mod tests {
         // A Schema with is_session_end=true must round-trip correctly.
         let msg = ReportingMessage::Schema {
             channel_names: vec!["ch0".to_string()],
-            channel_units: vec![None],
             monotonic_epoch_ns: 42,
             is_session_end: true,
         };

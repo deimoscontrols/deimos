@@ -11,7 +11,7 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_input_names, calc_output_names, py_json_methods};
+use crate::{calc_names, py_json_methods};
 
 pub use deimos_shared::calcs::{
     ktype_corrected_temperature_k_f32, ktype_temperature_k_f32, ktype_voltage_v_f32,
@@ -68,10 +68,6 @@ pub fn ktype_temp_k(voltage_v: f64) -> f64 {
 pub struct TcKtype {
     voltage_name: String,
     cold_junction_temperature_name: String,
-    #[serde(skip)]
-    input_indices: Vec<usize>,
-    #[serde(skip)]
-    output_index: usize,
 }
 
 impl TcKtype {
@@ -82,13 +78,11 @@ impl TcKtype {
     ///   cold_junction_temperature_name: Calc-graph field containing absolute
     ///     cold-junction temperature in `K`.
     /// Returns:
-    ///   Boxed calc node; graph indices are assigned during `Calc::init`.
+    ///   Boxed calc configuration.
     pub fn new(voltage_name: String, cold_junction_temperature_name: String) -> Box<Self> {
         Box::new(Self {
             voltage_name,
             cold_junction_temperature_name,
-            input_indices: Vec::new(),
-            output_index: usize::MAX,
         })
     }
 }
@@ -104,33 +98,14 @@ py_json_methods!(
 
 #[typetag::serde]
 impl Calc for TcKtype {
-    fn init(
-        &mut self,
-        _: ControllerCtx,
-        input_indices: Vec<usize>,
-        output_range: Range<usize>,
-    ) -> Result<(), String> {
-        self.input_indices = input_indices;
-        self.output_index = output_range
-            .into_iter()
-            .next()
-            .ok_or_else(|| "TcKtype requires one output".to_owned())?;
-        Ok(())
+    fn init(&self, _: ControllerCtx) -> Result<CalcFn, String> {
+        Ok(Box::new(|inputs, outputs| {
+            outputs[0] = ktype_corrected_temp_k(inputs[0], inputs[1]);
+            Ok(())
+        }))
     }
 
-    fn terminate(&mut self) -> Result<(), String> {
-        self.input_indices.clear();
-        self.output_index = usize::MAX;
-        Ok(())
-    }
-
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
-        tape[self.output_index] =
-            ktype_corrected_temp_k(tape[self.input_indices[0]], tape[self.input_indices[1]]);
-        Ok(())
-    }
-
-    fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
+    fn input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
         BTreeMap::from([
             ("voltage_V".to_owned(), self.voltage_name.clone()),
             (
@@ -140,23 +115,7 @@ impl Calc for TcKtype {
         ])
     }
 
-    fn update_input_map(&mut self, field: &str, source: &str) -> Result<(), String> {
-        match field {
-            "voltage_V" => self.voltage_name = source.to_owned(),
-            "cold_junction_temperature_K" => {
-                self.cold_junction_temperature_name = source.to_owned()
-            }
-            _ => return Err(format!("Unrecognized field {field}")),
-        }
-        Ok(())
-    }
-
-    fn get_output_units(&self) -> Vec<Option<String>> {
-        vec![Some("K".to_owned())]
-    }
-
-    calc_input_names!(voltage_V, cold_junction_temperature_K);
-    calc_output_names!(temperature_K);
+    calc_names!((voltage_V, cold_junction_temperature_K), (temperature_K));
 }
 
 #[cfg(test)]

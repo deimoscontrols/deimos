@@ -56,16 +56,15 @@
 //! counter.
 //!
 //! The sample config shows the Rev7 current, temperature, and voltage channels in
-//! a two-column layout. The additional `voltage.y` channel declares unit `V` via
-//! `with_output_unit("V")` and can be added to any voltage panel while experimenting.
+//! a two-column layout. The additional `voltage.y` channel can be added to any
+//! voltage panel while experimenting.
 //!
 //! ## Channels produced
 //!
 //! - `p1.2V5_0_V` — first 0-2.5 V firmware engineering output
-//! - `voltage.y` — `p1.2V5_0_V` passed through with output unit `"V"` (via `Affine`)
+//! - `voltage.y` — `p1.2V5_0_V` passed through via `Affine`
 //!
-//! The `voltage.y` channel is the one to look at first in the viewer: it has a
-//! declared unit and the axis will be labeled `V`.
+//! The `voltage.y` channel is the one to look at first in the viewer.
 //!
 //! ## Config file
 //!
@@ -155,15 +154,12 @@ fn main() {
         .add_peripheral("p1", Box::new(peripheral))
         .unwrap();
 
-    // Add a unit-labeled calc that passes through the first 0-2.5 V firmware
-    // engineering output. The reporting dispatcher will include "V" in the
-    // Schema packet, and the viewer will label the axis accordingly.
+    // Add a calc that passes through the first 0-2.5 V firmware engineering output.
     let voltage_calc = Affine::new(
         "p1.2V5_0_V".to_string(), // input channel name
         1.0,                      // slope: preserve the firmware voltage
         0.0,                      // offset
-    )
-    .with_output_unit("V");
+    );
     controller.add_calc("voltage", voltage_calc);
 
     // Reporting dispatcher: multicast every Row to the operator console. Clone the

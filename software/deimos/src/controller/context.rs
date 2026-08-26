@@ -205,14 +205,6 @@ pub struct ControllerCtx {
     /// Whether manual input overrides should be applied during the control loop.
     pub enable_manual_inputs: bool,
 
-    /// Units for each dispatched channel, in the same order as `channel_names`.
-    /// `None` indicates the unit is unknown or dimensionless.
-    /// Populated by the controller assembly pass before dispatchers are initialized.
-    /// `#[serde(default)]` so snapshots serialized before this field was added deserialize
-    /// to an empty `Vec` and are re-populated by the assembly pass.
-    #[serde(default)]
-    pub channel_units: Vec<Option<String>>,
-
     /// Whether this operation is collecting data from identity-calibrated firmware.
     ///
     /// Devices that report firmware calibration state must be uncalibrated for
@@ -285,45 +277,7 @@ impl Default for ControllerCtx {
             socket_channels: socket_channels_default(),
             manual_inputs: manual_inputs_default(),
             enable_manual_inputs: true,
-            channel_units: Vec::new(),
             calibration_run: false,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_channel_units_serde_roundtrip() {
-        let ctx = ControllerCtx {
-            channel_units: vec![
-                Some("K".to_owned()),
-                None,
-                Some("ohm".to_owned()),
-                None,
-                Some("V".to_owned()),
-            ],
-            ..Default::default()
-        };
-
-        let serialized = serde_json::to_string(&ctx).expect("serialization failed");
-        assert!(serialized.contains("\"K\""));
-        assert!(serialized.contains("\"ohm\""));
-        assert!(serialized.contains("\"V\""));
-
-        let deserialized: ControllerCtx =
-            serde_json::from_str(&serialized).expect("deserialization failed");
-        assert_eq!(
-            deserialized.channel_units,
-            vec![
-                Some("K".to_owned()),
-                None,
-                Some("ohm".to_owned()),
-                None,
-                Some("V".to_owned()),
-            ],
-        );
     }
 }

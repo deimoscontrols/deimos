@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::ops::Range;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -8,7 +7,7 @@ use super::{CalcOutputName, InterpMethod, SequenceLookup};
 
 /// A state in a SequenceMachine, defined by a set of time-dependent
 /// sequence lookups.
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct Sequence {
     /// Sequence interpolation data
     pub(super) data: BTreeMap<CalcOutputName, SequenceLookup>,
@@ -82,14 +81,10 @@ impl Sequence {
     }
 
     /// Run the interpolators for this timestep
-    pub fn eval(&self, sequence_time_s: f64, output_range: Range<usize>, tape: &mut [f64]) {
-        // First entry is sequence time
-        let time_ind = output_range.start;
-        tape[time_ind] = sequence_time_s;
-
-        // Later entries are lookup outputs
-        for (i, d) in output_range.skip(1).zip(self.data.values()) {
-            tape[i] = d.eval(sequence_time_s);
+    pub fn eval(&self, sequence_time_s: f64, outputs: &mut [f64]) {
+        outputs[0] = sequence_time_s;
+        for (output, lookup) in outputs[1..].iter_mut().zip(self.data.values()) {
+            *output = lookup.eval(sequence_time_s);
         }
     }
 

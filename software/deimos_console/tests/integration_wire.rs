@@ -1,15 +1,9 @@
 //! Integration test: wire-format end-to-end — Schema + Row flow through receiver.
 //!
-//! Verifies that unit labels declared on a calc-produced channel survive the full
-//! encode → UDP multicast → receive → decode pipeline. The test mimics what the
+//! Verifies that calc-produced channel names survive the full encode → UDP
+//! multicast → receive → decode pipeline. The test mimics what the
 //! `ReportingDispatcher` sends on the wire and confirms `receiver::spawn` produces
 //! correctly-decoded `Schema` and `Row` values on the channel it returns.
-//!
-//! # What is NOT tested here
-//!
-//! GUI axis-label rendering is visually verified during actual `hootl_with_console`
-//! operator runs (two-terminal invocation documented in
-//! `software/deimos/examples/hootl_with_console.rs`).
 //!
 //! # Multicast-via-loopback
 //!
@@ -37,11 +31,8 @@ const TEST_MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(239, 255, 42, 1);
 /// Port used only for this test.
 const TEST_PORT: u16 = 29574;
 
-/// Simulated `RtdPt100` channel names and units — representative of a calc-produced channel
-/// with a declared unit.  The unit-label invariant we are proving end-to-end is:
-///   `Some("K")` survives encode → multicast → decode without truncation or loss.
+/// Simulated `RtdPt100` channel names representative of calc-produced channels.
 const CHANNEL_NAMES: &[&str] = &["rtd_resistance_ohm", "rtd_temperature_K"];
-const CHANNEL_UNITS: &[Option<&str>] = &[Some("ohm"), Some("K")];
 
 fn make_config() -> DeimosConsoleConfig {
     DeimosConsoleConfig {
@@ -111,10 +102,6 @@ fn schema_and_row_flow_through_receiver() {
         // Build Schema — mirrors what ReportingDispatcher::init stores.
         let schema = ReportingMessage::Schema {
             channel_names: CHANNEL_NAMES.iter().map(|s| s.to_string()).collect(),
-            channel_units: CHANNEL_UNITS
-                .iter()
-                .map(|u| u.map(str::to_string))
-                .collect(),
             monotonic_epoch_ns: 1_713_530_000_000_000_000_u64,
             is_session_end: false,
         };
@@ -138,31 +125,12 @@ fn schema_and_row_flow_through_receiver() {
         .expect("Schema not received within 2 s");
 
     match &received_schema {
-        ReportingMessage::Schema {
-            channel_names,
-            channel_units,
-            ..
-        } => {
+        ReportingMessage::Schema { channel_names, .. } => {
             let expected_names: Vec<String> = CHANNEL_NAMES.iter().map(|s| s.to_string()).collect();
-            let expected_units: Vec<Option<String>> = CHANNEL_UNITS
-                .iter()
-                .map(|u| u.map(str::to_string))
-                .collect();
 
             assert_eq!(
                 *channel_names, expected_names,
                 "Schema channel names must survive encode → multicast → decode"
-            );
-            assert_eq!(
-                *channel_units, expected_units,
-                "Unit labels (e.g. \"K\" for temperature) must survive encode → multicast → decode"
-            );
-
-            // Spot-check the specific unit we care about for the RtdPt100 temperature channel.
-            assert_eq!(
-                channel_units[1],
-                Some("K".to_string()),
-                "temperature channel unit must be \"K\""
             );
         }
         other => panic!("expected Schema, got: {other:?}"),
@@ -215,8 +183,7 @@ fn late_joiner_receives_schema_within_reemit_window() {
         TEST_SCHEMA_PERIOD,
     );
 
-    let mut ctx = ControllerCtx::default();
-    ctx.channel_units = vec![Some("V".to_string()), None];
+    let ctx = ControllerCtx::default();
     let channel_names: Vec<String> = vec!["voltage_v".to_string(), "counter".to_string()];
 
     dispatcher
@@ -278,7 +245,6 @@ fn late_joiner_receives_schema_within_reemit_window() {
         match rx.recv_timeout(remaining) {
             Ok(ReportingMessage::Schema {
                 channel_names: names,
-                channel_units: units,
                 is_session_end,
                 ..
             }) => {
@@ -289,11 +255,6 @@ fn late_joiner_receives_schema_within_reemit_window() {
                 assert_eq!(
                     names, expected_names,
                     "re-emitted Schema must carry the same channel names as init"
-                );
-                assert_eq!(
-                    units,
-                    vec![Some("V".to_string()), None],
-                    "re-emitted Schema must carry the same channel units as init"
                 );
                 got_schema = true;
                 break;
@@ -369,7 +330,6 @@ fn receiver_skips_garbage_packet_and_delivers_valid_followup() {
 
     let schema = ReportingMessage::Schema {
         channel_names: vec!["ch0".to_string()],
-        channel_units: vec![Some("V".to_string())],
         monotonic_epoch_ns: 1,
         is_session_end: false,
     };
@@ -410,7 +370,6 @@ fn receiver_delivers_rows_in_order_through_gap_in_seq() {
 
     let schema = ReportingMessage::Schema {
         channel_names: vec!["a".to_string()],
-        channel_units: vec![None],
         monotonic_epoch_ns: 1,
         is_session_end: false,
     };
@@ -465,7 +424,6 @@ fn receiver_filters_garbage_from_mixed_stream_and_stays_alive() {
 
     let schema = ReportingMessage::Schema {
         channel_names: vec!["a".to_string(), "b".to_string()],
-        channel_units: vec![None, Some("K".to_string())],
         monotonic_epoch_ns: 1,
         is_session_end: false,
     };
@@ -540,7 +498,6 @@ fn receiver_filters_garbage_from_mixed_stream_and_stays_alive() {
     // the bad packets had killed the thread, this would time out.
     let final_schema = ReportingMessage::Schema {
         channel_names: vec!["c".to_string()],
-        channel_units: vec![None],
         monotonic_epoch_ns: 2,
         is_session_end: false,
     };

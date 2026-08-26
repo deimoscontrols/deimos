@@ -4,41 +4,19 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_input_names, calc_output_names, py_json_methods};
-use deimos_numerics::{
-    control::lti::butter,
-    embedded::fixed::lti::{DeltaSos as FixedDeltaSos, DeltaSosState as FixedDeltaSosState},
-};
+use crate::{calc_names, py_json_methods};
+use deimos_numerics::{control::lti::butter, embedded::fixed::lti::DeltaSos as FixedDeltaSos};
 
 const MAX_CUTOFF_RATIO: f64 = 0.4;
 
 type Butter2Filter = FixedDeltaSos<f64, 1, 1>;
-type Butter2FilterState = FixedDeltaSosState<f64, 1, 1>;
 
 /// Single-input, single-output Butterworth low-pass filter.
 #[cfg_attr(feature = "python", pyclass)]
 #[derive(Default, Serialize, Deserialize)]
 pub struct Butter2 {
-    // User inputs
     input_name: String,
     cutoff_hz: f64,
-
-    // Values provided by calc orchestrator during init
-    #[serde(skip)]
-    input_index: usize,
-
-    #[serde(skip)]
-    output_index: usize,
-
-    // Internal state
-    #[serde(skip)]
-    filt: Option<Butter2Filter>,
-
-    #[serde(skip)]
-    filt_state: Butter2FilterState,
-
-    #[serde(skip)]
-    initialized: bool,
 }
 
 impl core::fmt::Debug for Butter2 {
@@ -52,17 +30,9 @@ impl core::fmt::Debug for Butter2 {
 
 impl Butter2 {
     pub fn new(input_name: String, cutoff_hz: f64) -> Box<Self> {
-        let input_index = usize::MAX;
-        let output_index = usize::MAX;
-
         Box::new(Self {
             input_name,
             cutoff_hz,
-            input_index,
-            output_index,
-            filt: None,
-            filt_state: Butter2FilterState::default(),
-            initialized: false,
         })
     }
 }
@@ -78,20 +48,10 @@ py_json_methods!(
 
 #[typetag::serde]
 impl Calc for Butter2 {
-    fn init(
-        &mut self,
-        ctx: ControllerCtx,
-        input_indices: Vec<usize>,
-        output_range: Range<usize>,
-    ) -> Result<(), String> {
-        assert!(
-            ctx.dt_ns > 0,
-            "dt_ns value of {} provided. dt_ns must be > 0",
-            ctx.dt_ns
-        );
-
-        self.input_index = input_indices[0];
-        self.output_index = output_range.clone().next().unwrap();
+    fn init(&self, ctx: ControllerCtx) -> Result<CalcFn, String> {
+        if ctx.dt_ns == 0 {
+            return Err("Butter2 requires dt_ns to be greater than zero".to_owned());
+        }
 
         let sample_rate_hz = 1e9f64 / f64::from(ctx.dt_ns);
         let cutoff_ratio = (self.cutoff_hz / sample_rate_hz).min(MAX_CUTOFF_RATIO);
@@ -102,63 +62,26 @@ impl Calc for Butter2 {
         )
         .map_err(|err| format!("Failed to convert butter2 filter to fixed delta SOS: {err}"))?;
 
-        self.filt_state = filter.reset_state();
-        self.filt = Some(filter);
-        self.initialized = false;
-        Ok(())
-    }
-
-    fn terminate(&mut self) -> Result<(), String> {
-        self.input_index = usize::MAX;
-        self.output_index = usize::MAX;
-        self.filt = None;
-        self.filt_state = Butter2FilterState::default();
-        self.initialized = false;
-        Ok(())
-    }
-
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
-        let x = tape[self.input_index];
-        let filt = self
-            .filt
-            .as_ref()
-            .ok_or_else(|| "Butter2 must be initialized before eval".to_string())?;
-        let y = if branches::unlikely(!self.initialized) {
-            // Pass through the first value to avoid excessive timing
-            // on first cycle due to initialization
-            filt.set_steady_state(&mut self.filt_state, [x]);
-            self.initialized = true;
-            x
-        } else {
-            filt.step(&mut self.filt_state, [x])[0]
-        };
-        tape[self.output_index] = y;
-        Ok(())
-    }
-
-    fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
-        let mut map = BTreeMap::new();
-        map.insert("x".to_owned(), self.input_name.clone());
-        map
-    }
-
-    fn update_input_map(&mut self, field: &str, source: &str) -> Result<(), String> {
-        if field == "x" {
-            self.input_name = source.to_owned();
+        let mut filt_state = filter.reset_state();
+        let mut initialized = false;
+        Ok(Box::new(move |inputs, outputs| {
+            let x = inputs[0];
+            outputs[0] = if branches::unlikely(!initialized) {
+                filter.set_steady_state(&mut filt_state, [x]);
+                initialized = true;
+                x
+            } else {
+                filter.step(&mut filt_state, [x])[0]
+            };
             Ok(())
-        } else {
-            Err(format!("Unrecognized field {field}"))
-        }
+        }))
     }
 
-    calc_input_names!(x);
-    calc_output_names!(y);
-
-    // FUTURE: passthrough — a filtered voltage is still a voltage. Resolving to the input
-    // channel's unit requires `CalcOrchestrator` to pass channel units into `init`.
-    fn get_output_units(&self) -> Vec<Option<String>> {
-        vec![None]
+    fn input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
+        BTreeMap::from([("x".to_owned(), self.input_name.clone())])
     }
+
+    calc_names!((x), (y));
 }
 
 #[cfg(test)]
@@ -166,30 +89,26 @@ mod tests {
     use super::*;
     use crate::controller::context::ControllerCtx;
 
-    /// Running `terminate()` then `init()` must reset `Butter2` state to the same baseline,
-    /// so that two back-to-back sessions fed the same input sequence produce identical output.
+    /// Each evaluator must begin with fresh filter state.
     #[test]
-    fn butter2_state_resets_across_terminate_init() {
+    fn butter2_evaluators_have_independent_state() {
         let ctx = ControllerCtx {
             dt_ns: 50_000_000, // 20 Hz sample rate
             ..Default::default()
         };
 
-        let mut calc = Butter2::new("ignored".to_owned(), 5.0);
+        let calc = Butter2::new("ignored".to_owned(), 5.0);
 
-        // Input sits at tape[0], output at tape[1].
         let inputs: [f64; 8] = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
-        let mut tape = [0.0f64; 2];
 
-        let mut run = || -> Vec<f64> {
-            calc.init(ctx.clone(), vec![0], 1..2).unwrap();
+        let run = || -> Vec<f64> {
+            let mut evaluator = calc.init(ctx.clone()).unwrap();
             let mut out = Vec::with_capacity(inputs.len());
             for &x in &inputs {
-                tape[0] = x;
-                calc.eval(&mut tape).unwrap();
-                out.push(tape[1]);
+                let mut output = [0.0];
+                evaluator(&[x], &mut output).unwrap();
+                out.push(output[0]);
             }
-            calc.terminate().unwrap();
             out
         };
 
@@ -198,7 +117,7 @@ mod tests {
 
         assert_eq!(
             run1, run2,
-            "Butter2 output must match bit-for-bit across terminate+init; \
+            "Butter2 output must match bit-for-bit across fresh evaluators; \
              run1={run1:?} run2={run2:?}"
         );
 

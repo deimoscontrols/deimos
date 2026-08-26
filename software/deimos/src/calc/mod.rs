@@ -3,9 +3,9 @@
 //! `Calc` objects are registered with the `CalcOrchestrator` and serialized with the controller.
 //! Each calc is a function consuming any number of inputs and producing any number of outputs.
 use std::any::type_name;
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::iter::Iterator;
-use std::{collections::BTreeMap, ops::Range};
 
 use serde::{Deserialize, Serialize};
 
@@ -54,6 +54,13 @@ pub type CalcOutputName = String;
 pub type SrcIndex = usize;
 pub type DstIndex = usize;
 
+/// An initialized calc evaluator with fresh mutable state for one controller run.
+///
+/// Inputs and outputs are ordered according to [`Calc::names`]. Evaluators run
+/// synchronously in the control loop and must not allocate, block, perform I/O,
+/// or panic.
+pub type CalcFn = Box<dyn FnMut(&[f64], &mut [f64]) -> Result<(), String> + Send + Sync + 'static>;
+
 /// Clone isn't inherently object-safe, so to be able to clone dyn trait objects,
 /// we send it for a loop through the serde typetag system, which provides an
 /// automatically-assembled vtable to determine the downcasted type and clone into it.
@@ -65,169 +72,39 @@ impl Clone for Box<dyn Calc> {
     }
 }
 
-/// A calculation that takes some inputs and produces some outputs
-/// at each timestep, and may have some persistent internal state.
+/// Serializable calc configuration that can create a fresh evaluator for each run.
 #[typetag::serde(tag = "type")]
 pub trait Calc: Send + Sync + Debug {
-    /// Reset internal state and register calc tape indices
-    fn init(
-        &mut self,
-        ctx: ControllerCtx,
-        input_indices: Vec<usize>,
-        output_range: Range<usize>,
-    ) -> Result<(), String>;
-
-    /// Clear state to reset for another run
-    fn terminate(&mut self) -> Result<(), String>;
-
-    /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String>;
+    /// Validate configuration and create fresh mutable state for one run.
+    ///
+    /// Calling `init` repeatedly must produce independent evaluators without
+    /// changing this calc definition.
+    fn init(&self, ctx: ControllerCtx) -> Result<CalcFn, String>;
 
     /// Map from input field names (like `v`, without prefix) to the state name
     /// that the input should draw from (like `peripheral_0.output_1`, with prefix)
-    fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName>;
+    fn input_map(&self) -> BTreeMap<CalcInputName, FieldName>;
 
-    /// Change a value in the input map
-    fn update_input_map(&mut self, field: &str, source: &str) -> Result<(), String>;
-
-    //
-    // These are needed to maintain strict ordering for indexed evaluation
-
-    /// List of input field names in the order that they will be consumed
-    fn get_input_names(&self) -> Vec<CalcInputName>;
-
-    /// List of output field names in the order that they will be written out
-    fn get_output_names(&self) -> Vec<CalcOutputName>;
-
-    /// List of optional unit strings for each output, parallel to `get_output_names`.
-    /// Must return a `Vec` whose length equals `get_output_names().len()`.
-    /// `None` indicates the unit is unknown or not applicable for that output.
-    ///
-    /// The default implementation returns `vec![None; N]` where `N` is the number of outputs,
-    /// which is correct for calcs that do not transform engineering units (pass-through or
-    /// untyped outputs). Override when the calc declares concrete output units.
-    fn get_output_units(&self) -> Vec<Option<String>> {
-        vec![None; self.get_output_names().len()]
-    }
+    /// Return input and output names in evaluation order.
+    fn names(&self) -> (Vec<CalcInputName>, Vec<CalcOutputName>);
 
     /// Get the type name, which is guaranteed to be unique among implementations of the trait
     /// because of the use of a global vtable for serialization, and guaranteed not to include
     /// non-'static lifetimes due to trait bounds.
     fn kind(&self) -> String {
-        type_name::<Self>().split(":").last().unwrap().into()
+        type_name::<Self>().split(':').next_back().unwrap().into()
     }
 }
 
-/// Build function for getting calc input field names
+/// Build `Calc::names` for calcs with statically named inputs and outputs.
 #[macro_export]
-macro_rules! calc_input_names {
-    ($( $field:ident ),*) => {
-        /// List of input field names in the order that they will be consumed
-        fn get_input_names(&self) -> Vec<CalcInputName> {
-            #[allow(unused_mut)]
-            let mut names = vec![];
-            $({
-                names.push(stringify!($field).to_owned());
-            })*
-
-            names
+macro_rules! calc_names {
+    (($($input:ident),*), ($($output:ident),*)) => {
+        fn names(&self) -> (Vec<CalcInputName>, Vec<CalcOutputName>) {
+            (
+                vec![$(stringify!($input).to_owned()),*],
+                vec![$(stringify!($output).to_owned()),*],
+            )
         }
-    }
-}
-
-/// Build function for getting calc output field names
-#[macro_export]
-macro_rules! calc_output_names {
-    ($( $field:ident ),*) => {
-        /// List of input field names in the order that they will be consumed
-        fn get_output_names(&self) -> Vec<CalcOutputName> {
-            let mut names = vec![];
-            $({
-                names.push(stringify!($field).to_owned());
-            })*
-
-            names
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn assert_units_len_matches_names_len(calc: &dyn Calc) {
-        assert_eq!(
-            calc.get_output_units().len(),
-            calc.get_output_names().len(),
-            "get_output_units().len() != get_output_names().len() for {}",
-            calc.kind()
-        );
-    }
-
-    #[test]
-    fn affine_units_len_matches_names_len() {
-        let calc = Affine::new("x".to_owned(), 1.0, 0.0);
-        assert_units_len_matches_names_len(&*calc);
-    }
-
-    #[test]
-    fn inverse_affine_units_len_matches_names_len() {
-        let calc = InverseAffine::new("x".to_owned(), 1.0, 0.0);
-        assert_units_len_matches_names_len(&*calc);
-    }
-
-    #[test]
-    fn polynomial_units_len_matches_names_len() {
-        let calc = Polynomial::new("x".to_owned(), vec![1.0, 2.0], String::new());
-        assert_units_len_matches_names_len(&*calc);
-    }
-
-    #[test]
-    fn constant_units_len_matches_names_len() {
-        let calc = Constant::new(0.0);
-        assert_units_len_matches_names_len(&*calc);
-    }
-
-    #[test]
-    fn hysteretic_units_len_matches_names_len() {
-        let calc = Hysteretic::new("v".to_owned(), 0.0, 1.0, 1);
-        assert_units_len_matches_names_len(&*calc);
-    }
-
-    #[test]
-    fn sin_units_len_matches_names_len() {
-        let calc = Sin::new(1.0, 0.0, -1.0, 1.0);
-        assert_units_len_matches_names_len(&*calc);
-    }
-
-    #[test]
-    fn butter2_units_len_matches_names_len() {
-        let calc = Butter2::new("x".to_owned(), 10.0);
-        assert_units_len_matches_names_len(&*calc);
-    }
-
-    #[test]
-    fn pid_units_len_matches_names_len() {
-        let calc = Pid::new(
-            "measurement".to_owned(),
-            "setpoint".to_owned(),
-            1.0,
-            0.0,
-            0.0,
-            100.0,
-        );
-        assert_units_len_matches_names_len(&*calc);
-    }
-
-    #[test]
-    fn rtd_pt100_units_len_matches_names_len() {
-        let calc = RtdPt100::new("resistance_ohm".to_owned());
-        assert_units_len_matches_names_len(&*calc);
-    }
-
-    #[test]
-    fn tc_ktype_units_len_matches_names_len() {
-        let calc = TcKtype::new("voltage_V".to_owned(), "cold_junction_K".to_owned());
-        assert_units_len_matches_names_len(&*calc);
     }
 }

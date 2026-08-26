@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 
 use super::*;
 use crate::{
-    calc_input_names, calc_output_names,
+    calc_names,
     math::{polyfit, polyval},
     py_json_methods,
 };
@@ -21,15 +21,6 @@ pub struct Polynomial {
     input_name: String,
     coefficients: Vec<f64>,
     note: String,
-    #[serde(default)]
-    output_unit: Option<String>,
-
-    // Values provided by calc orchestrator during init
-    #[serde(skip)]
-    input_index: usize,
-
-    #[serde(skip)]
-    output_index: usize,
 }
 
 impl Polynomial {
@@ -38,16 +29,7 @@ impl Polynomial {
             input_name,
             coefficients,
             note,
-            output_unit: None,
-            input_index: usize::MAX,
-            output_index: usize::MAX,
         })
-    }
-
-    /// Attach an output unit label (builder method).
-    pub fn with_output_unit(mut self: Box<Self>, unit: impl Into<String>) -> Box<Self> {
-        self.output_unit = Some(unit.into());
-        self
     }
 
     pub fn fit_from_points(
@@ -66,73 +48,27 @@ py_json_methods!(
     Polynomial,
     Calc,
     #[new]
-    #[pyo3(signature = (input_name, coefficients, note, output_unit = None))]
-    fn py_new(
-        input_name: String,
-        coefficients: Vec<f64>,
-        note: String,
-        output_unit: Option<String>,
-    ) -> Self {
-        let mut calc = Self::new(input_name, coefficients, note);
-        calc.output_unit = output_unit;
-        *calc
+    fn py_new(input_name: String, coefficients: Vec<f64>, note: String) -> Self {
+        *Self::new(input_name, coefficients, note)
     }
 );
 
 #[typetag::serde]
 impl Calc for Polynomial {
-    fn init(
-        &mut self,
-        _: ControllerCtx,
-        input_indices: Vec<usize>,
-        output_range: Range<usize>,
-    ) -> Result<(), String> {
+    fn init(&self, _: ControllerCtx) -> Result<CalcFn, String> {
         if self.coefficients.is_empty() {
             return Err("Polynomial coefficients cannot be empty".to_string());
         }
-        self.input_index = input_indices
-            .first()
-            .copied()
-            .ok_or_else(|| "Polynomial calc missing input index".to_string())?;
-        self.output_index = output_range
-            .clone()
-            .next()
-            .ok_or_else(|| "Polynomial calc missing output index".to_string())?;
-        Ok(())
-    }
-
-    fn terminate(&mut self) -> Result<(), String> {
-        self.input_index = usize::MAX;
-        self.output_index = usize::MAX;
-        Ok(())
-    }
-
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
-        let x = tape[self.input_index];
-        let y = polyval(x, &self.coefficients);
-        tape[self.output_index] = y;
-        Ok(())
-    }
-
-    fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
-        let mut map = BTreeMap::new();
-        map.insert("x".to_owned(), self.input_name.clone());
-        map
-    }
-
-    fn update_input_map(&mut self, field: &str, source: &str) -> Result<(), String> {
-        if field == "x" {
-            self.input_name = source.to_owned();
+        let coefficients = self.coefficients.clone();
+        Ok(Box::new(move |inputs, outputs| {
+            outputs[0] = polyval(inputs[0], &coefficients);
             Ok(())
-        } else {
-            Err(format!("Unrecognized field {field}"))
-        }
+        }))
     }
 
-    fn get_output_units(&self) -> Vec<Option<String>> {
-        vec![self.output_unit.clone()]
+    fn input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
+        BTreeMap::from([("x".to_owned(), self.input_name.clone())])
     }
 
-    calc_input_names!(x);
-    calc_output_names!(y);
+    calc_names!((x), (y));
 }

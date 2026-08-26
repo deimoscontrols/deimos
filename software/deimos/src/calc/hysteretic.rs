@@ -4,7 +4,7 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_input_names, calc_output_names, py_json_methods};
+use crate::{calc_names, py_json_methods};
 
 /// The state machine output, together with the number of consecutive cycles
 /// spent beyond the threshold that would change that output.
@@ -54,23 +54,6 @@ impl Machine {
         }
     }
 
-    fn reset(
-        &mut self,
-        low_thresh: f64,
-        high_thresh: f64,
-        persistence: u32,
-        value_when_low: f64,
-        value_when_high: f64,
-    ) {
-        *self = Self::new(
-            low_thresh,
-            high_thresh,
-            persistence,
-            value_when_low,
-            value_when_high,
-        );
-    }
-
     /// Advance the controller by one cycle using the latest input value.
     fn step(&mut self, v: f64) -> f64 {
         self.state = match self.state {
@@ -117,17 +100,6 @@ pub struct Hysteretic {
     persistence: u32,
     value_when_low: f64,
     value_when_high: f64,
-
-    // Internal state
-    #[serde(skip)]
-    machine: Machine,
-
-    // Values provided by the calc orchestrator during init
-    #[serde(skip)]
-    input_index: usize,
-
-    #[serde(skip)]
-    output_index: usize,
 }
 
 impl Default for Hysteretic {
@@ -139,9 +111,6 @@ impl Default for Hysteretic {
             persistence: 0,
             value_when_low: 1.0,
             value_when_high: 0.0,
-            machine: Machine::default(),
-            input_index: usize::MAX,
-            output_index: usize::MAX,
         }
     }
 }
@@ -171,15 +140,6 @@ impl Hysteretic {
             persistence,
             value_when_low,
             value_when_high,
-            machine: Machine::new(
-                low_thresh,
-                high_thresh,
-                persistence,
-                value_when_low,
-                value_when_high,
-            ),
-            input_index: usize::MAX,
-            output_index: usize::MAX,
         })
     }
 
@@ -226,59 +186,26 @@ py_json_methods!(
 
 #[typetag::serde]
 impl Calc for Hysteretic {
-    fn init(
-        &mut self,
-        _: ControllerCtx,
-        input_indices: Vec<usize>,
-        output_range: Range<usize>,
-    ) -> Result<(), String> {
+    fn init(&self, _: ControllerCtx) -> Result<CalcFn, String> {
         Self::validate_config(self.low_thresh, self.high_thresh)?;
-        self.input_index = input_indices[0];
-        self.output_index = output_range.clone().next().unwrap();
-        self.machine.reset(
+        let mut machine = Machine::new(
             self.low_thresh,
             self.high_thresh,
             self.persistence,
             self.value_when_low,
             self.value_when_high,
         );
-        Ok(())
+        Ok(Box::new(move |inputs, outputs| {
+            outputs[0] = machine.step(inputs[0]);
+            Ok(())
+        }))
     }
 
-    fn terminate(&mut self) -> Result<(), String> {
-        self.machine.reset(
-            self.low_thresh,
-            self.high_thresh,
-            self.persistence,
-            self.value_when_low,
-            self.value_when_high,
-        );
-        self.input_index = usize::MAX;
-        self.output_index = usize::MAX;
-        Ok(())
-    }
-
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
-        let v = tape[self.input_index];
-        tape[self.output_index] = self.machine.step(v);
-        Ok(())
-    }
-
-    fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
+    fn input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
         BTreeMap::from([("v".to_owned(), self.input_name.clone())])
     }
 
-    fn update_input_map(&mut self, field: &str, source: &str) -> Result<(), String> {
-        if field == "v" {
-            self.input_name = source.to_owned();
-            Ok(())
-        } else {
-            Err(format!("Unrecognized field {field}"))
-        }
-    }
-
-    calc_input_names!(v);
-    calc_output_names!(y);
+    calc_names!((v), (y));
 }
 
 #[cfg(test)]
@@ -321,41 +248,40 @@ mod tests {
 
     #[test]
     fn zero_persistence_switches_immediately() {
-        let mut calc = Hysteretic::new("source".to_owned(), 2.0, 8.0, 0);
+        let calc = Hysteretic::new("source".to_owned(), 2.0, 8.0, 0);
 
         assert_eq!(calc.persistence, 0);
-
-        assert_eq!(calc.machine.step(1.0), 1.0);
-        assert_eq!(calc.machine.step(9.0), 0.0);
+        let mut evaluator = calc.init(ControllerCtx::default()).unwrap();
+        let mut outputs = [0.0];
+        evaluator(&[1.0], &mut outputs).unwrap();
+        assert_eq!(outputs[0], 1.0);
+        evaluator(&[9.0], &mut outputs).unwrap();
+        assert_eq!(outputs[0], 0.0);
     }
 
     #[test]
     fn supports_custom_and_inverted_output_values() {
-        let mut calc = Hysteretic::new_with_values("source".to_owned(), 2.0, 8.0, 0, -4.0, 12.5);
-
-        assert_eq!(calc.machine.step(5.0), 12.5);
-        assert_eq!(calc.machine.step(1.0), -4.0);
-        assert_eq!(calc.machine.step(5.0), -4.0);
-        assert_eq!(calc.machine.step(9.0), 12.5);
+        let calc = Hysteretic::new_with_values("source".to_owned(), 2.0, 8.0, 0, -4.0, 12.5);
+        let mut evaluator = calc.init(ControllerCtx::default()).unwrap();
+        let mut outputs = [0.0];
+        for (input, expected) in [(5.0, 12.5), (1.0, -4.0), (5.0, -4.0), (9.0, 12.5)] {
+            evaluator(&[input], &mut outputs).unwrap();
+            assert_eq!(outputs[0], expected);
+        }
     }
 
     #[test]
-    fn calc_lifecycle_resets_the_machine() {
-        let mut calc = Hysteretic::new("source".to_owned(), 2.0, 8.0, 2);
-        let mut tape = [0.0; 2];
+    fn each_evaluator_has_fresh_state() {
+        let calc = Hysteretic::new("source".to_owned(), 2.0, 8.0, 2);
+        let mut outputs = [0.0];
+        let mut first = calc.init(ControllerCtx::default()).unwrap();
+        for expected in [0.0, 0.0, 1.0] {
+            first(&[1.0], &mut outputs).unwrap();
+            assert_eq!(outputs[0], expected);
+        }
 
-        calc.init(ControllerCtx::default(), vec![0], 1..2).unwrap();
-        tape[0] = 1.0;
-        calc.eval(&mut tape).unwrap();
-        assert_eq!(tape[1], 0.0);
-        calc.eval(&mut tape).unwrap();
-        assert_eq!(tape[1], 0.0);
-        calc.eval(&mut tape).unwrap();
-        assert_eq!(tape[1], 1.0);
-
-        calc.terminate().unwrap();
-        calc.init(ControllerCtx::default(), vec![0], 1..2).unwrap();
-        calc.eval(&mut tape).unwrap();
-        assert_eq!(tape[1], 0.0);
+        let mut second = calc.init(ControllerCtx::default()).unwrap();
+        second(&[1.0], &mut outputs).unwrap();
+        assert_eq!(outputs[0], 0.0);
     }
 }

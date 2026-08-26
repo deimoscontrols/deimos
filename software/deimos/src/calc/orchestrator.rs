@@ -18,8 +18,8 @@ struct CalcOrchestratorState {
     /// Notably does not include peripheral metrics.
     calc_tape: Vec<f64>,
 
-    /// Calc names in the order that they are evaluated at each cycle
-    eval_order: Vec<CalcName>,
+    /// Initialized evaluators in dependency order.
+    running_calcs: Vec<RunningCalc>,
 
     /// Names of states to dispatch
     dispatch_names: Vec<FieldName>,
@@ -41,6 +41,13 @@ struct CalcOrchestratorState {
 
     /// Peripheral input fields that can be written manually, and their indices.
     manual_input_indices: BTreeMap<FieldName, usize>,
+}
+
+struct RunningCalc {
+    evaluator: CalcFn,
+    input_indices: Vec<usize>,
+    inputs: Vec<f64>,
+    output_range: Range<usize>,
 }
 
 #[derive(Clone)]
@@ -130,9 +137,8 @@ fn dot_record_label(center: &str, inputs: &[String], outputs: &[String]) -> Stri
 ///
 /// The method used for evaluating these calcs borrows from algorithmic differentiation
 /// by flattening the calc expression graph into a serial "tape" of values with an established
-/// evaluation order. During init, each calc is provided with the indices of the tape
-/// where its inputs and outputs will be placed. During evaluation, each calc is responsible
-/// for using those indices to read its inputs and write its outputs.
+/// evaluation order. The orchestrator owns tape indices and copies each calc's inputs into a
+/// contiguous buffer before passing that buffer and a contiguous output slice to its evaluator.
 #[derive(Serialize, Deserialize, Default)]
 pub(crate) struct CalcOrchestrator {
     calcs: BTreeMap<CalcName, Box<dyn Calc>>,
@@ -151,12 +157,14 @@ impl CalcOrchestrator {
     /// * If evaluation of individual calcs panics
     #[inline]
     pub fn eval(&mut self) -> Result<(), String> {
-        // Evaluate calcs in order
-        for name in self.state.eval_order.iter() {
-            self.calcs
-                .get_mut(name)
-                .unwrap()
-                .eval(&mut self.state.calc_tape)?;
+        for running in &mut self.state.running_calcs {
+            for (input, index) in running.inputs.iter_mut().zip(&running.input_indices) {
+                *input = self.state.calc_tape[*index];
+            }
+            (running.evaluator)(
+                &running.inputs,
+                &mut self.state.calc_tape[running.output_range.clone()],
+            )?;
         }
 
         // Populate peripheral inputs
@@ -235,28 +243,6 @@ impl CalcOrchestrator {
     /// Get names of fields marked to dispatch
     pub fn get_dispatch_names(&self) -> Vec<String> {
         self.state.dispatch_names.clone()
-    }
-
-    /// Get units of fields marked to dispatch, in the same order as `get_dispatch_names`.
-    ///
-    /// Returns `None` for peripheral inputs and outputs (which carry no declared unit) and for
-    /// calc outputs whose calc does not override `get_output_units`.
-    pub fn get_dispatch_units(&self) -> Vec<Option<String>> {
-        self.state
-            .dispatch_names
-            .iter()
-            .map(|field_name| {
-                // Field names are "node_name.output_name". Split on the first `.`.
-                let (node_name, output_name) = match field_name.split_once('.') {
-                    Some(parts) => parts,
-                    None => return None,
-                };
-                let calc = self.calcs.get(node_name)?;
-                let output_names = calc.get_output_names();
-                let output_index = output_names.iter().position(|n| n == output_name)?;
-                calc.get_output_units().get(output_index)?.clone()
-            })
-            .collect()
     }
 
     /// Add a calc
@@ -341,8 +327,7 @@ impl CalcOrchestrator {
         dot.push_str("    label=\"calcs\";\n");
         for (calc_name, calc) in self.calcs.iter() {
             let node_id = format!("calc::{calc_name}");
-            let input_names = calc.get_input_names();
-            let output_names = calc.get_output_names();
+            let (input_names, output_names) = calc.names();
             let label = dot_record_label(calc_name, &input_names, &output_names);
             let _ = writeln!(dot, "    {} [label=\"{}\"];", dot_quote_id(&node_id), label);
 
@@ -461,8 +446,8 @@ impl CalcOrchestrator {
 
         // Add calc edges
         for (calc_name, calc) in self.calcs.iter() {
-            let input_map = calc.get_input_map();
-            for input_name in calc.get_input_names() {
+            let input_map = calc.input_map();
+            for input_name in calc.names().0 {
                 let key = format!("{calc_name}.{input_name}");
                 let Some(dst) = calc_input_ports.get(&key) else {
                     continue;
@@ -552,7 +537,7 @@ impl CalcOrchestrator {
         for (name, calc) in self.calcs.iter() {
             let mut calc_parents = Vec::new();
 
-            for field_name in calc.get_input_map().values() {
+            for field_name in calc.input_map().values() {
                 let node = get_node_name(field_name);
                 if self.calcs.contains_key(&node) {
                     calc_parents.push(node);
@@ -626,6 +611,10 @@ impl CalcOrchestrator {
         ctx: ControllerCtx,
         peripherals: &BTreeMap<String, Box<dyn Peripheral>>,
     ) -> Result<(), String> {
+        // End any previous run before assembling fresh evaluators. If assembly
+        // fails, locally-created evaluators are dropped and state remains empty.
+        self.state = CalcOrchestratorState::default();
+
         // These will be stored
         let mut peripheral_output_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
         let mut peripheral_input_slices: BTreeMap<PeripheralName, Range<usize>> = BTreeMap::new();
@@ -634,6 +623,7 @@ impl CalcOrchestrator {
 
         let mut dispatch_names: Vec<FieldName> = Vec::new();
         let mut dispatch_indices: Vec<usize> = Vec::new();
+        let mut running_calcs = Vec::with_capacity(self.calcs.len());
 
         // Check names for collisions and formatting
         //   Collate names of peripherals and calcs
@@ -703,20 +693,33 @@ impl CalcOrchestrator {
         }
         //    Calcs, in eval order
         for calc_name in &eval_order {
-            // Unpack
             let calc = self
                 .calcs
-                .get_mut(calc_name)
+                .get(calc_name)
                 .ok_or_else(|| format!("Calc `{calc_name}` missing from registry"))?;
-            let input_map = calc.get_input_map();
-            let input_names = &calc.get_input_names();
-            let output_names = &calc.get_output_names();
+            let input_map = calc.input_map();
+            let (input_names, output_names) = calc.names();
             let n_outputs = output_names.len();
+
+            let unique_inputs: BTreeSet<_> = input_names.iter().collect();
+            if unique_inputs.len() != input_names.len() {
+                return Err(format!("Calc `{calc_name}` has duplicate input names"));
+            }
+            let unique_outputs: BTreeSet<_> = output_names.iter().collect();
+            if unique_outputs.len() != output_names.len() {
+                return Err(format!("Calc `{calc_name}` has duplicate output names"));
+            }
+            let mapped_inputs: BTreeSet<_> = input_map.keys().collect();
+            if unique_inputs != mapped_inputs {
+                return Err(format!(
+                    "Calc `{calc_name}` input map keys must exactly match its input names"
+                ));
+            }
 
             // Find input indices from the part of the map that has
             // been built so far
             let mut input_indices = Vec::new();
-            for input_name in input_names {
+            for input_name in &input_names {
                 let src_field = input_map.get(input_name).ok_or_else(|| {
                     format!("Calc `{calc_name}` missing mapping for input `{input_name}`")
                 })?;
@@ -732,7 +735,7 @@ impl CalcOrchestrator {
             let output_range = start..end;
 
             // Set output order
-            for (i, output_name) in (start..).zip(output_names.iter()) {
+            for (i, output_name) in (start..).zip(&output_names) {
                 let output_field = format!("{calc_name}.{output_name}");
                 fields_order.push(output_field.clone());
                 field_index_map.insert(output_field.clone(), i);
@@ -743,8 +746,15 @@ impl CalcOrchestrator {
                 dispatch_indices.push(i);
             }
 
-            // Initialize this calc
-            calc.init(ctx.clone(), input_indices, output_range)?;
+            let evaluator = calc
+                .init(ctx.clone())
+                .map_err(|err| format!("Failed to initialize calc `{calc_name}`: {err}"))?;
+            running_calcs.push(RunningCalc {
+                evaluator,
+                inputs: vec![0.0; input_indices.len()],
+                input_indices,
+                output_range,
+            });
         }
 
         // Find the indices of fields that will be given to the peripherals
@@ -779,7 +789,7 @@ impl CalcOrchestrator {
         // Take new internal state
         self.state = CalcOrchestratorState {
             calc_tape,
-            eval_order,
+            running_calcs,
             dispatch_names,
             dispatch_indices,
             peripheral_output_slices,
@@ -793,26 +803,51 @@ impl CalcOrchestrator {
     /// Clear state to reset for another run
     pub fn terminate(&mut self) -> Result<(), String> {
         self.state = CalcOrchestratorState::default();
-        let mut errors = Vec::new();
-        for (name, calc) in self.calcs.iter_mut() {
-            if let Err(e) = calc.terminate() {
-                errors.push(format!("\n  {name}: {e}"));
-            }
-        }
-
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(format!("Failed to terminate calcs: {}", errors.join("")))
-        }
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::calc::Affine;
+    use crate::calc::{Affine, Hysteretic};
     use crate::peripheral::AnalogIRev3;
+
+    #[derive(Debug, Default, Serialize, Deserialize)]
+    struct BrokenCalc {
+        input_map: BTreeMap<CalcInputName, FieldName>,
+        input_names: Vec<CalcInputName>,
+        output_names: Vec<CalcOutputName>,
+    }
+
+    #[typetag::serde]
+    impl Calc for BrokenCalc {
+        fn init(&self, _: ControllerCtx) -> Result<CalcFn, String> {
+            Ok(Box::new(|_, _| Ok(())))
+        }
+
+        fn input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
+            self.input_map.clone()
+        }
+
+        fn names(&self) -> (Vec<CalcInputName>, Vec<CalcOutputName>) {
+            (self.input_names.clone(), self.output_names.clone())
+        }
+    }
+
+    fn peripherals() -> BTreeMap<String, Box<dyn Peripheral>> {
+        BTreeMap::from([(
+            "p".to_owned(),
+            Box::new(AnalogIRev3 { serial_number: 1 }) as _,
+        )])
+    }
+
+    fn dispatch_values(orchestrator: &CalcOrchestrator) -> BTreeMap<String, f64> {
+        let names = orchestrator.get_dispatch_names();
+        let mut values = Vec::new();
+        orchestrator.provide_dispatcher_outputs(|iter| values.extend(iter));
+        names.into_iter().zip(values).collect()
+    }
 
     #[test]
     fn graph_and_dispatch_include_all_calc_outputs() {
@@ -821,10 +856,7 @@ mod tests {
         orchestrator.add_calc("c1", Affine::new("c0.y".to_owned(), 2.0, 0.0));
         orchestrator.set_peripheral_input_source("p.pwm0_duty", "c1.y");
 
-        let peripherals: BTreeMap<String, Box<dyn Peripheral>> = BTreeMap::from([(
-            "p".to_owned(),
-            Box::new(AnalogIRev3 { serial_number: 1 }) as _,
-        )]);
+        let peripherals = peripherals();
 
         let dot = orchestrator.graphviz_dot(&peripherals);
 
@@ -837,5 +869,83 @@ mod tests {
             .unwrap();
         assert!(orchestrator.state.dispatch_names.contains(&"c0.y".into()));
         assert!(orchestrator.state.dispatch_names.contains(&"c1.y".into()));
+    }
+
+    #[test]
+    fn eval_gathers_inputs_and_routes_outputs() {
+        let mut orchestrator = CalcOrchestrator::default();
+        orchestrator.add_calc("c0", Affine::new("p.ain1".to_owned(), 2.0, 1.0));
+        orchestrator.add_calc("c1", Affine::new("c0.y".to_owned(), 3.0, -2.0));
+        let peripherals = peripherals();
+        orchestrator
+            .init(ControllerCtx::default(), &peripherals)
+            .unwrap();
+        orchestrator.consume_peripheral_outputs("p", &mut |outputs| {
+            outputs[1] = 4.0;
+            OperatingMetrics::default()
+        });
+
+        orchestrator.eval().unwrap();
+
+        let values = dispatch_values(&orchestrator);
+        assert_eq!(values["c0.y"], 9.0);
+        assert_eq!(values["c1.y"], 25.0);
+    }
+
+    #[test]
+    fn reinitializing_builds_fresh_calc_state() {
+        let mut orchestrator = CalcOrchestrator::default();
+        orchestrator.add_calc("h", Hysteretic::new("p.ain0".to_owned(), 2.0, 8.0, 1));
+        let peripherals = peripherals();
+
+        let run_low_cycle = |orchestrator: &mut CalcOrchestrator| {
+            orchestrator.consume_peripheral_outputs("p", &mut |outputs| {
+                outputs[0] = 1.0;
+                OperatingMetrics::default()
+            });
+            orchestrator.eval().unwrap();
+            dispatch_values(orchestrator)["h.y"]
+        };
+
+        orchestrator
+            .init(ControllerCtx::default(), &peripherals)
+            .unwrap();
+        assert_eq!(run_low_cycle(&mut orchestrator), 0.0);
+        assert_eq!(run_low_cycle(&mut orchestrator), 1.0);
+
+        orchestrator
+            .init(ControllerCtx::default(), &peripherals)
+            .unwrap();
+        assert_eq!(run_low_cycle(&mut orchestrator), 0.0);
+    }
+
+    #[test]
+    fn init_rejects_calc_shape_contract_violations() {
+        let mut duplicate_outputs = CalcOrchestrator::default();
+        duplicate_outputs.add_calc(
+            "broken",
+            Box::new(BrokenCalc {
+                output_names: vec!["y".to_owned(), "y".to_owned()],
+                ..Default::default()
+            }),
+        );
+        let err = duplicate_outputs
+            .init(ControllerCtx::default(), &BTreeMap::new())
+            .unwrap_err();
+        assert!(err.contains("duplicate output names"));
+
+        let mut mismatched_map = CalcOrchestrator::default();
+        mismatched_map.add_calc(
+            "broken",
+            Box::new(BrokenCalc {
+                input_names: vec!["x".to_owned()],
+                output_names: vec!["y".to_owned()],
+                ..Default::default()
+            }),
+        );
+        let err = mismatched_map
+            .init(ControllerCtx::default(), &BTreeMap::new())
+            .unwrap_err();
+        assert!(err.contains("input map keys must exactly match"));
     }
 }

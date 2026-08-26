@@ -361,19 +361,35 @@ class _CalcModule(ModuleType):
             input_name: str,
             slope: float,
             offset: float,
-            save_outputs: bool,
         ) -> None: ...
 
     class Butter2(_CalcBase):
         """Single-input, single-output Butterworth low-pass
         filter."""
-        def __init__(
-            self, input_name: str, cutoff_hz: float, save_outputs: bool
-        ) -> None: ...
+        def __init__(self, input_name: str, cutoff_hz: float) -> None: ...
 
     class Constant(_CalcBase):
         """Simplest calc that does anything at all."""
-        def __init__(self, y: float, save_outputs: bool) -> None: ...
+        def __init__(self, y: float) -> None: ...
+
+    class Hysteretic(_CalcBase):
+        """A hysteretic bang-bang controller."""
+        def __init__(
+            self,
+            input_name: str,
+            low_thresh: float,
+            high_thresh: float,
+            persistence: int,
+        ) -> None: ...
+        @staticmethod
+        def new_with_values(
+            input_name: str,
+            low_thresh: float,
+            high_thresh: float,
+            persistence: int,
+            value_when_low: float,
+            value_when_high: float,
+        ) -> Self: ...
 
     class InverseAffine(_CalcBase):
         """Derive input voltage from linear amplifier reading.
@@ -385,7 +401,6 @@ class _CalcModule(ModuleType):
             input_name: str,
             slope: float,
             offset: float,
-            save_outputs: bool,
         ) -> None: ...
 
     class Pid(_CalcBase):
@@ -398,7 +413,6 @@ class _CalcModule(ModuleType):
             ki: float,
             kd: float,
             max_integral: float,
-            save_outputs: bool,
         ) -> None: ...
 
     class Polynomial(_CalcBase):
@@ -413,12 +427,11 @@ class _CalcModule(ModuleType):
             input_name: str,
             coefficients: list[float],
             note: str,
-            save_outputs: bool,
         ) -> None: ...
 
     class RtdPt100(_CalcBase):
         """Derive input voltage from amplifier output."""
-        def __init__(self, resistance_name: str, save_outputs: bool) -> None: ...
+        def __init__(self, resistance_name: str) -> None: ...
 
     class Sin(_CalcBase):
         """Sin wave between `low` and `high` with a period of `period_s`
@@ -429,7 +442,6 @@ class _CalcModule(ModuleType):
             offset_s: float,
             low: float,
             high: float,
-            save_outputs: bool,
         ) -> None: ...
 
     class TcKtype(_CalcBase):
@@ -440,7 +452,6 @@ class _CalcModule(ModuleType):
             self,
             voltage_name: str,
             cold_junction_temperature_name: str,
-            save_outputs: bool,
         ) -> None: ...
 
     class SequenceMachineInner(_CalcBase):

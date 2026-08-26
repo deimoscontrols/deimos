@@ -12,7 +12,6 @@ class Affine(_CalcBase):
         input_name: str,
         slope: float,
         offset: float,
-        save_outputs: bool,
     ) -> None: ...
 
 class Butter2(_CalcBase):
@@ -21,12 +20,30 @@ class Butter2(_CalcBase):
         self,
         input_name: str,
         cutoff_hz: float,
-        save_outputs: bool,
     ) -> None: ...
 
 class Constant(_CalcBase):
     """Simplest calc that does anything at all."""
-    def __init__(self, y: float, save_outputs: bool) -> None: ...
+    def __init__(self, y: float) -> None: ...
+
+class Hysteretic(_CalcBase):
+    """A hysteretic bang-bang controller."""
+    def __init__(
+        self,
+        input_name: str,
+        low_thresh: float,
+        high_thresh: float,
+        persistence: int,
+    ) -> None: ...
+    @staticmethod
+    def new_with_values(
+        input_name: str,
+        low_thresh: float,
+        high_thresh: float,
+        persistence: int,
+        value_when_low: float,
+        value_when_high: float,
+    ) -> Self: ...
 
 class InverseAffine(_CalcBase):
     """Derive input voltage from linear amplifier reading.
@@ -38,7 +55,6 @@ class InverseAffine(_CalcBase):
         input_name: str,
         slope: float,
         offset: float,
-        save_outputs: bool,
     ) -> None: ...
 
 class Pid(_CalcBase):
@@ -51,7 +67,6 @@ class Pid(_CalcBase):
         ki: float,
         kd: float,
         max_integral: float,
-        save_outputs: bool,
     ) -> None: ...
 
 class Polynomial(_CalcBase):
@@ -65,12 +80,11 @@ class Polynomial(_CalcBase):
         input_name: str,
         coefficients: list[float],
         note: str,
-        save_outputs: bool,
     ) -> None: ...
 
 class RtdPt100(_CalcBase):
     """Derive temperature from a Pt100 RTD resistance reading."""
-    def __init__(self, resistance_name: str, save_outputs: bool) -> None: ...
+    def __init__(self, resistance_name: str) -> None: ...
 
 class Sin(_CalcBase):
     """Sin wave between `low` and `high` with a period and phase offset."""
@@ -80,7 +94,6 @@ class Sin(_CalcBase):
         offset_s: float,
         low: float,
         high: float,
-        save_outputs: bool,
     ) -> None: ...
 
 class TcKtype(_CalcBase):
@@ -89,7 +102,6 @@ class TcKtype(_CalcBase):
         self,
         voltage_name: str,
         cold_junction_temperature_name: str,
-        save_outputs: bool,
     ) -> None: ...
 
 InterpMethod = Literal["linear", "left", "right", "nearest"]
@@ -170,6 +182,7 @@ __all__ = [
     "Affine",
     "Butter2",
     "Constant",
+    "Hysteretic",
     "InverseAffine",
     "Pid",
     "Polynomial",

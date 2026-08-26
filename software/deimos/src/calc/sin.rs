@@ -6,7 +6,7 @@ use core::f64;
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_input_names, calc_output_names, py_json_methods};
+use crate::{calc_names, py_json_methods};
 
 /// Sin wave between `low` and `high` with a period of `period_s` and phase offset of `offset_s`
 #[cfg_attr(feature = "python", pyclass)]
@@ -17,51 +17,18 @@ pub struct Sin {
     offset_s: f64,
     low: f64,
     high: f64,
-    #[serde(default)]
-    output_unit: Option<String>,
-
-    // Values provided by calc orchestrator during init
-    #[serde(skip)]
-    output_index: usize,
-
-    #[serde(skip)]
-    rad_per_cycle: f64,
-
-    #[serde(skip)]
-    angle_rad: f64,
-
-    #[serde(skip)]
-    scale: f64,
 }
 
 impl Sin {
     pub fn new(period_s: f64, offset_s: f64, low: f64, high: f64) -> Box<Self> {
-        // These will be set during init.
-        // Use default indices that will cause an error on the first call if not initialized properly
-        let output_index = usize::MAX;
-        let rad_per_cycle = 0.0;
-        let angle_rad = offset_s * 2.0 * f64::consts::PI / period_s; // Apply offset once to save cycles
         let (high, low) = (high.max(low), low.min(high));
-        let scale = (high - low) / 2.0;
 
         Box::new(Self {
             period_s,
             offset_s,
             low,
             high,
-            output_unit: None,
-
-            output_index,
-            rad_per_cycle,
-            angle_rad,
-            scale,
         })
-    }
-
-    /// Attach an output unit label (builder method).
-    pub fn with_output_unit(mut self: Box<Self>, unit: impl Into<String>) -> Box<Self> {
-        self.output_unit = Some(unit.into());
-        self
     }
 }
 
@@ -69,66 +36,30 @@ py_json_methods!(
     Sin,
     Calc,
     #[new]
-    #[pyo3(signature = (period_s, offset_s, low, high, output_unit = None))]
-    fn py_new(
-        period_s: f64,
-        offset_s: f64,
-        low: f64,
-        high: f64,
-        output_unit: Option<String>,
-    ) -> Self {
-        let mut calc = Self::new(period_s, offset_s, low, high);
-        calc.output_unit = output_unit;
-        *calc
+    fn py_new(period_s: f64, offset_s: f64, low: f64, high: f64) -> Self {
+        *Self::new(period_s, offset_s, low, high)
     }
 );
 
 #[typetag::serde]
 impl Calc for Sin {
-    /// Reset internal state and register calc tape indices
-    fn init(
-        &mut self,
-        ctx: ControllerCtx,
-        _input_indices: Vec<usize>,
-        output_range: Range<usize>,
-    ) -> Result<(), String> {
-        self.output_index = output_range.clone().next().unwrap();
-        self.rad_per_cycle = (ctx.dt_ns as f64 / 1e9) * 2.0 * f64::consts::PI / self.period_s;
-        Ok(())
-    }
-
-    fn terminate(&mut self) -> Result<(), String> {
-        self.output_index = usize::MAX;
-        self.rad_per_cycle = 0.0;
-        self.angle_rad = 0.0;
-        self.scale = 0.0;
-        Ok(())
-    }
-
-    /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
-        self.angle_rad += self.rad_per_cycle;
-        let y = (self.angle_rad.sin() + 1.0) * self.scale + self.low;
-
-        tape[self.output_index] = y;
-        Ok(())
+    fn init(&self, ctx: ControllerCtx) -> Result<CalcFn, String> {
+        let rad_per_cycle = (ctx.dt_ns as f64 / 1e9) * 2.0 * f64::consts::PI / self.period_s;
+        let mut angle_rad = self.offset_s * 2.0 * f64::consts::PI / self.period_s;
+        let low = self.low.min(self.high);
+        let scale = (self.high.max(self.low) - low) / 2.0;
+        Ok(Box::new(move |_, outputs| {
+            angle_rad += rad_per_cycle;
+            outputs[0] = (angle_rad.sin() + 1.0) * scale + low;
+            Ok(())
+        }))
     }
 
     /// Map from input field names (like `v`, without prefix) to the state name
     /// that the input should draw from (like `peripheral_0.output_1`, with prefix)
-    fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
+    fn input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
         BTreeMap::new()
     }
 
-    /// Change a value in the input map
-    fn update_input_map(&mut self, _field: &str, _source: &str) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn get_output_units(&self) -> Vec<Option<String>> {
-        vec![self.output_unit.clone()]
-    }
-
-    calc_input_names!();
-    calc_output_names!(y);
+    calc_names!((), (y));
 }

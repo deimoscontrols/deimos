@@ -30,6 +30,7 @@ one run.
 pub type CalcFn = Box<
     dyn FnMut(&[f64], &mut [f64]) -> Result<(), String>
         + Send
+        + Sync
         + 'static,
 >;
 
