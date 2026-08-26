@@ -52,10 +52,7 @@ fn main() {
     // calc orchestrator in order to make sure that they are evaluated in the correct
     // order at each cycle.
     controller.add_calc("speaker", Box::new(Speaker::new("time channel")));
-    controller.add_calc(
-        "listener",
-        Box::new(Listener::new("speaker.y", "time channel")),
-    );
+    controller.add_calc("listener", Box::new(Listener::new("time channel")));
 
     // Serialize and deserialize the controller (for demonstration purposes)
     {
@@ -72,30 +69,19 @@ fn main() {
 pub struct Speaker {
     // User inputs
     channel_name: String,
-    save_outputs: bool,
 
     #[serde(skip)]
     endpoint: Endpoint,
 
     prefix: String,
-
-    // Values provided by calc orchestrator during init
-    #[serde(skip)]
-    output_index: usize,
 }
 
 impl Speaker {
     pub fn new(channel_name: &str) -> Self {
-        // These will be set during init.
-        // Use default indices that will cause an error on the first call if not initialized properly
-        let output_index = usize::MAX;
-
         Self {
             channel_name: channel_name.to_owned(),
-            save_outputs: false,
             endpoint: Endpoint::default(),
             prefix: "".to_owned(),
-            output_index,
         }
     }
 }
@@ -107,16 +93,14 @@ impl Calc for Speaker {
         &mut self,
         ctx: ControllerCtx,
         _input_indices: Vec<usize>,
-        output_range: Range<usize>,
+        _output_range: Range<usize>,
     ) -> Result<(), String> {
-        self.output_index = output_range.clone().next().unwrap();
         self.endpoint = ctx.source_endpoint(&self.channel_name);
         self.prefix = ctx.user_ctx.get("speaker_prefix").unwrap().to_owned();
         Ok(())
     }
 
     fn terminate(&mut self) -> Result<(), String> {
-        self.output_index = usize::MAX;
         self.endpoint = Endpoint::default();
         Ok(())
     }
@@ -146,39 +130,25 @@ impl Calc for Speaker {
         Err(format!("Unrecognized field {field}")) // there aren't any input fields
     }
 
-    calc_save_outputs!();
     calc_input_names!();
-    calc_output_names!(y);
+    calc_output_names!();
 }
 
 /// A dummy calc that receives time from a listener and prints it to the terminal
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Listener {
     // User inputs
-    // input_name: String,
     channel_name: String,
-    save_outputs: bool,
 
     #[serde(skip)]
     endpoint: Endpoint,
-
-    // Values provided by calc orchestrator during init
-    #[serde(skip)]
-    output_index: usize,
 }
 
 impl Listener {
-    pub fn new(_input_name: &str, channel_name: &str) -> Self {
-        // These will be set during init.
-        // Use default indices that will cause an error on the first call if not initialized properly
-        let output_index = usize::MAX;
-
+    pub fn new(channel_name: &str) -> Self {
         Self {
-            // input_name: input_name.to_owned(),
             channel_name: channel_name.to_owned(),
-            save_outputs: false,
             endpoint: Endpoint::default(),
-            output_index,
         }
     }
 }
@@ -190,15 +160,13 @@ impl Calc for Listener {
         &mut self,
         ctx: ControllerCtx,
         _input_indices: Vec<usize>,
-        output_range: Range<usize>,
+        _output_range: Range<usize>,
     ) -> Result<(), String> {
-        self.output_index = output_range.clone().next().unwrap();
         self.endpoint = ctx.sink_endpoint(&self.channel_name);
         Ok(())
     }
 
     fn terminate(&mut self) -> Result<(), String> {
-        self.output_index = usize::MAX;
         self.endpoint = Endpoint::default();
         Ok(())
     }
@@ -233,7 +201,6 @@ impl Calc for Listener {
         Err(format!("Unrecognized field {field}")) // there aren't any input fields
     }
 
-    calc_save_outputs!();
     calc_input_names!();
-    calc_output_names!(y);
+    calc_output_names!();
 }

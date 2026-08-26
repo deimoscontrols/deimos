@@ -1,7 +1,7 @@
 //! A calc that produces a constant value
 
 use super::*;
-use crate::{calc_input_names, calc_output_names, calc_save_outputs, py_json_methods};
+use crate::{calc_input_names, calc_output_names, py_json_methods};
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
@@ -12,7 +12,6 @@ use pyo3::prelude::*;
 pub struct Constant {
     // User inputs
     y: f64,
-    save_outputs: bool,
     #[serde(default)]
     output_unit: Option<String>,
 
@@ -22,13 +21,12 @@ pub struct Constant {
 }
 
 impl Constant {
-    pub fn new(y: f64, save_outputs: bool) -> Box<Self> {
+    pub fn new(y: f64) -> Box<Self> {
         // Use default indices that will cause an error on the first call if not initialized properly
         let output_index = usize::MAX;
 
         Box::new(Self {
             y,
-            save_outputs,
             output_unit: None,
             output_index,
         })
@@ -45,9 +43,9 @@ py_json_methods!(
     Constant,
     Calc,
     #[new]
-    #[pyo3(signature = (y, save_outputs, output_unit = None))]
-    fn py_new(y: f64, save_outputs: bool, output_unit: Option<String>) -> PyResult<Self> {
-        let mut calc = Self::new(y, save_outputs);
+    #[pyo3(signature = (y, output_unit = None))]
+    fn py_new(y: f64, output_unit: Option<String>) -> PyResult<Self> {
+        let mut calc = Self::new(y);
         calc.output_unit = output_unit;
         Ok(*calc)
     }
@@ -92,7 +90,6 @@ impl Calc for Constant {
         vec![self.output_unit.clone()]
     }
 
-    calc_save_outputs!();
     calc_input_names!();
     calc_output_names!(y);
 }

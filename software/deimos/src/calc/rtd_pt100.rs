@@ -9,7 +9,7 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_input_names, calc_output_names, calc_save_outputs, py_json_methods};
+use crate::{calc_input_names, calc_output_names, py_json_methods};
 
 pub use deimos_shared::calcs::{pt100_resistance_ohm_f32, pt100_temperature_k_f32};
 
@@ -46,7 +46,6 @@ pub fn pt100_resistance_ohm(temperature_k: f64) -> f64 {
 /// Calc-graph node that maps one Pt100 resistance input to temperature.
 pub struct RtdPt100 {
     resistance_name: String,
-    save_outputs: bool,
     #[serde(skip)]
     input_index: usize,
     #[serde(skip)]
@@ -58,15 +57,11 @@ impl RtdPt100 {
     ///
     /// Args:
     ///   resistance_name: Calc-graph field containing resistance in `ohm`.
-    ///   save_outputs: Whether to retain the calculated temperature in recorded
-    ///     controller output.
-    ///
     /// Returns:
     ///   Boxed calc node; graph indices are assigned during `Calc::init`.
-    pub fn new(resistance_name: String, save_outputs: bool) -> Box<Self> {
+    pub fn new(resistance_name: String) -> Box<Self> {
         Box::new(Self {
             resistance_name,
-            save_outputs,
             input_index: usize::MAX,
             output_index: usize::MAX,
         })
@@ -77,8 +72,8 @@ py_json_methods!(
     RtdPt100,
     Calc,
     #[new]
-    fn py_new(resistance_name: String, save_outputs: bool) -> Self {
-        *Self::new(resistance_name, save_outputs)
+    fn py_new(resistance_name: String) -> Self {
+        *Self::new(resistance_name)
     }
 );
 
@@ -125,7 +120,6 @@ impl Calc for RtdPt100 {
         vec![Some("K".to_owned())]
     }
 
-    calc_save_outputs!();
     calc_input_names!(resistance_ohm);
     calc_output_names!(temperature_K);
 }

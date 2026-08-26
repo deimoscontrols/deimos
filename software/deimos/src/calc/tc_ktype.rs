@@ -11,7 +11,7 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_input_names, calc_output_names, calc_save_outputs, py_json_methods};
+use crate::{calc_input_names, calc_output_names, py_json_methods};
 
 pub use deimos_shared::calcs::{
     ktype_corrected_temperature_k_f32, ktype_temperature_k_f32, ktype_voltage_v_f32,
@@ -68,7 +68,6 @@ pub fn ktype_temp_k(voltage_v: f64) -> f64 {
 pub struct TcKtype {
     voltage_name: String,
     cold_junction_temperature_name: String,
-    save_outputs: bool,
     #[serde(skip)]
     input_indices: Vec<usize>,
     #[serde(skip)]
@@ -82,20 +81,12 @@ impl TcKtype {
     ///   voltage_name: Calc-graph field containing sensed voltage in `V`.
     ///   cold_junction_temperature_name: Calc-graph field containing absolute
     ///     cold-junction temperature in `K`.
-    ///   save_outputs: Whether to retain the calculated temperature in recorded
-    ///     controller output.
-    ///
     /// Returns:
     ///   Boxed calc node; graph indices are assigned during `Calc::init`.
-    pub fn new(
-        voltage_name: String,
-        cold_junction_temperature_name: String,
-        save_outputs: bool,
-    ) -> Box<Self> {
+    pub fn new(voltage_name: String, cold_junction_temperature_name: String) -> Box<Self> {
         Box::new(Self {
             voltage_name,
             cold_junction_temperature_name,
-            save_outputs,
             input_indices: Vec::new(),
             output_index: usize::MAX,
         })
@@ -106,12 +97,8 @@ py_json_methods!(
     TcKtype,
     Calc,
     #[new]
-    fn py_new(
-        voltage_name: String,
-        cold_junction_temperature_name: String,
-        save_outputs: bool,
-    ) -> Self {
-        *Self::new(voltage_name, cold_junction_temperature_name, save_outputs)
+    fn py_new(voltage_name: String, cold_junction_temperature_name: String) -> Self {
+        *Self::new(voltage_name, cold_junction_temperature_name)
     }
 );
 
@@ -168,7 +155,6 @@ impl Calc for TcKtype {
         vec![Some("K".to_owned())]
     }
 
-    calc_save_outputs!();
     calc_input_names!(voltage_V, cold_junction_temperature_K);
     calc_output_names!(temperature_K);
 }

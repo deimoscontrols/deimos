@@ -4,7 +4,7 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_input_names, calc_output_names, calc_save_outputs, py_json_methods};
+use crate::{calc_input_names, calc_output_names, py_json_methods};
 
 /// A slope and offset, y = ax + b
 #[derive(Default, Debug, Serialize, Deserialize)]
@@ -14,7 +14,6 @@ pub struct Affine {
     input_name: String,
     slope: f64,
     offset: f64,
-    save_outputs: bool,
     #[serde(default)]
     output_unit: Option<String>,
 
@@ -27,7 +26,7 @@ pub struct Affine {
 }
 
 impl Affine {
-    pub fn new(input_name: String, slope: f64, offset: f64, save_outputs: bool) -> Box<Self> {
+    pub fn new(input_name: String, slope: f64, offset: f64) -> Box<Self> {
         // These will be set during init.
         // Use default indices that will cause an error on the first call if not initialized properly
         let input_index = usize::MAX;
@@ -37,7 +36,6 @@ impl Affine {
             input_name,
             slope,
             offset,
-            save_outputs,
             output_unit: None,
 
             input_index,
@@ -56,15 +54,14 @@ py_json_methods!(
     Affine,
     Calc,
     #[new]
-    #[pyo3(signature = (input_name, slope, offset, save_outputs, output_unit = None))]
+    #[pyo3(signature = (input_name, slope, offset, output_unit = None))]
     fn py_new(
         input_name: String,
         slope: f64,
         offset: f64,
-        save_outputs: bool,
         output_unit: Option<String>,
     ) -> PyResult<Self> {
-        let mut calc = Self::new(input_name, slope, offset, save_outputs);
+        let mut calc = Self::new(input_name, slope, offset);
         calc.output_unit = output_unit;
         Ok(*calc)
     }
@@ -122,7 +119,6 @@ impl Calc for Affine {
         vec![self.output_unit.clone()]
     }
 
-    calc_save_outputs!();
     calc_input_names!(x);
     calc_output_names!(y);
 }

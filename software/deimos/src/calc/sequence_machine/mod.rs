@@ -54,9 +54,6 @@ struct ExecutionState {
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct MachineCfg {
     // User inputs
-    /// Whether to dispatch outputs
-    pub save_outputs: bool,
-
     /// Name of Sequence which is the entrypoint for the machine
     pub entry: String,
 
@@ -665,16 +662,6 @@ impl Calc for SequenceMachine {
         units.extend(std::iter::repeat_n(None, n_data));
         units
     }
-
-    /// Get flag for whether to save outputs
-    fn get_save_outputs(&self) -> bool {
-        self.cfg.save_outputs
-    }
-
-    /// Set flag for whether to save outputs
-    fn set_save_outputs(&mut self, save_outputs: bool) {
-        self.cfg.save_outputs = save_outputs;
-    }
 }
 
 #[cfg(feature = "python")]
@@ -683,7 +670,6 @@ impl SequenceMachine {
     #[new]
     fn py_new(entry: String) -> Self {
         let cfg = MachineCfg {
-            save_outputs: true,
             entry,
             ..Default::default()
         };

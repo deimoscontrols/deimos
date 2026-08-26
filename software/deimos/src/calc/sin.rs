@@ -6,7 +6,7 @@ use core::f64;
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_input_names, calc_output_names, calc_save_outputs, py_json_methods};
+use crate::{calc_input_names, calc_output_names, py_json_methods};
 
 /// Sin wave between `low` and `high` with a period of `period_s` and phase offset of `offset_s`
 #[cfg_attr(feature = "python", pyclass)]
@@ -17,7 +17,6 @@ pub struct Sin {
     offset_s: f64,
     low: f64,
     high: f64,
-    save_outputs: bool,
     #[serde(default)]
     output_unit: Option<String>,
 
@@ -36,7 +35,7 @@ pub struct Sin {
 }
 
 impl Sin {
-    pub fn new(period_s: f64, offset_s: f64, low: f64, high: f64, save_outputs: bool) -> Box<Self> {
+    pub fn new(period_s: f64, offset_s: f64, low: f64, high: f64) -> Box<Self> {
         // These will be set during init.
         // Use default indices that will cause an error on the first call if not initialized properly
         let output_index = usize::MAX;
@@ -50,7 +49,6 @@ impl Sin {
             offset_s,
             low,
             high,
-            save_outputs,
             output_unit: None,
 
             output_index,
@@ -71,16 +69,15 @@ py_json_methods!(
     Sin,
     Calc,
     #[new]
-    #[pyo3(signature = (period_s, offset_s, low, high, save_outputs, output_unit = None))]
+    #[pyo3(signature = (period_s, offset_s, low, high, output_unit = None))]
     fn py_new(
         period_s: f64,
         offset_s: f64,
         low: f64,
         high: f64,
-        save_outputs: bool,
         output_unit: Option<String>,
     ) -> Self {
-        let mut calc = Self::new(period_s, offset_s, low, high, save_outputs);
+        let mut calc = Self::new(period_s, offset_s, low, high);
         calc.output_unit = output_unit;
         *calc
     }
@@ -132,7 +129,6 @@ impl Calc for Sin {
         vec![self.output_unit.clone()]
     }
 
-    calc_save_outputs!();
     calc_input_names!();
     calc_output_names!(y);
 }

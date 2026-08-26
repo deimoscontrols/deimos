@@ -91,15 +91,6 @@ pub trait Calc: Send + Sync + Debug {
     fn update_input_map(&mut self, field: &str, source: &str) -> Result<(), String>;
 
     //
-    // Everything below this point can be macro-generated
-
-    /// Get flag for whether to save outputs
-    fn get_save_outputs(&self) -> bool;
-
-    /// Set flag for whether to save outputs
-    fn set_save_outputs(&mut self, save_outputs: bool);
-
-    //
     // These are needed to maintain strict ordering for indexed evaluation
 
     /// List of input field names in the order that they will be consumed
@@ -125,22 +116,6 @@ pub trait Calc: Send + Sync + Debug {
     fn kind(&self) -> String {
         type_name::<Self>().split(":").last().unwrap().into()
     }
-}
-
-/// Build functions for getting and setting the save-outputs flag.
-#[macro_export]
-macro_rules! calc_save_outputs {
-    () => {
-        /// Get flag for whether to save outputs
-        fn get_save_outputs(&self) -> bool {
-            self.save_outputs
-        }
-
-        /// Set flag for whether to save outputs
-        fn set_save_outputs(&mut self, save_outputs: bool) {
-            self.save_outputs = save_outputs;
-        }
-    };
 }
 
 /// Build function for getting calc input field names
@@ -191,43 +166,43 @@ mod tests {
 
     #[test]
     fn affine_units_len_matches_names_len() {
-        let calc = Affine::new("x".to_owned(), 1.0, 0.0, false);
+        let calc = Affine::new("x".to_owned(), 1.0, 0.0);
         assert_units_len_matches_names_len(&*calc);
     }
 
     #[test]
     fn inverse_affine_units_len_matches_names_len() {
-        let calc = InverseAffine::new("x".to_owned(), 1.0, 0.0, false);
+        let calc = InverseAffine::new("x".to_owned(), 1.0, 0.0);
         assert_units_len_matches_names_len(&*calc);
     }
 
     #[test]
     fn polynomial_units_len_matches_names_len() {
-        let calc = Polynomial::new("x".to_owned(), vec![1.0, 2.0], String::new(), false);
+        let calc = Polynomial::new("x".to_owned(), vec![1.0, 2.0], String::new());
         assert_units_len_matches_names_len(&*calc);
     }
 
     #[test]
     fn constant_units_len_matches_names_len() {
-        let calc = Constant::new(0.0, false);
+        let calc = Constant::new(0.0);
         assert_units_len_matches_names_len(&*calc);
     }
 
     #[test]
     fn hysteretic_units_len_matches_names_len() {
-        let calc = Hysteretic::new("v".to_owned(), 0.0, 1.0, 1, false);
+        let calc = Hysteretic::new("v".to_owned(), 0.0, 1.0, 1);
         assert_units_len_matches_names_len(&*calc);
     }
 
     #[test]
     fn sin_units_len_matches_names_len() {
-        let calc = Sin::new(1.0, 0.0, -1.0, 1.0, false);
+        let calc = Sin::new(1.0, 0.0, -1.0, 1.0);
         assert_units_len_matches_names_len(&*calc);
     }
 
     #[test]
     fn butter2_units_len_matches_names_len() {
-        let calc = Butter2::new("x".to_owned(), 10.0, false);
+        let calc = Butter2::new("x".to_owned(), 10.0);
         assert_units_len_matches_names_len(&*calc);
     }
 
@@ -240,20 +215,19 @@ mod tests {
             0.0,
             0.0,
             100.0,
-            false,
         );
         assert_units_len_matches_names_len(&*calc);
     }
 
     #[test]
     fn rtd_pt100_units_len_matches_names_len() {
-        let calc = RtdPt100::new("resistance_ohm".to_owned(), false);
+        let calc = RtdPt100::new("resistance_ohm".to_owned());
         assert_units_len_matches_names_len(&*calc);
     }
 
     #[test]
     fn tc_ktype_units_len_matches_names_len() {
-        let calc = TcKtype::new("voltage_V".to_owned(), "cold_junction_K".to_owned(), false);
+        let calc = TcKtype::new("voltage_V".to_owned(), "cold_junction_K".to_owned());
         assert_units_len_matches_names_len(&*calc);
     }
 }

@@ -162,7 +162,6 @@ fn main() {
         "p1.2V5_0_V".to_string(), // input channel name
         1.0,                      // slope: preserve the firmware voltage
         0.0,                      // offset
-        true,                     // save_outputs: include in dispatched rows
     )
     .with_output_unit("V");
     controller.add_calc("voltage", voltage_calc);

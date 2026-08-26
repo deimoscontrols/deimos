@@ -4,7 +4,7 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_input_names, calc_output_names, calc_save_outputs, py_json_methods};
+use crate::{calc_input_names, calc_output_names, py_json_methods};
 
 /// A PID controller with simple saturation for anti-windup
 #[cfg_attr(feature = "python", pyclass)]
@@ -17,7 +17,6 @@ pub struct Pid {
     ki: f64,
     kd: f64,
     max_integral: f64,
-    save_outputs: bool,
 
     // Internal state
     err: f64,
@@ -41,7 +40,6 @@ impl Pid {
         ki: f64,
         kd: f64,
         max_integral: f64,
-        save_outputs: bool,
     ) -> Box<Self> {
         let err = 0.0;
         let integral = 0.0;
@@ -59,7 +57,6 @@ impl Pid {
             ki,
             kd,
             max_integral,
-            save_outputs,
 
             err,
             integral,
@@ -82,17 +79,8 @@ py_json_methods!(
         ki: f64,
         kd: f64,
         max_integral: f64,
-        save_outputs: bool,
     ) -> Self {
-        *Self::new(
-            measurement_name,
-            setpoint_name,
-            kp,
-            ki,
-            kd,
-            max_integral,
-            save_outputs,
-        )
+        *Self::new(measurement_name, setpoint_name, kp, ki, kd, max_integral)
     }
 );
 
@@ -165,7 +153,6 @@ impl Calc for Pid {
         Ok(())
     }
 
-    calc_save_outputs!();
     calc_input_names!(measurement, setpoint);
     calc_output_names!(y);
 

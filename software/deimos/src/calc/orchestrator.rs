@@ -709,7 +709,6 @@ impl CalcOrchestrator {
                 .get_mut(calc_name)
                 .ok_or_else(|| format!("Calc `{calc_name}` missing from registry"))?;
             let input_map = calc.get_input_map();
-            let save_outputs = calc.get_save_outputs();
             let input_names = &calc.get_input_names();
             let output_names = &calc.get_output_names();
             let n_outputs = output_names.len();
@@ -738,11 +737,10 @@ impl CalcOrchestrator {
                 fields_order.push(output_field.clone());
                 field_index_map.insert(output_field.clone(), i);
 
-                // Mark fields for dispatch
-                if save_outputs {
-                    dispatch_names.push(output_field.clone());
-                    dispatch_indices.push(i);
-                }
+                // All calc outputs are available for dispatch. Dispatchers can apply
+                // channel filters when only a subset should be retained.
+                dispatch_names.push(output_field.clone());
+                dispatch_indices.push(i);
             }
 
             // Initialize this calc
@@ -817,10 +815,10 @@ mod tests {
     use crate::peripheral::AnalogIRev3;
 
     #[test]
-    fn graphviz_dot_uses_node_ports() {
+    fn graph_and_dispatch_include_all_calc_outputs() {
         let mut orchestrator = CalcOrchestrator::default();
-        orchestrator.add_calc("c0", Affine::new("p.ain0".to_owned(), 1.0, 0.0, true));
-        orchestrator.add_calc("c1", Affine::new("c0.y".to_owned(), 2.0, 0.0, true));
+        orchestrator.add_calc("c0", Affine::new("p.ain0".to_owned(), 1.0, 0.0));
+        orchestrator.add_calc("c1", Affine::new("c0.y".to_owned(), 2.0, 0.0));
         orchestrator.set_peripheral_input_source("p.pwm0_duty", "c1.y");
 
         let peripherals: BTreeMap<String, Box<dyn Peripheral>> = BTreeMap::from([(
@@ -833,5 +831,11 @@ mod tests {
         assert!(dot.contains("\"periph::p::out\":out_0 -> \"calc::c0\":in_0;"));
         assert!(dot.contains("\"calc::c0\":out_0 -> \"calc::c1\":in_0;"));
         assert!(dot.contains("\"calc::c1\":out_0 -> \"periph::p::in\":in_0;"));
+
+        orchestrator
+            .init(ControllerCtx::default(), &peripherals)
+            .unwrap();
+        assert!(orchestrator.state.dispatch_names.contains(&"c0.y".into()));
+        assert!(orchestrator.state.dispatch_names.contains(&"c1.y".into()));
     }
 }

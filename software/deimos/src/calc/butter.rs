@@ -4,7 +4,7 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_input_names, calc_output_names, calc_save_outputs, py_json_methods};
+use crate::{calc_input_names, calc_output_names, py_json_methods};
 use deimos_numerics::{
     control::lti::butter,
     embedded::fixed::lti::{DeltaSos as FixedDeltaSos, DeltaSosState as FixedDeltaSosState},
@@ -22,7 +22,6 @@ pub struct Butter2 {
     // User inputs
     input_name: String,
     cutoff_hz: f64,
-    save_outputs: bool,
 
     // Values provided by calc orchestrator during init
     #[serde(skip)]
@@ -47,20 +46,18 @@ impl core::fmt::Debug for Butter2 {
         f.debug_struct("Butter")
             .field("input_name", &self.input_name)
             .field("cutoff_hz", &self.cutoff_hz)
-            .field("save_outputs", &self.save_outputs)
             .finish()
     }
 }
 
 impl Butter2 {
-    pub fn new(input_name: String, cutoff_hz: f64, save_outputs: bool) -> Box<Self> {
+    pub fn new(input_name: String, cutoff_hz: f64) -> Box<Self> {
         let input_index = usize::MAX;
         let output_index = usize::MAX;
 
         Box::new(Self {
             input_name,
             cutoff_hz,
-            save_outputs,
             input_index,
             output_index,
             filt: None,
@@ -74,8 +71,8 @@ py_json_methods!(
     Butter2,
     Calc,
     #[new]
-    fn py_new(input_name: String, cutoff_hz: f64, save_outputs: bool) -> Self {
-        *Self::new(input_name, cutoff_hz, save_outputs)
+    fn py_new(input_name: String, cutoff_hz: f64) -> Self {
+        *Self::new(input_name, cutoff_hz)
     }
 );
 
@@ -154,7 +151,6 @@ impl Calc for Butter2 {
         }
     }
 
-    calc_save_outputs!();
     calc_input_names!(x);
     calc_output_names!(y);
 
@@ -179,7 +175,7 @@ mod tests {
             ..Default::default()
         };
 
-        let mut calc = Butter2::new("ignored".to_owned(), 5.0, true);
+        let mut calc = Butter2::new("ignored".to_owned(), 5.0);
 
         // Input sits at tape[0], output at tape[1].
         let inputs: [f64; 8] = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];

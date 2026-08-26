@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 
 use super::*;
 use crate::{
-    calc_input_names, calc_output_names, calc_save_outputs,
+    calc_input_names, calc_output_names,
     math::{polyfit, polyval},
     py_json_methods,
 };
@@ -21,7 +21,6 @@ pub struct Polynomial {
     input_name: String,
     coefficients: Vec<f64>,
     note: String,
-    save_outputs: bool,
     #[serde(default)]
     output_unit: Option<String>,
 
@@ -34,17 +33,11 @@ pub struct Polynomial {
 }
 
 impl Polynomial {
-    pub fn new(
-        input_name: String,
-        coefficients: Vec<f64>,
-        note: String,
-        save_outputs: bool,
-    ) -> Box<Self> {
+    pub fn new(input_name: String, coefficients: Vec<f64>, note: String) -> Box<Self> {
         Box::new(Self {
             input_name,
             coefficients,
             note,
-            save_outputs,
             output_unit: None,
             input_index: usize::MAX,
             output_index: usize::MAX,
@@ -62,16 +55,10 @@ impl Polynomial {
         points: &[(f64, f64)],
         order: usize,
         note: &str,
-        save_outputs: bool,
     ) -> Result<Box<Self>, String> {
         let coefficients = polyfit(points, order)?;
 
-        Ok(Self::new(
-            input_name.into(),
-            coefficients,
-            note.into(),
-            save_outputs,
-        ))
+        Ok(Self::new(input_name.into(), coefficients, note.into()))
     }
 }
 
@@ -79,15 +66,14 @@ py_json_methods!(
     Polynomial,
     Calc,
     #[new]
-    #[pyo3(signature = (input_name, coefficients, note, save_outputs, output_unit = None))]
+    #[pyo3(signature = (input_name, coefficients, note, output_unit = None))]
     fn py_new(
         input_name: String,
         coefficients: Vec<f64>,
         note: String,
-        save_outputs: bool,
         output_unit: Option<String>,
     ) -> Self {
-        let mut calc = Self::new(input_name, coefficients, note, save_outputs);
+        let mut calc = Self::new(input_name, coefficients, note);
         calc.output_unit = output_unit;
         *calc
     }
@@ -147,7 +133,6 @@ impl Calc for Polynomial {
         vec![self.output_unit.clone()]
     }
 
-    calc_save_outputs!();
     calc_input_names!(x);
     calc_output_names!(y);
 }

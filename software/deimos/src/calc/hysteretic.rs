@@ -117,7 +117,6 @@ pub struct Hysteretic {
     persistence: u32,
     value_when_low: f64,
     value_when_high: f64,
-    save_outputs: bool,
 
     // Internal state
     #[serde(skip)]
@@ -140,7 +139,6 @@ impl Default for Hysteretic {
             persistence: 0,
             value_when_low: 1.0,
             value_when_high: 0.0,
-            save_outputs: false,
             machine: Machine::default(),
             input_index: usize::MAX,
             output_index: usize::MAX,
@@ -154,17 +152,8 @@ impl Hysteretic {
         low_thresh: f64,
         high_thresh: f64,
         persistence: u32,
-        save_outputs: bool,
     ) -> Box<Self> {
-        Self::new_with_values(
-            input_name,
-            low_thresh,
-            high_thresh,
-            persistence,
-            1.0,
-            0.0,
-            save_outputs,
-        )
+        Self::new_with_values(input_name, low_thresh, high_thresh, persistence, 1.0, 0.0)
     }
 
     pub fn new_with_values(
@@ -174,7 +163,6 @@ impl Hysteretic {
         persistence: u32,
         value_when_low: f64,
         value_when_high: f64,
-        save_outputs: bool,
     ) -> Box<Self> {
         Box::new(Self {
             input_name,
@@ -183,7 +171,6 @@ impl Hysteretic {
             persistence,
             value_when_low,
             value_when_high,
-            save_outputs,
             machine: Machine::new(
                 low_thresh,
                 high_thresh,
@@ -213,20 +200,8 @@ py_json_methods!(
     Hysteretic,
     Calc,
     #[new]
-    fn py_new(
-        input_name: String,
-        low_thresh: f64,
-        high_thresh: f64,
-        persistence: u32,
-        save_outputs: bool,
-    ) -> Self {
-        *Self::new(
-            input_name,
-            low_thresh,
-            high_thresh,
-            persistence,
-            save_outputs,
-        )
+    fn py_new(input_name: String, low_thresh: f64, high_thresh: f64, persistence: u32) -> Self {
+        *Self::new(input_name, low_thresh, high_thresh, persistence)
     },
     #[staticmethod]
     #[pyo3(name = "new_with_values")]
@@ -237,7 +212,6 @@ py_json_methods!(
         persistence: u32,
         value_when_low: f64,
         value_when_high: f64,
-        save_outputs: bool,
     ) -> Self {
         *Self::new_with_values(
             input_name,
@@ -246,7 +220,6 @@ py_json_methods!(
             persistence,
             value_when_low,
             value_when_high,
-            save_outputs,
         )
     }
 );
@@ -304,14 +277,6 @@ impl Calc for Hysteretic {
         }
     }
 
-    fn get_save_outputs(&self) -> bool {
-        self.save_outputs
-    }
-
-    fn set_save_outputs(&mut self, save_outputs: bool) {
-        self.save_outputs = save_outputs;
-    }
-
     calc_input_names!(v);
     calc_output_names!(y);
 }
@@ -356,7 +321,7 @@ mod tests {
 
     #[test]
     fn zero_persistence_switches_immediately() {
-        let mut calc = Hysteretic::new("source".to_owned(), 2.0, 8.0, 0, false);
+        let mut calc = Hysteretic::new("source".to_owned(), 2.0, 8.0, 0);
 
         assert_eq!(calc.persistence, 0);
 
@@ -366,8 +331,7 @@ mod tests {
 
     #[test]
     fn supports_custom_and_inverted_output_values() {
-        let mut calc =
-            Hysteretic::new_with_values("source".to_owned(), 2.0, 8.0, 0, -4.0, 12.5, false);
+        let mut calc = Hysteretic::new_with_values("source".to_owned(), 2.0, 8.0, 0, -4.0, 12.5);
 
         assert_eq!(calc.machine.step(5.0), 12.5);
         assert_eq!(calc.machine.step(1.0), -4.0);
@@ -377,7 +341,7 @@ mod tests {
 
     #[test]
     fn calc_lifecycle_resets_the_machine() {
-        let mut calc = Hysteretic::new("source".to_owned(), 2.0, 8.0, 2, false);
+        let mut calc = Hysteretic::new("source".to_owned(), 2.0, 8.0, 2);
         let mut tape = [0.0; 2];
 
         calc.init(ControllerCtx::default(), vec![0], 1..2).unwrap();
