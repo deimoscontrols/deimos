@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026-08-08 0.21.0
+## 2026-08-26 0.21.0
 
 * deimos
     * !Refactor Calc trait and its interface with the calc orchestrator to reduce complexity
