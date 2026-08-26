@@ -675,17 +675,6 @@ impl Calc for SequenceMachine {
     fn set_save_outputs(&mut self, save_outputs: bool) {
         self.cfg.save_outputs = save_outputs;
     }
-
-    /// Get config field values
-    fn get_config(&self) -> BTreeMap<String, f64> {
-        BTreeMap::<String, f64>::new()
-    }
-
-    /// Apply config field values
-    #[allow(unused)]
-    fn set_config(&mut self, cfg: &BTreeMap<String, f64>) -> Result<(), String> {
-        Err("No settable config fields".to_string())
-    }
 }
 
 #[cfg(feature = "python")]

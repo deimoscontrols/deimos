@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 
 use super::*;
 use crate::{
-    calc_config, calc_input_names, calc_output_names,
+    calc_input_names, calc_output_names, calc_save_outputs,
     math::{polyfit, polyval},
     py_json_methods,
 };
@@ -147,7 +147,7 @@ impl Calc for Polynomial {
         vec![self.output_unit.clone()]
     }
 
-    calc_config!();
+    calc_save_outputs!();
     calc_input_names!(x);
     calc_output_names!(y);
 }

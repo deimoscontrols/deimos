@@ -1,7 +1,7 @@
 //! A calc that produces a constant value
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
+use crate::{calc_input_names, calc_output_names, calc_save_outputs, py_json_methods};
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
@@ -92,7 +92,7 @@ impl Calc for Constant {
         vec![self.output_unit.clone()]
     }
 
-    calc_config!(y);
+    calc_save_outputs!();
     calc_input_names!();
     calc_output_names!(y);
 }

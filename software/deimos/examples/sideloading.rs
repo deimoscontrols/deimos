@@ -146,7 +146,7 @@ impl Calc for Speaker {
         Err(format!("Unrecognized field {field}")) // there aren't any input fields
     }
 
-    calc_config!();
+    calc_save_outputs!();
     calc_input_names!();
     calc_output_names!(y);
 }
@@ -233,7 +233,7 @@ impl Calc for Listener {
         Err(format!("Unrecognized field {field}")) // there aren't any input fields
     }
 
-    calc_config!();
+    calc_save_outputs!();
     calc_input_names!();
     calc_output_names!(y);
 }

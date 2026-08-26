@@ -11,7 +11,7 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
+use crate::{calc_input_names, calc_output_names, calc_save_outputs, py_json_methods};
 
 pub use deimos_shared::calcs::{
     ktype_corrected_temperature_k_f32, ktype_temperature_k_f32, ktype_voltage_v_f32,
@@ -168,7 +168,7 @@ impl Calc for TcKtype {
         vec![Some("K".to_owned())]
     }
 
-    calc_config!();
+    calc_save_outputs!();
     calc_input_names!(voltage_V, cold_junction_temperature_K);
     calc_output_names!(temperature_K);
 }

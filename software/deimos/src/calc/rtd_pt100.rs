@@ -9,7 +9,7 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
+use crate::{calc_input_names, calc_output_names, calc_save_outputs, py_json_methods};
 
 pub use deimos_shared::calcs::{pt100_resistance_ohm_f32, pt100_temperature_k_f32};
 
@@ -125,7 +125,7 @@ impl Calc for RtdPt100 {
         vec![Some("K".to_owned())]
     }
 
-    calc_config!();
+    calc_save_outputs!();
     calc_input_names!(resistance_ohm);
     calc_output_names!(temperature_K);
 }

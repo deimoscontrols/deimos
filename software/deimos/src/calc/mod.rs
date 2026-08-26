@@ -17,6 +17,7 @@ pub(crate) use orchestrator::CalcOrchestrator;
 mod affine;
 mod butter;
 mod constant;
+mod hysteretic;
 mod inverse_affine;
 mod pid;
 mod polynomial;
@@ -29,6 +30,7 @@ pub mod sequence_machine;
 pub use affine::Affine;
 pub use butter::Butter2;
 pub use constant::Constant;
+pub use hysteretic::Hysteretic;
 pub use inverse_affine::InverseAffine;
 pub use pid::Pid;
 pub use polynomial::Polynomial;
@@ -48,7 +50,6 @@ pub type FieldName = String;
 pub type CalcName = String;
 pub type CalcInputName = String;
 pub type CalcOutputName = String;
-pub type CalcConfigName = String;
 
 pub type SrcIndex = usize;
 pub type DstIndex = usize;
@@ -98,12 +99,6 @@ pub trait Calc: Send + Sync + Debug {
     /// Set flag for whether to save outputs
     fn set_save_outputs(&mut self, save_outputs: bool);
 
-    /// Get config field values
-    fn get_config(&self) -> BTreeMap<String, f64>;
-
-    /// Apply config field values
-    fn set_config(&mut self, cfg: &BTreeMap<String, f64>) -> Result<(), String>;
-
     //
     // These are needed to maintain strict ordering for indexed evaluation
 
@@ -132,10 +127,10 @@ pub trait Calc: Send + Sync + Debug {
     }
 }
 
-/// Build functions for getting and setting calc config fields
+/// Build functions for getting and setting the save-outputs flag.
 #[macro_export]
-macro_rules! calc_config {
-    ($( $field:ident ),*) => {
+macro_rules! calc_save_outputs {
+    () => {
         /// Get flag for whether to save outputs
         fn get_save_outputs(&self) -> bool {
             self.save_outputs
@@ -145,27 +140,7 @@ macro_rules! calc_config {
         fn set_save_outputs(&mut self, save_outputs: bool) {
             self.save_outputs = save_outputs;
         }
-
-        /// Get config field values
-        fn get_config(&self) -> BTreeMap<String, f64> {
-            #[allow(unused_mut)]
-            let mut cfg = BTreeMap::<String, f64>::new();
-            $({cfg.insert(stringify!($field).to_owned(), self.$field);})*
-
-            cfg
-        }
-
-        /// Apply config field values
-        #[allow(unused)]
-        fn set_config(&mut self, cfg: &BTreeMap<String, f64>) -> Result<(), String> {
-            $({
-                let f = stringify!($field);
-                self.$field = *cfg.get(f).ok_or(format!("Config missing key `{f}`"))?;
-            })*
-
-            Ok(())
-        }
-    }
+    };
 }
 
 /// Build function for getting calc input field names
@@ -235,6 +210,12 @@ mod tests {
     #[test]
     fn constant_units_len_matches_names_len() {
         let calc = Constant::new(0.0, false);
+        assert_units_len_matches_names_len(&*calc);
+    }
+
+    #[test]
+    fn hysteretic_units_len_matches_names_len() {
+        let calc = Hysteretic::new("v".to_owned(), 0.0, 1.0, 1, false);
         assert_units_len_matches_names_len(&*calc);
     }
 

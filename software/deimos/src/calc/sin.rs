@@ -6,7 +6,7 @@ use core::f64;
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
+use crate::{calc_input_names, calc_output_names, calc_save_outputs, py_json_methods};
 
 /// Sin wave between `low` and `high` with a period of `period_s` and phase offset of `offset_s`
 #[cfg_attr(feature = "python", pyclass)]
@@ -132,7 +132,7 @@ impl Calc for Sin {
         vec![self.output_unit.clone()]
     }
 
-    calc_config!(period_s, offset_s, low, high);
+    calc_save_outputs!();
     calc_input_names!();
     calc_output_names!(y);
 }

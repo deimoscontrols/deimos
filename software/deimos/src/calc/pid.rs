@@ -4,7 +4,7 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
+use crate::{calc_input_names, calc_output_names, calc_save_outputs, py_json_methods};
 
 /// A PID controller with simple saturation for anti-windup
 #[cfg_attr(feature = "python", pyclass)]
@@ -165,7 +165,7 @@ impl Calc for Pid {
         Ok(())
     }
 
-    calc_config!(kp, ki, kd, max_integral);
+    calc_save_outputs!();
     calc_input_names!(measurement, setpoint);
     calc_output_names!(y);
 
