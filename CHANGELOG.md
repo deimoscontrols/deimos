@@ -4,6 +4,9 @@
 
 * deimos
     * !Refactor Calc trait and its interface with the calc orchestrator to reduce complexity
+        * Retain all outputs by default; outputs can be reduced explicitly with a channel filter dispatcher
+        * Remove string-based unit-of-measure labeling for now in favor of a more complete system later
+        * Eliminate mutability of calcs during run; mutable state is contained in a `CalcFn` closure that lives only for the duration of the run
     * Add calc arch doc
     * Add min and max calcs for min and max of a set of channels
     * Add `Hysteretic` bang-bang controller calc
