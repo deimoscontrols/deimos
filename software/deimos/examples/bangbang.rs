@@ -14,7 +14,7 @@ fn main() -> Result<(), String> {
     let mut ctx = ControllerCtx::default();
     ctx.op_name = "bangbang_example".to_owned();
     ctx.op_dir = "./software/deimos/examples".into();
-    ctx.dt_ns = (1e9 / 10.0) as u32;  // 10 Hz internal cycle rate
+    ctx.dt_ns = (1e9 / 10.0) as u32; // 10 Hz internal cycle rate
     ctx.loop_method = LoopMethod::Efficient;
 
     // Build controller and associate DAQ(s).
@@ -34,28 +34,30 @@ fn main() -> Result<(), String> {
     );
     controller.set_peripheral_input_source("daq.do0", "bangbang.y");
 
-    // Filter the latest-value snapshot at 1 Hz and wait for its first sample.
-    let mut run = controller.run_nonblocking(None, Some(1.0), true)?;
+    // Filter the latest-value snapshot unfiltered and wait for its first sample.
+    let mut run_handle = controller.run_nonblocking(None, None, true)?;
 
-    // Periodically print the 
-    while run.is_running() {
-        thread::sleep(Duration::from_secs(5));
-        if !run.is_running() {
+    // Periodically print the temperatures and output state.
+    println!("");  // A blank line to be deleted on the first cycle.
+    while run_handle.is_running() {
+        // Wait
+        thread::sleep(Duration::from_millis(100));
+        if !run_handle.is_running() {
             break;
         }
 
-        let values = run.read().values;
+        // Read values
+        let values = run_handle.read().values;
         let tc0 = values["daq.tc_0_K"];
         let tc1 = values["daq.tc_1_K"];
         let do0 = values["daq.do0"];
 
-        print!("\r\x1b[2K");  // Delete previous line
+        // Spam
+        print!("\r\x1b[2K"); // Delete previous line
         print!("tc0: {tc0:.2} K    {tc1:.2} K    do0: {do0:.0}");
-        io::stdout()
-            .flush()
-            .map_err(|err| format!("failed to flush stdout: {err}"))?;
+        let _ = io::stdout().flush();
     }
 
     println!();
-    run.join().map(|_| ())
+    run_handle.join().map(|_| ())
 }
