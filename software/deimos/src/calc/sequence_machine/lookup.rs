@@ -3,7 +3,7 @@ use interpn::one_dim::{Interp1D, RectilinearGrid1D};
 use serde::{Deserialize, Serialize};
 
 /// Interpolation method for sequence lookups
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub enum InterpMethod {
     /// Linear interpolation inside the grid. Outside the grid,
     /// the nearest value is held constant to prevent runaway extrapolation.
@@ -51,7 +51,7 @@ impl InterpMethod {
 }
 
 /// A lookup table defining one sequenced output from a Sequence
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct SequenceLookup {
     /// Interpolation method
     pub(super) method: InterpMethod,
@@ -128,6 +128,6 @@ impl SequenceLookup {
 
     /// Sample the lookup at a point in time
     pub fn eval(&self, sequence_time_s: f64) -> f64 {
-        self.eval_checked(sequence_time_s).unwrap()
+        self.eval_checked(sequence_time_s).unwrap_or(f64::NAN)
     }
 }

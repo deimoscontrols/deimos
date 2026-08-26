@@ -21,8 +21,8 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
     mod calc_ {
         #[pymodule_export]
         pub use crate::calc::{
-            Affine, Butter2, Constant, InverseAffine, Pid, Polynomial, RtdPt100, SequenceMachine,
-            Sin, TcKtype,
+            Affine, Butter2, Constant, Hysteretic, InverseAffine, Pid, Polynomial, RtdPt100,
+            SequenceMachine, Sin, TcKtype,
         };
     }
 

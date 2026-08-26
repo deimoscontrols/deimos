@@ -11,7 +11,7 @@
 //! Two message types are sent on the wire:
 //! - [`ReportingMessage::Schema`] — emitted at the start of Operating, periodically
 //!   re-emitted while Operating, and once more from `terminate` with `is_session_end=true`;
-//!   contains channel names, units, and a wall-clock anchor.
+//!   contains channel names and a wall-clock anchor.
 //! - [`ReportingMessage::Row`] — one per `consume` call; carries the sequence number,
 //!   timestamps, and channel values.
 
@@ -140,7 +140,7 @@ impl ReportingDispatcher {
 impl Dispatcher for ReportingDispatcher {
     fn init(
         &mut self,
-        ctx: &ControllerCtx,
+        _ctx: &ControllerCtx,
         channel_names: &[String],
         _core_assignment: usize,
     ) -> Result<(), String> {
@@ -194,7 +194,6 @@ impl Dispatcher for ReportingDispatcher {
 
         let schema = ReportingMessage::Schema {
             channel_names: channel_names.to_vec(),
-            channel_units: ctx.channel_units.clone(),
             monotonic_epoch_ns,
             is_session_end: false,
         };
@@ -304,12 +303,10 @@ impl Dispatcher for ReportingDispatcher {
             let session_end_schema = match stored_schema {
                 ReportingMessage::Schema {
                     channel_names,
-                    channel_units,
                     monotonic_epoch_ns,
                     ..
                 } => ReportingMessage::Schema {
                     channel_names,
-                    channel_units,
                     monotonic_epoch_ns,
                     is_session_end: true,
                 },

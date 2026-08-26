@@ -107,11 +107,11 @@ fn main() {
     controller.add_dispatcher("csv", csv_dispatcher);
 
     // Set up calc graph
-    let duty = Constant::new(0.5, true);
-    let freq = Sin::new(5.0, 0.25, 2500.0, 4000.0, true);
-    let freq1 = Sin::new(20.0, 0.25, 10.0, 200.0, true);
-    let dac1 = Sin::new(20.0, 0.0, 0.0, 2.5, true);
-    let dac2 = Sin::new(20.0, 5.0, 0.0, 2.5 / 25.7, true);
+    let duty = Constant::new(0.5);
+    let freq = Sin::new(5.0, 0.25, 2500.0, 4000.0);
+    let freq1 = Sin::new(20.0, 0.25, 10.0, 200.0);
+    let dac1 = Sin::new(20.0, 0.0, 0.0, 2.5);
+    let dac2 = Sin::new(20.0, 5.0, 0.0, 2.5 / 25.7);
     controller.add_calc("duty", duty);
     controller.add_calc("freq0", freq);
     controller.add_calc("freq1", freq1);
@@ -129,9 +129,9 @@ fn main() {
     controller.set_peripheral_input_source("p8.dac0", "dac0.y");
     controller.set_peripheral_input_source("p8.dac1", "dac1.y");
 
-    let sensed_current = Affine::new("p8_0_15V_1.y".to_string(), 1.0 / 1.5, 0.0, true);
+    let sensed_current = Affine::new("p8_0_15V_1.y".to_string(), 1.0 / 1.5, 0.0);
     controller.add_calc("p8_valve_current_A", sensed_current);
-    let sensed_current_filtered = Butter2::new("p8_valve_current_A.y".to_string(), 10.0, true);
+    let sensed_current_filtered = Butter2::new("p8_valve_current_A.y".to_string(), 10.0);
     controller.add_calc("p8_valve_current_filt_A", sensed_current_filtered);
 
     let timeouts = BTreeMap::from([
@@ -174,7 +174,6 @@ fn main() {
     ]);
 
     let cfg = MachineCfg {
-        save_outputs: true,
         entry: "low".to_owned(),
         link_folder: Some("machine".to_owned()),
         timeouts,

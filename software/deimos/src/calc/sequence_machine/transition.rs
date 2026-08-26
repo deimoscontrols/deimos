@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::{CalcInputName, FieldName, SequenceLookup, StateName};
 
 /// Choice of behavior when a given sequence reaches the end of its lookup table
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum Timeout {
     /// Transition to the next sequence
@@ -36,11 +36,9 @@ impl Default for ThreshOp {
 impl ThreshOp {
     /// Check whether a value meets a threshold based on this operation.
     pub fn eval(&self, v: f64, thresh: f64) -> bool {
-        // Check for NaN
-        assert!(
-            !v.is_nan() && !thresh.is_nan(),
-            "Unable to assess transition criteria involving NaN values."
-        );
+        if v.is_nan() || thresh.is_nan() {
+            return false;
+        }
 
         // Evaluate whether a transition should occur
         match self {
@@ -75,7 +73,7 @@ impl ThreshOp {
 }
 
 /// Methods for checking whether a sequence transition should occur
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[non_exhaustive]
 pub enum Transition {
     /// Transition if a value of some input exceeds a threshold value
