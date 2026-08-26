@@ -20,8 +20,8 @@ rustdoc-args = ["--extend-css", "docs/rustdoc.css", "--default-theme", "dark"]
 
 [dependencies]
 # Packet formats and math shared with hardware
-deimos_shared = { path = "../deimos_shared", version = "0.20.0" }
-deimos_numerics = { path = "../deimos_numerics", version = "0.20.0" }
+deimos_shared = { path = "../deimos_shared", version = "0.21.0" }
+deimos_numerics = { path = "../deimos_numerics", version = "0.21.0" }
 byte_struct = "0.9.0"
 
 # Control loop
