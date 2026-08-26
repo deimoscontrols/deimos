@@ -139,6 +139,12 @@ channel-filter dispatcher when they need to retain only a subset.
 perform I/O, or panic, including for NaN or infinite inputs. Work such as
 validation and construction belongs in `init`.
 
+Calcs must tolerate `NaN` inputs without panicking and must not produce `NaN`
+outputs. When valid output cannot be calculated, a calc should use sensible
+fallback behavior when possible and return an error otherwise. A
+user-configured non-NaN fill value is preferred to an error when that behavior
+is reasonable for the calc.
+
 An evaluator that cannot continue returns an error. If constructing a `String`
 error would violate the allocation contract, the error must be prepared during
 initialization or the interface must adopt an allocation-free error type.

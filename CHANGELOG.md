@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-08-08 0.21.0
+
+* deimos
+    * !Refactor Calc trait and its interface with the calc orchestrator to reduce complexity
+    * Add calc arch doc
+    * Add min and max calcs for min and max of a set of channels
+    * Add `Hysteretic` bang-bang controller calc
+    * Add `bangbang.rs` example
+
 ## 2026-08-14 Hardware Rev 7.0.3
 
 * [x] Flip orientation of IDC header
