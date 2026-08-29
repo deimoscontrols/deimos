@@ -6069,7 +6069,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "3e718d44-5984-4315-85b3-7b5774fa32f9")
-		(property "Reference" "#PWR1005"
+		(property "Reference" "#PWR115"
 			(at 330.708 51.562 0)
 			(effects
 				(font
@@ -6118,6 +6118,12 @@
 			(uuid "5b105ad2-aa94-406a-b353-83fe1cd348c3")
 		)
 		(instances
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f"
+					(reference "#PWR115")
+					(unit 1)
+				)
+			)
 			(project "analog_frontend_panel"
 				(path "/c241d083-1323-4b4a-a540-956d0afb7b72"
 					(reference "#PWR1005")

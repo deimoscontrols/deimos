@@ -889,6 +889,18 @@
       "pwm_in_buf2"
     ],
     [
+      "21e22bef-4d6d-4fef-a5d0-9aa291e0dab0",
+      "pwm_in_buf5"
+    ],
+    [
+      "d954339e-1228-43fe-ad81-347d2aa67bc9",
+      "pwm_in_buf8"
+    ],
+    [
+      "4dffdcda-9bb1-44cc-9559-0a29b2215222",
+      "pwm_in_buf9"
+    ],
+    [
       "13efaa5b-e400-45cc-91a0-978d4e7725f3",
       "dac_buf"
     ],

@@ -9260,7 +9260,7 @@
 			)
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "R?")
+					(reference "R12012")
 					(unit 1)
 				)
 			)
@@ -11023,7 +11023,7 @@
 			)
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "R?")
+					(reference "R12009")
 					(unit 1)
 				)
 			)
@@ -13133,7 +13133,7 @@
 			)
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "R?")
+					(reference "R12011")
 					(unit 1)
 				)
 			)
@@ -17109,7 +17109,7 @@
 			)
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "#+3V?")
+					(reference "#+3V103")
 					(unit 1)
 				)
 			)
@@ -18005,7 +18005,7 @@
 			)
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "R?")
+					(reference "R12010")
 					(unit 1)
 				)
 			)
@@ -19066,7 +19066,7 @@
 			)
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "U?")
+					(reference "U12001")
 					(unit 1)
 				)
 			)
@@ -19244,7 +19244,7 @@
 			)
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "R?")
+					(reference "R12013")
 					(unit 1)
 				)
 			)
@@ -20208,7 +20208,7 @@
 			)
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "R?")
+					(reference "R12008")
 					(unit 1)
 				)
 			)
@@ -20640,7 +20640,7 @@
 			)
 			(project "analog_i"
 				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
-					(reference "#+3V?")
+					(reference "#+3V102")
 					(unit 1)
 				)
 			)
