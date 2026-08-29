@@ -9258,6 +9258,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
+					(reference "R?")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -11012,6 +11018,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0ba2a584-1605-4428-86ed-58b87d6513cb"
 					(reference "R2002")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
+					(reference "R?")
 					(unit 1)
 				)
 			)
@@ -13116,6 +13128,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0ba2a584-1605-4428-86ed-58b87d6513cb"
 					(reference "R2012")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
+					(reference "R?")
 					(unit 1)
 				)
 			)
@@ -17089,6 +17107,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
+					(reference "#+3V?")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -17976,6 +18000,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0ba2a584-1605-4428-86ed-58b87d6513cb"
 					(reference "R2011")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
+					(reference "R?")
 					(unit 1)
 				)
 			)
@@ -19034,6 +19064,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
+					(reference "U?")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -19203,6 +19239,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0ba2a584-1605-4428-86ed-58b87d6513cb"
 					(reference "R2014")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
+					(reference "R?")
 					(unit 1)
 				)
 			)
@@ -20164,6 +20206,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
+					(reference "R?")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
@@ -20587,6 +20635,12 @@
 			(project "stm32h7_base"
 				(path "/511605a4-f92c-43a6-a2c6-3cb535ac8a8e/0ba2a584-1605-4428-86ed-58b87d6513cb"
 					(reference "#+3V2002")
+					(unit 1)
+				)
+			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/0ba2a584-1605-4428-86ed-58b87d6513cb"
+					(reference "#+3V?")
 					(unit 1)
 				)
 			)

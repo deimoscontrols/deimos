@@ -214,16 +214,6 @@
 	)
 	(wire
 		(pts
-			(xy 71.12 39.37) (xy 71.12 43.434)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2c0a09a4-2042-44b4-8f46-bd0499e93b3b")
-	)
-	(wire
-		(pts
 			(xy 53.848 46.99) (xy 72.898 46.99)
 		)
 		(stroke
@@ -311,16 +301,6 @@
 			(type default)
 		)
 		(uuid "354ea7ab-4bdf-411f-a05e-c563fc722afa")
-	)
-	(wire
-		(pts
-			(xy 71.12 43.434) (xy 90.17 43.434)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3ec2e217-cf19-4f6b-8faf-c761d1d3beb1")
 	)
 	(wire
 		(pts
@@ -424,16 +404,6 @@
 	)
 	(wire
 		(pts
-			(xy 88.138 56.388) (xy 88.138 43.942)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5e6494c8-96d7-41a5-b499-60b8a6ce6354")
-	)
-	(wire
-		(pts
 			(xy 77.978 56.388) (xy 77.978 46.482)
 		)
 		(stroke
@@ -461,16 +431,6 @@
 			(type default)
 		)
 		(uuid "6727afde-c1c6-4aa2-a185-392f54263283")
-	)
-	(wire
-		(pts
-			(xy 69.088 43.942) (xy 69.088 39.37)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6742ee44-669d-48bc-ae1b-3f55b944ad66")
 	)
 	(wire
 		(pts
@@ -551,16 +511,6 @@
 			(type default)
 		)
 		(uuid "7965b58a-5f98-48d7-aba4-0894d5096a3e")
-	)
-	(wire
-		(pts
-			(xy 90.17 43.434) (xy 90.17 56.388)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "7fae6b26-9653-4fd8-bec7-509e2edcf363")
 	)
 	(wire
 		(pts
@@ -891,16 +841,6 @@
 			(type default)
 		)
 		(uuid "d5c8a6e5-7b74-4e68-9ce1-639d5f02b3ec")
-	)
-	(wire
-		(pts
-			(xy 88.138 43.942) (xy 69.088 43.942)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d9cf27c5-6cd7-40f9-bfbb-399e2b9c0475")
 	)
 	(wire
 		(pts
@@ -1386,26 +1326,6 @@
 			)
 			(uuid "59eaedff-1ec9-4f98-8758-051001155473")
 		)
-		(pin "ENCODER0_0" input
-			(at 69.088 39.37 270)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "2d57dce3-3ea3-4ffa-bc63-40dfe85a0540")
-		)
-		(pin "ENCODER0_1" input
-			(at 71.12 39.37 270)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "eafd42fd-83e5-4c91-b662-c1a9df1204b1")
-		)
 		(pin "FREQ0" input
 			(at 73.152 39.37 270)
 			(effects
@@ -1525,6 +1445,86 @@
 				(justify right)
 			)
 			(uuid "ad36b140-0cc5-48ce-be90-ba18e6dcd19c")
+		)
+		(pin "ENCODER3_A" input
+			(at 91.694 16.637 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "bb4511d2-cffe-42a8-bef4-e8a1bab32122")
+		)
+		(pin "ENCODER3_B" input
+			(at 90.17 16.637 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "f6d2cc57-a87e-40e9-aee6-116c2da5592b")
+		)
+		(pin "ENCODER2_B" input
+			(at 93.726 16.637 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "6757016e-e433-46c3-9811-1f36aa893ae6")
+		)
+		(pin "ENCODER0_B" input
+			(at 100.838 16.637 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "39e62b72-3b2c-4418-ad85-5b8b97642ab0")
+		)
+		(pin "ENCODER2_A" input
+			(at 95.25 16.637 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "7d3a91a3-19fd-4839-a006-3af5c196dfaa")
+		)
+		(pin "ENCODER0_A" input
+			(at 102.362 16.637 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "10fe01e9-5a68-4c73-9596-a068fa81e3a0")
+		)
+		(pin "ENCODER1_A" input
+			(at 98.806 16.637 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "889f9a01-1d3c-43ad-8a1e-1953c66ff396")
+		)
+		(pin "ENCODER1_B" input
+			(at 97.282 16.637 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "7d556bb7-165d-4832-a926-931b229fa227")
 		)
 		(instances
 			(project "analog_i"
@@ -1793,16 +1793,6 @@
 			)
 			(uuid "6854c290-8613-4168-b885-76a2d626443d")
 		)
-		(pin "ENCODER0_0" input
-			(at 88.138 56.388 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-			(uuid "524e4bf7-a4ae-4dcb-8b12-0e119a0fbcdf")
-		)
 		(pin "FREQ1" input
 			(at 94.234 56.388 90)
 			(effects
@@ -1812,16 +1802,6 @@
 				(justify right)
 			)
 			(uuid "c08526bc-523a-43c4-bd0b-504b30a66360")
-		)
-		(pin "ENCODER0_1" input
-			(at 90.17 56.388 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-			(uuid "fed3782d-6413-41b7-bc80-e06482913f24")
 		)
 		(pin "COUNTER0" input
 			(at 86.106 56.388 90)

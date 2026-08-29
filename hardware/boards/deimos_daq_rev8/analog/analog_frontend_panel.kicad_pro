@@ -752,6 +752,10 @@
       "ain_g25p7_"
     ],
     [
+      "21e22bef-4d6d-4fef-a5d0-9aa291e0dab0",
+      "pwm_in_buf5"
+    ],
+    [
       "3d57a2e8-76a3-4b72-b88d-c02ba9a3137f",
       "pwm_out_buf"
     ],
@@ -806,6 +810,14 @@
     [
       "d157c6a6-e46c-46fa-8790-e34cb70ef5c4",
       "pwm_out_buf7"
+    ],
+    [
+      "d954339e-1228-43fe-ad81-347d2aa67bc9",
+      "pwm_in_buf8"
+    ],
+    [
+      "4dffdcda-9bb1-44cc-9559-0a29b2215222",
+      "pwm_in_buf9"
     ],
     [
       "a9caaa1d-d23d-426e-af7e-b0ee1cb64b05",

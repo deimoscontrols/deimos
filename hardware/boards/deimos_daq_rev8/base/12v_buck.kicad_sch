@@ -2252,6 +2252,12 @@
 					(unit 1)
 				)
 			)
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/b545dc42-87cf-45f6-8889-98202e5f492a/b0b0bf52-ab0f-447d-a4ad-06c08cf2163a"
+					(reference "L?")
+					(unit 1)
+				)
+			)
 		)
 	)
 	(symbol
