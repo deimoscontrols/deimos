@@ -1,10 +1,12 @@
 # Protocase Designer Configuration 
 Assembly:
   designer: {'Aug. 29, 2026, 11:56:38 a.m. EDT': '7.1.2 July, 02', 'Aug. 29, 2026, 11:56:41 a.m. EDT': '7.1.2
-      July, 02'}
+      July, 02', 'Aug. 29, 2026, 5:48:08 p.m. EDT': '7.1.2 July, 02'}
   versionIds: {8de18a95-a347-11f1-ab1d-0242b0f0c252: 'Aug. 28, 2026, 9:18:34 p.m.
       EDT', fbbe4712-a348-11f1-ab1d-0242b0f0c252: 'Aug. 28, 2026, 9:28:48 p.m. EDT',
-    8b5fd0b5-a3bb-11f1-ab1d-0242b0f0c252: 'Aug. 29, 2026, 11:56:41 a.m. EDT'}
+    8b5fd0b5-a3bb-11f1-ab1d-0242b0f0c252: 'Aug. 29, 2026, 11:56:41 a.m. EDT', fda327db-a3f1-11f1-9541-0242b0f0c252: 'Aug.
+      29, 2026, 5:38:36 p.m. EDT', 414e0b21-a3f3-11f1-9541-0242b0f0c252: 'Aug. 29,
+      2026, 5:48:08 p.m. EDT'}
   commits: {'July, 02': 43470fcc00861e951874daf2748872566c87a815}
   QuotedUnits: INCHES
   solidWorksConverted: true
@@ -13,9 +15,9 @@ Assembly:
   displayName: test
   version: 12.9
   awiVersion: 0.0
-  VersionID: 8b5fd0b5-a3bb-11f1-ab1d-0242b0f0c252
+  VersionID: 414e0b21-a3f3-11f1-9541-0242b0f0c252
   componentID: -1
-  InParentID: 4a9a3980-a348-11f1-ab1d-0242b0f0c252
+  InParentID: ea069951-a3f2-11f1-9541-0242b0f0c252
   ID: e9f69310-a9a5-4b47-875a-9ab1a3529a11
   template: false
   verified: false
@@ -87,7 +89,7 @@ Assembly:
         Parameters:
         - {name: metalColorTop PlateSLDPRT, default: metalColorTop PlateSLDPRT, displayName: metalColorTop
             PlateSLDPRT, units: MetalColor}
-      DesignID: 736d9b9e-a345-11f1-ab1d-0242b0f0c252
+      DesignID: 6db59aa1-a3f1-11f1-9541-0242b0f0c252
       Mark At Laser: GREEN
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: Aluminum, color: metalColorTop PlateSLDPRT, thickness: '0.064'}
@@ -297,7 +299,7 @@ Assembly:
         Parameters:
         - {name: metalColorBottom PlateSLDPRT, default: metalColorBottom PlateSLDPRT,
           displayName: metalColorBottom PlateSLDPRT, units: MetalColor}
-      DesignID: 7377ade4-a345-11f1-ab1d-0242b0f0c252
+      DesignID: 6dbf37b7-a3f1-11f1-9541-0242b0f0c252
       Mark At Laser: GREEN
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: Aluminum, color: metalColorBottom PlateSLDPRT, thickness: '0.064'}
@@ -483,9 +485,9 @@ Assembly:
       displayName: Front Plate
       version: 12.9
       awiVersion: 0.0
-      VersionID: 8b5fd0b4-a3bb-11f1-ab1d-0242b0f0c252
+      VersionID: fda327da-a3f1-11f1-9541-0242b0f0c252
       componentID: -1
-      InParentID: a1f62b88-7a6f-4ddf-a0e2-cd4e1ff79eff
+      InParentID: d4660f53-a3f1-11f1-9541-0242b0f0c252
       ID: 5b14489a-419f-4e19-8835-79001477b770
       template: false
       verified: false
@@ -512,7 +514,7 @@ Assembly:
         Parameters:
         - {name: metalColorFront PlateSLDPRT, default: metalColorFront PlateSLDPRT,
           displayName: metalColorFront PlateSLDPRT, units: MetalColor}
-      DesignID: 737d535a-a345-11f1-ab1d-0242b0f0c252
+      DesignID: 6dc2ba4d-a3f1-11f1-9541-0242b0f0c252
       Mark At Laser: GREEN
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: Aluminum, color: metalColorFront PlateSLDPRT, thickness: '0.064'}
@@ -532,9 +534,9 @@ Assembly:
           displayName: Face 0
           version: 12.9
           awiVersion: 0.0
-          VersionID: 8b5fd0b3-a3bb-11f1-ab1d-0242b0f0c252
+          VersionID: fda327d9-a3f1-11f1-9541-0242b0f0c252
           componentID: -1
-          InParentID: 76bd0e20-fed8-4c20-a2c6-1165ec07a00e
+          InParentID: d4660f52-a3f1-11f1-9541-0242b0f0c252
           ID: 4f926052-2576-4d14-9cbb-7376d936af11
           template: false
           verified: false
@@ -562,7 +564,7 @@ Assembly:
             VersionID: 3ebf8cb2-28cf-4655-bc8e-390b7d9b9c54
             componentID: -1
             InParentID: f555a442-e7f3-47ea-9335-b609b0bbe2d4
-            ID: 370679bf-a3c2-11f1-ab1d-0242b0f0c252
+            ID: 50b2ee8d-a3f3-11f1-9541-0242b0f0c252
             template: false
             verified: false
             cncApproved: false
@@ -1523,6 +1525,150 @@ Assembly:
                   Attachment2Ds: []
               Attachment2Ds: []
           Attachment2Ds:
+          - Rectangle:
+              width: '0.2797503229311098'
+              height: '0.25'
+              type: GRAPHIC
+              color: Opaque Black
+              name: rectangle
+              displayName: Thing2D
+              version: 12.9
+              awiVersion: 0.0
+              VersionID: 118f07c3-83c8-11f1-8e2f-0242b0f0c252
+              componentID: -1
+              InParentID: d4660f50-a3f1-11f1-9541-0242b0f0c252
+              ID: d465e83f-a3f1-11f1-9541-0242b0f0c252
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              rotation: '180.0'
+              OriginX: '1.0093250574087456'
+              OriginY: '1.14471066339889'
+              onSameSide: true
+              flatpatternAttachment: false
+              scaleFactorY: '-1.0'
+              zOrigin: '0.'
+              thickness: '1.0'
+              filled: 'False'
+              Attachment2Ds: []
+          - Rectangle:
+              width: '0.29646814567802604'
+              height: '0.25'
+              type: GRAPHIC
+              color: Opaque Black
+              name: rectangle
+              displayName: Thing2D
+              version: 12.9
+              awiVersion: 0.0
+              VersionID: 118f07c3-83c8-11f1-8e2f-0242b0f0c252
+              componentID: -1
+              InParentID: bd38ad49-a3f1-11f1-9541-0242b0f0c252
+              ID: bd388638-a3f1-11f1-9541-0242b0f0c252
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              rotation: '180.0'
+              OriginX: '0.7032280998099008'
+              OriginY: '1.144287972979874'
+              onSameSide: true
+              flatpatternAttachment: false
+              scaleFactorY: '-1.0'
+              zOrigin: '0.'
+              thickness: '1.0'
+              filled: 'False'
+              Attachment2Ds: []
+          - Rectangle:
+              width: '0.2797503229311098'
+              height: '0.25'
+              type: GRAPHIC
+              color: Opaque Black
+              name: rectangle
+              displayName: Thing2D
+              version: 12.9
+              awiVersion: 0.0
+              VersionID: 118f07c3-83c8-11f1-8e2f-0242b0f0c252
+              componentID: -1
+              InParentID: b9b3a57a-a3f1-11f1-9541-0242b0f0c252
+              ID: b9b37e69-a3f1-11f1-9541-0242b0f0c252
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              rotation: '180.0'
+              OriginX: '1.2883518959519722'
+              OriginY: '1.14471066339889'
+              onSameSide: true
+              flatpatternAttachment: false
+              scaleFactorY: '-1.0'
+              zOrigin: '0.'
+              thickness: '1.0'
+              filled: 'False'
+              Attachment2Ds: []
+          - Rectangle:
+              width: '0.2893033645007761'
+              height: '0.25'
+              type: GRAPHIC
+              color: Opaque Black
+              name: rectangle
+              displayName: Thing2D
+              version: 12.9
+              awiVersion: 0.0
+              VersionID: 118f07c3-83c8-11f1-8e2f-0242b0f0c252
+              componentID: -1
+              InParentID: b298cccb-a3f1-11f1-9541-0242b0f0c252
+              ID: b298a5ba-a3f1-11f1-9541-0242b0f0c252
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              rotation: '180.0'
+              OriginX: '1.601214007358549'
+              OriginY: '1.144287972979874'
+              onSameSide: true
+              flatpatternAttachment: false
+              scaleFactorY: '-1.0'
+              zOrigin: '0.'
+              thickness: '1.0'
+              filled: 'False'
+              Attachment2Ds: []
           - CompositePath:
               type: CUTOUT
               name: '4'
@@ -2530,7 +2676,7 @@ Assembly:
               fontSize: '7.0', sizeCorrected: true, userEditedFontSize: false, kerning: true,
               textAlignment: LEFT}
           - Rectangle:
-              width: '0.5950006947301032'
+              width: '0.29646814567802604'
               height: '0.25'
               type: GRAPHIC
               color: Opaque Black
@@ -2558,42 +2704,6 @@ Assembly:
               rotation: '180.0'
               OriginX: '1.89750701450687'
               OriginY: '1.14405059065438'
-              onSameSide: true
-              flatpatternAttachment: false
-              scaleFactorY: '-1.0'
-              zOrigin: '0.'
-              thickness: '1.0'
-              filled: 'False'
-              Attachment2Ds: []
-          - Rectangle:
-              width: '0.6005776445274156'
-              height: '0.25'
-              type: GRAPHIC
-              color: Opaque Black
-              name: rectangle
-              displayName: Thing2D
-              version: 12.9
-              awiVersion: 0.0
-              VersionID: 118f07c3-83c8-11f1-8e2f-0242b0f0c252
-              componentID: -1
-              InParentID: d92df554-83d0-11f1-a555-0242b0f0c252
-              ID: d92dce43-83d0-11f1-a555-0242b0f0c252
-              template: false
-              verified: false
-              cncApproved: false
-              encrypted: false
-              exportable: true
-              userLibraryCreated: false
-              customTemplate: false
-              locked: false
-              templateModification: UNMODIFIED
-              reconstructedFile: false
-              convertedFile: false
-              autogeneratedtype: NOT_AUTOGENERATED
-              layer: Default
-              rotation: '180.0'
-              OriginX: '1.30404114734237'
-              OriginY: '1.14414766934839'
               onSameSide: true
               flatpatternAttachment: false
               scaleFactorY: '-1.0'
@@ -3489,10 +3599,10 @@ Assembly:
               displayName: Thing2D
               version: 12.9
               awiVersion: 0.0
-              VersionID: 72d04af4-a345-11f1-ab1d-0242b0f0c252
+              VersionID: 6cfcab61-a3f1-11f1-9541-0242b0f0c252
               componentID: -1
-              InParentID: 71fca67a-a345-11f1-ab1d-0242b0f0c252
-              ID: 72d04af3-a345-11f1-ab1d-0242b0f0c252
+              InParentID: 6c82c0db-a3f1-11f1-9541-0242b0f0c252
+              ID: 6cfcab60-a3f1-11f1-9541-0242b0f0c252
               template: false
               verified: false
               cncApproved: false
@@ -3807,10 +3917,10 @@ Assembly:
               displayName: Thing2D
               version: 12.9
               awiVersion: 0.0
-              VersionID: 72cfaeb2-a345-11f1-ab1d-0242b0f0c252
+              VersionID: 6cfbc0ff-a3f1-11f1-9541-0242b0f0c252
               componentID: -1
-              InParentID: 723e917c-a345-11f1-ab1d-0242b0f0c252
-              ID: 72cfaeb1-a345-11f1-ab1d-0242b0f0c252
+              InParentID: 6cc2b00d-a3f1-11f1-9541-0242b0f0c252
+              ID: 6cfbc0fe-a3f1-11f1-9541-0242b0f0c252
               template: false
               verified: false
               cncApproved: false
@@ -3987,9 +4097,9 @@ Assembly:
       displayName: Rear Plate
       version: 12.9
       awiVersion: 0.0
-      VersionID: fbbe4711-a348-11f1-ab1d-0242b0f0c252
+      VersionID: 414e0b20-a3f3-11f1-9541-0242b0f0c252
       componentID: -1
-      InParentID: 4a9a397f-a348-11f1-ab1d-0242b0f0c252
+      InParentID: ea069950-a3f2-11f1-9541-0242b0f0c252
       ID: bc8064fd-a513-48ce-89e6-18d764e8d95a
       template: false
       verified: false
@@ -4016,7 +4126,7 @@ Assembly:
         Parameters:
         - {name: metalColorRear PlateSLDPRT, default: metalColorRear PlateSLDPRT,
           displayName: metalColorRear PlateSLDPRT, units: MetalColor}
-      DesignID: 73f08760-a345-11f1-ab1d-0242b0f0c252
+      DesignID: 6e1e47a3-a3f1-11f1-9541-0242b0f0c252
       Mark At Laser: GREEN
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: Aluminum, color: metalColorRear PlateSLDPRT, thickness: '0.064'}
@@ -4039,9 +4149,9 @@ Assembly:
           displayName: Face 0
           version: 12.9
           awiVersion: 0.0
-          VersionID: fbbe4710-a348-11f1-ab1d-0242b0f0c252
+          VersionID: 414e0b1f-a3f3-11f1-9541-0242b0f0c252
           componentID: -1
-          InParentID: 4a9a397e-a348-11f1-ab1d-0242b0f0c252
+          InParentID: ea06994f-a3f2-11f1-9541-0242b0f0c252
           ID: b2d2b524-51cb-4118-a6ed-0b0dc9833d1b
           template: false
           verified: false
@@ -4069,7 +4179,7 @@ Assembly:
             VersionID: 3b39dfd5-a718-4bb6-9088-5e6dc75c5c47
             componentID: -1
             InParentID: 7c2e67d8-04b5-4283-8153-26f2fc6e60e5
-            ID: 42c0cbb6-a348-11f1-ab1d-0242b0f0c252
+            ID: ffdc32fd-a3f2-11f1-9541-0242b0f0c252
             template: false
             verified: false
             cncApproved: false
@@ -4931,6 +5041,391 @@ Assembly:
                   Attachment2Ds: []
               Attachment2Ds: []
           Attachment2Ds:
+          - Rectangle:
+              width: '0.311941067776846'
+              height: '0.24'
+              type: GRAPHIC
+              color: Opaque Black
+              name: rectangle
+              displayName: Thing2D
+              version: 12.9
+              awiVersion: 0.0
+              VersionID: eca3227e-83d6-11f1-a51e-0242b0f0c252
+              componentID: -1
+              InParentID: ea06994d-a3f2-11f1-9541-0242b0f0c252
+              ID: ea06723c-a3f2-11f1-9541-0242b0f0c252
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              OriginX: '0.1353747020679954'
+              OriginY: '1.146710663398901'
+              onSameSide: true
+              flatpatternAttachment: false
+              zOrigin: '0.'
+              thickness: '1.0'
+              filled: 'False'
+              Attachment2Ds: []
+          - Rectangle:
+              width: '0.2973241324723399'
+              height: '0.24'
+              type: GRAPHIC
+              color: Opaque Black
+              name: rectangle
+              displayName: Thing2D
+              version: 12.9
+              awiVersion: 0.0
+              VersionID: eca3227e-83d6-11f1-a51e-0242b0f0c252
+              componentID: -1
+              InParentID: e4bc88ce-a3f2-11f1-9541-0242b0f0c252
+              ID: e4bc61bd-a3f2-11f1-9541-0242b0f0c252
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              OriginX: '1.0534857602088223'
+              OriginY: '1.146710663398901'
+              onSameSide: true
+              flatpatternAttachment: false
+              zOrigin: '0.'
+              thickness: '1.0'
+              filled: 'False'
+              Attachment2Ds: []
+          - Rectangle:
+              width: '0.2973241324723399'
+              height: '0.24'
+              type: GRAPHIC
+              color: Opaque Black
+              name: rectangle
+              displayName: Thing2D
+              version: 12.9
+              awiVersion: 0.0
+              VersionID: eca3227e-83d6-11f1-a51e-0242b0f0c252
+              componentID: -1
+              InParentID: e0fce853-a3f2-11f1-9541-0242b0f0c252
+              ID: e0fcc142-a3f2-11f1-9541-0242b0f0c252
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              OriginX: '1.3506785308446827'
+              OriginY: '1.1462853437492249'
+              onSameSide: true
+              flatpatternAttachment: false
+              zOrigin: '0.'
+              thickness: '1.0'
+              filled: 'False'
+              Attachment2Ds: []
+          - Rectangle:
+              width: '0.2973241324723399'
+              height: '0.24'
+              type: GRAPHIC
+              color: Opaque Black
+              name: rectangle
+              displayName: Thing2D
+              version: 12.9
+              awiVersion: 0.0
+              VersionID: eca3227e-83d6-11f1-a51e-0242b0f0c252
+              componentID: -1
+              InParentID: df303f24-a3f2-11f1-9541-0242b0f0c252
+              ID: df301813-a3f2-11f1-9541-0242b0f0c252
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              OriginX: '1.6449480939005179'
+              OriginY: '1.1467106633989008'
+              onSameSide: true
+              flatpatternAttachment: false
+              zOrigin: '0.'
+              thickness: '1.0'
+              filled: 'False'
+              Attachment2Ds: []
+          - Rectangle:
+              width: '0.4544152173257623'
+              height: '0.24'
+              type: GRAPHIC
+              color: Opaque Black
+              name: rectangle
+              displayName: Thing2D
+              version: 12.9
+              awiVersion: 0.0
+              VersionID: eca3227e-83d6-11f1-a51e-0242b0f0c252
+              componentID: -1
+              InParentID: bd0c02f5-a3f2-11f1-9541-0242b0f0c252
+              ID: bd0bdbe4-a3f2-11f1-9541-0242b0f0c252
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              OriginX: '2.8802334445991296'
+              OriginY: '1.1477106633989007'
+              onSameSide: true
+              flatpatternAttachment: false
+              zOrigin: '0.'
+              thickness: '1.0'
+              filled: 'False'
+              Attachment2Ds: []
+          - Rectangle:
+              width: '0.4544152173257623'
+              height: '0.24'
+              type: GRAPHIC
+              color: Opaque Black
+              name: rectangle
+              displayName: Thing2D
+              version: 12.9
+              awiVersion: 0.0
+              VersionID: eca3227e-83d6-11f1-a51e-0242b0f0c252
+              componentID: -1
+              InParentID: b77a88be-a3f2-11f1-9541-0242b0f0c252
+              ID: b77a61ad-a3f2-11f1-9541-0242b0f0c252
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              OriginX: '3.3355102211334824'
+              OriginY: '1.1477106633989007'
+              onSameSide: true
+              flatpatternAttachment: false
+              zOrigin: '0.'
+              thickness: '1.0'
+              filled: 'False'
+              Attachment2Ds: []
+          - Rectangle:
+              width: '0.4544152173257623'
+              height: '0.24'
+              type: GRAPHIC
+              color: Opaque Black
+              name: rectangle
+              displayName: Thing2D
+              version: 12.9
+              awiVersion: 0.0
+              VersionID: eca3227e-83d6-11f1-a51e-0242b0f0c252
+              componentID: -1
+              InParentID: ae2c2dbd-a3f2-11f1-9541-0242b0f0c252
+              ID: ae2c2dbc-a3f2-11f1-9541-0242b0f0c252
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              OriginX: '3.7901680724880986'
+              OriginY: '1.1477106633989007'
+              onSameSide: true
+              flatpatternAttachment: false
+              zOrigin: '0.'
+              thickness: '1.0'
+              filled: 'False'
+              Attachment2Ds: []
+          - Text2D: {type: GRAPHIC, color: Opaque Black, name: Text, displayName: Thing2D,
+              version: 12.9, awiVersion: 0.0, VersionID: a61cfbe6-4727-11f1-9769-2c98113d472b,
+              componentID: -1, InParentID: 66efa3cb-a3f2-11f1-9541-0242b0f0c252, ID: 66efa3ca-a3f2-11f1-9541-0242b0f0c252,
+              template: false, verified: false, cncApproved: false, encrypted: false,
+              exportable: true, userLibraryCreated: false, customTemplate: false,
+              locked: false, templateModification: UNMODIFIED, reconstructedFile: false,
+              convertedFile: false, autogeneratedtype: NOT_AUTOGENERATED, layer: Default,
+              OriginX: '5.274726442068784', OriginY: '1.4267106633989004', onSameSide: true,
+              flatpatternAttachment: false, scaleFactorX: '-1.0', zOrigin: '0.', content: GPIO
+                Input, fontFamily: Arial, fontStyle: Regular, fontSize: '7.0', sizeCorrected: true,
+              userEditedFontSize: false, kerning: true, textAlignment: LEFT}
+          - Rectangle:
+              width: '0.28837371281288293'
+              height: '0.24'
+              type: GRAPHIC
+              color: Opaque Black
+              name: rectangle
+              displayName: Thing2D
+              version: 12.9
+              awiVersion: 0.0
+              VersionID: eca3227e-83d6-11f1-a51e-0242b0f0c252
+              componentID: -1
+              InParentID: 52b93a97-a3f2-11f1-9541-0242b0f0c252
+              ID: 52b91486-a3f2-11f1-9541-0242b0f0c252
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              OriginX: '5.043203555497224'
+              OriginY: '1.1477106633989005'
+              onSameSide: true
+              flatpatternAttachment: false
+              zOrigin: '0.'
+              thickness: '1.0'
+              filled: 'False'
+              Attachment2Ds: []
+          - Rectangle:
+              width: '0.2973241324723399'
+              height: '0.24'
+              type: GRAPHIC
+              color: Opaque Black
+              name: rectangle
+              displayName: Thing2D
+              version: 12.9
+              awiVersion: 0.0
+              VersionID: eca3227e-83d6-11f1-a51e-0242b0f0c252
+              componentID: -1
+              InParentID: 2d6e1cce-a3f2-11f1-9541-0242b0f0c252
+              ID: 2d6df5bd-a3f2-11f1-9541-0242b0f0c252
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              OriginX: '5.649594487425431'
+              OriginY: '1.1481410112609527'
+              onSameSide: true
+              flatpatternAttachment: false
+              zOrigin: '0.'
+              thickness: '1.0'
+              filled: 'False'
+              Attachment2Ds: []
+          - Rectangle:
+              width: '0.2973241324723399'
+              height: '0.24'
+              type: GRAPHIC
+              color: Opaque Black
+              name: rectangle
+              displayName: Thing2D
+              version: 12.9
+              awiVersion: 0.0
+              VersionID: eca3227e-83d6-11f1-a51e-0242b0f0c252
+              componentID: -1
+              InParentID: 2b33e447-a3f2-11f1-9541-0242b0f0c252
+              ID: 2b33e446-a3f2-11f1-9541-0242b0f0c252
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              OriginX: '5.9471959411023745'
+              OriginY: '1.1481410112609527'
+              onSameSide: true
+              flatpatternAttachment: false
+              zOrigin: '0.'
+              thickness: '1.0'
+              filled: 'False'
+              Attachment2Ds: []
+          - Rectangle:
+              width: '0.2973241324723399'
+              height: '0.24'
+              type: GRAPHIC
+              color: Opaque Black
+              name: rectangle
+              displayName: Thing2D
+              version: 12.9
+              awiVersion: 0.0
+              VersionID: eca3227e-83d6-11f1-a51e-0242b0f0c252
+              componentID: -1
+              InParentID: 0cdbf26a-a3f2-11f1-9541-0242b0f0c252
+              ID: 0cdbcb59-a3f2-11f1-9541-0242b0f0c252
+              template: false
+              verified: false
+              cncApproved: false
+              encrypted: false
+              exportable: true
+              userLibraryCreated: false
+              customTemplate: false
+              locked: false
+              templateModification: UNMODIFIED
+              reconstructedFile: false
+              convertedFile: false
+              autogeneratedtype: NOT_AUTOGENERATED
+              layer: Default
+              OriginX: '6.244797394779318'
+              OriginY: '1.1481410112609527'
+              onSameSide: true
+              flatpatternAttachment: false
+              zOrigin: '0.'
+              thickness: '1.0'
+              filled: 'False'
+              Attachment2Ds: []
           - Text2D: {type: GRAPHIC, color: Opaque Black, name: Text, displayName: Thing2D,
               version: 12.9, awiVersion: 0.0, VersionID: a61cfbe6-4727-11f1-9769-2c98113d472b,
               componentID: -1, InParentID: 4a9a397c-a348-11f1-ab1d-0242b0f0c252, ID: 4a9a126b-a348-11f1-ab1d-0242b0f0c252,
@@ -5353,8 +5848,8 @@ Assembly:
               properties:
               - BooleanProperty: [profileCutout, false]
               layer: Default
-              OriginX: '2.11874130056269'
-              OriginY: '0.839412539527787'
+              OriginX: '2.1187413005626894'
+              OriginY: '0.8477106633989009'
               onSameSide: false
               flatpatternAttachment: false
               scaleFactorX: '1'
@@ -5557,7 +6052,7 @@ Assembly:
               fontSize: '7.0', sizeCorrected: true, userEditedFontSize: false, kerning: true,
               textAlignment: LEFT}
           - Rectangle:
-              width: '1.1897609183194602'
+              width: '0.2866452348071489'
               height: '0.24034536152041036'
               type: GRAPHIC
               color: Opaque Black
@@ -5582,8 +6077,8 @@ Assembly:
               convertedFile: false
               autogeneratedtype: NOT_AUTOGENERATED
               layer: Default
-              OriginX: '0.752401626748696'
-              OriginY: '1.14474184029656'
+              OriginX: '0.7670185620532024'
+              OriginY: '1.146710663398901'
               onSameSide: true
               flatpatternAttachment: false
               zOrigin: '0.'
@@ -5602,7 +6097,7 @@ Assembly:
               fontFamily: Arial, fontStyle: Regular, fontSize: '7.0', sizeCorrected: true,
               userEditedFontSize: false, kerning: true, textAlignment: LEFT}
           - Rectangle:
-              width: '0.6148392392583535'
+              width: '0.6031456910147486'
               height: '0.24034536152041036'
               type: GRAPHIC
               color: Opaque Black
@@ -5627,8 +6122,8 @@ Assembly:
               convertedFile: false
               autogeneratedtype: NOT_AUTOGENERATED
               layer: Default
-              OriginX: '0.134756074179366'
-              OriginY: '1.14505059065438'
+              OriginX: '0.13475607417936608'
+              OriginY: '1.146710663398901'
               onSameSide: true
               flatpatternAttachment: false
               zOrigin: '0.'
@@ -5636,7 +6131,7 @@ Assembly:
               filled: 'False'
               Attachment2Ds: []
           - Rectangle:
-              width: '0.6181292958939713'
+              width: '0.3227654471318928'
               height: '0.24034536152041036'
               type: GRAPHIC
               color: Opaque Black
@@ -5662,7 +6157,7 @@ Assembly:
               autogeneratedtype: NOT_AUTOGENERATED
               layer: Default
               OriginX: '4.72264770634254'
-              OriginY: '1.15005059065438'
+              OriginY: '1.1477106633989005'
               onSameSide: true
               flatpatternAttachment: false
               zOrigin: '0.'
@@ -5670,7 +6165,7 @@ Assembly:
               filled: 'False'
               Attachment2Ds: []
           - Rectangle:
-              width: '1.8095843912628942'
+              width: '0.4454649542758249'
               height: '0.24034536152041036'
               type: GRAPHIC
               color: Opaque Black
@@ -5696,7 +6191,7 @@ Assembly:
               autogeneratedtype: NOT_AUTOGENERATED
               layer: Default
               OriginX: '2.43426434035956'
-              OriginY: '1.15251961807434'
+              OriginY: '1.1477106633989007'
               onSameSide: true
               flatpatternAttachment: false
               zOrigin: '0.'
@@ -5824,12 +6319,12 @@ Assembly:
               exportable: true, userLibraryCreated: false, customTemplate: false,
               locked: false, templateModification: UNMODIFIED, reconstructedFile: false,
               convertedFile: false, autogeneratedtype: NOT_AUTOGENERATED, layer: Default,
-              OriginX: '6.0880905226807', OriginY: '1.42705059065438', onSameSide: true,
-              flatpatternAttachment: false, scaleFactorX: '-1.0', zOrigin: '0.', content: General-Purpose
-                I/O, fontFamily: Arial, fontStyle: Regular, fontSize: '7.0', sizeCorrected: true,
+              OriginX: '6.234030645552304', OriginY: '1.4267106633989004', onSameSide: true,
+              flatpatternAttachment: false, scaleFactorX: '-1.0', zOrigin: '0.', content: GPIO
+                Output, fontFamily: Arial, fontStyle: Regular, fontSize: '7.0', sizeCorrected: true,
               userEditedFontSize: false, kerning: true, textAlignment: LEFT}
           - Rectangle:
-              width: '1.203554122992355'
+              width: '0.2883737128128838'
               height: '0.24'
               type: GRAPHIC
               color: Opaque Black
@@ -5854,8 +6349,8 @@ Assembly:
               convertedFile: false
               autogeneratedtype: NOT_AUTOGENERATED
               layer: Default
-              OriginX: '5.34033283660837'
-              OriginY: '1.15031879009388'
+              OriginX: '5.358233675927284'
+              OriginY: '1.1477106633989005'
               onSameSide: true
               flatpatternAttachment: false
               zOrigin: '0.'
@@ -6100,7 +6595,7 @@ Assembly:
         Parameters:
         - {name: metalColortest, default: metalColortest, displayName: metalColortest,
           units: MetalColor}
-      DesignID: 740f0c12-a345-11f1-ab1d-0242b0f0c252
+      DesignID: 6e40013d-a3f1-11f1-9541-0242b0f0c252
       Mark At Laser: RED
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: Aluminum, color: metalColortest, thickness: '0.0'}
@@ -6603,7 +7098,7 @@ Assembly:
         Parameters:
         - {name: metalColortest, default: metalColortest, displayName: metalColortest,
           units: MetalColor}
-      DesignID: 742049d6-a345-11f1-ab1d-0242b0f0c252
+      DesignID: 6e4c5d01-a3f1-11f1-9541-0242b0f0c252
       Mark At Laser: RED
       Symmetry Type: NOT_CHECKED
       MetalInfo: {material: Aluminum, color: metalColortest, thickness: '0.0'}
