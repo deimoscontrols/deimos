@@ -90,23 +90,13 @@
 	)
 	(wire
 		(pts
-			(xy 51.054 33.528) (xy 51.054 85.598)
+			(xy 51.054 33.528) (xy 51.054 91.694)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "00f7f004-2a65-4d91-83a9-5c78c8e6ae58")
-	)
-	(wire
-		(pts
-			(xy 53.086 88.646) (xy 26.924 88.646)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3e10af78-8cab-4e1e-b86c-521598419e2d")
 	)
 	(wire
 		(pts
@@ -120,13 +110,13 @@
 	)
 	(wire
 		(pts
-			(xy 26.924 85.598) (xy 51.054 85.598)
+			(xy 51.054 91.694) (xy 26.67 91.694)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "701ddca3-3823-431b-bf3c-d908e6f87305")
+		(uuid "86e73a6d-ba36-45ee-b8d0-6f51c63298a1")
 	)
 	(wire
 		(pts
@@ -140,7 +130,17 @@
 	)
 	(wire
 		(pts
-			(xy 53.086 35.306) (xy 53.086 88.646)
+			(xy 53.086 93.472) (xy 26.67 93.472)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cc1f6ce0-1d44-46d4-9427-ce51d815ff88")
+	)
+	(wire
+		(pts
+			(xy 53.086 35.306) (xy 53.086 93.472)
 		)
 		(stroke
 			(width 0)
@@ -236,7 +236,7 @@
 		)
 		(uuid "fc2f87ac-c98e-4271-8640-543c5b1e14ea")
 	)
-	(hierarchical_label "ENCODER0_1"
+	(hierarchical_label "ENCODER0_B"
 		(shape input)
 		(at 26.416 76.708 180)
 		(effects
@@ -268,6 +268,28 @@
 			(justify right)
 		)
 		(uuid "10ddb311-9d7a-47e4-9c24-04eda2e82447")
+	)
+	(hierarchical_label "ENCODER3_A"
+		(shape input)
+		(at 26.416 86.106 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "1294a714-7329-44cb-b816-9f9728f9ac78")
+	)
+	(hierarchical_label "ENCODER2_A"
+		(shape input)
+		(at 26.416 82.55 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "13aa94e0-fcf0-4e1e-8512-9b82d594ed86")
 	)
 	(hierarchical_label "AIN13_DAC0"
 		(shape input)
@@ -313,7 +335,7 @@
 		)
 		(uuid "2d56aa68-978b-4e39-a0a2-a0db9fd791e3")
 	)
-	(hierarchical_label "ENCODER0_0"
+	(hierarchical_label "ENCODER0_A"
 		(shape input)
 		(at 26.416 75.184 180)
 		(effects
@@ -334,6 +356,17 @@
 			(justify right)
 		)
 		(uuid "4adf9a72-3556-4600-aa9c-bdbbf05a9227")
+	)
+	(hierarchical_label "ENCODER3_B"
+		(shape input)
+		(at 26.416 87.63 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "4d45c024-4b58-45c4-83ec-4ccbdd057e5f")
 	)
 	(hierarchical_label "AIN1"
 		(shape input)
@@ -356,6 +389,17 @@
 			(justify right)
 		)
 		(uuid "60cf0ed8-e488-4ed6-875a-c2bf92b2f2e2")
+	)
+	(hierarchical_label "ENCODER2_B"
+		(shape input)
+		(at 26.416 84.074 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "66a60e7d-04e2-4aca-922b-047a2d71db19")
 	)
 	(hierarchical_label "AIN10"
 		(shape input)
@@ -400,6 +444,17 @@
 			(justify right)
 		)
 		(uuid "8281eed3-e206-4d99-86f4-1161838d73b1")
+	)
+	(hierarchical_label "ENCODER1_A"
+		(shape input)
+		(at 26.416 78.994 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "876f03be-a8ac-4eb3-bcfc-6c6660747beb")
 	)
 	(hierarchical_label "AIN5"
 		(shape input)
@@ -477,6 +532,17 @@
 			(justify left)
 		)
 		(uuid "afcf313d-cbec-46f1-87c2-3311f33427be")
+	)
+	(hierarchical_label "ENCODER1_B"
+		(shape input)
+		(at 26.416 80.518 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "c95a46c8-6500-4abc-983a-13cdd46d8250")
 	)
 	(hierarchical_label "PWM2"
 		(shape input)
@@ -557,7 +623,7 @@
 	)
 	(hierarchical_label "AIN0"
 		(shape input)
-		(at 26.924 85.598 180)
+		(at 26.67 91.694 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -579,7 +645,7 @@
 	)
 	(hierarchical_label "AIN1"
 		(shape input)
-		(at 26.924 88.646 180)
+		(at 26.67 93.472 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -843,7 +909,7 @@
 	)
 	(sheet
 		(at 26.416 18.415)
-		(size 19.558 59.309)
+		(size 19.558 70.231)
 		(stroke
 			(width 0.1524)
 			(type solid)
@@ -1120,26 +1186,6 @@
 			)
 			(uuid "9b01d4c3-bcff-4b1d-bac0-be1ad16a6d30")
 		)
-		(pin "ENCODER0_0" input
-			(at 26.416 75.184 180)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "55ff4683-705b-4256-9aa6-334929f252b3")
-		)
-		(pin "ENCODER0_1" input
-			(at 26.416 76.708 180)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "ee2864bd-c767-472e-bb18-b7f7018da1cd")
-		)
 		(pin "PWM0" input
 			(at 26.416 61.976 180)
 			(effects
@@ -1219,6 +1265,86 @@
 				(justify right)
 			)
 			(uuid "3953f4b8-c423-4fe3-a674-f0b88b38f0ea")
+		)
+		(pin "ENCODER1_A" input
+			(at 26.416 78.994 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "5dd99092-1e59-45ab-bd26-2b2b64320553")
+		)
+		(pin "ENCODER1_B" input
+			(at 26.416 80.518 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "7280f2e8-7683-437e-8f18-b6f165fc6ac6")
+		)
+		(pin "ENCODER0_B" input
+			(at 26.416 76.708 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "c83d12a2-83c9-40ef-871c-cd38477c0366")
+		)
+		(pin "ENCODER0_A" input
+			(at 26.416 75.184 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "f9349e01-0bbb-4153-8666-adfacadb3275")
+		)
+		(pin "ENCODER2_B" input
+			(at 26.416 84.074 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "4bfb8d9d-f47f-4235-b164-60df84d0670a")
+		)
+		(pin "ENCODER2_A" input
+			(at 26.416 82.55 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "f082871c-8849-4396-9e3a-7cc564426d2f")
+		)
+		(pin "ENCODER3_A" input
+			(at 26.416 86.106 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "7d3813cb-4840-4adb-b132-36e7fd9a4774")
+		)
+		(pin "ENCODER3_B" input
+			(at 26.416 87.63 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "859b7e9d-5d2c-4439-83d7-ae31b04726aa")
 		)
 		(instances
 			(project "stm32h7_base"
