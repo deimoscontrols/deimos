@@ -3,6 +3,7 @@
 ## 2026-09-05 0.21.2
 
 * Add `deimos_procedures` package and move bench/test/cal procedures from `deimos/examples`
+* Centralize workspace deps
 
 ## 2026-09-05 Hardware Rev 8.0.0, Software 0.21.1
 
