@@ -4,7 +4,7 @@
 use pyo3::prelude::*;
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
+use crate::{calc_names, py_json_methods};
 
 /// A PID controller with simple saturation for anti-windup
 #[cfg_attr(feature = "python", pyclass)]
@@ -17,20 +17,6 @@ pub struct Pid {
     ki: f64,
     kd: f64,
     max_integral: f64,
-    save_outputs: bool,
-
-    // Internal state
-    err: f64,
-    integral: f64,
-
-    // Values provided by calc orchestrator during init
-    dt_s: f64,
-
-    #[serde(skip)]
-    input_indices: Vec<usize>,
-
-    #[serde(skip)]
-    output_index: usize,
 }
 
 impl Pid {
@@ -41,17 +27,7 @@ impl Pid {
         ki: f64,
         kd: f64,
         max_integral: f64,
-        save_outputs: bool,
     ) -> Box<Self> {
-        let err = 0.0;
-        let integral = 0.0;
-
-        // These will be set during init.
-        // Use default indices that will cause an error on the first call if not initialized properly
-        let dt_s = 1.0;
-        let input_indices = vec![];
-        let output_index = usize::MAX;
-
         Box::new(Self {
             measurement_name,
             setpoint_name,
@@ -59,14 +35,6 @@ impl Pid {
             ki,
             kd,
             max_integral,
-            save_outputs,
-
-            err,
-            integral,
-
-            dt_s,
-            input_indices,
-            output_index,
         })
     }
 }
@@ -82,96 +50,40 @@ py_json_methods!(
         ki: f64,
         kd: f64,
         max_integral: f64,
-        save_outputs: bool,
     ) -> Self {
-        *Self::new(
-            measurement_name,
-            setpoint_name,
-            kp,
-            ki,
-            kd,
-            max_integral,
-            save_outputs,
-        )
+        *Self::new(measurement_name, setpoint_name, kp, ki, kd, max_integral)
     }
 );
 
 #[typetag::serde]
 impl Calc for Pid {
-    /// Reset internal state and register calc tape indices
-    fn init(
-        &mut self,
-        ctx: ControllerCtx,
-        input_indices: Vec<usize>,
-        output_range: Range<usize>,
-    ) -> Result<(), String> {
-        assert!(
-            ctx.dt_ns > 0,
-            "dt_ns value of {} provided. dt_ns must be > 0",
-            ctx.dt_ns
-        );
-
-        self.dt_s = (ctx.dt_ns as f64) / 1e9;
-        self.input_indices = input_indices;
-        self.output_index = output_range.clone().next().unwrap();
-        Ok(())
-    }
-
-    fn terminate(&mut self) -> Result<(), String> {
-        self.err = 0.0;
-        self.dt_s = 1.0;
-        self.integral = 0.0;
-        self.input_indices.clear();
-        self.output_index = usize::MAX;
-        Ok(())
-    }
-
-    /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
-        // Consume latest error estimate
-        let meas = tape[self.input_indices[0]];
-        let setpoint = tape[self.input_indices[1]];
-        let new_error = meas - setpoint;
-        let derivative = (new_error - self.err) / self.dt_s;
-        self.err = new_error;
-        self.integral += self.err * self.dt_s;
-
-        // Anti-windup saturation
-        self.integral = self.integral.min(self.max_integral).max(-self.max_integral);
-
-        // Set the new output
-        let y = self.kp * self.err + self.ki * self.integral + self.kd * derivative;
-        tape[self.output_index] = y;
-        Ok(())
+    fn init(&self, ctx: ControllerCtx) -> Result<CalcFn, String> {
+        if ctx.dt_ns == 0 {
+            return Err("Pid requires dt_ns to be greater than zero".to_owned());
+        }
+        let dt_s = f64::from(ctx.dt_ns) / 1e9;
+        let (kp, ki, kd, max_integral) = (self.kp, self.ki, self.kd, self.max_integral);
+        let mut err = 0.0;
+        let mut integral = 0.0;
+        Ok(Box::new(move |inputs, outputs| {
+            let new_error = inputs[0] - inputs[1];
+            let derivative = (new_error - err) / dt_s;
+            err = new_error;
+            integral += err * dt_s;
+            integral = integral.min(max_integral).max(-max_integral);
+            outputs[0] = kp * err + ki * integral + kd * derivative;
+            Ok(())
+        }))
     }
 
     /// Map from input field names (like `v`, without prefix) to the state name
     /// that the input should draw from (like `peripheral_0.output_1`, with prefix)
-    fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
-        let mut map = BTreeMap::new();
-        map.insert("measurement".to_owned(), self.measurement_name.clone());
-        map.insert("setpoint".to_owned(), self.setpoint_name.clone());
-        map
+    fn input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
+        BTreeMap::from([
+            ("measurement".to_owned(), self.measurement_name.clone()),
+            ("setpoint".to_owned(), self.setpoint_name.clone()),
+        ])
     }
 
-    /// Change a value in the input map
-    fn update_input_map(&mut self, field: &str, source: &str) -> Result<(), String> {
-        match field {
-            "measurement" => self.measurement_name = source.to_owned(),
-            "setpoint" => self.setpoint_name = source.to_owned(),
-            _ => return Err(format!("Unrecognized field {field}")),
-        }
-
-        Ok(())
-    }
-
-    calc_config!(kp, ki, kd, max_integral);
-    calc_input_names!(measurement, setpoint);
-    calc_output_names!(y);
-
-    // FUTURE: PID output usually inherits the measurement's unit. Resolving it requires
-    // `CalcOrchestrator` to pass channel units into `init`.
-    fn get_output_units(&self) -> Vec<Option<String>> {
-        vec![None]
-    }
+    calc_names!((measurement, setpoint), (y));
 }

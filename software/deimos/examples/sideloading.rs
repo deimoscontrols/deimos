@@ -7,19 +7,13 @@
 //!   * Defining custom calcs
 
 // For definining calcs
-use deimos::{
-    calc::*,
-    controller::channel::{Endpoint, Msg},
-    dispatcher::fmt_time,
-};
+use deimos::{calc::*, controller::channel::Msg};
 
 use serde::{Deserialize, Serialize};
-use tracing::info;
 
 use std::{
     collections::BTreeMap,
-    ops::Range,
-    time::{Duration, SystemTime},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 // For using the controller
@@ -39,7 +33,7 @@ fn main() {
     ctx.dt_ns = dt_ns;
     ctx.termination_criteria = termination_criteria;
     ctx.user_ctx
-        .insert("speaker_prefix".to_owned(), "foobar".to_owned());
+        .insert("speaker_offset_s".to_owned(), "42.0".to_owned());
     let mut controller = Controller::new(ctx);
 
     // Clear default UDP socket, which we will not be using
@@ -47,15 +41,10 @@ fn main() {
 
     // Add calcs that use sideloading channel for comms.
     //
-    // While they perform their communication on a channel, not via the calc tape,
-    // they still have a dummy input-output relationship registered with the controller's
-    // calc orchestrator in order to make sure that they are evaluated in the correct
-    // order at each cycle.
+    // The speaker communicates on a channel rather than through the calc tape.
+    // The listener exposes the most recently received value as a normal calc output.
     controller.add_calc("speaker", Box::new(Speaker::new("time channel")));
-    controller.add_calc(
-        "listener",
-        Box::new(Listener::new("speaker.y", "time channel")),
-    );
+    controller.add_calc("listener", Box::new(Listener::new("time channel")));
 
     // Serialize and deserialize the controller (for demonstration purposes)
     {
@@ -70,170 +59,79 @@ fn main() {
 /// A dummy calc that calls out the time on a channel each cycle
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Speaker {
-    // User inputs
     channel_name: String,
-    save_outputs: bool,
-
-    #[serde(skip)]
-    endpoint: Endpoint,
-
-    prefix: String,
-
-    // Values provided by calc orchestrator during init
-    #[serde(skip)]
-    output_index: usize,
 }
 
 impl Speaker {
     pub fn new(channel_name: &str) -> Self {
-        // These will be set during init.
-        // Use default indices that will cause an error on the first call if not initialized properly
-        let output_index = usize::MAX;
-
         Self {
             channel_name: channel_name.to_owned(),
-            save_outputs: false,
-            endpoint: Endpoint::default(),
-            prefix: "".to_owned(),
-            output_index,
         }
     }
 }
 
 #[typetag::serde]
 impl Calc for Speaker {
-    /// Reset internal state and register calc tape indices
-    fn init(
-        &mut self,
-        ctx: ControllerCtx,
-        _input_indices: Vec<usize>,
-        output_range: Range<usize>,
-    ) -> Result<(), String> {
-        self.output_index = output_range.clone().next().unwrap();
-        self.endpoint = ctx.source_endpoint(&self.channel_name);
-        self.prefix = ctx.user_ctx.get("speaker_prefix").unwrap().to_owned();
-        Ok(())
-    }
-
-    fn terminate(&mut self) -> Result<(), String> {
-        self.output_index = usize::MAX;
-        self.endpoint = Endpoint::default();
-        Ok(())
-    }
-
-    /// Run calcs for a cycle
-    fn eval(&mut self, _tape: &mut [f64]) -> Result<(), String> {
-        // Send time on user channel with prefix
-        let msg = Msg::Str(format!(
-            "{} at {:?}",
-            &self.prefix,
-            fmt_time(SystemTime::now())
-        ));
-        self.endpoint.tx().try_send(msg).unwrap(); // Will panic if buffer is full or channel is closed
-
-        // We could write a dummy value to the tape here, but we don't need to
-        Ok(())
+    fn init(&self, ctx: ControllerCtx) -> Result<CalcFn, String> {
+        let endpoint = ctx.source_endpoint(&self.channel_name);
+        let offset_s = ctx
+            .user_ctx
+            .get("speaker_offset_s")
+            .ok_or_else(|| "Missing `speaker_offset_s` user context".to_owned())?
+            .parse::<f64>()
+            .map_err(|err| format!("Invalid `speaker_offset_s`: {err}"))?;
+        Ok(Box::new(move |_, _| {
+            let now_s = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_or(f64::NAN, |duration| duration.as_secs_f64());
+            let msg = Msg::Val(now_s + offset_s);
+            let _ = endpoint.tx().try_send(msg);
+            Ok(())
+        }))
     }
 
     /// Map from input field names (like `v`, without prefix) to the state name
     /// that the input should draw from (like `peripheral_0.output_1`, with prefix)
-    fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
+    fn input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
         BTreeMap::new()
     }
 
-    /// Change a value in the input map
-    fn update_input_map(&mut self, field: &str, _source: &str) -> Result<(), String> {
-        Err(format!("Unrecognized field {field}")) // there aren't any input fields
-    }
-
-    calc_config!();
-    calc_input_names!();
-    calc_output_names!(y);
+    calc_names!((), ());
 }
 
-/// A dummy calc that receives time from a listener and prints it to the terminal
+/// A dummy calc that receives time from a speaker and exposes it as an output
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Listener {
-    // User inputs
-    // input_name: String,
     channel_name: String,
-    save_outputs: bool,
-
-    #[serde(skip)]
-    endpoint: Endpoint,
-
-    // Values provided by calc orchestrator during init
-    #[serde(skip)]
-    output_index: usize,
 }
 
 impl Listener {
-    pub fn new(_input_name: &str, channel_name: &str) -> Self {
-        // These will be set during init.
-        // Use default indices that will cause an error on the first call if not initialized properly
-        let output_index = usize::MAX;
-
+    pub fn new(channel_name: &str) -> Self {
         Self {
-            // input_name: input_name.to_owned(),
             channel_name: channel_name.to_owned(),
-            save_outputs: false,
-            endpoint: Endpoint::default(),
-            output_index,
         }
     }
 }
 
 #[typetag::serde]
 impl Calc for Listener {
-    /// Reset internal state and register calc tape indices
-    fn init(
-        &mut self,
-        ctx: ControllerCtx,
-        _input_indices: Vec<usize>,
-        output_range: Range<usize>,
-    ) -> Result<(), String> {
-        self.output_index = output_range.clone().next().unwrap();
-        self.endpoint = ctx.sink_endpoint(&self.channel_name);
-        Ok(())
-    }
-
-    fn terminate(&mut self) -> Result<(), String> {
-        self.output_index = usize::MAX;
-        self.endpoint = Endpoint::default();
-        Ok(())
-    }
-
-    /// Run calcs for a cycle
-    fn eval(&mut self, _tape: &mut [f64]) -> Result<(), String> {
-        // Print the time if we received it
-        let msg = match self.endpoint.rx().try_recv() {
-            Ok(x) => x,
-            Err(_) => return Ok(()),
-        };
-
-        match msg {
-            Msg::Str(s) => {
-                info!("{s}");
+    fn init(&self, ctx: ControllerCtx) -> Result<CalcFn, String> {
+        let endpoint = ctx.sink_endpoint(&self.channel_name);
+        let mut received_time_s = f64::NAN;
+        Ok(Box::new(move |_, outputs| {
+            if let Ok(Msg::Val(value)) = endpoint.rx().try_recv() {
+                received_time_s = value;
             }
-            x => panic!("Unexpected message type: {x:?}"),
-        }
-
-        // We could write a dummy value to the tape here, but we don't need to
-        Ok(())
+            outputs[0] = received_time_s;
+            Ok(())
+        }))
     }
 
     /// Map from input field names (like `v`, without prefix) to the state name
     /// that the input should draw from (like `peripheral_0.output_1`, with prefix)
-    fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
+    fn input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
         BTreeMap::new()
     }
 
-    /// Change a value in the input map
-    fn update_input_map(&mut self, field: &str, _source: &str) -> Result<(), String> {
-        Err(format!("Unrecognized field {field}")) // there aren't any input fields
-    }
-
-    calc_config!();
-    calc_input_names!();
-    calc_output_names!(y);
+    calc_names!((), (received_time_s));
 }

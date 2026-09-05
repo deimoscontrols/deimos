@@ -151,11 +151,7 @@ pub(super) fn init_replay_dispatchers(
     ctx: &mut crate::ControllerCtx,
     dispatchers: &mut BTreeMap<String, Box<dyn Dispatcher>>,
     channel_names: &[String],
-    channel_units: Vec<Option<String>>,
 ) -> Result<(), String> {
-    // Match the live controller behavior by making channel units visible in the
-    // context before dispatcher initialization.
-    ctx.channel_units = channel_units;
     for (core_assignment, dispatcher) in dispatchers.values_mut().enumerate() {
         // There is no real core assignment during replay, but dispatchers use
         // this value only as a worker-affinity hint, so deterministic indices

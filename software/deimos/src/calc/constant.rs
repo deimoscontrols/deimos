@@ -1,7 +1,7 @@
 //! A calc that produces a constant value
 
 use super::*;
-use crate::{calc_config, calc_input_names, calc_output_names, py_json_methods};
+use crate::{calc_names, py_json_methods};
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
@@ -10,34 +10,12 @@ use pyo3::prelude::*;
 #[derive(Serialize, Deserialize, Default, Debug)]
 #[cfg_attr(feature = "python", pyo3::prelude::pyclass)]
 pub struct Constant {
-    // User inputs
     y: f64,
-    save_outputs: bool,
-    #[serde(default)]
-    output_unit: Option<String>,
-
-    // Values provided by calc orchestrator during init
-    #[serde(skip)]
-    output_index: usize,
 }
 
 impl Constant {
-    pub fn new(y: f64, save_outputs: bool) -> Box<Self> {
-        // Use default indices that will cause an error on the first call if not initialized properly
-        let output_index = usize::MAX;
-
-        Box::new(Self {
-            y,
-            save_outputs,
-            output_unit: None,
-            output_index,
-        })
-    }
-
-    /// Attach an output unit label (builder method).
-    pub fn with_output_unit(mut self: Box<Self>, unit: impl Into<String>) -> Box<Self> {
-        self.output_unit = Some(unit.into());
-        self
+    pub fn new(y: f64) -> Box<Self> {
+        Box::new(Self { y })
     }
 }
 
@@ -45,54 +23,26 @@ py_json_methods!(
     Constant,
     Calc,
     #[new]
-    #[pyo3(signature = (y, save_outputs, output_unit = None))]
-    fn py_new(y: f64, save_outputs: bool, output_unit: Option<String>) -> PyResult<Self> {
-        let mut calc = Self::new(y, save_outputs);
-        calc.output_unit = output_unit;
-        Ok(*calc)
+    fn py_new(y: f64) -> Self {
+        *Self::new(y)
     }
 );
 
 #[typetag::serde]
 impl Calc for Constant {
-    /// Reset internal state and register calc tape indices
-    fn init(
-        &mut self,
-        _: ControllerCtx,
-        _: Vec<usize>,
-        output_range: Range<usize>,
-    ) -> Result<(), String> {
-        self.output_index = output_range.clone().next().unwrap();
-        Ok(())
-    }
-
-    fn terminate(&mut self) -> Result<(), String> {
-        self.output_index = usize::MAX;
-        Ok(())
-    }
-
-    /// Run calcs for a cycle
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
-        tape[self.output_index] = self.y;
-        Ok(())
+    fn init(&self, _: ControllerCtx) -> Result<CalcFn, String> {
+        let y = self.y;
+        Ok(Box::new(move |_, outputs| {
+            outputs[0] = y;
+            Ok(())
+        }))
     }
 
     /// Map from input field names (like `v`, without prefix) to the state name
     /// that the input should draw from (like `peripheral_0.output_1`, with prefix)
-    fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
+    fn input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
         BTreeMap::new()
     }
 
-    /// Change a value in the input map
-    fn update_input_map(&mut self, field: &str, _: &str) -> Result<(), String> {
-        Err(format!("Unrecognized field {field}"))
-    }
-
-    fn get_output_units(&self) -> Vec<Option<String>> {
-        vec![self.output_unit.clone()]
-    }
-
-    calc_config!(y);
-    calc_input_names!();
-    calc_output_names!(y);
+    calc_names!((), (y));
 }

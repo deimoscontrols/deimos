@@ -111,11 +111,11 @@ impl Peripheral for AnalogIRev4 {
 
         {
             // Bus current measured on shunt resistors with G=50
-            let module_bus_current = Affine::new(format!("{name}.ain0"), 4.0 / 1.5, 0.0, true);
+            let module_bus_current = Affine::new(format!("{name}.ain0"), 4.0 / 1.5, 0.0);
             calcs.insert(format!("{name}_bus_current_A"), module_bus_current);
 
             // Bus voltage measured with sub-unity gain
-            let module_bus_voltage = Affine::new(format!("{name}.ain1"), 21.5 / 1.5, 0.0, true);
+            let module_bus_voltage = Affine::new(format!("{name}.ain1"), 21.5 / 1.5, 0.0);
             calcs.insert(format!("{name}_bus_voltage_V"), module_bus_voltage);
         }
 
@@ -128,8 +128,8 @@ impl Peripheral for AnalogIRev4 {
             // v_sensed = 250e-6 amps * r_sensed * 25.7
             // => r_sensed = v_sensed / (250e-6 * 25.7)
             let slope = 250e-6 * 25.7;
-            let resistance_calc = InverseAffine::new(input_name, slope, 0.0, false);
-            let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
+            let resistance_calc = InverseAffine::new(input_name, slope, 0.0);
+            let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"));
             calcs.insert(resistance_calc_name, resistance_calc);
             calcs.insert(temperature_calc_name.clone(), temperature_calc);
         }
@@ -146,7 +146,7 @@ impl Peripheral for AnalogIRev4 {
                 let input_name = format!("{name}.ain{i}");
                 let calc_name = format!("{name}_4_20_mA_{n}_A");
                 let slope = 75.0; // [V/A] due to 75 ohm resistor
-                calcs.insert(calc_name, InverseAffine::new(input_name, slope, 0.0, true));
+                calcs.insert(calc_name, InverseAffine::new(input_name, slope, 0.0));
             }
         }
 
@@ -160,8 +160,8 @@ impl Peripheral for AnalogIRev4 {
                 // v_sensed = 250e-6 amps * r_sensed * 25.7
                 // => r_sensed = v_sensed / (250e-6 * 25.7)
                 let slope = 250e-6 * 25.7;
-                let resistance_calc = InverseAffine::new(input_name, slope, 0.0, true);
-                let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"), true);
+                let resistance_calc = InverseAffine::new(input_name, slope, 0.0);
+                let temperature_calc = RtdPt100::new(format!("{resistance_calc_name}.y"));
                 calcs.insert(resistance_calc_name, resistance_calc);
                 calcs.insert(temperature_calc_name, temperature_calc);
             }
@@ -179,11 +179,10 @@ impl Peripheral for AnalogIRev4 {
                 let voltage_calc_name = format!("{name}_tc_{n}_voltage_V");
                 let temperature_calc_name = format!("{name}_tc_{n}_temp_K");
 
-                let voltage_calc = InverseAffine::new(input_name, slope, offset, false);
+                let voltage_calc = InverseAffine::new(input_name, slope, offset);
                 let temperature_calc = TcKtype::new(
                     format!("{voltage_calc_name}.y"),
                     format!("{name}_board_temp.temperature_K"),
-                    true,
                 );
                 calcs.insert(voltage_calc_name, voltage_calc);
                 calcs.insert(temperature_calc_name, temperature_calc);

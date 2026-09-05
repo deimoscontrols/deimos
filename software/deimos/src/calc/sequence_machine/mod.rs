@@ -4,7 +4,7 @@
 use core::f64;
 use std::fmt::Write;
 use std::{
-    collections::{BTreeSet, HashSet},
+    collections::{BTreeMap, BTreeSet, HashSet},
     path::Path,
 };
 
@@ -26,37 +26,31 @@ pub use lookup::{InterpMethod, SequenceLookup};
 pub use sequence::Sequence;
 pub use transition::{ThreshOp, Timeout, Transition};
 
-#[derive(Default, Debug)]
-struct ExecutionState {
+#[derive(Debug)]
+struct SequenceRunner {
+    cfg: MachineCfg,
+    sequences: BTreeMap<String, Sequence>,
+    sequence_names: Vec<String>,
+    sequence_index_map: BTreeMap<String, usize>,
+
     /// Time in current sequence's sequence.
     /// Starts at the first time in the sequence's lookup table.
-    pub sequence_time_s: f64,
+    sequence_time_s: f64,
 
     /// Name of the current operating sequence
-    pub current_sequence: String,
+    current_sequence: usize,
 
-    // Values provided by calc orchestrator during init
-    /// Lookup map for channel names to indices, required for evaluating
-    /// transition criteria
-    pub input_index_map: BTreeMap<String, usize>,
+    /// Lookup from channel names to positions in the evaluator input slice.
+    input_index_map: BTreeMap<String, usize>,
 
     /// Timestep
-    pub dt_s: f64,
-
-    /// Indices of input calc/channel names
-    pub input_indices: Vec<usize>,
-
-    /// Where to write the calc outputs in the calc tape
-    pub output_range: Range<usize>,
+    dt_s: f64,
 }
 
 /// Sequence entrypoint and transition criteria for the SequenceMachine.
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct MachineCfg {
     // User inputs
-    /// Whether to dispatch outputs
-    pub save_outputs: bool,
-
     /// Name of Sequence which is the entrypoint for the machine
     pub entry: String,
 
@@ -91,11 +85,6 @@ pub struct SequenceMachine {
     /// The inputs to the machine are the sum of all the inputs
     /// required by each sequence.
     sequences: BTreeMap<String, Sequence>,
-
-    /// Current execution state of the SequenceMachine
-    /// including sequence time and per-run configuration.
-    #[serde(skip)]
-    execution_state: ExecutionState,
 }
 
 impl Default for SequenceMachine {
@@ -106,7 +95,6 @@ impl Default for SequenceMachine {
                 ..Default::default()
             },
             sequences: BTreeMap::from([("Placeholder".into(), Sequence::default())]),
-            execution_state: ExecutionState::default(),
         }
     }
 }
@@ -117,24 +105,7 @@ impl SequenceMachine {
         cfg: MachineCfg,
         sequences: BTreeMap<String, Sequence>,
     ) -> Result<Box<Self>, String> {
-        // These will be set during init.
-        // Use default indices that will cause an error on the first call if not initialized properly
-        let input_indices = Vec::new();
-        let output_range = usize::MAX..usize::MAX;
-        let entry = cfg.entry.to_owned();
-
-        let machine = Self {
-            cfg,
-            sequences,
-            execution_state: ExecutionState {
-                sequence_time_s: f64::NAN,
-                current_sequence: entry,
-                input_index_map: BTreeMap::new(),
-                dt_s: f64::NAN,
-                input_indices,
-                output_range,
-            },
-        };
+        let machine = Self { cfg, sequences };
 
         machine.validate()?;
 
@@ -150,6 +121,18 @@ impl SequenceMachine {
 
         // Validate machine-level configuration
         let seq_names: HashSet<String> = self.sequences.keys().cloned().collect();
+        if !seq_names.contains(&self.cfg.entry) {
+            return Err(format!("Missing entry sequence `{}`", self.cfg.entry));
+        }
+
+        let entry_outputs: BTreeSet<_> = self.sequences[&self.cfg.entry].data.keys().collect();
+        for (name, sequence) in &self.sequences {
+            if sequence.data.keys().collect::<BTreeSet<_>>() != entry_outputs {
+                return Err(format!(
+                    "Sequence `{name}` outputs do not match the entry sequence"
+                ));
+            }
+        }
 
         // Make sure all the timeouts are present and there aren't any extras
         let timeout_seq_names: HashSet<String> = self.cfg.timeouts.keys().cloned().collect();
@@ -162,7 +145,7 @@ impl SequenceMachine {
         }
 
         // Make sure all the transitions are present and there aren't any extras
-        let transition_seq_names: HashSet<String> = self.cfg.timeouts.keys().cloned().collect();
+        let transition_seq_names: HashSet<String> = self.cfg.transitions.keys().cloned().collect();
         if seq_names != transition_seq_names {
             return Err(format!(
                 "Transitions do not match sequences. Sequence names that are present in sequences but not timeouts: `{:?}`. Sequence names that are present in transitions but not sequences: {:?}",
@@ -177,6 +160,16 @@ impl SequenceMachine {
                 if !seq_names.contains(target_sequence) {
                     return Err(format!(
                         "Sequence `{seq}` has transition target sequence `{target_sequence}` which does not exist."
+                    ));
+                }
+            }
+        }
+
+        for (sequence, timeout) in &self.cfg.timeouts {
+            if let Timeout::Transition(target) = timeout {
+                if !seq_names.contains(target) {
+                    return Err(format!(
+                        "Sequence `{sequence}` has timeout target `{target}` which does not exist"
                     ));
                 }
             }
@@ -207,86 +200,6 @@ impl SequenceMachine {
             .or_default()
             .push(transition);
 
-        Ok(())
-    }
-
-    /// Get a reference to the sequence indicated in execution_state.current_sequence
-    fn current_sequence(&self) -> &Sequence {
-        &self.sequences[&self.execution_state.current_sequence]
-    }
-
-    /// Get a reference to the entrypoint sequence
-    fn entry_sequence(&self) -> &Sequence {
-        &self.sequences[&self.cfg.entry]
-    }
-
-    /// Set next target sequence and reset sequence time to the initial time for that sequence.
-    fn transition(&mut self, target_sequence: String) {
-        self.execution_state.current_sequence = target_sequence;
-        self.execution_state.sequence_time_s = self.current_sequence().get_start_time_s();
-    }
-
-    /// Check each sequence transition criterion and set the next sequence if needed.
-    /// If multiple transition criteria are met at the same time, the first
-    /// one in the list will be prioritized.
-    fn check_transitions(&mut self, sequence_time_s: f64, tape: &[f64]) -> Result<(), String> {
-        let sequence_name = &self.execution_state.current_sequence;
-
-        // Check for timeout
-        if sequence_time_s > self.current_sequence().get_end_time_s() {
-            return match &self.cfg.timeouts[sequence_name] {
-                Timeout::Transition(target_sequence) => {
-                    // info!("Transition `{target_sequence}` due to timeout");
-                    self.transition(target_sequence.clone());
-                    Ok(())
-                }
-                Timeout::Loop => {
-                    // info!("Looping sequence `{sequence_name}` due to timeout");
-                    self.transition(sequence_name.clone());
-                    Ok(())
-                }
-            };
-        }
-
-        // Check other criteria
-        for (target_sequence, criteria) in self.cfg.transitions[sequence_name].iter() {
-            // Check whether this each criterion has been met
-            for criterion in criteria {
-                let should_transition = match criterion {
-                    Transition::ConstantThresh(channel, op, thresh) => {
-                        let i = self.execution_state.input_index_map[channel];
-                        let v = tape[i];
-
-                        op.eval(v, *thresh)
-                    }
-                    Transition::ChannelThresh(val_channel, op, thresh_channel) => {
-                        let ival = self.execution_state.input_index_map[val_channel];
-                        let ithresh = self.execution_state.input_index_map[thresh_channel];
-                        let v = tape[ival];
-                        let thresh = tape[ithresh];
-
-                        op.eval(v, thresh)
-                    }
-                    Transition::LookupThresh(channel, op, lookup) => {
-                        let i = self.execution_state.input_index_map[channel];
-                        let v = tape[i];
-                        let thresh = lookup.eval(sequence_time_s);
-
-                        op.eval(v, thresh)
-                    }
-                };
-
-                // If a sequence transition has been triggered, update the execution sequence
-                // to the start of the next sequence.
-                if should_transition {
-                    // info!("Transition `{target_sequence}` due to {criterion:?}");
-                    self.transition(target_sequence.clone());
-                    return Ok(());
-                }
-            }
-        }
-
-        // No transition criteria were met; stay the course
         Ok(())
     }
 
@@ -540,84 +453,130 @@ impl SequenceMachine {
     }
 }
 
+impl SequenceRunner {
+    fn current_sequence_name(&self) -> &str {
+        &self.sequence_names[self.current_sequence]
+    }
+
+    fn current_sequence(&self) -> &Sequence {
+        &self.sequences[self.current_sequence_name()]
+    }
+
+    fn check_transitions(&mut self, inputs: &[f64]) {
+        let sequence_name = self.current_sequence_name();
+
+        if self.sequence_time_s > self.current_sequence().get_end_time_s() {
+            let target = match &self.cfg.timeouts[sequence_name] {
+                Timeout::Transition(target) => target.as_str(),
+                Timeout::Loop => sequence_name,
+            };
+            if let Some(&target_index) = self.sequence_index_map.get(target) {
+                self.current_sequence = target_index;
+                self.sequence_time_s = self.current_sequence().get_start_time_s();
+            }
+            return;
+        }
+
+        let mut target_index = None;
+        'targets: for (target, criteria) in &self.cfg.transitions[sequence_name] {
+            for criterion in criteria {
+                let should_transition = match criterion {
+                    Transition::ConstantThresh(channel, op, thresh) => {
+                        op.eval(inputs[self.input_index_map[channel]], *thresh)
+                    }
+                    Transition::ChannelThresh(value_channel, op, thresh_channel) => op.eval(
+                        inputs[self.input_index_map[value_channel]],
+                        inputs[self.input_index_map[thresh_channel]],
+                    ),
+                    Transition::LookupThresh(channel, op, lookup) => op.eval(
+                        inputs[self.input_index_map[channel]],
+                        lookup.eval(self.sequence_time_s),
+                    ),
+                };
+
+                if should_transition {
+                    target_index = self.sequence_index_map.get(target).copied();
+                    break 'targets;
+                }
+            }
+        }
+
+        if let Some(target_index) = target_index {
+            self.current_sequence = target_index;
+            self.sequence_time_s = self.current_sequence().get_start_time_s();
+        }
+    }
+
+    fn eval(&mut self, inputs: &[f64], outputs: &mut [f64]) {
+        self.sequence_time_s += self.dt_s;
+        self.check_transitions(inputs);
+        self.current_sequence().eval(self.sequence_time_s, outputs);
+    }
+}
+
 #[typetag::serde]
 impl Calc for SequenceMachine {
-    /// Reset internal sequence and register calc tape indices
-    fn init(
-        &mut self,
-        ctx: ControllerCtx,
-        input_indices: Vec<usize>,
-        output_range: Range<usize>,
-    ) -> Result<(), String> {
-        // Reload from folder, if linked
-        if let Some(rel_path) = &self.cfg.link_folder {
+    fn init(&self, ctx: ControllerCtx) -> Result<CalcFn, String> {
+        if ctx.dt_ns == 0 {
+            return Err("SequenceMachine requires dt_ns to be greater than zero".to_owned());
+        }
+
+        let runtime = if let Some(rel_path) = &self.cfg.link_folder {
             let folder = ctx.op_dir.join(rel_path);
-            *self = *Self::load_folder(&folder)
-                .map_err(|e| format!("Failed to load sequence machine from linked folder: {e}"))?;
+            *Self::load_folder(&folder)
+                .map_err(|e| format!("Failed to load sequence machine from linked folder: {e}"))?
+        } else {
+            Self {
+                cfg: self.cfg.clone(),
+                sequences: self.sequences.clone(),
+            }
+        };
+        runtime.validate()?;
+
+        let expected_names = self.names();
+        let runtime_names = runtime.names();
+        if runtime_names != expected_names {
+            return Err(
+                "Linked SequenceMachine configuration changed its input or output shape".to_owned(),
+            );
         }
 
-        // Reset execution sequence
-        self.terminate()?;
-
-        // Set per-run config
-        self.execution_state.input_indices = input_indices;
-        self.execution_state.output_range = output_range;
-        self.execution_state.dt_s = ctx.dt_ns as f64 / 1e9;
-
-        // Permute order of each sequence's lookups to match the entrypoint
-        let entry_order: Vec<String> = self.current_sequence().data.keys().cloned().collect();
-        for s in self.sequences.values_mut() {
-            s.permute(&entry_order);
-        }
-
-        // Set up map from input names to tape indices to support
-        // transition checks
-        self.execution_state.input_index_map = BTreeMap::new();
-        for (i, name) in self
-            .execution_state
-            .input_indices
+        let input_index_map = runtime_names
+            .0
+            .into_iter()
+            .enumerate()
+            .map(|(index, name)| (name, index))
+            .collect();
+        let sequence_names: Vec<_> = runtime.sequences.keys().cloned().collect();
+        let sequence_index_map = sequence_names
             .iter()
             .cloned()
-            .zip(self.get_input_names().iter())
-        {
-            self.execution_state.input_index_map.insert(name.clone(), i);
-        }
-
-        // Make sure lookup tables are usable, transitions refer to real sequences, etc
-        self.validate()
-    }
-
-    fn terminate(&mut self) -> Result<(), String> {
-        self.execution_state.input_indices.clear();
-        self.execution_state.output_range = usize::MAX..usize::MAX;
-        let start_time = self
-            .sequences
-            .get(&self.cfg.entry)
-            .ok_or_else(|| "Missing sequence".to_string())?
-            .get_start_time_s();
-        self.execution_state.sequence_time_s = start_time;
-        self.execution_state.current_sequence = self.cfg.entry.clone();
-        Ok(())
-    }
-
-    fn eval(&mut self, tape: &mut [f64]) -> Result<(), String> {
-        // Increment sequence time
-        self.execution_state.sequence_time_s += self.execution_state.dt_s;
-        // Transition to the next sequence if needed, which may reset sequence time
-        self.check_transitions(self.execution_state.sequence_time_s, tape)?;
-
-        // Update output values based on the current sequence
-        self.current_sequence().eval(
-            self.execution_state.sequence_time_s,
-            self.execution_state.output_range.clone(),
-            tape,
-        );
-        Ok(())
+            .enumerate()
+            .map(|(index, name)| (name, index))
+            .collect();
+        let current_sequence = sequence_names
+            .binary_search(&runtime.cfg.entry)
+            .map_err(|_| format!("Missing entry sequence `{}`", runtime.cfg.entry))?;
+        let sequence_time_s = runtime.sequences[&runtime.cfg.entry].get_start_time_s();
+        let mut runner = SequenceRunner {
+            cfg: runtime.cfg,
+            sequences: runtime.sequences,
+            sequence_names,
+            sequence_index_map,
+            sequence_time_s,
+            current_sequence,
+            input_index_map,
+            dt_s: f64::from(ctx.dt_ns) / 1e9,
+        };
+        Ok(Box::new(move |inputs, outputs| {
+            runner.eval(inputs, outputs);
+            Ok(())
+        }))
     }
 
     /// Map from input field names (like `v`, without prefix) to the sequence name
     /// that the input should draw from (like `peripheral_0.output_1`, with prefix)
-    fn get_input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
+    fn input_map(&self) -> BTreeMap<CalcInputName, FieldName> {
         let mut map = BTreeMap::new();
 
         for transitions in self.cfg.transitions.values() {
@@ -634,57 +593,13 @@ impl Calc for SequenceMachine {
         map
     }
 
-    /// Change a value in the input map
-    fn update_input_map(&mut self, _field: &str, _source: &str) -> Result<(), String> {
-        Err(
-            "SequenceMachine input map is derived from sequence transition criterion dependencies"
-                .to_string(),
-        )
-    }
-
-    /// Inputs are the sum of all inputs required by any sequence
-    fn get_input_names(&self) -> Vec<CalcInputName> {
-        self.get_input_map().keys().cloned().collect()
-    }
-
-    /// All sequences have the same outputs
-    fn get_output_names(&self) -> Vec<CalcOutputName> {
+    fn names(&self) -> (Vec<CalcInputName>, Vec<CalcOutputName>) {
+        let input_names = self.input_map().into_keys().collect();
         let mut output_names = vec!["sequence_time_s".to_owned()];
-        self.entry_sequence()
-            .data
-            .keys()
-            .cloned()
-            .for_each(|n| output_names.push(n));
-        output_names
-    }
-
-    /// `sequence_time_s` is in seconds; user-defined data channels have no declared unit.
-    fn get_output_units(&self) -> Vec<Option<String>> {
-        let n_data = self.entry_sequence().data.len();
-        let mut units = vec![Some("s".to_owned())];
-        units.extend(std::iter::repeat_n(None, n_data));
-        units
-    }
-
-    /// Get flag for whether to save outputs
-    fn get_save_outputs(&self) -> bool {
-        self.cfg.save_outputs
-    }
-
-    /// Set flag for whether to save outputs
-    fn set_save_outputs(&mut self, save_outputs: bool) {
-        self.cfg.save_outputs = save_outputs;
-    }
-
-    /// Get config field values
-    fn get_config(&self) -> BTreeMap<String, f64> {
-        BTreeMap::<String, f64>::new()
-    }
-
-    /// Apply config field values
-    #[allow(unused)]
-    fn set_config(&mut self, cfg: &BTreeMap<String, f64>) -> Result<(), String> {
-        Err("No settable config fields".to_string())
+        if let Some(entry) = self.sequences.get(&self.cfg.entry) {
+            output_names.extend(entry.data.keys().cloned());
+        }
+        (input_names, output_names)
     }
 }
 
@@ -694,7 +609,6 @@ impl SequenceMachine {
     #[new]
     fn py_new(entry: String) -> Self {
         let cfg = MachineCfg {
-            save_outputs: true,
             entry,
             ..Default::default()
         };
@@ -702,7 +616,6 @@ impl SequenceMachine {
         Self {
             cfg,
             sequences: BTreeMap::new(),
-            execution_state: ExecutionState::default(),
         }
     }
 

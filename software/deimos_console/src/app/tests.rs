@@ -54,12 +54,7 @@ fn health_no_schema_yet() {
 #[test]
 fn health_stale_before_first_row() {
     let mut app = test_app(2.0);
-    app.schema = Some(SchemaState::new(
-        vec!["ch0".to_string()],
-        vec![None],
-        false,
-        0,
-    ));
+    app.schema = Some(SchemaState::new(vec!["ch0".to_string()], false, 0));
     assert_eq!(app.connection_health(), ConnectionHealth::Stale);
 }
 
@@ -69,12 +64,7 @@ fn health_stale_before_first_row() {
 #[test]
 fn health_session_ended_overrides_fresh() {
     let mut app = test_app(2.0);
-    app.schema = Some(SchemaState::new(
-        vec!["ch0".to_string()],
-        vec![None],
-        true,
-        0,
-    ));
+    app.schema = Some(SchemaState::new(vec!["ch0".to_string()], true, 0));
     app.last_row_received_at = Some(Instant::now());
     // Also assert the Recovering state cannot mask a session-end signal.
     app.last_stall_at = Some(Instant::now());
@@ -92,12 +82,7 @@ fn health_fresh_then_stale_after_threshold() {
     let mut app = test_app(threshold_ms as f64 / 1000.0);
 
     // Simulate Schema arrival.
-    app.schema = Some(SchemaState::new(
-        vec!["ch0".to_string()],
-        vec![None],
-        false,
-        0,
-    ));
+    app.schema = Some(SchemaState::new(vec!["ch0".to_string()], false, 0));
 
     // Simulate Row arrival.
     app.last_row_received_at = Some(Instant::now());
@@ -164,7 +149,6 @@ fn schema_drift_drops_row_with_mismatched_channel_count() {
     // Send a Schema declaring two channels.
     tx.send(ReportingMessage::Schema {
         channel_names: vec!["a".to_string(), "b".to_string()],
-        channel_units: vec![None, None],
         monotonic_epoch_ns: 1,
         is_session_end: false,
     })
@@ -222,7 +206,6 @@ fn stall_clears_pre_stall_samples_and_emits_sentinel() {
     // The system_time is fresh so this drain is treated as live (no stall fires).
     tx.send(ReportingMessage::Schema {
         channel_names: vec!["a".to_string()],
-        channel_units: vec![None],
         monotonic_epoch_ns: 1,
         is_session_end: false,
     })
@@ -339,12 +322,7 @@ fn health_recovering_then_fresh_after_settle_window() {
     app.config.recovery_settle_secs = settle_secs;
 
     // Schema received and a Row just arrived — without the stall mark this would be Fresh.
-    app.schema = Some(SchemaState::new(
-        vec!["ch0".to_string()],
-        vec![None],
-        false,
-        0,
-    ));
+    app.schema = Some(SchemaState::new(vec!["ch0".to_string()], false, 0));
     app.last_row_received_at = Some(Instant::now());
     assert_eq!(
         app.connection_health(),
@@ -383,7 +361,6 @@ fn contiguous_live_stream_does_not_trigger_stall() {
 
     tx.send(ReportingMessage::Schema {
         channel_names: vec!["a".to_string()],
-        channel_units: vec![None],
         monotonic_epoch_ns: 1,
         is_session_end: false,
     })
@@ -439,7 +416,6 @@ fn repaint_gap_with_fresh_data_does_not_trigger_stall() {
     // Prime with Schema + one fresh row so the buffer has a real pre-gap sample.
     tx.send(ReportingMessage::Schema {
         channel_names: vec!["a".to_string()],
-        channel_units: vec![None],
         monotonic_epoch_ns: 1,
         is_session_end: false,
     })
@@ -508,7 +484,6 @@ fn processor_thread_drains_messages_without_egui_update() {
 
     tx.send(ReportingMessage::Schema {
         channel_names: vec!["a".to_string()],
-        channel_units: vec![None],
         monotonic_epoch_ns: 1,
         is_session_end: false,
     })
@@ -624,12 +599,7 @@ fn stall_while_frozen_preserves_buffers_but_records_event() {
 fn frozen_stall_emits_deferred_sentinel_on_unfreeze() {
     let (mut app, tx) = test_app_with_tx(0.5);
     app.config.tail_keep_secs = 0.5;
-    app.schema = Some(SchemaState::new(
-        vec!["a".to_string()],
-        vec![None],
-        false,
-        0,
-    ));
+    app.schema = Some(SchemaState::new(vec!["a".to_string()], false, 0));
 
     // Seed channel "a" with a few historical samples that all sit above the eventual
     // tail-keep cutoff (so they survive eviction) and engage freeze.
@@ -714,12 +684,7 @@ fn render_snapshot_captures_per_panel_points_for_lock_free_render() {
         title: "voltages".to_string(),
         channels: vec!["a".to_string(), "missing".to_string()],
     }];
-    app.schema = Some(SchemaState::new(
-        vec!["a".to_string()],
-        vec![Some("V".to_string())],
-        false,
-        0,
-    ));
+    app.schema = Some(SchemaState::new(vec!["a".to_string()], false, 0));
     let mut buf = VecDeque::new();
     for (t, v) in [(0.0_f64, 1.0_f64), (0.5, 2.0)] {
         buf.push_back((t, v));
@@ -739,7 +704,6 @@ fn render_snapshot_captures_per_panel_points_for_lock_free_render() {
 
     let panel = &snapshot.panels[0];
     assert_eq!(panel.title, "voltages");
-    assert_eq!(panel.y_label.as_deref(), Some("V"));
     // Channel "a" is in the live ring buffer; channel "missing" is filtered out.
     assert_eq!(panel.series.len(), 1);
     let (ch_name, points) = &panel.series[0];
@@ -788,7 +752,6 @@ fn processor_drains_while_ui_thread_holds_snapshot_without_lock() {
     // Prime the schema so any subsequent rows are processed (not buffered as pending).
     tx.send(ReportingMessage::Schema {
         channel_names: vec!["a".to_string()],
-        channel_units: vec![None],
         monotonic_epoch_ns: 1,
         is_session_end: false,
     })
@@ -910,7 +873,6 @@ fn wire_drops_increments_on_seq_gap() {
 
     tx.send(ReportingMessage::Schema {
         channel_names: vec!["a".to_string()],
-        channel_units: vec![None],
         monotonic_epoch_ns: 1,
         is_session_end: false,
     })
@@ -996,7 +958,6 @@ fn channel_data_evicts_samples_older_than_window() {
 
     tx.send(ReportingMessage::Schema {
         channel_names: vec!["a".to_string()],
-        channel_units: vec![None],
         monotonic_epoch_ns: 1,
         is_session_end: false,
     })
@@ -1101,7 +1062,6 @@ fn new_schema_epoch_resets_gap_tracking_and_clears_buffers() {
     // and `channel_data` is populated when the new schema arrives.
     tx.send(ReportingMessage::Schema {
         channel_names: vec!["a".to_string()],
-        channel_units: vec![None],
         monotonic_epoch_ns: 1,
         is_session_end: false,
     })
@@ -1135,7 +1095,6 @@ fn new_schema_epoch_resets_gap_tracking_and_clears_buffers() {
     // Session B: same channel name, fresh epoch. Must reset gap tracking and buffers.
     tx.send(ReportingMessage::Schema {
         channel_names: vec!["a".to_string()],
-        channel_units: vec![None],
         monotonic_epoch_ns: 2,
         is_session_end: false,
     })

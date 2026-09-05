@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -94,8 +94,6 @@ const FREEZE_BUFFER_WINDOW_MULTIPLE: f64 = 10.0;
 /// `Schema` re-emission.
 pub struct SchemaState {
     pub channel_names: Vec<String>,
-    /// `None` means unknown or not applicable; used for plot y-axis labels.
-    pub channel_units: Vec<Option<String>>,
     pub name_to_index: HashMap<String, usize>,
     pub session_end_received: bool,
     /// Wall-clock anchor reported by the controller. A change between successive Schemas means
@@ -107,7 +105,6 @@ pub struct SchemaState {
 impl SchemaState {
     fn new(
         channel_names: Vec<String>,
-        channel_units: Vec<Option<String>>,
         session_end_received: bool,
         monotonic_epoch_ns: u64,
     ) -> Self {
@@ -118,7 +115,6 @@ impl SchemaState {
             .collect();
         Self {
             channel_names,
-            channel_units,
             name_to_index,
             session_end_received,
             monotonic_epoch_ns,
@@ -162,8 +158,6 @@ pub struct ConsoleState {
     schema_drift_drops: u64,
     /// Count of `Row` messages dropped from the pre-schema pending queue due to overflow.
     pending_overflow_drops: u64,
-    /// Panels for which a mixed-unit warning has already been emitted (by panel index).
-    warned_panels: HashSet<usize>,
     /// Set to `true` when the receiver channel disconnects (receiver thread has exited).
     /// Once set, this flag is sticky for the lifetime of the app.
     receiver_dead: bool,
@@ -219,7 +213,6 @@ impl ConsoleState {
             forensic_disabled_reason: None,
             schema_drift_drops: 0,
             pending_overflow_drops: 0,
-            warned_panels: HashSet::new(),
             receiver_dead: false,
             last_tick_at: None,
             rows_since_last_tick: 0,
@@ -351,44 +344,14 @@ impl ConsoleState {
     /// Reconcile the panel config against the newly-arrived schema and populate
     /// `missing_channels` with any panel channel that is not declared in the schema.
     ///
-    /// Also emits a one-time `eprintln!` warning for panels whose configured channels carry
-    /// heterogeneous declared units (e.g. mixing V and K on the same plot). The warning fires
-    /// once per panel per session to avoid log spam on periodic schema re-emission.
     fn reconcile_panels(&mut self) {
         let Some(schema) = &self.schema else { return };
         self.missing_channels.clear();
-        for (panel_idx, panel) in self.config.panels.iter().enumerate() {
+        for panel in &self.config.panels {
             for ch in &panel.channels {
                 if !schema.name_to_index.contains_key(ch.as_str()) {
                     self.missing_channels
                         .push((panel.title.clone(), ch.clone()));
-                }
-            }
-
-            // Check for mixed units across this panel's channels.
-            if !self.warned_panels.contains(&panel_idx) {
-                let declared_units: Vec<&str> = panel
-                    .channels
-                    .iter()
-                    .filter_map(|ch| {
-                        schema
-                            .name_to_index
-                            .get(ch.as_str())
-                            .and_then(|&idx| schema.channel_units.get(idx))
-                            .and_then(|u| u.as_deref())
-                    })
-                    .collect();
-
-                if declared_units.len() >= 2 {
-                    let first = declared_units[0];
-                    let mixed = declared_units[1..].iter().any(|&u| u != first);
-                    if mixed {
-                        eprintln!(
-                            "warning: panel '{}' has mixed units: {:?}",
-                            panel.title, declared_units
-                        );
-                        self.warned_panels.insert(panel_idx);
-                    }
                 }
             }
         }
@@ -709,7 +672,6 @@ impl ConsoleState {
             match msg {
                 ReportingMessage::Schema {
                     channel_names,
-                    channel_units,
                     is_session_end,
                     monotonic_epoch_ns,
                 } => {
@@ -727,12 +689,10 @@ impl ConsoleState {
                     } else {
                         "re-emission"
                     };
-                    let units_declared = channel_units.iter().filter(|u| u.is_some()).count();
                     eprintln!(
-                        "{} deimos-console: schema [{schema_kind}] channels={} units_declared={} epoch_ns={monotonic_epoch_ns}",
+                        "{} deimos-console: schema [{schema_kind}] channels={} epoch_ns={monotonic_epoch_ns}",
                         wall_clock_prefix(),
                         channel_names.len(),
-                        units_declared,
                     );
 
                     if new_session {
@@ -765,7 +725,6 @@ impl ConsoleState {
 
                     self.schema = Some(SchemaState::new(
                         channel_names,
-                        channel_units,
                         is_session_end,
                         monotonic_epoch_ns,
                     ));
@@ -1057,17 +1016,6 @@ impl ConsoleState {
             .panels
             .iter()
             .map(|panel| {
-                // First declared unit in the panel wins; mixed-unit panels are warned at
-                // `reconcile_panels` time.
-                let y_label = self.schema.as_ref().and_then(|schema| {
-                    panel.channels.iter().find_map(|ch| {
-                        schema
-                            .name_to_index
-                            .get(ch.as_str())
-                            .and_then(|&idx| schema.channel_units.get(idx))
-                            .and_then(|u| u.clone())
-                    })
-                });
                 let series = panel
                     .channels
                     .iter()
@@ -1080,7 +1028,6 @@ impl ConsoleState {
                     .collect();
                 PanelSnapshot {
                     title: panel.title.clone(),
-                    y_label,
                     series,
                 }
             })
@@ -1134,10 +1081,6 @@ impl ConsoleState {
                 .width(panel_width)
                 .allow_scroll(false);
 
-            if let Some(ref unit) = panel.y_label {
-                plot = plot.y_axis_label(unit.clone());
-            }
-
             // When frozen, pin the x-axis to the captured snapshot window so that
             // the view stays fixed even as new samples accumulate in the ring buffer.
             // `include_x` nudges egui_plot to ensure both endpoints are in view;
@@ -1177,7 +1120,6 @@ struct RenderSnapshot {
 /// Per-panel inputs for a single [`Plot::show`] call.
 struct PanelSnapshot {
     title: String,
-    y_label: Option<String>,
     /// `(channel_name, points)` in panel-config order. Channels missing from the live ring
     /// buffer are omitted — they would render as empty lines anyway.
     series: Vec<(String, Vec<[f64; 2]>)>,

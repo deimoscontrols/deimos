@@ -111,11 +111,11 @@ fn main() {
     controller.add_dispatcher("csv", csv_dispatcher);
 
     // Set up calc graph
-    let duty = Constant::new(0.5, true);
-    let freq = Sin::new(1.0 / (rate_hz / 100.0), 0.25, 100.0, 250_000.0, true);
-    let freq1 = Sin::new(20.0, 0.25, 10.0, 200.0, true);
-    let dac1 = Sin::new(20.0, 0.0, 0.0, 2.5, true);
-    let dac2 = Sin::new(20.0, 5.0, 0.0, 2.5 / 25.7, true);
+    let duty = Constant::new(0.5);
+    let freq = Sin::new(1.0 / (rate_hz / 100.0), 0.25, 100.0, 250_000.0);
+    let freq1 = Sin::new(20.0, 0.25, 10.0, 200.0);
+    let dac1 = Sin::new(20.0, 0.0, 0.0, 2.5);
+    let dac2 = Sin::new(20.0, 5.0, 0.0, 2.5 / 25.7);
     controller.add_calc("duty", duty);
     controller.add_calc("freq0", freq);
     controller.add_calc("freq1", freq1);
@@ -154,7 +154,6 @@ fn main() {
     ]);
 
     let cfg = MachineCfg {
-        save_outputs: true,
         entry: "low".to_owned(),
         link_folder: Some("machine".to_owned()),
         timeouts,
