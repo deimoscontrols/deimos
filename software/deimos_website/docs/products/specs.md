@@ -21,20 +21,20 @@ Values are preliminary and may be adjusted as further test data is collected.
 |------|-------|------------|-------|
 | :material-square-wave: 4x PWM  | 1Hz-100kHz | 16-bit | Independent frequencies and duty cycles.<br>40Ω termination. |
 | :material-square-wave: 4x GPIO Output |  | 1-bit | 40Ω termination. |
-| :material-sine-wave: 2x DAC (Voltage) | 0.02V - 2.5V | 12-bit (0.6mV) | Buffered & calibrated to 0.01%. |
+| :material-sine-wave: 2x DAC (Voltage) | 0-2.5V | 12-bit (0.6mV) | Buffered & calibrated to 0.01%. |
 
 ## :material-ear-hearing:{ .lg .middle } Inputs
 
 | Kind | Range | Accuracy | Resolution | Notes |
 |------|-------|----------|------------|-------|
-| :material-lightning-bolt: 2x Voltage, 0-2.5V | 0-2.5V | 0.0025% | 38uV | Single-ended.<br>40V tolerance.  |
-| :material-lightning-bolt: 2x Voltage, 0-15V | 0-15V | 0.01% | 228uV | Single-ended.<br>40V tolerance.<br>12kOhm divider; 0.6mA max leakage.<br>Calibrated range is 0-10V. |
-| :material-lightning-bolt: 2x Voltage, ±35mV | -39mV to +55mV | 0.1% | 1.5uV | Single-ended.<br>40V tolerance. |
-| :material-fire: 2x K-Type Thermocouple | 73-1543K | 0.3K | 0.04K | Cold-junction compensated.<br>Material-matched connector. |
+| :material-lightning-bolt: 2x Voltage, 0-2.5V | 0-2.5V | 0.01% | 38uV | Single-ended.<br>±40V tolerance.  |
+| :material-lightning-bolt: 2x Voltage, 0-15V | 0-15V | 0.01% | 228uV | Single-ended.<br>±40V tolerance.<br>12kOhm divider; 0.6mA max leakage.<br>Calibrated range is 0-10V. |
+| :material-lightning-bolt: 2x Voltage, ±35mV | -39mV to +55mV | 0.1% | 1.5uV | Single-ended.<br>±40V tolerance. |
+| :material-fire: 2x K-Type Thermocouple | 73-1543K | 0.3K | 0.04K | Cold-junction compensated.<br>Material-matched connector.±40V tolerance. |
 | :material-snowflake: 3x 3-Wire Resistance (RTD, strain, etc) | 73-1073K | 0.1K | 0.02K | Specs refer to use with Pt100 RTD.<br>Also compatible with 100-ohm strain gauges. |
 | :fontawesome-solid-gauge-high: 4x 4-20mA | 0-33mA | 0.01% | 0.8uA | 24V excitation.<br>2 or 3-wire.<br>Short-circuit protected. |
-| :material-square-wave: 2x GPIO Input |  | 1-bit |  |
-| :material-square-wave: 4x Encoder | |  | | Signed 64-bit accumulator, forward/backward counting. |
+| :material-square-wave: 2x GPIO Input |  | 1-bit | ±40V tolerance. |
+| :material-square-wave: 4x Encoder | |  | | Signed 64-bit accumulator.<br>Forward/backward counting.<br>±40V tolerance. |
 | :material-thermometer: Diagnostics | ||| Bus current.<br>Bus voltage.<br>Board / cold-junction temp. |
 
 ## :material-gauge-full:{ .lg .middle } Benchmarks
