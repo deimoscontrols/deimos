@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "software/deimos",
+    "software/deimos_procedures",
     "software/deimos_console",
     "software/deimos_shared",
     "software/deimos_numerics",
@@ -16,7 +17,12 @@ resolver = "3"
 authors = ["Deimos Controls LLC <support@deimoscontrols.com>"]
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/deimoscontrols/deimos"
-version = "0.21.1"
+version = "0.21.2"
+
+[workspace.dependencies]
+deimos = { path = "software/deimos", version = "0.21.2" }
+deimos_shared = { path = "software/deimos_shared", version = "0.21.2" }
+deimos_numerics = { path = "software/deimos_numerics", version = "0.21.2", default-features = false }
 
 [workspace.metadata."docs.rs"]
 all-features = true

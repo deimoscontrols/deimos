@@ -110,7 +110,7 @@ const TC_CAPTURE_SECONDS: u64 = 90;
 const VA710_COLD_JUNCTION_ACCURACY_K: f64 = 0.3;
 const BOARD_COLD_JUNCTION_SIGNAL_NAME: &str = "p1.board_temp_K";
 
-const CONSOLE_CONFIG_PATH: &str = "software/deimos/examples/rev7_calibration_console.toml";
+const CONSOLE_CONFIG_PATH: &str = "software/deimos_procedures/rev7_calibration_console.toml";
 const RAW_RUN_SUFFIX: &str = "_raw.csv";
 const RAW_RUN_ZIP_SUFFIX: &str = "_raw.csv.zip";
 const REPLAY_DATA_SUFFIX: &str = "_replay.csv";

@@ -1,4 +1,6 @@
 //! Uncertainty analysis for the Deimos DAQ Rev7 analog frontends.
+//!
+//! Run with `cargo run -p deimos_procedures --bin rev7_uncertainty`.
 
 use deimos_shared::peripherals::deimos_daq_rev7::uncertainty::{
     FRONTEND_35MV_UNCERTAINTY_INPUT_COUNT as INPUT_COUNT,

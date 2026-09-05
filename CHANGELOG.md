@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-09-05 0.21.2
+
+* Add `deimos_procedures` package and move bench/test/cal procedures from `deimos/examples`
+
 ## 2026-09-05 Hardware Rev 8.0.0, Software 0.21.1
 
 Tooling: Same as 6.0.1

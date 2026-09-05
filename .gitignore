@@ -31,6 +31,7 @@ __pycache__/
 .venv/
 env/
 bin/
+!/software/deimos_procedures/src/bin/
 build/
 develop-eggs/
 dist/

@@ -2,6 +2,9 @@
 
 Control program and data integrations for the Deimos data acquisition ecosystem.
 
+Library usage examples are in [examples](examples). Hardware calibration,
+validation, and benchmark tools are in [deimos_procedures](../deimos_procedures).
+
 See the [project readme](https://github.com/deimoscontrols/deimos/blob/main/README.md) for contact details as well as commentary about
 the goals and state of the project.
 

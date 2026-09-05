@@ -1,4 +1,6 @@
 //! Repeatable high-rate rev7 hardware regression benchmark.
+//!
+//! Run with `cargo run -p deimos_procedures --release --bin rev7_rate_benchmark`.
 
 mod rev7_rate_benchmark_common;
 
