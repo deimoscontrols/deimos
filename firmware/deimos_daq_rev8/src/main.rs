@@ -1,0 +1,162 @@
+//! Peripheral side of control program
+#![no_main]
+#![no_std]
+
+mod board;
+
+extern crate alloc;
+extern crate cortex_m;
+extern crate cortex_m_rt as rt;
+
+use embedded_alloc::LlffHeap as Heap;
+use rt::{entry, exception};
+use stm32h7xx_hal::stm32;
+
+use core::mem::{MaybeUninit, size_of};
+use core::panic::PanicInfo;
+use core::ptr::{addr_of, addr_of_mut, copy_nonoverlapping};
+use core::sync::atomic::compiler_fence;
+
+use irq::{handler, scope};
+use smoltcp::{iface::SocketStorage, storage::PacketMetadata};
+
+use crate::board::{Board, subsystems::net::NetStorageStatic};
+
+#[global_allocator]
+static HEAP: Heap = Heap::empty();
+
+// Link region markers.
+// These are placed at the start/end of special link regions
+// to give us a way to refer to them at run time.
+unsafe extern "C" {
+    static _heap_start: u8;
+    static _heap_size: u8;
+    static __siitcm: u32; // Sampler DSP procedure function pointer
+    static mut __sitcm: u32; // Start of ITCM interrupt memory region
+    static mut __eitcm: u32; // End of ITCM
+}
+
+/// Move sensitive functions into ITCM (Instruction Tightly-Coupled Memory)
+unsafe fn initialize_itcm() {
+    let source = addr_of!(__siitcm);
+    let start = addr_of_mut!(__sitcm);
+    let end = addr_of_mut!(__eitcm);
+    let words = (end as usize - start as usize) / size_of::<u32>();
+
+    // Move sampler DSP procedure from flash into ITCM
+    // so that it can't be ejected from L1 cache.
+    unsafe {
+        copy_nonoverlapping(source, start, words);
+    }
+
+    cortex_m::asm::dsb();
+    cortex_m::asm::isb();
+}
+
+// MaybeUninit allows us write code that is correct even if STORE is not
+// initialised by the runtime
+static mut STORE: MaybeUninit<NetStorageStatic> = MaybeUninit::uninit();
+
+/// User entrypoint after cortex-m-rt initializes `.data` and `.bss`.
+///
+/// Copies the sampling routine into ITCM before interrupts can execute it.
+#[entry]
+unsafe fn main() -> ! {
+    unsafe {
+        initialize_itcm();
+    }
+
+    // Initialize runtime-defined exception handlers before running any
+    // application code or doing anything that might trigger them
+    handler!(systick_default_handler = || {});
+
+    unsafe {
+        HEAP.init(
+            core::ptr::addr_of!(_heap_start) as usize,
+            core::ptr::addr_of!(_heap_size) as usize,
+        );
+    }
+
+    // Initialize static storage
+    // unsafe: mutable reference to static storage, we only do this once
+    let store: &mut NetStorageStatic<'_> = unsafe {
+        let store_ptr = addr_of_mut!(STORE);
+
+        // Write the full storage block through a raw pointer so the static
+        // itself is never borrowed mutably.
+        (*store_ptr).write(NetStorageStatic {
+            socket_storage: [SocketStorage::EMPTY; 8],
+            rx_metadata_storage: [PacketMetadata::EMPTY; 4],
+            rx_payload_storage: [0u8; 1522],
+            tx_metadata_storage: [PacketMetadata::EMPTY; 4],
+            tx_payload_storage: [0u8; 1522],
+            tcp_rx_storage: [0u8; 512],
+            tcp_tx_storage: [0u8; 512],
+        });
+
+        // Now that the value is fully initialised we can obtain the unique
+        // mutable reference that startup passes into Board::new.
+        (*store_ptr).assume_init_mut()
+    };
+
+    // Board startup
+    let (mut board, mut sampler) = Board::new(store);
+
+    // Stack-watermark test images can paint unused MSP memory immediately
+    // before the interrupt scopes begin. A debugger later scans the DTCM
+    // pattern, so the diagnostic adds no work to either realtime IRQ.
+    // Production builds omit it.
+    #[cfg(feature = "stack-watermark")]
+    cortex_m_stack::repaint_stack();
+
+    scope(|systick_default| {
+        // The state machine lends the sampler to the operating SysTick scope;
+        // this outer scope supplies the fallback handler between states.
+        systick_default.register(board::interrupts::SysTick, systick_default_handler);
+        board.run(&mut sampler);
+    });
+
+    loop {}
+}
+
+// #[interrupt]
+// fn ETH() {
+//     unsafe { ethernet::interrupt_handler() }
+// }
+
+#[exception]
+unsafe fn HardFault(_ef: &cortex_m_rt::ExceptionFrame) -> ! {
+    panic!();
+}
+
+#[exception]
+unsafe fn DefaultHandler(_irqn: i16) {
+    // panic!("Unhandled exception (IRQn = {})", irqn);
+}
+
+#[panic_handler]
+fn panic(_info: &PanicInfo) -> ! {
+    // Disable all interrupts, then reset
+
+    cortex_m::interrupt::disable();
+    let dp = unsafe { stm32::Peripherals::steal() };
+
+    // Reset the eth mac, which is, by default, not reset by the CPU reset
+    // because it's on domain 2
+    dp.RCC.ahb1rstr.write(|w| w.eth1macrst().set_bit());
+
+    // Data-and-instruction sync barrier to make sure the eth mac enters reset before the CPU
+    cortex_m::asm::dsb();
+
+    // Reset the CPU and restart the program
+    dp.RCC.ahb3rstr.write(|w| w.cpurst().set_bit());
+
+    // Data-and-instruction sync barrier to make sure the reset is written before busywaiting
+    cortex_m::asm::dsb();
+
+    // Must not return, but is in CPU reset now & program will restart from main
+    loop {
+        // Don't let the compiler move the loop before writing reset, which it could do to save time
+        compiler_fence(core::sync::atomic::Ordering::SeqCst);
+    }
+}

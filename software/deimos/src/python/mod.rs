@@ -34,7 +34,7 @@ fn deimos<'py>(_py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
         #[pymodule_export]
         pub use crate::peripheral::{
             AnalogIRev2, AnalogIRev3, AnalogIRev4, DeimosDaqRev5, DeimosDaqRev6, DeimosDaqRev7,
-            HootlDriver, HootlPeripheral, HootlRunHandle, HootlTransport,
+            DeimosDaqRev8, HootlDriver, HootlPeripheral, HootlRunHandle, HootlTransport,
         };
     }
 

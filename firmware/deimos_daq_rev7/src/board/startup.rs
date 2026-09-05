@@ -11,6 +11,7 @@ use stm32h7xx_hal::{
     ethernet,
     ethernet::PHY,
     gpio::{Output, Pin},
+    qei::QeiExt,
     rcc::ResetEnable,
     rcc::rec::AdcClkSel,
     timer::GetClk,
@@ -163,28 +164,17 @@ impl<'a> Board<'a> {
         // Quadrature encoder input
         //
 
-        // CC1S=’01’ (TIMx_CCMR1 register, TI1FP1 mapped on TI1).
-        // • CC2S=’01’ (TIMx_CCMR2 register, TI1FP2 mapped on TI2).
-        // • CC1P=’0’ and CC1NP=’0’ (TIMx_CCER register, TI1FP1 non-inverted, TI1FP1=TI1).
-        // • CC2P=’0’ and CC2NP=’0’ (TIMx_CCER register, TI1FP2 non-inverted, TI1FP2= TI2).
-        // • SMS=’011’ (TIMx_SMCR register, both inputs are active on both rising and falling
-        // edges).
-        // • CEN=’1’ (TIMx_CR1 register, Counter enabled)
-        //
-        // Counter value contains position index
-        let _encoder0_pin0: Pin<'E', 9, stm32h7xx_hal::gpio::Alternate<1>> =
-            gpioe.pe9.into_alternate();
-        let _encoder0_pin1: Pin<'E', 11, stm32h7xx_hal::gpio::Alternate<1>> =
-            gpioe.pe11.into_alternate();
-        TIM1::get_clk(&ccdr.clocks).unwrap();
-        ccdr.peripheral.TIM1.enable().reset();
-        // External clock, gated mode and encoder mode can work only if the CEN bit has been previously set by software
-        // TIM1_CH1 and TIM1_CH2 as input
-        dp.TIM1.ccmr1_input().write(|w| w.cc1s().ti1()); // 01: CC1 channel is configured as input, IC1 is mapped on TI1
-        dp.TIM1.ccmr1_input().write(|w| w.cc2s().ti2()); // 01: CC2 channel is configured as input, IC2 is mapped on TI2
-        dp.TIM1.smcr.write(|w| w.sms().encoder_mode_3());
-        dp.TIM1.cr1.write(|w| w.cen().enabled());
-        let encoder = dp.TIM1;
+        // QeiExt configures encoder mode 3, counting both edges of both
+        // channels. Release the wrapper after configuration so the sampler can
+        // retain its existing raw-register access pattern.
+        let encoder = dp
+            .TIM1
+            .qei(
+                (gpioe.pe9.into_alternate(), gpioe.pe11.into_alternate()),
+                ccdr.peripheral.TIM1,
+            )
+            .release()
+            .0;
 
         //
         // Pulse Counter

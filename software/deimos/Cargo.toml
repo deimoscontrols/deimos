@@ -20,14 +20,14 @@ rustdoc-args = ["--extend-css", "docs/rustdoc.css", "--default-theme", "dark"]
 
 [dependencies]
 # Packet formats and math shared with hardware
-deimos_shared = { path = "../deimos_shared", version = "0.21.0" }
-deimos_numerics = { path = "../deimos_numerics", version = "0.21.0" }
+deimos_shared = { path = "../deimos_shared", version = "0.21.1" }
+deimos_numerics = { path = "../deimos_numerics", version = "0.21.1" }
 byte_struct = "0.9.0"
 
 # Control loop
 chrono = { version = "^0.4.42", features = ["std"], default-features = false }  # timestamp formatting
 core_affinity = "^0.8.3"
-branches = { version = "^0.4.4", default-features = false }
+branches = { version = "^0.5.0", default-features = false }
 socket2 = "^0.6.4"
 network-interface = "^2.0"
 
@@ -58,7 +58,7 @@ tracing-appender = "^0.2.3"
 tracing-subscriber = { version = "^0.3.20", features = ["fmt", "env-filter", "chrono"] }
 
 # Python bindings
-pyo3 = { version = "0.29.0", features = ["extension-module", "abi3-py311", "generate-import-lib"], optional = true }
+pyo3 = { version = "0.29.2", features = ["extension-module", "abi3-py311", "generate-import-lib"], optional = true }
 
 [dev-dependencies]
 # Uncertainty analysis

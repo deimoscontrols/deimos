@@ -1,5 +1,46 @@
 # Changelog
 
+## 2026-09-05 Hardware Rev 8.0.0, Software 0.21.1
+
+Tooling: Same as 6.0.1
+
+Changes
+
+* Firmware
+  * rev7 firmware
+    * Use `qei` HAL module to configure encoder 
+  * Add rev8 firmware
+    * Copy forward from rev7
+    * Replace frequency and pulse counter inputs with more encoders
+    * Use `qei` HAL module to configure encoders
+* Software
+  * Add rev8 peripheral modules, packets, and standard calcs
+* Hardware
+  * [x] Improve digital inputs with 22k resistor and schottky clamp to 3.3V
+  * [x] Replace frequency and pulse counter inputs with more encoders
+
+##### New encoder pinout
+
+  | Encoder | Phase | MCU pin | Package pin | Timer channel | Alternate function |
+  |---|---|---:|---:|---|---:|
+  | Encoder 0 | A | PE9 | 60 | TIM1_CH1 | AF1 |
+  | Encoder 0 | B | PE11 | 64 | TIM1_CH2 | AF1 |
+  | Encoder 1 | A | PC6 | 96 | TIM8_CH1 | AF3 |
+  | Encoder 1 | B | PC7 | 97 | TIM8_CH2 | AF3 |
+  | Encoder 2 | A | PB6 | 136 | TIM4_CH1 | AF2 |
+  | Encoder 2 | B | PB7 | 137 | TIM4_CH2 | AF2 |
+  | Encoder 3 | A | PB4 | 134 | TIM3_CH1 | AF2 |
+  | Encoder 3 | B | PB5 | 135 | TIM3_CH2 | AF2 |
+
+  ##### New PWM pinout
+
+  | PWM output | MCU pin | Package pin | Timer channel | Alternate function | Change |
+  |---|---:|---:|---|---:|---|
+  | PWM0 | PE6 | 5 | TIM15_CH2 | AF4 | Moved from PC7/TIM3_CH2 |
+  | PWM1 | PB14 | 75 | TIM12_CH1 | AF2 | Unchanged |
+  | PWM2 | PB8 | 139 | TIM16_CH1 | AF1 | Unchanged |
+  | PWM3 | PB9 | 140 | TIM17_CH1 | AF1 | Unchanged |
+
 ## 2026-08-26 0.21.0
 
 * deimos

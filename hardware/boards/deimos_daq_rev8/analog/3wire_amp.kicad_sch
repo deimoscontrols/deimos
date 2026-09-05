@@ -1,0 +1,225 @@
+(kicad_sch
+	(version 20231120)
+	(generator "eeschema")
+	(generator_version "8.0")
+	(uuid "be3bc0e4-ba4a-4eef-930e-9fc8c1d9bf47")
+	(paper "A4")
+	(lib_symbols)
+	(wire
+		(pts
+			(xy 121.412 81.788) (xy 130.556 81.788)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1c2c8a35-8b1a-4759-956c-d28247c918f9")
+	)
+	(text "Interfaces decoupled to allow reuse for\nboard temperature without the terminal block"
+		(exclude_from_sim no)
+		(at 68.072 65.532 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "5deaf47f-45e1-440e-bdf5-6681d127bbb1")
+	)
+	(text "Post-amp active low-pass filter"
+		(exclude_from_sim no)
+		(at 130.556 93.98 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "e321d3f3-8b60-4b2d-91d4-24b92d047389")
+	)
+	(hierarchical_label "R+"
+		(shape input)
+		(at 92.71 79.248 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "a6f72ba7-7563-467e-b10d-586819efe0c7")
+	)
+	(hierarchical_label "Vout"
+		(shape input)
+		(at 148.336 81.788 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "c54c2ff0-bd93-4cc2-9e08-4bc92c2f8f39")
+	)
+	(hierarchical_label "R-"
+		(shape input)
+		(at 92.71 81.788 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "cd216726-4e26-4dd4-9a3c-dfca92635227")
+	)
+	(hierarchical_label "W-"
+		(shape input)
+		(at 92.71 84.328 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "e7caa36c-1d83-4479-8296-3139883a8dcf")
+	)
+	(sheet
+		(at 130.556 76.2)
+		(size 17.78 12.7)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "413450a6-23f7-43dd-83b0-93f1b2a57e6d")
+		(property "Sheetname" "sallen_key_3kHz"
+			(at 132.08 90.678 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "sk_3kHz.kicad_sch"
+			(at 130.302 73.914 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "VIN" input
+			(at 130.556 81.788 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "6b17b078-e78b-42e2-a656-e73b9b66b380")
+		)
+		(pin "VOUT" input
+			(at 148.336 81.788 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "1802af58-c9cc-4320-9af1-dd9ce9038f3e")
+		)
+		(instances
+			(project "analog_frontend_panel"
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/fb5bb440-61c9-4bd3-9ab6-a463ad90c8bb"
+					(page "15")
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/19141585-7846-417a-91df-f61215fe3233"
+					(page "17")
+				)
+				(path "/c241d083-1323-4b4a-a540-956d0afb7b72/1fbd3e63-3701-4f31-b722-16e65c25cea8"
+					(page "18")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 92.71 74.93)
+		(size 28.702 15.367)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "76bdcc3c-aeb3-45bb-bfec-f68418164bd8")
+		(property "Sheetname" "rtd_amp_inner"
+			(at 92.71 74.2184 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "rtd_amp_inner.kicad_sch"
+			(at 92.71 90.8816 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "R+" input
+			(at 92.71 79.248 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "666e21c4-d715-408c-9cb6-0f244f4a0f1c")
+		)
+		(pin "R-" input
+			(at 92.71 81.788 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "250538a6-df44-489f-bce1-b8d420c09470")
+		)
+		(pin "W-" input
+			(at 92.71 84.328 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "5dadc2d3-6167-45e3-935d-d9f1252d9f25")
+		)
+		(pin "Vout" input
+			(at 121.412 81.788 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "c12eb5bd-61de-4abc-bc78-e0c439d7ed12")
+		)
+		(instances
+			(project "analog_i"
+				(path "/5a60c4b1-b6cb-416e-8883-8291fa089b87/c2baf18d-2b19-4edb-98b3-535275ee271f/fb5bb440-61c9-4bd3-9ab6-a463ad90c8bb"
+					(page "23")
+				)
+			)
+		)
+	)
+)

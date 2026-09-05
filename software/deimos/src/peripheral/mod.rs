@@ -27,6 +27,9 @@ pub use deimos_daq_rev6::DeimosDaqRev6;
 pub mod deimos_daq_rev7;
 pub use deimos_daq_rev7::DeimosDaqRev7;
 
+pub mod deimos_daq_rev8;
+pub use deimos_daq_rev8::DeimosDaqRev8;
+
 pub mod hootl;
 pub use hootl::{HootlDriver, HootlPeripheral, HootlRunHandle, HootlTransport};
 
@@ -74,6 +77,10 @@ pub fn parse_binding(
         })),
 
         model_numbers::DEIMOS_DAQ_REV_7_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev7 {
+            serial_number: msg.peripheral_id.serial_number,
+        })),
+
+        model_numbers::DEIMOS_DAQ_REV_8_MODEL_NUMBER => Ok(Box::new(DeimosDaqRev8 {
             serial_number: msg.peripheral_id.serial_number,
         })),
 

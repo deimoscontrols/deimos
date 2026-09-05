@@ -10,6 +10,7 @@ from subprocess import check_call
 
 CALIBRATION_RECORD_MODELS = {
     "deimos_daq_rev7": "DeimosDaqRev7",
+    "deimos_daq_rev8": "DeimosDaqRev8",
 }
 
 

@@ -1,0 +1,67 @@
+use super::*;
+
+use core::sync::atomic::{AtomicBool, Ordering};
+
+use irq::{handler, scope};
+
+use deimos_shared::peripherals::deimos_daq_rev8::packets::OperatingOutputSettings;
+
+impl<'a> Board<'a> {
+    /// Ensure the board has a usable IPv4 address before entering `Binding`.
+    pub fn connect(&mut self) -> BoardState {
+        // Initialize
+        self.set_outputs(&OperatingOutputSettings::default());
+        self.dt_ns = 1_000_000;
+        self.systick_init();
+        self.watchdog.feed();
+
+        // Unbind if previously bound
+        self.controller = None;
+        self.net.reset_udp_socket();
+        self.net.reset_tcp_socket();
+        self.modbus.reset();
+
+        // Set status LEDs
+        self.led0.set_low();
+        self.led1.set_low();
+        self.led2.set_low();
+        self.led3.set_low();
+
+        // Poll once so an already-available DHCP lease can win immediately; otherwise
+        // let the address manager claim fallback immediately if DHCP is not ready yet.
+        self.net.poll(self.time_ns);
+        if self.net.step_address(self.time_ns, AddressMode::Connect) == AddressStatus::Ready {
+            return BoardState::Binding;
+        }
+
+        let transition_binding = AtomicBool::new(false);
+
+        handler!(
+            systick_handler = || {
+                self.time_ns += self.dt_ns as i64;
+                self.net.poll(self.time_ns);
+
+                if self.net.step_address(self.time_ns, AddressMode::Connect) == AddressStatus::Ready
+                {
+                    transition_binding.store(true, Ordering::Relaxed);
+                }
+
+                self.watchdog.feed();
+            }
+        );
+
+        scope(|s| {
+            s.register(interrupts::SysTick, systick_handler);
+
+            loop {
+                if transition_binding.load(Ordering::Relaxed) {
+                    break;
+                }
+
+                cortex_m::asm::wfi();
+            }
+        });
+
+        return BoardState::Binding;
+    }
+}
