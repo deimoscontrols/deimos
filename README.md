@@ -18,6 +18,7 @@ Realtime data acquisition and controls ecosystem, including hardware, firmware, 
 | Model | I/O Medium | Sample/Control Rate | Input Capabilities | Output Capabilities |
 |------|------------|------------|--------------------|---------------------|
 | [Deimos DAQ 7.0.x](https://deimoscontrols.com/products/deimos_daq/) | UDP/IP/Ethernet | 5Hz-8kHz measure & control<br>5Hz-500Hz Modbus<br><br>Performance depends on network and host machine | 16x analog, 6x digital | 4x PWM <br>2x analog<br>4x GPIO |
+| [Deimos DAQ 8.0.x](https://deimoscontrols.com/products/specs/) | UDP/IP and Modbus/TCP over Ethernet | 5Hz-8kHz measure & control<br>5Hz-500Hz Modbus<br><br>Performance depends on network and host machine | 6x voltage, 2x thermocouple, 3x resistance, 4x 4-20mA<br>2x GPIO, 4x encoder<br>Bus current, bus voltage, and board temperature diagnostics | 4x PWM<br>2x analog<br>4x GPIO |
 
 # Controller Comm. Media
 

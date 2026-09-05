@@ -129,11 +129,27 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
     background: var(--deimos-panel-bg-strong);
 }
 
-.home-cta__image {
+.daq-photo-stack {
+    display: grid;
+    gap: 0.25rem;
+    overflow: hidden;
+    border-radius: 8px;
+}
+
+.md-typeset .daq-photo-stack img {
     display: block;
     width: 100%;
-    aspect-ratio: 16 / 10;
+    height: auto;
+    aspect-ratio: 12 / 5;
     object-fit: cover;
+    object-position: center 55%;
+}
+
+.product-visuals {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
+    gap: 1rem;
 }
 
 .home-cta__body {
@@ -312,6 +328,7 @@ body:has(.home-hero) .md-content__inner > h1:first-child {
 
 @media (max-width: 58rem) {
     .home-hero,
+    .product-visuals,
     .home-section--split {
         grid-template-columns: 1fr;
     }
