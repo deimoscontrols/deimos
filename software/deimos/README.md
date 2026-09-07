@@ -2,6 +2,9 @@
 
 Control program and data integrations for the Deimos data acquisition ecosystem.
 
+Library usage examples are in [examples](examples). Hardware calibration,
+validation, and benchmark tools are in [deimos_procedures](../deimos_procedures).
+
 See the [project readme](https://github.com/deimoscontrols/deimos/blob/main/README.md) for contact details as well as commentary about
 the goals and state of the project.
 
@@ -33,7 +36,7 @@ pip install deimos-daq
 | Control Calcs    | ✅ User-defined custom calcs<br>✅ Explicit (acyclic) calc expression<br>✅ Low-pass filters<br>✅ Sequenced state machines<br>✅ Polynomial calibration curves<br>💡 Cyclic expressions with explicit time-delay<br>💡 Prototype calc w/ rhai script-defined inner function |
 | Data Integrations| ✅ User-defined custom targets<br>✅ Manual read/write<br>✅ CSV<br>✅ In-memory dataframe<br>✅ TimescaleDB<br>💡 InfluxDB<br>💡 Zarr file/bucket<br>💡 Generic sqlite, postgres, etc.|
 | Hardware Peripherals| ✅ Deimos DAQs<br>✅ User-defined custom hardware<br>✅ User-defined hardware drivers<br>✅ Hardware-out-of-the-loop wrapper|
-| Socket Interfaces<br>(peripheral I/O)| ✅ User-defined custom interfaces<br>✅ UDP/IPV4<br>✅ Unix socket<br>✅ Thread channel sideloading<br>💡 TCP<br>💡 UDP/IPV6 |
+| Socket Interfaces<br>(peripheral I/O)| ✅ User-defined custom interfaces<br>✅ UDP/IPV4<br>✅ Unix socket<br>✅ Thread channel |
 
 ## Concept of Operation
 

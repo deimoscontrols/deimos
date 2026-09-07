@@ -18,6 +18,7 @@ Realtime data acquisition and controls ecosystem, including hardware, firmware, 
 | Model | I/O Medium | Sample/Control Rate | Input Capabilities | Output Capabilities |
 |------|------------|------------|--------------------|---------------------|
 | [Deimos DAQ 7.0.x](https://deimoscontrols.com/products/deimos_daq/) | UDP/IP/Ethernet | 5Hz-8kHz measure & control<br>5Hz-500Hz Modbus<br><br>Performance depends on network and host machine | 16x analog, 6x digital | 4x PWM <br>2x analog<br>4x GPIO |
+| [Deimos DAQ 8.0.x](https://deimoscontrols.com/products/specs/) | UDP/IP and Modbus/TCP over Ethernet | 5Hz-8kHz measure & control<br>5Hz-500Hz Modbus<br><br>Performance depends on network and host machine | 6x voltage, 2x thermocouple, 3x resistance, 4x 4-20mA<br>2x GPIO, 4x encoder<br>Bus current, bus voltage, and board temperature diagnostics | 4x PWM<br>2x analog<br>4x GPIO |
 
 # Controller Comm. Media
 
@@ -27,8 +28,9 @@ While the controller can accommodate multiple communication media, a peripheral 
 
 | I/O Medium | Notes |
 |------------|-------|
-| UDP/IPV4 | Nominal peripheral I/O; compared to TCP, eliminates packet storm network instability.<br><br>The controller reasserts the full peripheral state on each cycle, so while UDP allows from some packet loss (typically 1e-4 or less), a change in peripheral state is never missed permanently. |
+| UDP/IPV4 | Nominal peripheral I/O; compared to TCP, eliminates packet storm network instability.<br><br>The controller reasserts the full peripheral state on each cycle, so while UDP allows some packet loss (typically 1e-4 or less), a change in peripheral state is never missed permanently. |
 | Unix socket | Inter-process communication option for software peripheral mockups |
+| Thread channel | Inter-thread communication option for software peripheral mockups |
 
 Several more socket implementations are planned, including TCP, UDP/IPV6, and thread channel message passing.
 
@@ -47,12 +49,16 @@ Data integration implementations perform I/O and database transactions on a sepa
 
 | Name | Description | Notes |
 |------|-------------|-------|
+| Controllers | | |
 | SequenceMachine | A flexible state-machine where each state is defined by a time-dependent lookup table sequence with user-defined transition criteria | Allows implementation of essentially arbitrary scheduling and operational logic |
-| TcKtype | K-type thermocouple tables with cold-junction correction | Based on ITS-90 tables |
-| RtdPt100 | 100-ohm platinum RTD temperature-resistance tables | Based on DIN-43-760 / ITS-90 and IEC 60751 / Callender-Van Dusen |
-| Pid | Simple proportion-integral-derivative controller with primitive saturation anti-windup protection | |
+| Pid | Proportion-integral-derivative controller with anti-windup | |
+| Hysteretic | Bang-bang controller with persistence counter | |
+| Interpolation & Filtering | | |
 | Butter | Second-order Butterworth low-pass filter | |
 | Polynomial | Fast evaluation of polynomials for calibrations | Includes Levenberg-Marquardt curve-fitting utility |
+| Temperature | | |
+| TcKtype | K-type thermocouple tables with cold-junction correction | Highly-optimized, low-latency, embedded-compatible implementation based on ITS-90 tables |
+| RtdPt100 | 100-ohm platinum RTD temperature-resistance tables | Highly-optimized, low-latency, embedded-compatible implementation based on DIN-43-760 / ITS-90 and IEC 60751 / Callender-Van Dusen |
 
 ... in addition to a variety of unremarkable math functions.
 

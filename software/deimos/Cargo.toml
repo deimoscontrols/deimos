@@ -20,8 +20,8 @@ rustdoc-args = ["--extend-css", "docs/rustdoc.css", "--default-theme", "dark"]
 
 [dependencies]
 # Packet formats and math shared with hardware
-deimos_shared = { path = "../deimos_shared", version = "0.21.1" }
-deimos_numerics = { path = "../deimos_numerics", version = "0.21.1" }
+deimos_shared.workspace = true
+deimos_numerics = { workspace = true, default-features = true }
 byte_struct = "0.9.0"
 
 # Control loop
@@ -61,14 +61,8 @@ tracing-subscriber = { version = "^0.3.20", features = ["fmt", "env-filter", "ch
 pyo3 = { version = "0.29.2", features = ["extension-module", "abi3-py311", "generate-import-lib"], optional = true }
 
 [dev-dependencies]
-# Uncertainty analysis
-num-dual = "0.13.6"
 rand = "0.10.2"
 ndarray = "0.17.2"
-libc = "0.2.186"
-plotly = "0.14.1"
-rmodbus = "0.12.2"
-zip = "^8"
 
 [features]
 # default = ["python"]  # For development

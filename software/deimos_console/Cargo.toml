@@ -15,7 +15,7 @@ name = "deimos-console"
 path = "src/main.rs"
 
 [dependencies]
-deimos = { path = "../deimos" }
+deimos.workspace = true
 
 # UI
 eframe = "^0.34.2"

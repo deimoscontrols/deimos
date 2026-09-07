@@ -1,5 +1,5 @@
 //! Shared rev7 rate-benchmark acquisition and analysis.
-// Each of the two examples uses a different subset of this module.
+// Each of the two benchmark binaries uses a different subset of this module.
 #![allow(dead_code)]
 
 use std::{

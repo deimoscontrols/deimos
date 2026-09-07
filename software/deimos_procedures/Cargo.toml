@@ -1,0 +1,24 @@
+[package]
+name = "deimos_procedures"
+version.workspace = true
+edition = "2024"
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+description = "Hardware calibration, validation, and benchmark procedures for Deimos DAQs"
+publish = false
+
+[dependencies]
+deimos.workspace = true
+deimos_shared.workspace = true
+chrono = { version = "^0.4.42", features = ["std"], default-features = false }
+csv = "^1.4.0"
+libc = "0.2.186"
+nalgebra = "^0.34"
+num-dual = "0.13.6"
+plotly = "0.14.1"
+rmodbus = "0.12.2"
+serde = { version = "^1", features = ["derive", "rc"] }
+serde_json = { version = "^1", features = ["preserve_order"] }
+socket2 = "^0.6.4"
+zip = "^8"

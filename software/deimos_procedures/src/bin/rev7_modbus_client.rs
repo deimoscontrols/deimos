@@ -1,6 +1,6 @@
 //! Minimal synchronized-snapshot Modbus/TCP client for a calibrated rev7 DAQ.
 //!
-//! Run with `cargo run -p deimos --example rev7_modbus_client -- IP[:PORT]`.
+//! Run with `cargo run -p deimos_procedures --bin rev7_modbus_client -- IP[:PORT]`.
 //! The endpoint defaults to SN3's first deterministic fallback address.
 
 use std::{

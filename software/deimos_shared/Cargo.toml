@@ -17,7 +17,7 @@ rustdoc-args = ["--extend-css", "docs/rustdoc.css", "--default-theme", "dark"]
 
 [dependencies]
 byte_struct = "0.9.0"
-deimos_numerics = { path = "../deimos_numerics", version = "0.21.1", default-features = false, optional = true }
+deimos_numerics = { workspace = true, optional = true }
 
 # `interpn` is no-std on the firmware target. Do not enable its `fma` feature
 # there: fused multiply-add is slower than separate multiply and add on the

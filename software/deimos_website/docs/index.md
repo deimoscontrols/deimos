@@ -38,7 +38,10 @@ hide:
   </div>
 
   <aside class="home-cta" aria-labelledby="home-cta-title">
-    <img src="assets/DSC02285.jpg" alt="Deimos DAQ hardware" class="home-cta__image zoomable-image">
+    <div class="daq-photo-stack">
+      <img src="assets/daq-front.jpg" alt="Deimos DAQ front view with Ethernet, power, and analog inputs" class="zoomable-image" width="1920" height="1280">
+      <img src="assets/daq-back.jpg" alt="Deimos DAQ back view with thermocouple, digital, PWM, and DAC connections" class="zoomable-image" width="1920" height="1280">
+    </div>
     <div class="home-cta__body">
       <p class="home-cta__eyebrow">Pre-launch updates</p>
       <h2 id="home-cta-title">Follow development and availability.</h2>

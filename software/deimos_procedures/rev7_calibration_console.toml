@@ -1,6 +1,6 @@
-# Operator console config for `software/deimos/examples/rev7_calibration.rs`.
+# Operator console config for `software/deimos_procedures/src/bin/rev7_calibration.rs`.
 # Run with:
-# cargo run -p deimos_console -- --config software/deimos/examples/rev7_calibration_console.toml
+# cargo run -p deimos_console -- --config software/deimos_procedures/rev7_calibration_console.toml
 
 multicast_group = "239.255.0.1"
 port = 29573

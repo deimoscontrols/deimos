@@ -3,7 +3,7 @@
 //! Run with:
 //!
 //! ```text
-//! cargo run -p deimos --example rev7_modbus_test -- [SUITE] [IP[:PORT]]
+//! cargo run -p deimos_procedures --bin rev7_modbus_test -- [SUITE] [IP[:PORT]]
 //! ```
 //!
 //! `SUITE` is `quick` (the default), `protocol`, `lifecycle`, `endpoints`,

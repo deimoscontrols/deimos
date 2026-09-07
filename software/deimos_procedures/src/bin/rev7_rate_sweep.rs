@@ -5,7 +5,7 @@
 //! every requested point below 500 Hz. Each point runs for 20 seconds.
 //!
 //! Run from the repository root with
-//! `cargo run -p deimos --release --example rev7_rate_sweep`. Raw point CSVs,
+//! `cargo run -p deimos_procedures --release --bin rev7_rate_sweep`. Raw point CSVs,
 //! the aggregate summary, and the HTML plot are written under
 //! `target/rev7_rate_sweep/`.
 //!
