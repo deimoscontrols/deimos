@@ -1,0 +1,263 @@
+{
+  "units": "mm",
+  "parts": [
+    {
+      "name": "BaseChassis",
+      "valid": true,
+      "volume_mm3": 60701.81999589474
+    },
+    {
+      "name": "Lid",
+      "valid": true,
+      "volume_mm3": 54119.88921607011
+    }
+  ],
+  "intersections_mm3": {
+    "BaseChassis / Lid": 0.0,
+    "BaseChassis / Rev8PCB": 0.0,
+    "Lid / Rev8PCB": 0.0,
+    "BaseChassis / component reference": 5.137465308165185e-05,
+    "Lid / component reference": 0.0
+  },
+  "unfolds": [
+    {
+      "part": "BaseChassis",
+      "bends": 5,
+      "flat_mm": [
+        309.88789002603664,
+        137.4327450130184
+      ],
+      "valid": true,
+      "solids": 1
+    },
+    {
+      "part": "Lid",
+      "bends": 5,
+      "flat_mm": [
+        261.4882900260366,
+        139.2329450130184
+      ],
+      "valid": true,
+      "solids": 1
+    }
+  ],
+  "construction": "Two sheets: base with front; lid with rear; overlapping corner wings",
+  "corner_radius_mm": 2.4892,
+  "rounded_corners": {
+    "base": 8,
+    "lid": 16
+  },
+  "wing_depth": 12.0,
+  "wing_sidewall_clearance": 0.8,
+  "text_count": 113,
+  "height_design": {
+    "bottom_z": -23.1,
+    "front_top_z": 19.5,
+    "overall_height_mm": 44.4002,
+    "front_cutout_min_z": -15.24858021649294,
+    "front_text_max_z": 17.45877290593632,
+    "front_cutout_to_bend_tangent_mm": 5.3622197835070615,
+    "front_cutout_to_flat_bend_center_mm": 6.588292290016204,
+    "die_half_width_mm": 5.9944,
+    "front_text_top_margin_mm": 2.0412270940636787,
+    "rear_text_to_bend_tangent_mm": 1.2894119772908574,
+    "lid_screw_z": 11.5,
+    "indicator_cap_height_mm": 1.4,
+    "source": "https://sendcutsend.com/materials/5052-aluminum/",
+    "source_checked": "2026-10-25",
+    "bend_rule": "https://sendcutsend.com/blog/guide-to-planning-features-around-bend-lines/",
+    "lid_hole_to_flat_bend_center_mm": 6.287072506509142
+  },
+  "connector_cutouts": {
+    "front": 11,
+    "rear": 5
+  },
+  "source_cutout_bounds_max_error_mm": 0.0,
+  "lid_removal_samples": [
+    {
+      "rearward_mm": 0,
+      "up_mm": 0,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 0.5,
+      "up_mm": 0,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 1,
+      "up_mm": 0,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 2,
+      "up_mm": 0,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 4,
+      "up_mm": 0,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 8,
+      "up_mm": 0,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 12,
+      "up_mm": 0,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 20,
+      "up_mm": 0,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 20,
+      "up_mm": 1,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 20,
+      "up_mm": 5,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 20,
+      "up_mm": 15,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 20,
+      "up_mm": 30,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 20,
+      "up_mm": 60,
+      "intersection_mm3": 0.0
+    }
+  ],
+  "board_insertion_samples": [
+    {
+      "rearward_mm": 0,
+      "intersection_mm3": 5.137465308164412e-05
+    },
+    {
+      "rearward_mm": 0.5,
+      "intersection_mm3": 4.3311098582162716e-05
+    },
+    {
+      "rearward_mm": 1,
+      "intersection_mm3": 2.7258526065712716e-05
+    },
+    {
+      "rearward_mm": 2,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 4,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 8,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 12,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 20,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 40,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 80,
+      "intersection_mm3": 0.0
+    },
+    {
+      "rearward_mm": 110,
+      "intersection_mm3": 0.0
+    }
+  ],
+  "assembly_condition": "All six 15EDGKM terminal plugs removed. PCB headers remain.",
+  "removable_plug_source": "terminal_block/15EDGKM-3.81-12P-1Y-00A&Z(H).stp",
+  "removable_plug_count": 6,
+  "intersection_tolerance_mm3": 0.001,
+  "assembly_motion_passed": true,
+  "mounting_holes_through_both_skins": "passed: four 3.05 mm base pilots and four 4.5 mm lid clearance holes",
+  "indicator_registration": "passed: horizontal, centered, nominal 1.4 mm capitals, 1.5 mm below openings",
+  "exploded_copies_in_saved_model": 0,
+  "lid_artwork": {
+    "objects": 10,
+    "boxes_unfilled": true,
+    "field_labels": [
+      "Model",
+      "Serial",
+      "Mac"
+    ],
+    "field_width_mm": 36,
+    "field_height_mm": 6,
+    "box_qr_right_alignment_mm": 0.0,
+    "company_logo_top_alignment_mm": 2.2737367544323206e-13,
+    "front_margin_mm": 10
+  },
+  "pdf_pages": {
+    "rear_engrave.pdf": {
+      "width_mm": 234.5407999999908,
+      "height_mm": 42.50000000000639,
+      "outlined": true
+    },
+    "lid_proof.pdf": {
+      "width_mm": 234.5407999999908,
+      "height_mm": 99.25919999999195,
+      "outlined": true
+    },
+    "front_engrave.pdf": {
+      "width_mm": 234.5407999999908,
+      "height_mm": 42.59999999999611,
+      "outlined": true
+    },
+    "rear_proof.pdf": {
+      "width_mm": 234.5407999999908,
+      "height_mm": 42.50000000000639,
+      "outlined": true
+    },
+    "lid_engrave.pdf": {
+      "width_mm": 234.5407999999908,
+      "height_mm": 99.25919999999195,
+      "outlined": true
+    },
+    "front_proof.pdf": {
+      "width_mm": 234.5407999999908,
+      "height_mm": 42.59999999999611,
+      "outlined": true
+    }
+  },
+  "qr_location": "lid",
+  "qr_decode": "https://deimoscontrols.com/",
+  "board_support": "Connector seats at front and rear panels; no card guides",
+  "card_guides_removed": true,
+  "guide_mounting_holes_filled": 4,
+  "filled_guide_hole_volume_mm3": 116.9863555841024,
+  "saved_cad_object_check": "passed: no guide objects or exploded copies",
+  "assembly_screws": {
+    "thread": "6-32",
+    "type": "thread-forming",
+    "count": 4,
+    "base_pilot_diameter_mm": 3.05,
+    "lid_clearance_diameter_mm": 4.5,
+    "nominal_radial_adjustment_mm": 0.49739999999999984,
+    "finished_cylindrical_faces_verified": true,
+    "pilot_reference": "https://duo-taptite.com/assets/files/taptite-ii-compressed.pdf",
+    "pilot_reference_page": 9,
+    "actual_screw_trial_required": true
+  },
+  "assembly_check_note": "Prior sampled motion remains applicable. Lid changes only remove material. Added base material is confined to side-wall pilot annuli outside the board and component X envelopes."
+}

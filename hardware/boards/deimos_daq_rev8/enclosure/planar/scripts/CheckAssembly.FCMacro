@@ -1,0 +1,4 @@
+"""Check assembly motion in the active Rev8 enclosure document."""
+from pathlib import Path
+import runpy
+runpy.run_path(str(Path(__file__).resolve().with_name('check_assembly.py')),run_name='__main__')

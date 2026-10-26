@@ -1,0 +1,31 @@
+"""Export the active enclosure's panel artwork as SVG and vector PDF."""
+from pathlib import Path
+import runpy
+import FreeCAD as App
+
+root=Path(__file__).resolve().parents[1]
+helpers=runpy.run_path(str(root/'scripts/build_enclosure.py'))
+convert=runpy.run_path(str(root/'scripts/svg_to_pdf.py'))['convert']
+doc=App.ActiveDocument
+if not doc or not doc.getObject('FrontArtwork'):
+    raise RuntimeError('Open DeimosDaqRev8_SheetMetal.FCStd before exporting artwork.')
+doc.recompute()
+for side in ('front','rear'):
+    objects=doc.getObject(side.title()+'Artwork').Group
+    plane=helpers['outside_plane'](side)
+    inverse=plane.inverse().toMatrix()
+    refs=[]
+    for obj in doc.Construction.Group:
+        if obj.Name.startswith(side.title()+'Cutout'):
+            refs.extend(obj.Shape.transformed(inverse).Wires)
+    helpers['export_art'](side,objects,refs)
+    for kind in ('engrave','proof'):
+        svg=root/'artwork'/f'{side}_{kind}.svg'
+        pdf=svg.with_suffix('.pdf')
+        convert(svg,pdf)
+if doc.getObject('LidArtwork'):
+    helpers['export_lid_art'](doc)
+    for kind in ('engrave','proof'):
+        svg=root/'artwork'/f'lid_{kind}.svg'
+        convert(svg,svg.with_suffix('.pdf'))
+App.Console.PrintMessage('Exported front, rear, and lid SVG/PDF files. Black geometry marks the engraving area.\n')
