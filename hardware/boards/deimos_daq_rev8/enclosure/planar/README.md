@@ -8,13 +8,16 @@ The model uses the board center as its XY origin. Z = 0 is the PCB lower surface
 - Two parts in 0.063 in (1.6002 mm) 5052-H32 aluminum, with black anodizing.
 - The base includes the floor, front panel, side walls, and front corner wings.
 - The lid includes the roof, rear panel, rear corner wings, and two short side flanges.
-- Each panel has 12 mm inward wings. They overlap the side walls with 0.8 mm nominal clearance.
+- Each panel has 20 mm inward wings. They overlap the side walls with 0.8 mm nominal clearance.
 - The lid side flanges stop short of the wings. The base walls back these seams.
-- Four 6-32 thread-forming screws join the lid side flanges to the base walls.
-- Base pilot holes are 3.05 mm diameter, approximately a No. 31 drill (0.120 in).
-- Lid clearance holes are 4.5 mm diameter. They allow about 0.5 mm radial adjustment around the nominal screw diameter.
-- Use a head with a flat bearing face, such as a pan head, to preserve that adjustment. No countersinks or nuts are required.
-- Fasteners and formed threads are not modeled.
+- Six 6-32 machine screws tie the wings and lid flanges to the base walls. Each screw engages a PEM F-632-1 flush nut.
+- Each end has three assembly screws and one optional mounting-accessory hole.
+- The wing screws sit 14.5 mm from the front and rear outer faces. The lid-flange screws sit midway between those faces.
+- All assembly screw centers are at Z = 11.5 mm. The lid side flanges are 58.2592 mm long.
+- Eight inner base holes are 5.4102 mm diameter for flush nuts: six assembly holes and two mounting-accessory holes.
+- Outer wing and lid-flange clearance holes are 4.5 mm diameter. They allow about 0.5 mm radial adjustment around the nominal screw diameter.
+- Use a head with a flat bearing face, such as a pan head, to preserve that adjustment. No countersinks are required.
+- Nut installation holes are modeled. Nuts, screws, and threads are not modeled.
 
 Each sheet has five 90-degree bends. Relief cuts separate adjacent bend ends.
 Exposed outline corners have a 2.4892 mm radius, equal to the outer bend radius.
@@ -33,26 +36,52 @@ Rear text stays 1.2894 mm below the roof bend tangent.
 The lid screw centers are at Z = 11.5 mm to clear the lowered roof bends.
 The enlarged lid holes remain 6.2871 mm from the bend centerline in the flat pattern.
 
-The 6-32 size was confirmed from the original enclosure by the user.
-The pilot follows the [TAPTITE II guide, page 9](https://duo-taptite.com/assets/files/taptite-ii-compressed.pdf):
-0.1197 in nominal, with a 0.120 in drill, for 0.028–0.066 in material.
-This is a starting size for the selected thread-forming screw family, not a conventional tap-drill diameter.
-Check forming and stripping torque with the actual screw in a finished 1.6 mm 5052 sample before production.
-Laser-cut diameter tolerance can affect the fit. Specify the screw supplier's finished-hole tolerance or finish-drill the pilots as needed.
+### Assembly hardware
 
+Use six [PEM F-632-1 self-clinching flush nuts](https://www.pemnet.com/products/product-finder/f-632-1/) in the inner base walls.
+Use six ordinary 6-32 machine screws with flat bearing faces. Select screw length to clear internal components.
+Each side takes three nuts: one behind each wing and one behind the lid flange.
+The nuts remain flush with both sheet faces and resist rotation without a wrench.
+
+- Installation hole: 0.213 in (5.4102 mm), tolerance +0.003 / -0.000 in (+0.0762 / -0.0000 mm).
+- PEM sheet range: 0.060–0.091 in. The base is 0.063 in 5052-H32 aluminum.
+- Minimum hole-center distance to a cut edge or bend allowance area: 0.270 in (6.858 mm).
+- Outer screw clearance holes: 4.5 mm. Do not install nuts in the outer wings or lid flanges.
+
+Select F-632-1 for the six inner assembly holes in the [SendCutSend hardware catalog](https://sendcutsend.com/guidelines/hardware/catalog/).
+Confirm press-tool access behind the integral front wings with SendCutSend before ordering.
+SendCutSend installs hardware after anodizing. Installation can leave tooling marks on the finish.
+See its [hardware installation guidelines](https://sendcutsend.com/services/hardware/).
+PEM lists 3.5 in-lb (0.40 N·m) recommended tightening torque from tests in 5052-H34 aluminum.
+Use that value as a starting reference, not a validated torque rating for this assembly.
 
 The board reference is 223 × 95.025 × 1.6 mm.
 The front and rear connector seats locate and support the board at the panels.
 The enclosure has no card guides or guide mounting holes.
+
+### Optional mounting accessories
+
+One F-632-1 flush nut sits at the center of each base side wall for an optional foot or flexible loop.
+Use an ordinary 6-32 machine screw at each mounting point. The holes do not pass through the lid.
+Both installation holes are 5.4102 mm diameter with the same tolerance as the six assembly holes.
+Order eight F-632-1 nuts in total: six for assembly and two for mounting accessories.
+The mounting centers are 10.5 mm above the base underside and midway between the front and rear outer faces.
+Their centers clear the base bend tangent by 8.0108 mm, exceeding the nut requirement by 1.1528 mm.
+The hole edges are 6.5318 mm from the bend centerline in the flat pattern.
+This exceeds half the specified die width by 0.5374 mm. The nut-specific bend clearance also passes.
+A 0.328 in (8.3312 mm) screw flange clears the bend tangent by 3.8452 mm.
+Select screw length to clear internal components after accounting for accessory thickness.
+Mounting accessories, nuts, and screws are not included in the model.
 
 ### Assembly
 
 1. Remove all six terminal plugs from the board.
 2. Support the board by hand. Slide it forward from the open rear until its front connectors seat in the front cutouts.
 3. Lower the lid behind its final position. Slide it forward so the rear cutouts pass over the rear connectors.
-4. Install the four side screws. Reconnect the terminal plugs and cables.
+4. Install the six assembly screws. Reconnect the terminal plugs and cables.
 
-To remove the lid, detach the terminal plugs and cables. Remove the four side screws.
+To remove the lid, detach the terminal plugs and cables.
+Remove the two rear-wing screws and the two lid-flange screws. The two front-wing screws can remain installed.
 Slide the lid rearward by 20 mm to clear the rear connectors. Then lift it off.
 Do not lift it straight up while the rear connectors remain in the cutouts.
 The model checks sampled assembly positions with the PCB and larger component references. It excludes the six removable terminal plugs and retains the PCB headers. Cables and fasteners are not checked.
@@ -113,7 +142,7 @@ After manual geometry edits, export each object in `MetalParts` to STEP again. E
 
 The model uses SendCutSend's published values for 0.063 in 5052 aluminum:
 inside bend radius 0.035 in (0.889 mm), ANSI K-factor 0.42.
-The published minimum formed flange is 0.303 in (7.6962 mm). The wings are 12 mm deep.
+The published minimum formed flange is 0.303 in (7.6962 mm). The wings are 20 mm deep.
 These values were checked on 2026-10-25.
 Confirm the bend sequence and tooling access with SendCutSend. A successful CAD unfold does not establish press-brake access.
 Check the quote preview before ordering. Confirm the connector seating with actual parts before ordering a batch.

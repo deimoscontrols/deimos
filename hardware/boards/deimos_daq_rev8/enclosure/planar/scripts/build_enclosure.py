@@ -41,11 +41,15 @@ DIE_WIDTH = .472 * 25.4
 TEXT_TOP_MARGIN = 2.0
 LID_SCREW_Z = 11.5
 LID_CLEARANCE_DIAMETER = 4.5
-# 6-32 thread-forming pilot: approximately a No. 31 (0.120 in) drill.
-BASE_PILOT_DIAMETER = 3.05
+# PEM F-632-1 installation hole.
+ASSEMBLY_NUT_HOLE_DIAMETER = .213 * 25.4
+MOUNT_SCREW_Z = BOTTOM + 10.5
+MOUNT_SCREW_Y = (FRONT_Y + REAR_Y) / 2
+MOUNT_FLANGE_DIAMETER = .328 * 25.4
 PANEL_BOTTOM = BOTTOM + T
 PANEL_H = TOP - PANEL_BOTTOM
-WING = 12.0
+WING = 20.0
+WING_SCREW_OFFSET = 14.5
 RELIEF = 1.0
 RELIEF_DEPTH = 3.0
 REAR_BOTTOM = BOTTOM + T + .3
@@ -578,7 +582,7 @@ def build():
     doc=App.newDocument('DeimosRev8SheetMetal')
     history=group('Construction');metal=group('MetalParts');reference=group('BoardReferences');flats=group('FlatPatterns')
     dims=doc.addObject('Spreadsheet::Sheet','Dimensions')
-    for row,(name,value) in enumerate([('BottomZ',BOTTOM),('FrontTopZ',TOP),('LidScrewZ',LID_SCREW_Z),('LidClearanceDiameter',LID_CLEARANCE_DIAMETER),('BasePilotDiameter',BASE_PILOT_DIAMETER),('Thickness',T),('BendRadius',R),('KFactor',K),('InnerWidth',INNER_W),('BoardWidth',223.),('BoardDepth',95.025)],1):
+    for row,(name,value) in enumerate([('BottomZ',BOTTOM),('FrontTopZ',TOP),('LidScrewZ',LID_SCREW_Z),('LidClearanceDiameter',LID_CLEARANCE_DIAMETER),('AssemblyNutHoleDiameter',ASSEMBLY_NUT_HOLE_DIAMETER),('MountScrewZ',MOUNT_SCREW_Z),('MountScrewY',MOUNT_SCREW_Y),('MountFlangeDiameter',MOUNT_FLANGE_DIAMETER),('WingDepth',WING),('WingScrewOffset',WING_SCREW_OFFSET),('Thickness',T),('BendRadius',R),('KFactor',K),('InnerWidth',INNER_W),('BoardWidth',223.),('BoardDepth',95.025)],1):
         dims.set(f'A{row}',name);dims.set(f'B{row}',str(value));dims.setAlias(f'B{row}',name)
     panel_data=json.loads((ROOT/'reference/pda_panels.json').read_text())
     base,lid=sheet_blanks()
@@ -588,10 +592,17 @@ def build():
     for left in [True,False]:
         wall=-INNER_W/2 if left else INNER_W/2
         direction=V(1,0,0)
-        # Two screws per side join the short lid flanges to the base walls.
-        for y in (-28.,28.):
-            baseholes.append(cylinder(V(wall-8,y,LID_SCREW_Z),BASE_PILOT_DIAMETER/2,direction))
-            lidholes.append(cylinder(V(wall-8,y,LID_SCREW_Z),LID_CLEARANCE_DIAMETER/2,direction))
+        # One accessory screw at the center of each base side wall.
+        baseholes.append(cylinder(V(wall-8,MOUNT_SCREW_Y,MOUNT_SCREW_Z),ASSEMBLY_NUT_HOLE_DIAMETER/2,direction))
+        # Nut installation holes stop within the gap before the outer wings.
+        sign=-1 if left else 1
+        outward=V(sign,0,0)
+        for y in (FRONT_Y+WING_SCREW_OFFSET,MOUNT_SCREW_Y,REAR_Y-WING_SCREW_OFFSET):
+            baseholes.append(cylinder(V(sign*(INNER_W/2-.1),y,LID_SCREW_Z),ASSEMBLY_NUT_HOLE_DIAMETER/2,outward,T+.2))
+        # Front wings are part of the base. Rear wings and center flanges are part of the lid.
+        for y,isfront in ((FRONT_Y+WING_SCREW_OFFSET,True),(MOUNT_SCREW_Y,False),(REAR_Y-WING_SCREW_OFFSET,False)):
+            tool=cylinder(V(sign*(PANEL_W/2-T-.1),y,LID_SCREW_Z),LID_CLEARANCE_DIAMETER/2,outward,T+.2)
+            (baseholes if isfront else lidholes).append(tool)
     chassis,front_anchors,front_refs=make_panel('front',base,'BaseChassis',baseholes)
     lid_final,rear_anchors,rear_refs=make_panel('rear',lid,'Lid',lidholes)
     pcbshape=Part.Shape();pcbshape.read(str(WORK/'pcb.brep'))
@@ -611,13 +622,33 @@ def build():
             'corner_radius_mm':R+T,'rounded_corners':{'base':8,'lid':16},
             'wing_depth':WING,'wing_sidewall_clearance':SIDE_GAP,
             'board_support':'Connector seats at front and rear panels; no card guides',
-            'assembly_screws':{'thread':'6-32','type':'thread-forming','count':4,
-                               'base_pilot_diameter_mm':BASE_PILOT_DIAMETER,
+            'assembly_screws':{'thread':'6-32','type':'machine screw','count':6,
+                               'nut':'PEM F-632-1','nut_count':6,
+                               'nut_hole_diameter_mm':ASSEMBLY_NUT_HOLE_DIAMETER,
+                               'nut_hole_tolerance_mm':[0,.003*25.4],
+                               'hardware_modeled':False,
+                               'positions_y_mm':[FRONT_Y+WING_SCREW_OFFSET,MOUNT_SCREW_Y,REAR_Y-WING_SCREW_OFFSET],
+                               'center_z_mm':LID_SCREW_Z,
+                               'outer_clearance_diameter_mm':LID_CLEARANCE_DIAMETER,
                                'lid_clearance_diameter_mm':LID_CLEARANCE_DIAMETER},
             'text_count':sum(hasattr(o,'String') for o in artfront+artrear+artlid)}
     low=min(a.Shape.BoundBox.ZMin for a,_ in front_anchors)
     high=max(o.Shape.BoundBox.ZMax for o in artfront if hasattr(o,'String'))
     half_ba=math.pi/4*(R+K*T)
+    report['accessory_mounts']={
+        'count':2,'nut':'PEM F-632-1','thread':'6-32','screw_type':'machine screw',
+        'nut_hole_diameter_mm':ASSEMBLY_NUT_HOLE_DIAMETER,
+        'center_y_mm':MOUNT_SCREW_Y,'center_z_mm':MOUNT_SCREW_Z,
+        'center_above_base_mm':MOUNT_SCREW_Z-BOTTOM,
+        'flange_diameter_mm':MOUNT_FLANGE_DIAMETER,
+        'flange_to_bend_tangent_mm':MOUNT_SCREW_Z-MOUNT_FLANGE_DIAMETER/2-(BOTTOM+R+T),
+        'hole_edge_to_flat_bend_center_mm':MOUNT_SCREW_Z-ASSEMBLY_NUT_HOLE_DIAMETER/2-(BOTTOM+R+T)+half_ba,
+        'flange_diameter_source':'User supplied for McMaster 93882A146',
+        'nut_center_to_bend_tangent_mm':MOUNT_SCREW_Z-(BOTTOM+R+T),
+        'nut_minimum_bend_clearance_mm':.270*25.4}
+    assert report['accessory_mounts']['flange_to_bend_tangent_mm']>.5
+    assert report['accessory_mounts']['hole_edge_to_flat_bend_center_mm']>=DIE_WIDTH/2+.5
+    assert report['accessory_mounts']['nut_center_to_bend_tangent_mm']>=.270*25.4+.5
     report['height_design']={
         'bottom_z':BOTTOM,'front_top_z':TOP,'overall_height_mm':TOP+.2+T-BOTTOM,
         'front_cutout_min_z':low,'front_text_max_z':high,
