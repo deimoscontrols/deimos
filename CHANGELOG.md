@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-20 0.21.3
+
+* Update deps and locks
+* Fix new ty lint
+
 ## 2026-09-05 0.21.2
 
 * Add `deimos_procedures` package and move bench/test/cal procedures from `deimos/examples`

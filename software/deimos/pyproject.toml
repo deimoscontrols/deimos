@@ -28,7 +28,7 @@ test = [
     "pytest >= 9",
     "pytest-cov >= 7.0.0",
     "ruff >= 0.15.7",
-    "ty == 0.0.24",
+    "ty == 0.0.107",
     "mktestdocs == 0.2.5",
     #"plotly>=6,<7",
 ]

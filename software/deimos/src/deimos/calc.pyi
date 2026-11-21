@@ -35,8 +35,9 @@ class Hysteretic(_CalcBase):
         high_thresh: float,
         persistence: int,
     ) -> None: ...
-    @staticmethod
+    @classmethod
     def new_with_values(
+        cls: type[Self],
         input_name: str,
         low_thresh: float,
         high_thresh: float,
